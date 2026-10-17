@@ -88,7 +88,8 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 			Stepper.Make("Max players", room.Settings.MaxPlayers, Math.Max(Limits.MaxPlayersMin, room.Players.Count), Limits.MaxPlayersMax,
 				v => _host.UpdateSettings(maxPlayers: v)),
 			Stepper.Make("Answer time per buzz", room.Settings.AnswerTimeSec, Limits.AnswerTimeMin, Limits.AnswerTimeMax,
-				v => _host.UpdateSettings(answerTimeSec: v), " s")), "Inset");
+				v => _host.UpdateSettings(answerTimeSec: v), " s"),
+			BuzzerPicker.Make(_host.BuzzerSound, id => _host.BuzzerSound = id, false)), "Inset");
 		_content.AddChild(rules);
 
 		if (_error != null) _content.AddChild(U.Error(_error));

@@ -16,7 +16,9 @@ public partial class SettingsScreen : Control
 			U.Eyebrow("Audio"),
 			Volume("Master volume", "Everything Quiznight plays.", Settings.MasterVolume, v => Settings.MasterVolume = v),
 			Volume("Music", "Songs and clips in sound and video questions.", Settings.MusicVolume, v => Settings.MusicVolume = v),
-			Volume("Sound effects", "Buzzer, countdown and menu sounds.", Settings.SfxVolume, v => Settings.SfxVolume = v)).Grow();
+			Volume("Sound effects", "Buzzer, countdown and menu sounds.", Settings.SfxVolume, v => Settings.SfxVolume = v),
+			new HSeparator(),
+			BuzzerSection()).Grow();
 
 		var sizes = Prefs.WindowSizes.Select(s => ($"{s.X}x{s.Y}", $"{s.X} × {s.Y}")).ToArray();
 		var current = Settings.WindowSize;
@@ -64,6 +66,32 @@ public partial class SettingsScreen : Control
 			U.Heading("Settings", 34),
 			U.H(14, audio, U.V(14, video, language).Grow()));
 		AddChild(U.Page(page, 980));
+	}
+
+	Control BuzzerSection()
+	{
+		var error = U.Error();
+		var own = U.Small("Use my own sound…", () => Dialogs.OpenFile(this, "Pick a sound file", Sfx.FileFilters, path =>
+		{
+			try
+			{
+				Sfx.SetCustom(path);
+				Settings.BuzzerSound = Sfx.Custom;
+				Sfx.PlayBuzzer(Sfx.Custom);
+				App.I.GoSettings();
+			}
+			catch (UserError e)
+			{
+				error.Text = e.Message;
+				error.Visible = true;
+			}
+		}));
+		return U.V(6,
+			U.Text("Buzzer sound", 15),
+			BuzzerPicker.Make(Settings.BuzzerSound, id => Settings.BuzzerSound = id, true),
+			U.Muted("Plays on the host's screen when someone buzzes in. This is the default for new lobbies; the host can still change it in the lobby for one night.", 12),
+			U.H(10, own, U.Muted(Lang.F("MP3, OGG or WAV, up to {0} MB.", Sfx.CustomMaxMb), 12, false).With(l => l.SizeFlagsVertical = SizeFlags.ShrinkCenter)),
+			error);
 	}
 
 	static Control Volume(string label, string hint, int value, System.Action<int> save)

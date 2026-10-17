@@ -76,6 +76,13 @@ public static class Settings
 		set => Set("volume_sfx", value.ToString());
 	}
 
+	/// <summary>Default buzzer sound for new lobbies (an Sfx id).</summary>
+	public static string BuzzerSound
+	{
+		get => Sfx.Valid(Get("buzzer_sound", Sfx.DefaultBuzzer));
+		set => Set("buzzer_sound", value);
+	}
+
 	/// <summary>"windowed", "fullscreen" (exclusive) or "borderless" (borderless fullscreen window).</summary>
 	public static string WindowMode
 	{

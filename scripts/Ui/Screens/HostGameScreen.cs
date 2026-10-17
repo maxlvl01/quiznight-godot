@@ -42,10 +42,21 @@ public partial class HostGameScreen : Control, IRoomScreen
 		AddChild(layout);
 	}
 
+	// Buzzes already heard: a new one in the same question plays the buzzer sound.
+	int _heardIndex = -1;
+	int _heardBuzzes;
+
 	public void Refresh(RoomState room)
 	{
 		var game = room.Game!;
 		var q = game.Question;
+		if (game.Index != _heardIndex)
+		{
+			_heardIndex = game.Index;
+			_heardBuzzes = 0;
+		}
+		if (game.Buzzes.Count > _heardBuzzes) Sfx.PlayBuzzer(_host.BuzzerSound);
+		_heardBuzzes = game.Buzzes.Count;
 		var reveal = game.Stage == Stage.Reveal ? game.Reveal : null;
 		var key = $"{game.Index}|{game.Stage}";
 

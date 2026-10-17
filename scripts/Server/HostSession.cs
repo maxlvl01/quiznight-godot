@@ -146,6 +146,9 @@ public sealed class HostSession : IDisposable
 		Broadcast();
 	}
 
+	/// <summary>Buzzer sound for this room (an Sfx id). Only the host plays it, so it isn't sent to players.</summary>
+	public string BuzzerSound = "";
+
 	public void UpdateSettings(int? maxPlayers = null, int? answerTimeSec = null)
 	{
 		if (Room.Phase != Phase.Lobby) return;

@@ -1,0 +1,19 @@
+[remap]
+
+importer="oggvorbisstr"
+type="AudioStreamOggVorbis"
+uid="uid://cg3olhy153ghx"
+path="res://.godot/imported/Soft Beep Buzzer.ogg-655496ff96016f91698661a0bfa32245.oggvorbisstr"
+
+[deps]
+
+source_file="res://assets/soundeffects/Soft Beep Buzzer.ogg"
+dest_files=["res://.godot/imported/Soft Beep Buzzer.ogg-655496ff96016f91698661a0bfa32245.oggvorbisstr"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

@@ -23,6 +23,9 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
   3-step guide opens. It shows exactly what to paste to turn it into the .ogv format the game can play
   (with the free tool ffmpeg), then adds the converted video with one click. Also there as a link
   under "Choose file…".
+- **Buzzer sounds:** the host's screen now plays a sound when someone buzzes in. Pick "Soft beep", "Metal pipe",
+  your own sound file or no sound under Settings (the default), or in the lobby for one night. Follows the
+  Sound effects volume.
 
 ### Changed
 - The game runs at most at 60 FPS, so it no longer heats up your PC for nothing.

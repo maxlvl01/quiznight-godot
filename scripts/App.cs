@@ -174,7 +174,7 @@ public partial class App : Control
 			code = Room.NewCode();
 			lanPort = lan.Port;
 		}
-		Host = new HostSession(new Room(code, quiz), transport, mode, lanPort);
+		Host = new HostSession(new Room(code, quiz), transport, mode, lanPort) { BuzzerSound = Settings.BuzzerSound };
 		_hostAssets = new HostAssets(() => Host?.Room);
 		Host.Changed += OnRoomChanged;
 		OnRoomChanged();

@@ -1,0 +1,19 @@
+[remap]
+
+importer="oggvorbisstr"
+type="AudioStreamOggVorbis"
+uid="uid://cbr5v80aj1rsv"
+path="res://.godot/imported/metal pipe buzzer.ogg-bcb256ee43abfc968129e62e2e51066c.oggvorbisstr"
+
+[deps]
+
+source_file="res://assets/soundeffects/metal pipe buzzer.ogg"
+dest_files=["res://.godot/imported/metal pipe buzzer.ogg-bcb256ee43abfc968129e62e2e51066c.oggvorbisstr"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4
