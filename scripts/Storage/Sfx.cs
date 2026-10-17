@@ -19,7 +19,9 @@ public static class Sfx
 		new("metal-pipe", "Metal pipe", "res://assets/soundeffects/metal pipe buzzer.ogg"),
 	};
 
-	public const string PodiumJingle = "res://assets/soundeffects/Podium.ogg";
+	/// <summary>assets/soundeffects/Podium.mp3, .wav or .ogg — whichever is there (MP3 and WAV first).</summary>
+	public static string PodiumJingle =>
+		new[] { "mp3", "wav", "ogg" }.Select(e => $"res://assets/soundeffects/Podium.{e}").FirstOrDefault(p => ResourceLoader.Exists(p)) ?? "res://assets/soundeffects/Podium.ogg";
 
 	public const string DefaultBuzzer = "soft-beep";
 	public const string Custom = "custom";
