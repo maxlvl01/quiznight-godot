@@ -26,6 +26,7 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **Buzzer sounds:** the host's screen now plays a sound when someone buzzes in. Pick "Soft beep", "Metal pipe",
   your own sound file or no sound under Settings (the default), or in the lobby for one night. Follows the
   Sound effects volume.
+- **Podium jingle:** a short tune plays on the host's screen when the final results appear.
 
 ### Changed
 - The game runs at most at 60 FPS, so it no longer heats up your PC for nothing.

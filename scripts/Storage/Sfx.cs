@@ -19,6 +19,8 @@ public static class Sfx
 		new("metal-pipe", "Metal pipe", "res://assets/soundeffects/metal pipe buzzer.ogg"),
 	};
 
+	public const string PodiumJingle = "res://assets/soundeffects/Podium.ogg";
+
 	public const string DefaultBuzzer = "soft-beep";
 	public const string Custom = "custom";
 	public const string Off = "off";
@@ -93,6 +95,17 @@ public static class Sfx
 	public static void PlayBuzzer(string id)
 	{
 		if (id == Off || Load(Valid(id)) is not { } stream) return;
+		Play(stream);
+	}
+
+	/// <summary>Plays the jingle when the final results show (host only).</summary>
+	public static void PlayPodium()
+	{
+		if (GD.Load<AudioStream>(PodiumJingle) is { } stream) Play(stream);
+	}
+
+	static void Play(AudioStream stream)
+	{
 		if (_player == null || !GodotObject.IsInstanceValid(_player))
 		{
 			_player = new AudioStreamPlayer { Bus = Prefs.SfxBus };

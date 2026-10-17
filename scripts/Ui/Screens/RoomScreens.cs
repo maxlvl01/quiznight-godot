@@ -170,6 +170,7 @@ public partial class PodiumScreen : Control, IRoomScreen
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		_content.Alignment = BoxContainer.AlignmentMode.Center;
 		AddChild(U.Page(_content, 860, 48));
+		if (isHost) Ready += Storage.Sfx.PlayPodium;
 	}
 
 	public void Refresh(RoomState room)

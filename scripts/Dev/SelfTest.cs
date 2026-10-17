@@ -44,6 +44,7 @@ public static class SelfTest
 		Rules();
 		Files();
 		foreach (var b in Storage.Sfx.Buzzers) Check(ResourceLoader.Exists(b.Path), $"buzzer sound {b.Id} is in the game");
+		Check(ResourceLoader.Exists(Storage.Sfx.PodiumJingle), "podium jingle is in the game");
 		Atlas();
 		Protocol();
 		await Network(node);
