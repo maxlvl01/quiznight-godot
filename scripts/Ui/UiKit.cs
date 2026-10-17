@@ -191,6 +191,11 @@ public static class UiTheme
 			t.SetStylebox("grabber_pressed", type, Box(C.Muted, 6, null, 0, 4, 4));
 		}
 		t.SetStylebox("panel", "ScrollContainer", new StyleBoxEmpty());
+
+		// Volume sliders: thin track, teal fill.
+		t.SetStylebox("slider", "HSlider", Box(C.Border, 4, null, 0, 0, 3));
+		t.SetStylebox("grabber_area", "HSlider", Box(C.Teal, 4, null, 0, 0, 3));
+		t.SetStylebox("grabber_area_highlight", "HSlider", Box(C.Teal.Lightened(0.15f), 4, null, 0, 0, 3));
 		t.SetConstant("separation", "HSeparator", 12);
 		t.SetStylebox("separator", "HSeparator", new StyleBoxLine { Color = C.Border, Thickness = 1 });
 		return t;
@@ -223,7 +228,15 @@ public static class U
 	public static Label Muted(string text, int size = 14, bool wrap = true, HorizontalAlignment align = HorizontalAlignment.Left) =>
 		Text(text, size, C.Muted, null, wrap, align);
 
-	public static Label Eyebrow(string text) => Text(text.ToUpperInvariant(), 12, C.Muted, Fonts.Spaced);
+	/// <summary>Small caps label. Translated before upper-casing (the upper-case text is no translation key).</summary>
+	public static Label Eyebrow(string text) => Text(Lang.T(text).ToUpper(), 12, C.Muted, Fonts.Spaced);
+
+	/// <summary>Text the players or quiz author wrote: never run it through the translation.</summary>
+	public static T Raw<T>(this T c) where T : Control
+	{
+		c.AutoTranslateMode = Node.AutoTranslateModeEnum.Disabled;
+		return c;
+	}
 
 	public static Label Error(string text = "") =>
 		Text(text, 15, C.Coral, null, true).With(l => l.Visible = text != "");
@@ -439,7 +452,7 @@ public static class U
 		return scroll;
 	}
 
-	public static string Plural(int n, string one, string many) => n == 1 ? $"{n} {one}" : $"{n} {many}";
+	public static string Plural(int n, string one, string many) => $"{n} {Lang.T(n == 1 ? one : many)}";
 
 	public static string Initials(string name)
 	{

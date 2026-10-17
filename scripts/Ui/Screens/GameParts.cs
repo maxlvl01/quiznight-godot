@@ -28,7 +28,7 @@ public static class GameParts
 		for (var i = 0; i < rows.Count; i++)
 		{
 			var p = rows[i];
-			var row = Row(8, RankBadge(i + 1), new Avatar(p, 26), U.Text(p.Name, 15).Grow());
+			var row = Row(8, RankBadge(i + 1), new Avatar(p, 26), U.Text(p.Name, 15).Raw().Grow());
 			if (gained.TryGetValue(p.Id, out var g) && g != 0) row.AddChild(U.Text($"+{g}", 14, C.Teal, Fonts.Bold));
 			row.AddChild(U.Mono($"{room.Score(p.Id)}", 16));
 			list.AddChild(U.Panel(row, p.Id == highlight ? "ChipMe" : "Card2").With(c => c.AddThemeStyleboxOverride("panel",
@@ -43,19 +43,16 @@ public static class GameParts
 		var game = room.Game!;
 		var reveal = game.Reveal!;
 		var q = game.Question;
-		var box = U.V(10, new HSeparator(), U.Eyebrow("The answer"), U.Text(reveal.AnswerText, 34, C.Accent, Fonts.Black, true));
+		var box = U.V(10, new HSeparator(), U.Eyebrow("The answer"), U.Text(reveal.AnswerText, 34, C.Accent, Fonts.Black, true).Raw());
 		if (q.Buzzer)
 		{
 			if (reveal.WinnerIds.FirstOrDefault() is { } winnerId)
 			{
 				var w = room.Player(winnerId);
-				var row = Row(6, new Avatar(w, 26), U.Bold(w.Name, 17), U.Text("got it", 17));
-				if (q.IsMedia && reveal.GuessTimeSec is { } t)
-				{
-					row.AddChild(U.Text("after", 17));
-					row.AddChild(U.Text(U.FormatSeconds(t), 17, C.Accent, Fonts.Bold));
-					row.AddChild(U.Text($"of {(q.Type == QuestionType.Sound ? "listening" : "watching")}", 17));
-				}
+				var gotIt = q.IsMedia && reveal.GuessTimeSec is { } t
+					? Lang.F(q.Type == QuestionType.Sound ? "got it after {0} of listening" : "got it after {0} of watching", U.FormatSeconds(t))
+					: Lang.T("got it");
+				var row = Row(6, new Avatar(w, 26), U.Bold(w.Name, 17).Raw(), U.Text(gotIt, 17));
 				row.AddChild(U.Text($"· +{q.Points}", 17, C.Teal, Fonts.Bold));
 				box.AddChild(row);
 			}
@@ -74,8 +71,8 @@ public static class GameParts
 			var row = Row(8);
 			if (e.Rank is { } rank) row.AddChild(RankBadge(rank));
 			row.AddChild(new Avatar(p, 26));
-			row.AddChild(U.Text(p.Name, 15).MinSize(140));
-			row.AddChild(U.Text(e.Text, 15, C.Muted).Grow());
+			row.AddChild(U.Text(p.Name, 15).Raw().MinSize(140));
+			row.AddChild(U.Text(e.Text, 15, C.Muted).Raw().Grow());
 			row.AddChild(U.Text(e.Points > 0 ? $"+{e.Points}" : "", 15, C.Teal, Fonts.Bold).MinSize(36));
 			list.AddChild(U.Panel(row, e.Points > 0 ? "Scored" : "Card2").With(c => c.AddThemeStyleboxOverride("panel",
 				UiTheme.Box(e.Points > 0 ? new Color(C.Teal, 0.1f) : C.Panel2, 10, e.Points > 0 ? C.Teal : C.Border, 1, 10, 6))));
@@ -98,7 +95,7 @@ public static class GameParts
 			var color = C.Choice[i];
 			var correct = reveal?.CorrectIndex == i;
 			var bg = correct ? C.Panel2.Lerp(color, 0.22f) : C.Panel2;
-			var tile = U.Panel(GameParts.Row(14, Letter(i, 44), U.Text(text, 22, null, Fonts.Bold, true),
+			var tile = U.Panel(GameParts.Row(14, Letter(i, 44), U.Text(text, 22, null, Fonts.Bold, true).Raw(),
 				reveal?.Counts is { } counts ? U.Mono($"{counts[i]}", 20, C.Muted) : U.Gap(0)), "Clear").Grow();
 			tile.AddThemeStyleboxOverride("panel", UiTheme.Box(bg, 14, correct ? color : C.Border, correct ? 3 : 1, 16, 14));
 			if (reveal != null && !correct) tile.Modulate = new Color(1, 1, 1, 0.35f);

@@ -232,40 +232,40 @@ public static class QuizRules
 	/// <summary>Short subtitle for lists, e.g. "map pin · 60 s".</summary>
 	public static string Summary(Question q)
 	{
-		var kind = QuestionType.Infos[q.Type].Short;
-		if (q.Type == QuestionType.Classic) return q.IsChoice ? $"{kind} · A–D · {q.TimeLimitSec} s" : $"{kind} · buzzer";
+		var kind = Lang.T(QuestionType.Infos[q.Type].Short);
+		if (q.Type == QuestionType.Classic) return q.IsChoice ? $"{kind} · A–D · {q.TimeLimitSec} s" : $"{kind} · {Lang.T("buzzer")}";
 		if (q.IsCloseness) return $"{kind} · {q.TimeLimitSec} s";
-		return $"{kind} · buzzer";
+		return $"{kind} · {Lang.T("buzzer")}";
 	}
 
 	/// <summary>Problems that stop a question from being played. Empty = ready.</summary>
 	public static List<string> QuestionIssues(Question q, IReadOnlyList<MapAsset> maps)
 	{
 		var issues = new List<string>();
-		if (string.IsNullOrWhiteSpace(q.Prompt)) issues.Add("Question text is missing.");
+		if (string.IsNullOrWhiteSpace(q.Prompt)) issues.Add(Lang.T("Question text is missing."));
 		if (q.Type == QuestionType.Classic)
 		{
 			if (q.IsChoice)
 			{
 				var filled = q.Choices.Count(c => !string.IsNullOrWhiteSpace(c));
-				if (filled < 2) issues.Add("Fill in at least two answers.");
+				if (filled < 2) issues.Add(Lang.T("Fill in at least two answers."));
 				else if (q.CorrectChoice < 0 || q.CorrectChoice >= q.Choices.Count || string.IsNullOrWhiteSpace(q.Choices[q.CorrectChoice]))
-					issues.Add("The correct answer (marked) is empty.");
+					issues.Add(Lang.T("The correct answer (marked) is empty."));
 			}
-			else if (string.IsNullOrWhiteSpace(q.AnswerText)) issues.Add("The correct answer is missing.");
+			else if (string.IsNullOrWhiteSpace(q.AnswerText)) issues.Add(Lang.T("The correct answer is missing."));
 		}
 		if (q.IsMedia)
 		{
-			if (q.Media == null || q.Media.DataUrl == "") issues.Add(q.Type == QuestionType.Sound ? "Upload a sound file." : "Upload a video.");
-			if (string.IsNullOrWhiteSpace(q.AnswerText)) issues.Add("The correct answer is missing.");
+			if (q.Media == null || q.Media.DataUrl == "") issues.Add(Lang.T(q.Type == QuestionType.Sound ? "Upload a sound file." : "Upload a video."));
+			if (string.IsNullOrWhiteSpace(q.AnswerText)) issues.Add(Lang.T("The correct answer is missing."));
 		}
 		if (q.Type == QuestionType.Estimation && (q.AnswerNumber is not { } n || !double.IsFinite(n)))
-			issues.Add("The correct number is missing.");
+			issues.Add(Lang.T("The correct number is missing."));
 		if (q.Type == QuestionType.MapPin)
 		{
-			if (q.Image == null) issues.Add("Upload a screenshot.");
-			if (q.MapId == null || maps.All(m => m.Id != q.MapId)) issues.Add("Pick a map.");
-			else if (q.Target == null) issues.Add("Click the map to set the correct spot.");
+			if (q.Image == null) issues.Add(Lang.T("Upload a screenshot."));
+			if (q.MapId == null || maps.All(m => m.Id != q.MapId)) issues.Add(Lang.T("Pick a map."));
+			else if (q.Target == null) issues.Add(Lang.T("Click the map to set the correct spot."));
 		}
 		return issues;
 	}
@@ -274,17 +274,17 @@ public static class QuizRules
 	public static List<string> QuizIssues(Quiz quiz)
 	{
 		var issues = new List<string>();
-		if (string.IsNullOrWhiteSpace(quiz.Title)) issues.Add("Give the quiz a title.");
-		if (quiz.Questions.Count == 0) issues.Add("Add at least one question.");
+		if (string.IsNullOrWhiteSpace(quiz.Title)) issues.Add(Lang.T("Give the quiz a title."));
+		if (quiz.Questions.Count == 0) issues.Add(Lang.T("Add at least one question."));
 		for (var i = 0; i < quiz.Questions.Count; i++)
 		{
 			var question = quiz.Questions[i];
 			if (!QuestionType.IsKnown(question.Type))
 			{
-				issues.Add($"Question {i + 1} has an unknown type.");
+				issues.Add(Lang.F("Question {0} has an unknown type.", i + 1));
 				continue;
 			}
-			foreach (var issue in QuestionIssues(question, quiz.Maps)) issues.Add($"Question {i + 1}: {issue}");
+			foreach (var issue in QuestionIssues(question, quiz.Maps)) issues.Add(Lang.F("Question {0}: {1}", i + 1, issue));
 		}
 		return issues;
 	}

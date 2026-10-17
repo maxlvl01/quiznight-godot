@@ -86,7 +86,7 @@ public static class QuizStore
 		}
 		catch (Exception e) when (e is IOException or UnauthorizedAccessException)
 		{
-			throw new UserError($"Saving failed: {e.Message}");
+			throw new UserError(Lang.F("Saving failed: {0}", e.Message));
 		}
 		Cache[quiz.Id] = quiz;
 		return quiz;
@@ -120,7 +120,7 @@ public static class QuizStore
 		}
 		catch (Exception e) when (e is IOException or UnauthorizedAccessException)
 		{
-			throw new UserError($"Export failed: {e.Message}");
+			throw new UserError(Lang.F("Export failed: {0}", e.Message));
 		}
 	}
 
@@ -134,7 +134,7 @@ public static class QuizStore
 		}
 		catch (Exception e) when (e is IOException or UnauthorizedAccessException)
 		{
-			throw new UserError($"Couldn't read that file: {e.Message}");
+			throw new UserError(Lang.F("Couldn't read that file: {0}", e.Message));
 		}
 		var quiz = QuizJson.Parse(text, out var error) ?? throw new UserError(error ?? QuizJson.NotAQuiz);
 		quiz.Id = MakeId();

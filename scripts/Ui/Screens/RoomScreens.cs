@@ -49,7 +49,7 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 		_content.Clear();
 		var connected = room.Players.Count(p => p.Connected);
 		_content.AddChild(U.Eyebrow("Host view"));
-		_content.AddChild(U.H(10, U.Heading(room.Quiz.Title, 28, false), U.Muted($"· {U.Plural(room.Quiz.QuestionCount, "question", "questions")}", 16, false)
+		_content.AddChild(U.H(10, U.Heading(room.Quiz.Title, 28, false).Raw(), U.Muted($"· {U.Plural(room.Quiz.QuestionCount, "question", "questions")}", 16, false)
 			.With(l => l.SizeFlagsVertical = SizeFlags.ShrinkEnd)));
 
 		_content.AddChild(U.Muted("Lobby code", 15));
@@ -63,12 +63,12 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 		_content.AddChild(U.H(16, code, U.Fill(), copied.With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter)));
 
 		if (_host.Mode == NetMode.Steam)
-			_content.AddChild(U.Muted($"Players open Quiznight, choose Steam on the home screen and enter this code. {room.Players.Count} of {room.Settings.MaxPlayers} seats taken.", 15));
+			_content.AddChild(U.Muted(Lang.F("Players open Quiznight, choose Steam on the home screen and enter this code. {0} of {1} seats taken.", room.Players.Count, room.Settings.MaxPlayers), 15));
 		else
 		{
 			var addresses = LanHostTransport.LanAddresses();
-			var where = addresses.Count > 0 ? string.Join("  or  ", addresses) : "this PC's network address";
-			_content.AddChild(U.Muted($"LAN mode: players choose \"LAN / same PC\" and enter {where} (same Wi-Fi), or 127.0.0.1 on this PC. Port {_host.LanPort}. {room.Players.Count} of {room.Settings.MaxPlayers} seats taken.", 15));
+			var where = addresses.Count > 0 ? string.Join(Lang.T("  or  "), addresses) : Lang.T("this PC's network address");
+			_content.AddChild(U.Muted(Lang.F("LAN mode: players choose \"LAN / same PC\" and enter {0} (same Wi-Fi), or 127.0.0.1 on this PC. Port {1}. {2} of {3} seats taken.", where, _host.LanPort, room.Players.Count, room.Settings.MaxPlayers), 15));
 		}
 
 		var chips = U.Flow(8);
@@ -78,7 +78,7 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 			var chip = Chips.Player(p, p.Connected ? null : "(offline)");
 			var row = (HBoxContainer)chip.GetChild(0);
 			var id = p.Id;
-			row.AddChild(U.Link("×", () => _host.Kick(id), 16).Tip($"Remove {p.Name}"));
+			row.AddChild(U.Link("×", () => _host.Kick(id), 16).Tip(Lang.F("Remove {0}", p.Name)));
 			chips.AddChild(chip);
 		}
 		_content.AddChild(chips);
@@ -101,7 +101,7 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 		start.Disabled = connected < Limits.MinPlayersToStart;
 		_content.AddChild(U.H(10, U.Link("Close room", () => Dialogs.Confirm(this, "Close the room? Everyone in it is sent back to the home screen.", "Close room", App.I.CloseRoom)), U.Fill(), start));
 		if (connected < Limits.MinPlayersToStart)
-			_content.AddChild(U.Muted($"Needs at least {Limits.MinPlayersToStart} players.", 13, false, HorizontalAlignment.Right).End());
+			_content.AddChild(U.Muted(Lang.F("Needs at least {0} players.", Limits.MinPlayersToStart), 13, false, HorizontalAlignment.Right).End());
 	}
 }
 
@@ -123,9 +123,9 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 	{
 		_content.Clear();
 		_content.AddChild(U.H(8, U.Heading("Waiting room", 28, false).Grow(),
-			U.Pill(_client.Mode == NetMode.Steam ? $"Code {room.Code}" : $"Host {_client.Target}"),
-			U.Pill($"{room.Players.Count} of {room.Settings.MaxPlayers} players")));
-		_content.AddChild(U.Muted(room.Quiz.Title, 15));
+			U.Pill(_client.Mode == NetMode.Steam ? Lang.F("Code {0}", room.Code) : Lang.F("Host {0}", _client.Target)),
+			U.Pill(Lang.F("{0} of {1} players", room.Players.Count, room.Settings.MaxPlayers))));
+		_content.AddChild(U.Muted(room.Quiz.Title, 15).Raw());
 
 		var grid = new GridContainer { Columns = 4 };
 		grid.AddThemeConstantOverride("h_separation", 12);
@@ -133,7 +133,7 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 		foreach (var p in room.Players)
 		{
 			var me = p.Id == _client.MyId;
-			var seat = U.V(6, new Avatar(p, 56).Center(), U.Bold(p.Name, 16, null, false, HorizontalAlignment.Center),
+			var seat = U.V(6, new Avatar(p, 56).Center(), U.Bold(p.Name, 16, null, false, HorizontalAlignment.Center).Raw(),
 				U.Muted(me ? "You" : p.Connected ? "Joined" : "Reconnecting…", 13, false, HorizontalAlignment.Center));
 			grid.AddChild(U.Panel(seat, me ? "Scored" : "Card2").Grow());
 		}
@@ -146,7 +146,7 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 		_content.AddChild(grid);
 		_content.AddChild(U.H(16,
 			U.Muted("Waiting for the host to start the quiz.", 14, false).Grow(),
-			U.Muted($"Answer time per buzz: {room.Settings.AnswerTimeSec} s", 14, false),
+			U.Muted(Lang.F("Answer time per buzz: {0} s", room.Settings.AnswerTimeSec), 14, false),
 			U.Link("Leave", App.I.LeaveRoom)));
 	}
 }
@@ -180,9 +180,9 @@ public partial class PodiumScreen : Control, IRoomScreen
 		var rest = ranked.Where(r => r.Place > 3).ToList();
 		var me = ranked.FirstOrDefault(r => r.P.Id == _myId);
 
-		_content.AddChild(U.Eyebrow($"{room.Quiz.Title} · final results").Center());
+		_content.AddChild(U.Eyebrow(Lang.F("{0} · final results", room.Quiz.Title)).Center());
 		_content.AddChild(U.H(0, U.Heading(top.Count(r => r.Place == 1) > 1 ? "It's a tie at the top" : "And the winner is", 48, false), U.Text("…", 48, C.Accent, Fonts.Black)).Center());
-		if (me.P != null) _content.AddChild(U.H(4, U.Muted("You finished", 16, false), U.Text($"#{me.Place}", 16, C.Accent, Fonts.Bold), U.Muted($"with {me.Score} points.", 16, false)).Center());
+		if (me.P != null) _content.AddChild(U.H(4, U.Muted("You finished", 16, false), U.Text($"#{me.Place}", 16, C.Accent, Fonts.Bold), U.Muted(Lang.F("with {0} points.", me.Score), 16, false)).Center());
 
 		// Classic podium order: 2nd, 1st, 3rd
 		var podium = U.H(14);
@@ -199,7 +199,7 @@ public partial class PodiumScreen : Control, IRoomScreen
 					box.CornerRadiusTopLeft = box.CornerRadiusTopRight = 14;
 					p.AddThemeStyleboxOverride("panel", box);
 				}).MinSize(170, height);
-			var step = U.V(6, new Avatar(r.P, 64).Center(), U.Bold(r.P.Name, 18, null, false, HorizontalAlignment.Center), U.Mono($"{r.Score} pts", 15, C.Muted).Center(), block);
+			var step = U.V(6, new Avatar(r.P, 64).Center(), U.Bold(r.P.Name, 18, null, false, HorizontalAlignment.Center).Raw(), U.Mono(Lang.F("{0} pts", r.Score), 15, C.Muted).Center(), block);
 			step.Alignment = BoxContainer.AlignmentMode.End;
 			podium.AddChild(step);
 		}

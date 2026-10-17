@@ -112,7 +112,7 @@ public static class Chips
 	/// <summary>A player name chip with avatar.</summary>
 	public static PanelContainer Player(PublicPlayer p, string? suffix = null, bool me = false, bool dim = false)
 	{
-		var row = U.H(6, new Avatar(p, 24), U.Text(p.Name, 15));
+		var row = U.H(6, new Avatar(p, 24), U.Text(p.Name, 15).Raw());
 		if (suffix != null) row.AddChild(U.Muted(suffix, 13, false));
 		var chip = U.Panel(row, me ? "ChipMe" : "Chip");
 		if (dim || !p.Connected) chip.Modulate = new Color(1, 1, 1, 0.55f);
@@ -194,7 +194,7 @@ public partial class FitImage : Control
 		{
 			DrawRect(rect, C.Panel2);
 			var font = Fonts.Regular;
-			DrawString(font, new Vector2(0, Size.Y / 2), "Loading image…", HorizontalAlignment.Center, Size.X, 14, C.Muted);
+			DrawString(font, new Vector2(0, Size.Y / 2), Lang.T("Loading image…"), HorizontalAlignment.Center, Size.X, 14, C.Muted);
 			return;
 		}
 		DrawTextureRect(_texture, rect, false);
@@ -325,7 +325,7 @@ public static class Dialogs
 	/// <summary>Asks a yes/no question; runs onYes only on yes.</summary>
 	public static void Confirm(Node owner, string text, string yes, Action onYes, string title = "Are you sure?")
 	{
-		var d = new ConfirmationDialog { Title = title, DialogText = text, OkButtonText = yes, CancelButtonText = "Cancel", DialogAutowrap = true };
+		var d = new ConfirmationDialog { Title = Lang.T(title), DialogText = Lang.T(text), OkButtonText = Lang.T(yes), CancelButtonText = Lang.T("Cancel"), DialogAutowrap = true };
 		d.MinSize = new Vector2I(460, 0);
 		d.Confirmed += () => onYes();
 		d.Confirmed += d.QueueFree;
@@ -336,7 +336,7 @@ public static class Dialogs
 
 	public static void Info(Node owner, string text, string title = "Quiznight!")
 	{
-		var d = new AcceptDialog { Title = title, DialogText = text, DialogAutowrap = true };
+		var d = new AcceptDialog { Title = Lang.T(title), DialogText = Lang.T(text), DialogAutowrap = true };
 		d.MinSize = new Vector2I(460, 0);
 		d.Confirmed += d.QueueFree;
 		d.Canceled += d.QueueFree;
@@ -349,7 +349,7 @@ public static class Dialogs
 	{
 		var d = new FileDialog
 		{
-			Title = title,
+			Title = Lang.T(title),
 			FileMode = FileDialog.FileModeEnum.OpenFile,
 			Access = FileDialog.AccessEnum.Filesystem,
 			Filters = filters,
@@ -366,7 +366,7 @@ public static class Dialogs
 	{
 		var d = new FileDialog
 		{
-			Title = title,
+			Title = Lang.T(title),
 			FileMode = FileDialog.FileModeEnum.SaveFile,
 			Access = FileDialog.AccessEnum.Filesystem,
 			Filters = filters,

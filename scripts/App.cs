@@ -45,6 +45,10 @@ public partial class App : Control
 		GetWindow().FilesDropped += OnFilesDropped;
 
 		var args = OS.GetCmdlineUserArgs();
+		// Saved window size/mode would fight --resolution (screenshots) and means nothing headless.
+		var ownWindow = DisplayServer.GetName() != "headless" && !OS.GetCmdlineArgs().Contains("--resolution");
+		Prefs.ApplyAll(ownWindow);
+		if (args.Contains("--selftest")) Lang.Use("en");
 		if (!args.Contains("--no-steam") && !args.Contains("--selftest") && !args.Contains("--bot")) SteamService.Init();
 		_dev = DevTools.FromArgs(this, args);
 		if (_dev?.TakesOver != true) GoHome();
@@ -107,6 +111,7 @@ public partial class App : Control
 
 	public void GoHome(string? notice = null) => Show(new HomeScreen(notice));
 	public void GoQuizzes() => Show(new QuizListScreen());
+	public void GoSettings() => Show(new SettingsScreen());
 
 	public void GoQuiz(string id)
 	{
@@ -135,7 +140,7 @@ public partial class App : Control
 		var issues = QuizRules.QuizIssues(quiz);
 		if (issues.Count > 0)
 		{
-			ShowError($"Couldn't open the lobby: {issues[0]}");
+			ShowError(Lang.F("Couldn't open the lobby: {0}", issues[0]));
 			return;
 		}
 		var mode = forceMode ?? (SteamService.Available ? Settings.Mode : NetMode.Lan);
@@ -150,7 +155,7 @@ public partial class App : Control
 			if (steam == null)
 			{
 				GoQuizzes();
-				ShowError($"Couldn't open the lobby: {error}");
+				ShowError(Lang.F("Couldn't open the lobby: {0}", Lang.T(error ?? "")));
 				return;
 			}
 			transport = steam;
@@ -203,7 +208,7 @@ public partial class App : Control
 			Client = null;
 			GoHome(reason);
 		};
-		Show(new MessageScreen(mode == NetMode.Steam ? $"Looking for room {Limits.NormalizeCode(target)}…" : $"Connecting to {target}…",
+		Show(new MessageScreen(mode == NetMode.Steam ? Lang.F("Looking for room {0}…", Limits.NormalizeCode(target)) : Lang.F("Connecting to {0}…", target),
 			"Cancel", () => client.Leave()));
 		client.Start();
 	}

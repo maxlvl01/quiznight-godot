@@ -11,6 +11,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Godot;
+using QuizNight.Shared;
 using Steamworks;
 using Steamworks.Data;
 
@@ -102,7 +103,7 @@ public static class SteamService
 		NetConnectionEnd.Remote_Timeout or NetConnectionEnd.Misc_Timeout => "The connection to the host timed out.",
 		NetConnectionEnd.Local_OfflineMode or NetConnectionEnd.Local_ManyRelayConnectivity or NetConnectionEnd.Local_HostedServerPrimaryRelay
 			or NetConnectionEnd.Local_NetworkConfig => "Steam couldn't reach its relay network. Check your internet connection.",
-		_ => $"Lost the connection to the host ({reason}).",
+		_ => Lang.F("Lost the connection to the host ({0}).", reason),
 	};
 }
 

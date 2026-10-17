@@ -284,7 +284,7 @@ public partial class MapView : VBoxContainer
 	{
 		AddThemeConstantOverride("separation", 6);
 		SizeFlagsHorizontal = SizeFlags.ExpandFill;
-		if (name != "") AddChild(U.Muted($"Map: {name}", 13, false));
+		if (name != "") AddChild(U.Muted(Lang.F("Map: {0}", name), 13, false));
 		Canvas.MaxHeight = maxHeight;
 		AddChild(U.Panel(Canvas, "Inset").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Bg, 10, C.Border, 1, 0, 0))));
 		_in = U.Small("+", () => Canvas.ZoomCenter(1.5f)).Tip("Zoom in");
@@ -400,7 +400,7 @@ public partial class WowAtlasView : VBoxContainer
 
 		AddChild(U.Muted(_current.Kind == WowAtlas.Kind.Zone
 			? (_onPick != null ? "Click to place the pin. Right-click or use the path above to go back up." : "Right-click or use the path above to go back up.")
-			: $"Click a {(_current.Kind == WowAtlas.Kind.World ? "continent" : "zone")} to open it, like the in-game map.", 12));
+			: _current.Kind == WowAtlas.Kind.World ? "Click a continent to open it, like the in-game map." : "Click a zone to open it, like the in-game map.", 12));
 	}
 }
 

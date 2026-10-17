@@ -67,11 +67,17 @@ dotnet build "QuizNight!.csproj"                              # compile — run 
 "$G" --path . --resolution 1600x900 -- --no-steam --open mapPin --shot out.png    # screenshot a screen
 ```
 
-`--screen home|quizzes|quiz`, `--open classic|choice|estimation|mapPin|sound`, `--shot FILE --after SEC`
+`--screen home|quizzes|quiz|settings`, `--open classic|choice|estimation|mapPin|sound`, `--lang en|de` (this run only), `--shot FILE --after SEC`
 (see `DevTools.cs`). Full solo test: host with `--autopilot --players 2` plus two `--bot` instances.
 Screenshots need a window (no `--headless`); the window opens briefly on the user's screen.
 
 ## Gotchas learned so far
+
+- **Translations:** the English text is the key (`Shared/Lang.cs`, German in `Shared/LangDe.cs`). Godot
+  auto-translates Label/Button/tooltip text that matches a key exactly, so plain strings just need a
+  LangDe entry. Text built from parts must use `Lang.F("… {0} …", x)` (never `$"…"` in UI text), and
+  player-written text (names, prompts, answers) gets `.Raw()` so it's never translated. Reveal texts are
+  made on the host, in the host's language.
 
 - `GetCmdlineUserArgs()` only sees arguments after `--`.
 - `RandomNumberGenerator` is ambiguous between Godot and System.Security.Cryptography — qualify it.

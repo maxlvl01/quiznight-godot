@@ -68,13 +68,17 @@ public partial class HomeScreen : Control
 		page.AddChild(U.Muted($"v{App.Version}", 12, false, HorizontalAlignment.Center).Center());
 
 		AddChild(U.Page(page, 960, 56));
+		var settings = U.Small("Settings", App.I.GoSettings);
+		settings.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight, LayoutPresetMode.KeepSize, 20);
+		settings.GrowHorizontal = GrowDirection.Begin;
+		AddChild(settings);
 		BuildJoinFields();
 	}
 
 	Control NetworkRow()
 	{
 		var status = SteamService.Available
-			? $"Steam: signed in as {SteamService.PlayerName}"
+			? Lang.F("Steam: signed in as {0}", SteamService.PlayerName)
 			: SteamService.InitError ?? "Steam isn't available.";
 		var row = U.H(10, U.Text("Play over", 14, C.Muted, Fonts.Bold).With(l => l.SizeFlagsVertical = SizeFlags.ShrinkCenter));
 		var seg = U.Segmented(new[] { ("steam", "Steam (internet)"), ("lan", "LAN / same PC") }, _mode == NetMode.Steam ? "steam" : "lan", id =>

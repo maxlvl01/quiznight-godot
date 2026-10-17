@@ -50,12 +50,12 @@ public partial class QuizListScreen : Control
 		title.Alignment = HorizontalAlignment.Left;
 		title.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
 		title.ClipText = true;
-		var info = U.H(8, U.Muted($"{U.Plural(quiz.Questions.Count, "question", "questions")} · edited {edited}", 13, false));
+		var info = U.H(8, U.Muted(Lang.F("{0} · edited {1}", U.Plural(quiz.Questions.Count, "question", "questions"), edited), 13, false));
 		if (!ready) info.AddChild(U.Pill("Not ready yet", C.Accent));
 		var host = U.Btn("Open lobby", "AccentButton", () => App.I.HostQuiz(quiz), 14);
 		host.Disabled = !ready;
 		var actions = U.H(6,
-			U.Link("Delete", () => Dialogs.Confirm(this, $"Delete \"{quiz.Title}\"? This can't be undone — export it first if you want a backup.", "Delete", () =>
+			U.Link("Delete", () => Dialogs.Confirm(this, Lang.F("Delete \"{0}\"? This can't be undone — export it first if you want a backup.", quiz.Title), "Delete", () =>
 			{
 				QuizStore.Delete(quiz.Id);
 				Refresh();

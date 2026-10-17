@@ -134,7 +134,7 @@ public sealed class Room : IGameHooks
 	{
 		if (Phase != Shared.Phase.Lobby) return Result.Fail("The quiz is already running.");
 		var connected = Players.Count(p => p.Connected);
-		if (connected < Limits.MinPlayersToStart) return Result.Fail($"You need at least {Limits.MinPlayersToStart} connected players.");
+		if (connected < Limits.MinPlayersToStart) return Result.Fail(Lang.F("You need at least {0} connected players.", Limits.MinPlayersToStart));
 		Phase = Shared.Phase.Playing;
 		Scores.Clear();
 		foreach (var p in Players) Scores[p.Id] = 0;

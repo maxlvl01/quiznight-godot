@@ -204,7 +204,7 @@ public sealed class Game
 
 	public static string FormatDistance(double? km, double percent)
 	{
-		if (km is not { } k) return $"{percent.ToString("0.0", En)} % of the map";
+		if (km is not { } k) return Lang.F("{0} % of the map", percent.ToString("0.0", En));
 		var m = Math.Round(k * 1000);
 		return m < 1000 ? $"{m.ToString("0", En)} m" : $"{k.ToString(k < 10 ? "0.00" : "0.0", En)} km";
 	}
@@ -245,7 +245,7 @@ public sealed class Game
 				Entries = _buzzes.Select(b => new RevealEntry
 				{
 					PlayerId = b.PlayerId,
-					Text = b.Status == BuzzStatus.Correct ? "Correct" : b.Status == BuzzStatus.Wrong ? "Wrong" : "Buzzed, no turn",
+					Text = Lang.T(b.Status == BuzzStatus.Correct ? "Correct" : b.Status == BuzzStatus.Wrong ? "Wrong" : "Buzzed, no turn"),
 					Correct = b.Status == BuzzStatus.Correct,
 					Points = b.Status == BuzzStatus.Correct ? q.Points : 0,
 				}).ToList(),
@@ -293,7 +293,7 @@ public sealed class Game
 				{
 					PlayerId = a.PlayerId,
 					Value = a.Value,
-					Text = $"{Fmt(n)}{unit}" + (diff == 0 ? " · spot on!" : $" ({(diff > 0 ? "+" : "−")}{Fmt(Math.Abs(diff))})"),
+					Text = $"{Fmt(n)}{unit}" + (diff == 0 ? Lang.T(" · spot on!") : $" ({(diff > 0 ? "+" : "−")}{Fmt(Math.Abs(diff))})"),
 					Correct = diff == 0,
 					Points = r.Points,
 					Rank = r.Rank,
@@ -319,14 +319,14 @@ public sealed class Game
 			{
 				PlayerId = m.PlayerId,
 				Value = m.Value,
-				Text = $"{FormatDistance(m.D.Km, m.D.Percent)} off",
+				Text = Lang.F("{0} off", FormatDistance(m.D.Km, m.D.Percent)),
 				Points = r.Points,
 				Rank = r.Rank,
 			};
 		}).OrderBy(e => e.Rank ?? 99).ToList();
 		return new RevealView
 		{
-			AnswerText = $"The yellow pin on the map ({map.Name})",
+			AnswerText = Lang.F("The yellow pin on the map ({0})", map.Name),
 			Target = target,
 			WinnerIds = pinEntries.Where(e => e.Points > 0).Select(e => e.PlayerId).ToList(),
 			Entries = pinEntries,
@@ -387,7 +387,7 @@ public sealed class Game
 		var q = Question;
 		if (q.Type == QuestionType.Classic) return q.IsChoice ? ChoiceText(q) : q.AnswerText;
 		if (q.Type == QuestionType.Estimation) return $"{Fmt(q.AnswerNumber ?? 0)}{(q.Unit != "" ? " " + q.Unit : "")}";
-		if (q.Type == QuestionType.MapPin) return "The marked spot on the map (shown at the reveal).";
+		if (q.Type == QuestionType.MapPin) return Lang.T("The marked spot on the map (shown at the reveal).");
 		return q.AnswerText;
 	}
 

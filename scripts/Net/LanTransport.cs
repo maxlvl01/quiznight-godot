@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using QuizNight.Shared;
 
 namespace QuizNight.Net;
 
@@ -33,7 +34,7 @@ public sealed class LanHostTransport : IHostTransport
 	public string? Listen(int port = DefaultPort)
 	{
 		var err = _server.Listen((ushort)port, "*");
-		if (err != Error.Ok) return $"Couldn't open port {port} ({err}). Is another Quiznight already hosting on this PC?";
+		if (err != Error.Ok) return Lang.F("Couldn't open port {0} ({1}). Is another Quiznight already hosting on this PC?", port, err);
 		Port = port;
 		return null;
 	}
@@ -127,7 +128,7 @@ public sealed class LanClientTransport : IClientTransport
 	{
 		var err = _tcp.ConnectToHost(host, port);
 		// Reported on the first Poll, once someone listens for it.
-		if (err != Error.Ok) _startError = $"Couldn't reach \"{host}\". Check the address.";
+		if (err != Error.Ok) _startError = Lang.F("Couldn't reach \"{0}\". Check the address.", host);
 	}
 
 	string? _startError;

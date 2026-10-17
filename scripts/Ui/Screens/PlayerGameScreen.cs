@@ -34,15 +34,15 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		var q = game.Question;
 		var me = room.Player(MyId);
 		_bar.Set($"{me.Name}|{room.Score(MyId)}", () => GameParts.Row(10,
-			new Avatar(me, 30), U.Bold(me.Name, 17), U.Fill(), U.Pill($"{room.Score(MyId)} pts", C.Accent)));
+			new Avatar(me, 30), U.Bold(me.Name, 17).Raw(), U.Fill(), U.Pill(Lang.F("{0} pts", room.Score(MyId)), C.Accent)));
 
 		var key = $"{game.Index}|{game.Stage}";
 		_question.Set(key, () =>
 		{
 			var box = U.V(10, GameParts.Row(10,
-				U.Muted($"Question {game.Index + 1} / {game.Total}", 14, false), Chips.Question(q), U.Fill(),
+				U.Muted(Lang.F("Question {0} / {1}", game.Index + 1, game.Total), 14, false), Chips.Question(q), U.Fill(),
 				game.Stage == Stage.Open ? new Countdown(game.EndsAt) : U.Gap(0)));
-			box.AddChild(U.Text(q.Prompt, 28, C.Text, Fonts.Black, true));
+			box.AddChild(U.Text(q.Prompt, 28, C.Text, Fonts.Black, true).Raw());
 			if (q.ImageKey != null && q.Type != QuestionType.MapPin && game.Stage == Stage.Open)
 				box.AddChild(new AssetImage(_client.Assets, q.ImageKey, 360));
 			return box;
@@ -101,17 +101,17 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		if (mine != null)
 		{
 			if (mine.Status == BuzzStatus.Wrong)
-				return Status(U.Text("Not quite.", 30, C.Text, Fonts.Black), U.Muted("The others get a go now.", 16), U.Muted($"You buzzed after {U.FormatSeconds(mine.AtSec)}.", 13));
+				return Status(U.Text("Not quite.", 30, C.Text, Fonts.Black), U.Muted("The others get a go now.", 16), U.Muted(Lang.F("You buzzed after {0}.", U.FormatSeconds(mine.AtSec)), 13));
 			var kids = new System.Collections.Generic.List<Control> { U.Text($"#{place + 2}", 56, C.Accent, Fonts.Black), U.Bold("You're in line", 20) };
-			if (answering != null) kids.Add(U.Muted($"{room.Player(answering.PlayerId).Name} is answering.", 16));
-			kids.Add(U.Muted($"You buzzed after {U.FormatSeconds(mine.AtSec)}.", 13));
+			if (answering != null) kids.Add(U.Muted(Lang.F("{0} is answering.", room.Player(answering.PlayerId).Name), 16));
+			kids.Add(U.Muted(Lang.F("You buzzed after {0}.", U.FormatSeconds(mine.AtSec)), 13));
 			return Status(kids.ToArray());
 		}
 		var area = U.V(14);
 		area.Alignment = BoxContainer.AlignmentMode.Center;
 		var watch = game.Question.Type == QuestionType.Sound ? "Listen to the host's screen" : game.Question.Type == QuestionType.Video ? "Watch the host's screen" : null;
 		if (watch != null) area.AddChild(U.Muted(watch, 16, false, HorizontalAlignment.Center).Center());
-		if (answering != null) area.AddChild(U.Muted($"{room.Player(answering.PlayerId).Name} is answering — buzz to get in line.", 14, false, HorizontalAlignment.Center).Center());
+		if (answering != null) area.AddChild(U.Muted(Lang.F("{0} is answering — buzz to get in line.", room.Player(answering.PlayerId).Name), 14, false, HorizontalAlignment.Center).Center());
 		area.AddChild(new BuzzButton(_client.Buzz).Center());
 		area.AddChild(U.Muted("or press Space", 13, false, HorizontalAlignment.Center).Center());
 		return U.Pad(area, 0, 10, 0, 10);
@@ -135,7 +135,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			b.AddThemeStyleboxOverride("disabled", UiTheme.Box(C.Panel2, 14, picked ? C.Choice[i] : C.Border, picked ? 3 : 1, 14, 10));
 			b.Disabled = mine != null;
 			if (mine != null && !picked) b.Modulate = new Color(1, 1, 1, 0.4f);
-			var row = GameParts.Row(14, GameParts.Letter(i, 44), U.Text(text, 20, C.Text, Fonts.Bold, true));
+			var row = GameParts.Row(14, GameParts.Letter(i, 44), U.Text(text, 20, C.Text, Fonts.Bold, true).Raw());
 			row.MouseFilter = MouseFilterEnum.Ignore;
 			foreach (var c in row.GetChildren().OfType<Control>()) c.MouseFilter = MouseFilterEnum.Ignore;
 			b.AddChild(U.Pad(row, 14, 0, 14, 0).With(m =>
@@ -146,7 +146,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			b.Pressed += () => Submit(game.Index, AnswerValue.Number(index), error);
 			list.AddChild(b);
 		}
-		if (mine is { } m) list.AddChild(U.Muted($"Locked in: {QuizRules.ChoiceLetters[m]}. Waiting for the others…", 15, false, HorizontalAlignment.Center).Center());
+		if (mine is { } m) list.AddChild(U.Muted(Lang.F("Locked in: {0}. Waiting for the others…", QuizRules.ChoiceLetters[m]), 15, false, HorizontalAlignment.Center).Center());
 		list.AddChild(error);
 		return list;
 	}
@@ -156,7 +156,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		var game = room.Game!;
 		var unit = game.Question.Unit ?? "";
 		if (game.MyAnswer?.Num is { } mine)
-			return Status(U.Muted("Locked in", 15), U.Text($"{Server.Game.Fmt(mine)} {unit}".Trim(), 44, C.Text, Fonts.Mono), U.Muted("Waiting for the others…", 14));
+			return Status(U.Muted("Locked in", 15), U.Text($"{Server.Game.Fmt(mine)} {unit}".Trim(), 44, C.Text, Fonts.Mono).Raw(), U.Muted("Waiting for the others…", 14));
 		var error = U.Error();
 		var lockIn = U.Btn("Lock in guess", "TealButton", null, 20);
 		lockIn.Disabled = true;
@@ -168,7 +168,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		lockIn.Pressed += Send;
 		field.TextSubmitted += _ => Send();
 		field.CallDeferred(Control.MethodName.GrabFocus);
-		return U.Card(12, U.Field($"Your guess{(unit != "" ? $" ({unit})" : "")}", field), lockIn, error);
+		return U.Card(12, U.Field(unit != "" ? Lang.F("Your guess ({0})", unit) : Lang.T("Your guess"), field), lockIn, error);
 	}
 
 	Control MapPin(RoomState room)
@@ -227,18 +227,21 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		var reveal = game.Reveal!;
 		var q = game.Question;
 		var mine = reveal.Entries.FirstOrDefault(e => e.PlayerId == MyId);
-		var kids = new System.Collections.Generic.List<Control> { U.Eyebrow("The answer"), U.Text(reveal.AnswerText, 26, C.Accent, Fonts.Black, true) };
+		var kids = new System.Collections.Generic.List<Control> { U.Eyebrow("The answer"), U.Text(reveal.AnswerText, 26, C.Accent, Fonts.Black, true).Raw() };
 		if (q.Buzzer)
 		{
 			if (reveal.WinnerIds.FirstOrDefault() is { } wid)
 			{
-				var who = wid == MyId ? "You" : room.Player(wid).Name;
-				var after = q.IsMedia && reveal.GuessTimeSec is { } t ? $" after {U.FormatSeconds(t)}" : "";
-				kids.Add(U.Text($"{who} got it{after}.", 17));
+				var me = wid == MyId;
+				var name = room.Player(wid).Name;
+				var text = q.IsMedia && reveal.GuessTimeSec is { } t
+					? me ? Lang.F("You got it after {0}.", U.FormatSeconds(t)) : Lang.F("{0} got it after {1}.", name, U.FormatSeconds(t))
+					: me ? Lang.T("You got it.") : Lang.F("{0} got it.", name);
+				kids.Add(U.Text(text, 17));
 			}
 			else kids.Add(U.Text("Nobody got it.", 17));
 		}
-		if (mine != null && !q.Buzzer) kids.Add(U.Text($"You: {mine.Text}", 17));
+		if (mine != null && !q.Buzzer) kids.Add(U.Text(Lang.F("You: {0}", mine.Text), 17));
 		kids.Add(mine is { Points: > 0 } ? U.Text($"+{mine.Points}", 48, C.Accent, Fonts.Black) : U.Muted("No points this time.", 15));
 		kids.Add(U.Muted("Waiting for the host to continue…", 13));
 		var panel = Status(kids.ToArray());

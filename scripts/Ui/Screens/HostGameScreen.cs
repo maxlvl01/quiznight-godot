@@ -51,15 +51,15 @@ public partial class HostGameScreen : Control, IRoomScreen
 
 		_bar.Set($"{game.Index}", () => U.Panel(GameParts.Row(12,
 			U.H(0, U.Text("Quiznight", 20, C.Text, Fonts.Black), U.Text("!", 20, C.Accent, Fonts.Black)),
-			U.Pill($"Question {game.Index + 1} / {game.Total}"),
+			U.Pill(Lang.F("Question {0} / {1}", game.Index + 1, game.Total)),
 			Chips.Question(q),
-			U.Pill(q.Points == 1 ? "1 point" : $"{q.Points} points"),
+			U.Pill(q.Points == 1 ? Lang.T("1 point") : Lang.F("{0} points", q.Points)),
 			U.Fill(),
 			U.Muted("Room", 15, false),
 			U.Text(room.Code, 20, C.Accent, Fonts.Mono)), "Bar"));
 
 		_head.Set(key, () => GameParts.Row(16,
-			U.Text(q.Prompt, 34, C.Text, Fonts.Black, true),
+			U.Text(q.Prompt, 34, C.Text, Fonts.Black, true).Raw(),
 			game.Stage == Stage.Open ? new Countdown(game.EndsAt, null, 34) : U.Gap(0)));
 
 		// The player stays alive through the reveal so the music doesn't restart.
@@ -80,7 +80,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 				box.AddChild(new AssetImage(_assets, q.ImageKey, 440));
 			if (q.Choices != null) box.AddChild(GameParts.ChoiceGrid(game));
 			if (reveal == null && q.Type == QuestionType.Estimation)
-				box.AddChild(U.Muted($"Everyone types a number{(string.IsNullOrEmpty(q.Unit) ? "" : $" in {q.Unit}")} on their own screen.", 16));
+				box.AddChild(U.Muted(string.IsNullOrEmpty(q.Unit) ? Lang.T("Everyone types a number on their own screen.") : Lang.F("Everyone types a number in {0} on their own screen.", q.Unit), 16));
 			if (reveal == null && q.Type == QuestionType.MapPin) box.AddChild(U.Muted("Everyone places a pin on the map on their own screen.", 16));
 			if (q.Type == QuestionType.MapPin && reveal != null && q.Map != null)
 			{
@@ -101,7 +101,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 			if (game.Stage == Stage.Open && q.Buzzer && answering != null)
 			{
 				var p = room.Player(answering.PlayerId);
-				row.AddChild(GameParts.Row(8, new Avatar(p, 28), U.Bold($"{p.Name} is answering", 17), new Countdown(game.AnswerEndsAt, null, 22)));
+				row.AddChild(GameParts.Row(8, new Avatar(p, 28), U.Bold(Lang.F("{0} is answering", p.Name), 17), new Countdown(game.AnswerEndsAt, null, 22)));
 				row.AddChild(U.Fill());
 				row.AddChild(U.Btn("Correct", "TealButton", () => _host.Judge(true), 20));
 				row.AddChild(U.Btn("Wrong", "CoralButton", () => _host.Judge(false), 20));
@@ -124,7 +124,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 		else if (game.Stage == Stage.Open)
 		{
 			var connected = room.Players.Count(p => p.Connected);
-			_side.AddChild(U.Eyebrow($"Answers: {game.AnsweredIds.Count} / {connected}"));
+			_side.AddChild(U.Eyebrow(Lang.F("Answers: {0} / {1}", game.AnsweredIds.Count, connected)));
 			var chips = U.Flow(6);
 			foreach (var p in room.Players) chips.AddChild(Chips.Player(p, game.AnsweredIds.Contains(p.Id) ? "✓" : null, false, !game.AnsweredIds.Contains(p.Id)));
 			_side.AddChild(chips);
@@ -154,7 +154,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 				_ => "Correct",
 			};
 			var row = GameParts.Row(8, GameParts.RankBadge(i + 1), new Avatar(p, 26),
-				U.V(0, U.Text(p.Name, 15), U.Muted(status, 12, false)).Grow(),
+				U.V(0, U.Text(p.Name, 15).Raw(), U.Muted(status, 12, false)).Grow(),
 				U.Mono(game.Question.IsMedia ? U.FormatSeconds(b.AtSec) : $"{b.AtSec:0.00} s", 13, C.Muted));
 			var border = b.Status switch { BuzzStatus.Answering => C.Accent, BuzzStatus.Correct => C.Teal, _ => C.Border };
 			var bg = b.Status == BuzzStatus.Answering ? new Color(C.Accent, 0.1f) : C.Panel2;
@@ -227,7 +227,7 @@ public partial class HostMedia : VBoxContainer
 				AddChild(U.Error("Godot can't play this sound format. Replace it with an MP3, OGG or WAV file in the editor."));
 				return;
 			}
-			_audio = new AudioStreamPlayer { Stream = stream };
+			_audio = new AudioStreamPlayer { Stream = stream, Bus = Prefs.MusicBus };
 			AddChild(_audio);
 			_bars = new SoundBars();
 			_toggle = U.Btn("▶", "AccentButton", Toggle, 30).MinSize(84, 84);
@@ -242,7 +242,7 @@ public partial class HostMedia : VBoxContainer
 				AddChild(U.Error(Media.VideoHelp));
 				return;
 			}
-			_video = new VideoStreamPlayer { Stream = stream, Expand = true, CustomMinimumSize = new Vector2(0, 460) };
+			_video = new VideoStreamPlayer { Stream = stream, Bus = Prefs.MusicBus, Expand = true, CustomMinimumSize = new Vector2(0, 460) };
 			AddChild(U.Panel(_video, "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(Colors.Black, 12, null, 0, 0, 0))));
 			_toggle = U.Small("Pause", Toggle);
 			_time = U.Mono("0:00", 15, C.Muted);

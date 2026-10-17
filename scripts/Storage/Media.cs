@@ -39,7 +39,7 @@ public static class Media
 		var size = new FileInfo(path).Length;
 		var maxMb = QuizRules.MediaMaxMb(questionType);
 		if (size > maxMb * 1024L * 1024L)
-			throw new UserError($"That file is {size / 1048576.0:0} MB. The limit is {maxMb} MB — cut or compress it first.");
+			throw new UserError(Lang.F("That file is {0} MB. The limit is {1} MB — cut or compress it first.", (size / 1048576.0).ToString("0"), maxMb));
 		var bytes = File.ReadAllBytes(path);
 		var asset = new MediaAsset { DataUrl = DataUrl.Make(mime, bytes), Mime = mime, Name = Path.GetFileName(path) };
 		if (isSound)

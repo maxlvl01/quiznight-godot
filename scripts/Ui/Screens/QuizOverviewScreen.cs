@@ -154,7 +154,7 @@ public partial class QuizOverviewScreen : Control
 		_foot.Clear();
 		var issues = QuizRules.QuizIssues(_quiz);
 		if (issues.Count > 0 && _quiz.Questions.Count > 0)
-			_foot.AddChild(U.Muted($"{U.Plural(issues.Count, "thing", "things")} to fix before hosting.", 13));
+			_foot.AddChild(U.Muted(Lang.F("{0} to fix before hosting.", U.Plural(issues.Count, "thing", "things")), 13));
 		var host = U.Btn("Open lobby", "AccentButton", () => App.I.HostQuiz(_quiz)).Grow().Tip(issues.FirstOrDefault());
 		host.Disabled = issues.Count > 0;
 		_foot.AddChild(U.H(8, U.Btn("Export file", "", () => QuizListScreen.ExportQuiz(this, _quiz, _error)), host));

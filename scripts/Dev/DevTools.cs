@@ -5,7 +5,8 @@
 //   --quit-at-end                  quit a few seconds after the podium
 //   --bot NAME [--address IP]      join a LAN room and answer on its own
 //   --open TYPE                    open the editor on the sample quiz's question of that type
-//   --screen home|quizzes|quiz     open that screen
+//   --screen home|quizzes|quiz|settings  open that screen
+//   --lang en|de                   use that language this run (not saved)
 //   --shot FILE [--after SEC]      save a screenshot after SEC seconds (default 2) and quit
 //   --shots DIR                    save a screenshot of every new game moment into DIR
 
@@ -67,6 +68,7 @@ public sealed class DevTools
 		_autopilot = Has("--autopilot");
 		_quitAtEnd = Has("--quit-at-end");
 		if (int.TryParse(Value("--players"), out var n)) _players = n;
+		if (Value("--lang") is { } lang) Lang.Use(lang);
 
 		if (Has("--selftest"))
 		{
@@ -109,6 +111,9 @@ public sealed class DevTools
 					break;
 				case "quiz":
 					_app.GoQuiz(QuizStore.Save(SampleQuiz.Build()).Id);
+					break;
+				case "settings":
+					_app.GoSettings();
 					break;
 				default:
 					_app.GoHome();

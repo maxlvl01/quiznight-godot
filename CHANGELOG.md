@@ -12,6 +12,17 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+### Added
+- **German translation:** the whole game is now also in German. Pick the language under Settings;
+  on a German Windows it starts in German by itself. Quiz questions stay as they were written.
+- **Settings screen** (button at the top right of the home screen):
+  - Volume for everything, for music (songs and clips in sound/video questions) and for sound effects.
+  - Window mode (windowed, fullscreen, borderless) and window size.
+  - Language: English or Deutsch.
+
+### Changed
+- The game runs at most at 60 FPS, so it no longer heats up your PC for nothing.
+
 ## [0.4.0a] — Quiznight is now a Godot app
 
 ### Added

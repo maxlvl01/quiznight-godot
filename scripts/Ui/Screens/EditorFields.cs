@@ -137,8 +137,8 @@ public partial class MediaField : VBoxContainer
 		if (_media == null || _media.DataUrl == "")
 		{
 			var hint = IsSound
-				? $"A song or sound effect: MP3, OGG or WAV, up to {QuizRules.MediaMaxMb(_type)} MB."
-				: $"A trailer or clip as .ogv (Ogg Theora), up to {QuizRules.MediaMaxMb(_type)} MB.";
+				? Lang.F("A song or sound effect: MP3, OGG or WAV, up to {0} MB.", QuizRules.MediaMaxMb(_type))
+				: Lang.F("A trailer or clip as .ogv (Ogg Theora), up to {0} MB.", QuizRules.MediaMaxMb(_type));
 			_body.AddChild(U.Panel(U.V(4, U.Muted(hint, 14, true, HorizontalAlignment.Center),
 					U.Muted("Click below or drop the file on this window.", 12, true, HorizontalAlignment.Center))
 				.MinSize(0, 90).With(v => v.Alignment = BoxContainer.AlignmentMode.Center), "Inset"));
@@ -150,18 +150,18 @@ public partial class MediaField : VBoxContainer
 		{
 			var stream = Media.LoadSound(_media);
 			if (stream == null) Fail("Godot can't play this sound format. Use MP3, OGG or WAV.");
-			_audio = new AudioStreamPlayer { Stream = stream };
+			_audio = new AudioStreamPlayer { Stream = stream, Bus = Prefs.MusicBus };
 			_body.AddChild(_audio);
 		}
 		else if (Media.LoadVideo(_media, "editor-preview") is { } video)
 		{
-			_video = new VideoStreamPlayer { Stream = video, Expand = true, CustomMinimumSize = new Vector2(0, 220) };
+			_video = new VideoStreamPlayer { Stream = video, Bus = Prefs.MusicBus, Expand = true, CustomMinimumSize = new Vector2(0, 220) };
 			_body.AddChild(U.Panel(_video, "Inset"));
 		}
 		else Fail(Media.VideoHelp);
 		_play = U.Small("▶ Play", TogglePlay);
 		_play.Disabled = _audio?.Stream == null && _video == null;
-		_body.AddChild(U.H(8, _play, U.Muted(_media.Name + duration, 13, false).With(l =>
+		_body.AddChild(U.H(8, _play, U.Muted(_media.Name + duration, 13, false).Raw().With(l =>
 		{
 			l.SizeFlagsVertical = SizeFlags.ShrinkCenter;
 			l.ClipText = true;
@@ -220,7 +220,7 @@ public partial class MediaField : VBoxContainer
 		}
 		catch (System.IO.IOException e)
 		{
-			Fail($"Couldn't read that file: {e.Message}");
+			Fail(Lang.F("Couldn't read that file: {0}", e.Message));
 		}
 	}
 }

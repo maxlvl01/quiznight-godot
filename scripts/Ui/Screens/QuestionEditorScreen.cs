@@ -61,7 +61,7 @@ public partial class QuestionEditorScreen : Control
 		}
 		else
 		{
-			_issues.Text = $"Still missing: {string.Join(" ", issues)} You can save anyway and finish it later.";
+			_issues.Text = Lang.F("Still missing: {0} You can save anyway and finish it later.", string.Join(" ", issues));
 			_issues.AddThemeColorOverride("font_color", C.Muted);
 		}
 	}
@@ -161,8 +161,8 @@ public partial class QuestionEditorScreen : Control
 		{
 			_draft.CorrectChoice = i;
 			Changed(true);
-		}).MinSize(44).Tip($"Mark {QuizRules.ChoiceLetters[i]} as correct");
-		var input = U.Input(_draft.Choices[i], $"Answer {QuizRules.ChoiceLetters[i]}", t =>
+		}).MinSize(44).Tip(Lang.F("Mark {0} as correct", QuizRules.ChoiceLetters[i]));
+		var input = U.Input(_draft.Choices[i], Lang.F("Answer {0}", QuizRules.ChoiceLetters[i]), t =>
 		{
 			_draft.Choices[i] = t;
 			Changed();
@@ -220,7 +220,9 @@ public partial class QuestionEditorScreen : Control
 				Changed();
 			}, 0, _draft.Media?.DurationSec), "Skip a silent intro or a title card that gives it away."),
 			RoundSettings.Points(_draft, () => Changed()),
-			U.Muted($"{(isSound ? "The sound" : "The video")} plays on your screen. Players buzz in on their own PC; playback pauses while someone answers and you mark it Correct or Wrong. Once it's guessed, everyone sees how many seconds of {(isSound ? "listening" : "watching")} it took. Answer time per buzz is set in the lobby.", 13));
+			U.Muted(isSound
+				? "The sound plays on your screen. Players buzz in on their own PC; playback pauses while someone answers and you mark it Correct or Wrong. Once it's guessed, everyone sees how many seconds of listening it took. Answer time per buzz is set in the lobby."
+				: "The video plays on your screen. Players buzz in on their own PC; playback pauses while someone answers and you mark it Correct or Wrong. Once it's guessed, everyone sees how many seconds of watching it took. Answer time per buzz is set in the lobby.", 13));
 		return Columns((left, 1.6f), (settings, 1));
 	}
 
@@ -273,7 +275,7 @@ public partial class QuestionEditorScreen : Control
 
 		var items = new List<(string, string)> { ("", "Choose a map…") };
 		items.AddRange(_maps.Select(m => (m.Id, m.Name)));
-		items.AddRange(MapPresets.All.Where(p => _maps.All(m => m.PresetId != p.Id)).Select(p => (PresetPrefix + p.Id, $"{p.Name}  (built-in)")));
+		items.AddRange(MapPresets.All.Where(p => _maps.All(m => m.PresetId != p.Id)).Select(p => (PresetPrefix + p.Id, Lang.F("{0}  (built-in)", p.Name))));
 		items.Add((NewMap, "+ Upload a new map"));
 		_mapCol.AddChild(U.Select(items.ToArray(), _addingMap ? NewMap : _draft.MapId ?? "", id =>
 		{
