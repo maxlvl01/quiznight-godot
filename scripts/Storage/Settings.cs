@@ -70,6 +70,12 @@ public static class Settings
 		set => Set("volume_music", value.ToString());
 	}
 
+	public static int GameMusicVolume
+	{
+		get => GetPercent("volume_game_music", 60);
+		set => Set("volume_game_music", value.ToString());
+	}
+
 	public static int SfxVolume
 	{
 		get => GetPercent("volume_sfx", 100);

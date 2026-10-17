@@ -101,17 +101,21 @@ public static class Sfx
 	/// <summary>Plays the jingle when the final results show (host only).</summary>
 	public static void PlayPodium()
 	{
-		if (GD.Load<AudioStream>(PodiumJingle) is { } stream) Play(stream);
+		if (GD.Load<AudioStream>(PodiumJingle) is { } stream) Play(ref _musicPlayer, Prefs.GameMusicBus, stream);
 	}
 
-	static void Play(AudioStream stream)
+	static AudioStreamPlayer? _musicPlayer;
+
+	static void Play(AudioStream stream) => Play(ref _player, Prefs.SfxBus, stream);
+
+	static void Play(ref AudioStreamPlayer? player, string bus, AudioStream stream)
 	{
-		if (_player == null || !GodotObject.IsInstanceValid(_player))
+		if (player == null || !GodotObject.IsInstanceValid(player))
 		{
-			_player = new AudioStreamPlayer { Bus = Prefs.SfxBus };
-			App.I.AddChild(_player);
+			player = new AudioStreamPlayer { Bus = bus };
+			App.I.AddChild(player);
 		}
-		_player.Stream = stream;
-		_player.Play();
+		player.Stream = stream;
+		player.Play();
 	}
 }

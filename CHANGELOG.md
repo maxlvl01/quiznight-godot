@@ -16,7 +16,8 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **German translation:** the whole game is now also in German. Pick the language under Settings;
   on a German Windows it starts in German by itself. Quiz questions stay as they were written.
 - **Settings screen** (button at the top right of the home screen):
-  - Volume for everything, for music (songs and clips in sound/video questions) and for sound effects.
+  - Volume for everything, for music in questions (songs and clips in sound/video questions), for game music
+    and for sound effects.
   - Window mode (windowed, fullscreen, borderless) and window size.
   - Language: English or Deutsch.
 - **Video questions explain how to use an MP4:** pick or drop an MP4 (or WebM, MOV, MKV) and a short
@@ -26,7 +27,8 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **Buzzer sounds:** the host's screen now plays a sound when someone buzzes in. Pick "Soft beep", "Metal pipe",
   your own sound file or no sound under Settings (the default), or in the lobby for one night. Follows the
   Sound effects volume.
-- **Podium jingle:** a short tune plays on the host's screen when the final results appear.
+- **Podium jingle:** a short tune plays on the host's screen when the final results appear. It has its own
+  "Game music" volume slider in Settings (separate from the music in quiz questions).
 
 ### Changed
 - The game runs at most at 60 FPS, so it no longer heats up your PC for nothing.

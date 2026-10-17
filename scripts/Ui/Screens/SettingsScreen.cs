@@ -16,7 +16,8 @@ public partial class SettingsScreen : Control
 			U.Eyebrow("Audio"),
 			Volume("Master volume", "Everything Quiznight plays.", Settings.MasterVolume, v => Settings.MasterVolume = v),
 			Volume("Music", "Songs and clips in sound and video questions.", Settings.MusicVolume, v => Settings.MusicVolume = v),
-			Volume("Sound effects", "Buzzer, countdown and menu sounds.", Settings.SfxVolume, v => Settings.SfxVolume = v),
+			Volume("Game music", "Menu music and the podium jingle.", Settings.GameMusicVolume, v => Settings.GameMusicVolume = v),
+			Volume("Sound effects", "Buzzer and other sound effects.", Settings.SfxVolume, v => Settings.SfxVolume = v),
 			new HSeparator(),
 			BuzzerSection()).Grow();
 

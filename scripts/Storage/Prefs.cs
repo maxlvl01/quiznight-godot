@@ -11,6 +11,8 @@ public static class Prefs
 	public const string MusicBus = "Music";
 	/// <summary>Bus for the buzzer and other sound effects.</summary>
 	public const string SfxBus = "SFX";
+	/// <summary>Bus for the game's own music: menu music and the podium jingle.</summary>
+	public const string GameMusicBus = "GameMusic";
 
 	public static readonly Vector2I[] WindowSizes =
 	{
@@ -28,7 +30,7 @@ public static class Prefs
 
 	static void EnsureBuses()
 	{
-		foreach (var name in new[] { MusicBus, SfxBus })
+		foreach (var name in new[] { MusicBus, GameMusicBus, SfxBus })
 		{
 			if (AudioServer.GetBusIndex(name) >= 0) continue;
 			AudioServer.AddBus();
@@ -42,6 +44,7 @@ public static class Prefs
 	{
 		SetVolume("Master", Settings.MasterVolume);
 		SetVolume(MusicBus, Settings.MusicVolume);
+		SetVolume(GameMusicBus, Settings.GameMusicVolume);
 		SetVolume(SfxBus, Settings.SfxVolume);
 	}
 
