@@ -102,7 +102,7 @@ public partial class TypeIcon : Control
 public static class Chips
 {
 	public static string TypeLabel(PublicQuestion q) =>
-		q.Type == QuestionType.Classic ? (q.Mode == ClassicMode.Choice ? "A B C D" : "Buzzer") : QuestionType.Infos[q.Type].Label;
+		q.Type == QuestionType.Classic ? (q.Mode == ClassicMode.Choice ? "A B C D" : q.Mode == ClassicMode.Multi ? "Multiple choice" : "Buzzer") : QuestionType.Infos[q.Type].Label;
 
 	/// <summary>"(icon) Buzzer" pill for the current question.</summary>
 	public static Control Question(PublicQuestion q) =>

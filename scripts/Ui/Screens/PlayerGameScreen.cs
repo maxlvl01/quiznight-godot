@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using QuizNight.Net;
@@ -60,7 +61,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			var place = game.Buzzes.Where(b => b.Status == BuzzStatus.Waiting).ToList().FindIndex(b => b.PlayerId == MyId);
 			_panel.Set($"{key}|{mine?.Status}|{place}|{answering?.PlayerId}", () => Buzzer(room));
 		}
-		else if (q.Choices != null) _panel.Set($"{key}|{game.MyAnswer?.Num}", () => Choices(room));
+		else if (q.Choices != null) _panel.Set($"{key}|{game.MyAnswer?.Num}|{string.Join(",", game.MyAnswer?.Picks ?? new List<int>())}", () => Choices(room));
 		else if (q.Type == QuestionType.Estimation) _panel.Set($"{key}|{game.MyAnswer?.Num}", () => Estimate(room));
 		else _panel.Set($"{key}|{game.MyAnswer?.Point != null}", () => MapPin(room));
 	}
@@ -120,21 +121,29 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 	Control Choices(RoomState room)
 	{
 		var game = room.Game!;
-		var mine = game.MyAnswer?.Num is { } n ? (int)n : (int?)null;
+		var multi = game.Question.Mode == ClassicMode.Multi;
+		var locked = game.MyAnswer?.Picks ?? (game.MyAnswer?.Num is { } n ? new List<int> { (int)n } : null);
+		// Multi: answers toggle on and off until "Lock in".
+		var picks = new HashSet<int>(locked ?? new List<int>());
 		var error = U.Error();
 		var list = U.V(10);
+		if (multi && locked == null) list.AddChild(U.Muted("Several answers can be right. Pick all you think are, then lock in.", 15, false, HorizontalAlignment.Center).Center());
+		Button? lockIn = null;
 		for (var i = 0; i < (game.Question.Choices?.Count ?? 0); i++)
 		{
 			if (game.Question.Choices![i] is not { } text) continue;
 			var index = i;
 			var b = new Button { MouseDefaultCursorShape = CursorShape.PointingHand, CustomMinimumSize = new Vector2(0, 72) };
-			var picked = mine == i;
-			b.AddThemeStyleboxOverride("normal", UiTheme.Box(C.Panel2, 14, picked ? C.Choice[i] : C.Border, picked ? 3 : 1, 14, 10));
-			b.AddThemeStyleboxOverride("hover", UiTheme.Box(C.Panel2.Lerp(C.Choice[i], 0.15f), 14, C.Choice[i], 1, 14, 10));
-			b.AddThemeStyleboxOverride("pressed", UiTheme.Box(C.Panel2.Lerp(C.Choice[i], 0.25f), 14, C.Choice[i], 2, 14, 10));
-			b.AddThemeStyleboxOverride("disabled", UiTheme.Box(C.Panel2, 14, picked ? C.Choice[i] : C.Border, picked ? 3 : 1, 14, 10));
-			b.Disabled = mine != null;
-			if (mine != null && !picked) b.Modulate = new Color(1, 1, 1, 0.4f);
+			void Style(bool picked)
+			{
+				b.AddThemeStyleboxOverride("normal", UiTheme.Box(picked && multi ? C.Panel2.Lerp(C.Choice[index], 0.2f) : C.Panel2, 14, picked ? C.Choice[index] : C.Border, picked ? 3 : 1, 14, 10));
+				b.AddThemeStyleboxOverride("hover", UiTheme.Box(C.Panel2.Lerp(C.Choice[index], picked && multi ? 0.3f : 0.15f), 14, C.Choice[index], picked ? 3 : 1, 14, 10));
+				b.AddThemeStyleboxOverride("pressed", UiTheme.Box(C.Panel2.Lerp(C.Choice[index], 0.25f), 14, C.Choice[index], 2, 14, 10));
+				b.AddThemeStyleboxOverride("disabled", UiTheme.Box(C.Panel2, 14, picked ? C.Choice[index] : C.Border, picked ? 3 : 1, 14, 10));
+			}
+			Style(picks.Contains(i));
+			b.Disabled = locked != null;
+			if (locked != null && !picks.Contains(i)) b.Modulate = new Color(1, 1, 1, 0.4f);
 			var row = GameParts.Row(14, GameParts.Letter(i, 44), U.Text(text, 20, C.Text, Fonts.Bold, true).Raw());
 			row.MouseFilter = MouseFilterEnum.Ignore;
 			foreach (var c in row.GetChildren().OfType<Control>()) c.MouseFilter = MouseFilterEnum.Ignore;
@@ -143,10 +152,30 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 				m.SetAnchorsPreset(LayoutPreset.FullRect);
 				m.MouseFilter = MouseFilterEnum.Ignore;
 			}));
-			b.Pressed += () => Submit(game.Index, AnswerValue.Number(index), error);
+			b.Pressed += () =>
+			{
+				if (!multi)
+				{
+					Submit(game.Index, AnswerValue.Number(index), error);
+					return;
+				}
+				if (!picks.Remove(index)) picks.Add(index);
+				Style(picks.Contains(index));
+				lockIn!.Disabled = picks.Count == 0;
+			};
 			list.AddChild(b);
 		}
-		if (mine is { } m) list.AddChild(U.Muted(Lang.F("Locked in: {0}. Waiting for the others…", QuizRules.ChoiceLetters[m]), 15, false, HorizontalAlignment.Center).Center());
+		if (multi && locked == null)
+		{
+			lockIn = U.Btn("Lock in", "AccentButton", () => Submit(game.Index, AnswerValue.Picked(picks), error)).Center();
+			lockIn.Disabled = true;
+			list.AddChild(lockIn);
+		}
+		if (locked != null)
+		{
+			var letters = string.Join(", ", locked.Select(i => QuizRules.ChoiceLetters[i]));
+			list.AddChild(U.Muted(Lang.F("Locked in: {0}. Waiting for the others…", letters), 15, false, HorizontalAlignment.Center).Center());
+		}
 		list.AddChild(error);
 		return list;
 	}

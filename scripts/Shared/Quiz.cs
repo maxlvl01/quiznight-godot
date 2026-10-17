@@ -24,7 +24,7 @@ public static class QuestionType
 	{
 		[MapPin] = new("Map pin", "map pin", "Show a screenshot. Players pin the spot on a map. Closest wins."),
 		[Estimation] = new("Estimation", "estimation", "Players guess a number. Closest guess wins."),
-		[Classic] = new("Classic question", "classic", "Buzz in and say the answer, or everyone picks A, B, C or D."),
+		[Classic] = new("Classic question", "classic", "Buzz in and say the answer, or everyone picks from up to 4 answers (one or several right)."),
 		[Sound] = new("Sound", "sound", "Play a song or sound effect. Players buzz in; shows how fast it was guessed."),
 		[Video] = new("Video", "video", "Play a trailer or clip. Players buzz in; shows how fast it was guessed."),
 	};
@@ -37,6 +37,8 @@ public static class ClassicMode
 {
 	public const string Buzzer = "buzzer";
 	public const string Choice = "choice";
+	/// <summary>Like choice, but several answers can be right; players pick all they think are.</summary>
+	public const string Multi = "multi";
 }
 
 /// <summary>What happens when several players are equally close.</summary>
@@ -136,6 +138,8 @@ public sealed class Question
 	/// <summary>Choice mode: answers A–D (empty ones are left out).</summary>
 	public List<string> Choices = new() { "", "", "", "" };
 	public int CorrectChoice;
+	/// <summary>Multi mode: every correct answer (indexes into Choices).</summary>
+	public List<int> CorrectChoices = new();
 
 	/// <summary>Classic choice, estimation and map pin: how long everyone has to answer.</summary>
 	public int TimeLimitSec = QuestionLimits.TimeLimitDefault;
@@ -161,9 +165,14 @@ public sealed class Question
 
 	public bool IsMedia => Type is QuestionType.Sound or QuestionType.Video;
 	public bool IsCloseness => Type is QuestionType.Estimation or QuestionType.MapPin;
-	public bool IsChoice => Type == QuestionType.Classic && Mode == ClassicMode.Choice;
+	/// <summary>Everyone picks from the answers (one correct, or several in multi mode).</summary>
+	public bool IsChoice => Type == QuestionType.Classic && Mode is ClassicMode.Choice or ClassicMode.Multi;
+	public bool IsMulti => Type == QuestionType.Classic && Mode == ClassicMode.Multi;
+
+	/// <summary>Indexes of the right answers, in either choice mode.</summary>
+	public List<int> CorrectSet => IsMulti ? CorrectChoices.Distinct().OrderBy(i => i).ToList() : new List<int> { CorrectChoice };
 	/// <summary>Players buzz in (classic buzzer, sound, video) instead of everyone answering.</summary>
-	public bool IsBuzzer => IsMedia || (Type == QuestionType.Classic && Mode != ClassicMode.Choice);
+	public bool IsBuzzer => IsMedia || (Type == QuestionType.Classic && !IsChoice);
 	public bool HasImageField => Type is QuestionType.Classic or QuestionType.Estimation or QuestionType.MapPin;
 
 	// Through text: in-memory JsonValues don't convert between number types when read back.
@@ -199,10 +208,29 @@ public static class QuestionLimits
 
 public static class QuizRules
 {
-	/// <summary>2: classic questions got an A–D mode, new sound and video types (old files are migrated).</summary>
-	public const int FormatVersion = 2;
+	/// <summary>
+	/// 2: classic questions got an A–D mode, new sound and video types (old files are migrated).
+	/// 3: classic "multi" mode with several correct answers (correctChoices).
+	/// </summary>
+	public const int FormatVersion = 3;
 
 	public static readonly string[] ChoiceLetters = { "A", "B", "C", "D" };
+
+	/// <summary>
+	/// A copy of a choice question with its answers in random order and empty ones left out, so the
+	/// right answer isn't always where the quiz maker typed it. Done once per game on the host.
+	/// </summary>
+	public static Question ShuffleChoices(Question q, Random rng)
+	{
+		var copy = q.Clone();
+		var filled = Enumerable.Range(0, q.Choices.Count).Where(i => !string.IsNullOrWhiteSpace(q.Choices[i])).ToList();
+		var order = filled.OrderBy(_ => rng.Next()).ToList();
+		var correct = q.CorrectSet;
+		copy.Choices = order.Select(i => q.Choices[i]).ToList();
+		copy.CorrectChoices = order.Select((old, now) => (old, now)).Where(p => correct.Contains(p.old)).Select(p => p.now).ToList();
+		copy.CorrectChoice = copy.CorrectChoices.FirstOrDefault();
+		return copy;
+	}
 
 	/// <summary>Largest media file the editor accepts (it is stored in the quiz file).</summary>
 	public static int MediaMaxMb(string type) => type == QuestionType.Sound ? 25 : 80;
@@ -233,7 +261,9 @@ public static class QuizRules
 	public static string Summary(Question q)
 	{
 		var kind = Lang.T(QuestionType.Infos[q.Type].Short);
-		if (q.Type == QuestionType.Classic) return q.IsChoice ? $"{kind} · A–D · {q.TimeLimitSec} s" : $"{kind} · {Lang.T("buzzer")}";
+		if (q.Type == QuestionType.Classic)
+			return q.IsMulti ? $"{kind} · {Lang.T("several correct")} · {q.TimeLimitSec} s"
+				: q.IsChoice ? $"{kind} · A–D · {q.TimeLimitSec} s" : $"{kind} · {Lang.T("buzzer")}";
 		if (q.IsCloseness) return $"{kind} · {q.TimeLimitSec} s";
 		return $"{kind} · {Lang.T("buzzer")}";
 	}
@@ -248,9 +278,10 @@ public static class QuizRules
 			if (q.IsChoice)
 			{
 				var filled = q.Choices.Count(c => !string.IsNullOrWhiteSpace(c));
+				bool Filled(int i) => i >= 0 && i < q.Choices.Count && !string.IsNullOrWhiteSpace(q.Choices[i]);
 				if (filled < 2) issues.Add(Lang.T("Fill in at least two answers."));
-				else if (q.CorrectChoice < 0 || q.CorrectChoice >= q.Choices.Count || string.IsNullOrWhiteSpace(q.Choices[q.CorrectChoice]))
-					issues.Add(Lang.T("The correct answer (marked) is empty."));
+				else if (q.IsMulti && q.CorrectSet.Count == 0) issues.Add(Lang.T("Mark at least one answer as correct."));
+				else if (!q.CorrectSet.All(Filled)) issues.Add(Lang.T("The correct answer (marked) is empty."));
 			}
 			else if (string.IsNullOrWhiteSpace(q.AnswerText)) issues.Add(Lang.T("The correct answer is missing."));
 		}

@@ -30,8 +30,17 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **Podium jingle:** a short tune plays on the host's screen when the final results appear. It has its own
   "Game music" volume slider in Settings (separate from the music in quiz questions).
 
+- **Multiple choice questions:** a third kind of classic question where several answers can be right. Tick every
+  correct answer in the editor; players pick all they think are right and then lock in. Only players who pick
+  exactly the right ones get the points.
+
 ### Changed
 - The game runs at most at 60 FPS, so it no longer heats up your PC for nothing.
+- **A B C D answers are shuffled every game.** In the editor you just type the answers and tick the right one —
+  no letters anymore. When you host, the order is mixed up, so the right answer isn't always B just because
+  that's where you typed it. Each new game gets a new order.
+- Quiz files are now format 3 (for multiple choice). Older files still load; files with multiple choice
+  questions show up as buzzer questions in older versions of the game.
 
 ## [0.4.0a] — Quiznight is now a Godot app
 

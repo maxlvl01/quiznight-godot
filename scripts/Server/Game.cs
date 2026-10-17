@@ -45,9 +45,16 @@ public sealed class Game
 	long? _playingSince;
 	RevealView? _reveal;
 
-	public Game(Quiz quiz, IGameHooks hooks)
+	public Game(Quiz quiz, IGameHooks hooks, Random? rng = null)
 	{
-		_quiz = quiz;
+		// Choice answers get a new random order every game (the quiz itself isn't changed).
+		rng ??= new Random();
+		_quiz = new Quiz
+		{
+			Version = quiz.Version, Id = quiz.Id, Title = quiz.Title, CreatedAt = quiz.CreatedAt, UpdatedAt = quiz.UpdatedAt,
+			Maps = quiz.Maps,
+			Questions = quiz.Questions.Select(q => q.IsChoice ? QuizRules.ShuffleChoices(q, rng) : q).ToList(),
+		};
 		_hooks = hooks;
 		Open(0);
 	}
@@ -152,6 +159,12 @@ public sealed class Game
 			if (raw?.Num is not { } n || !double.IsFinite(n)) return Result.Fail("Please enter a number.");
 			value = AnswerValue.Number(n);
 		}
+		else if (q.IsMulti)
+		{
+			if (raw?.Picks is not { Count: > 0 } picks || picks.Any(i => i < 0 || i >= q.Choices.Count || string.IsNullOrWhiteSpace(q.Choices[i])))
+				return Result.Fail("Pick at least one of the answers.");
+			value = AnswerValue.Picked(picks.Distinct().OrderBy(i => i));
+		}
 		else if (q.Type == QuestionType.Classic)
 		{
 			if (raw?.Num is not { } n || n != Math.Floor(n) || n < 0 || n >= q.Choices.Count || string.IsNullOrWhiteSpace(q.Choices[(int)n]))
@@ -255,27 +268,29 @@ public sealed class Game
 		if (q.Type == QuestionType.Classic)
 		{
 			var counts = new int[q.Choices.Count];
+			var right = q.CorrectSet;
 			var entries = _answers.Select(a =>
 			{
-				var i = (int)a.Value.Num!.Value;
-				counts[i]++;
-				var correct = i == q.CorrectChoice;
+				var picks = Picks(a.Value);
+				foreach (var i in picks) counts[i]++;
+				// Multi: only exactly the right set counts — no points for half of it.
+				var correct = picks.SequenceEqual(right);
 				return new RevealEntry
 				{
 					PlayerId = a.PlayerId,
 					Value = a.Value,
-					Text = $"{QuizRules.ChoiceLetters[i]}: {q.Choices[i]}",
+					Text = ChoiceText(q, picks),
 					Correct = correct,
 					Points = correct ? q.Points : 0,
 				};
 			}).ToList();
 			return new RevealView
 			{
-				AnswerText = ChoiceText(q),
+				AnswerText = ChoiceText(q, right),
 				WinnerIds = entries.Where(e => e.Correct).Select(e => e.PlayerId).ToList(),
 				Entries = entries,
 				Counts = counts,
-				CorrectIndex = q.CorrectChoice,
+				CorrectIndices = right,
 			};
 		}
 
@@ -333,7 +348,11 @@ public sealed class Game
 		};
 	}
 
-	static string ChoiceText(Question q) => $"{QuizRules.ChoiceLetters[q.CorrectChoice]}: {q.Choices[q.CorrectChoice]}";
+	static List<int> Picks(AnswerValue v) => v.Picks ?? (v.Num is { } n ? new List<int> { (int)n } : new List<int>());
+
+	/// <summary>"C: 29", or for several "A: Red · C: Blue".</summary>
+	static string ChoiceText(Question q, IEnumerable<int> picks) =>
+		string.Join(" · ", picks.Select(i => $"{QuizRules.ChoiceLetters[i]}: {q.Choices[i]}"));
 
 	public static string ImageKey(int index) => $"q{index}/image";
 	public static string MapKey(int index) => $"q{index}/map";
@@ -385,7 +404,7 @@ public sealed class Game
 	string HostAnswer()
 	{
 		var q = Question;
-		if (q.Type == QuestionType.Classic) return q.IsChoice ? ChoiceText(q) : q.AnswerText;
+		if (q.Type == QuestionType.Classic) return q.IsChoice ? ChoiceText(q, q.CorrectSet) : q.AnswerText;
 		if (q.Type == QuestionType.Estimation) return $"{Fmt(q.AnswerNumber ?? 0)}{(q.Unit != "" ? " " + q.Unit : "")}";
 		if (q.Type == QuestionType.MapPin) return Lang.T("The marked spot on the map (shown at the reveal).");
 		return q.AnswerText;

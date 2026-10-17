@@ -76,6 +76,7 @@ public static class QuizJson
 				o["answer"] = q.AnswerText;
 				o["choices"] = new JsonArray(q.Choices.Select(c => (JsonNode)JsonValue.Create(c)!).ToArray());
 				o["correctChoice"] = q.CorrectChoice;
+				o["correctChoices"] = new JsonArray(q.CorrectChoices.Select(i => (JsonNode)JsonValue.Create(i)!).ToArray());
 				o["timeLimitSec"] = q.TimeLimitSec;
 				break;
 			case QuestionType.Sound:
@@ -116,7 +117,8 @@ public static class QuizJson
 		q.Prompt = Str(o, "prompt", q.Prompt);
 		q.Points = (int)Num(o, "points", q.Points);
 		q.Image = ReadImage(o["image"]);
-		q.Mode = Str(o, "mode", ClassicMode.Buzzer) == ClassicMode.Choice ? ClassicMode.Choice : ClassicMode.Buzzer;
+		var mode = Str(o, "mode", ClassicMode.Buzzer);
+		q.Mode = mode is ClassicMode.Choice or ClassicMode.Multi ? mode : ClassicMode.Buzzer;
 		if (o["answer"] is JsonValue a)
 		{
 			if (a.TryGetValue<string>(out var s)) q.AnswerText = s;
@@ -129,6 +131,8 @@ public static class QuizJson
 			q.Choices = list;
 		}
 		q.CorrectChoice = (int)Num(o, "correctChoice", 0);
+		if (o["correctChoices"] is JsonArray correct)
+			q.CorrectChoices = correct.Select(c => c is JsonValue v && v.TryGetValue<double>(out var n) ? (int)n : -1).Where(i => i is >= 0 and < 4).Distinct().ToList();
 		q.TimeLimitSec = (int)Num(o, "timeLimitSec", q.TimeLimitSec);
 		if (o["media"] is JsonObject m)
 		{

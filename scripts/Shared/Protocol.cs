@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -101,14 +102,16 @@ public sealed class RoomState
 		Players.Find(p => p.Id == id) ?? new PublicPlayer { Id = id, Name = "Someone", Color = "#8b8fa3" };
 }
 
-/// <summary>A number (estimation), a choice index (A–D) or a point on the map (map pin).</summary>
+/// <summary>A number (estimation), a choice index (A–D), several choice indexes (multi) or a point on the map (map pin).</summary>
 public sealed class AnswerValue
 {
 	public double? Num;
 	public NormPoint? Point;
+	public List<int>? Picks;
 
 	public static AnswerValue Number(double n) => new() { Num = n };
 	public static AnswerValue At(NormPoint p) => new() { Point = p };
+	public static AnswerValue Picked(IEnumerable<int> picks) => new() { Picks = picks.ToList() };
 }
 
 /// <summary>Where players can get a question's map. Built-in maps ship with the game.</summary>
@@ -172,9 +175,9 @@ public sealed class RevealView
 	/// <summary>Sound/video: seconds of playback it took until someone guessed it correctly.</summary>
 	public double? GuessTimeSec;
 	public List<RevealEntry> Entries = new();
-	/// <summary>Choice mode: how many picked each letter, and which one was right.</summary>
+	/// <summary>Choice modes: how many picked each letter, and which ones were right.</summary>
 	public int[]? Counts;
-	public int? CorrectIndex;
+	public List<int>? CorrectIndices;
 }
 
 public sealed class GameView

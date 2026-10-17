@@ -98,7 +98,7 @@ public sealed class DevTools
 		{
 			TakesOver = true;
 			var quiz = QuizStore.Save(SampleQuiz.Build());
-			var q = quiz.Questions.FirstOrDefault(x => x.Type == type || (type == "choice" && x.IsChoice)) ?? quiz.Questions[0];
+			var q = quiz.Questions.FirstOrDefault(x => x.Type == type || (type == "choice" && x.Mode == ClassicMode.Choice) || (type == "multi" && x.IsMulti)) ?? quiz.Questions[0];
 			_app.GoQuestion(quiz.Id, q.Id, null);
 		}
 		else if (Has("--video-guide"))
@@ -287,6 +287,7 @@ public sealed class DevTools
 				var q = g.Question;
 				var index = g.Index;
 				_action = q.Buzzer ? client.Buzz
+					: q.Mode == ClassicMode.Multi ? () => client.Answer(index, AnswerValue.Picked(new[] { RandomChoice(q), RandomChoice(q) }), _ => { })
 					: q.Choices != null ? () => client.Answer(index, AnswerValue.Number(RandomChoice(q)), _ => { })
 					: q.Type == QuestionType.Estimation ? () => client.Answer(index, AnswerValue.Number(_rng.Next(60, 120)), _ => { })
 					: () => client.Answer(index, AnswerValue.At(new NormPoint(0.3 + _rng.NextDouble() * 0.4, 0.3 + _rng.NextDouble() * 0.4)), _ => { });

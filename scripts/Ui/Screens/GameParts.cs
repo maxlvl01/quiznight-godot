@@ -93,7 +93,7 @@ public static class GameParts
 		{
 			if (q.Choices![i] is not { } text) continue;
 			var color = C.Choice[i];
-			var correct = reveal?.CorrectIndex == i;
+			var correct = reveal?.CorrectIndices?.Contains(i) == true;
 			var bg = correct ? C.Panel2.Lerp(color, 0.22f) : C.Panel2;
 			var tile = U.Panel(GameParts.Row(14, Letter(i, 44), U.Text(text, 22, null, Fonts.Bold, true).Raw(),
 				reveal?.Counts is { } counts ? U.Mono($"{counts[i]}", 20, C.Muted) : U.Gap(0)), "Clear").Grow();

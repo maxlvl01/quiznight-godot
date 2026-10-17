@@ -43,8 +43,9 @@ public static class SelfTest
 	{
 		Rules();
 		Files();
-		foreach (var b in Storage.Sfx.Buzzers) Check(ResourceLoader.Exists(b.Path), $"buzzer sound {b.Id} is in the game");
-		Check(ResourceLoader.Exists(Storage.Sfx.PodiumJingle), "podium jingle is in the game");
+		// Load, not just Exists: an Opus .ogg exists but Godot can't import it.
+		foreach (var b in Storage.Sfx.Buzzers) Check(ResourceLoader.Load<AudioStream>(b.Path) != null, $"buzzer sound {b.Id} plays");
+		Check(ResourceLoader.Load<AudioStream>(Storage.Sfx.PodiumJingle) != null, "podium jingle plays (must be Ogg Vorbis, MP3 or WAV — not Opus)");
 		Atlas();
 		Protocol();
 		await Network(node);
@@ -101,17 +102,21 @@ public static class SelfTest
 		room.Next();
 		Eq(g.Index, 1, "next question");
 		Check(g.View("host").EndsAt != null, "choice has a timer");
+		// Answers are shuffled for the game, so find where "29" ended up.
+		var right = g.Question.CorrectChoice;
+		Eq(g.Question.Choices[right], "29", "shuffled choice keeps its right answer");
+		Eq(quiz.Questions[1].CorrectChoice, 2, "the quiz itself isn't shuffled");
 		Check(!g.Answer("ann", 1, AnswerValue.Number(7)).Ok, "invalid choice rejected");
-		Check(g.Answer("ann", 1, AnswerValue.Number(2)).Ok, "ann answers");
+		Check(g.Answer("ann", 1, AnswerValue.Number(right)).Ok, "ann answers");
 		Check(!g.Answer("ann", 1, AnswerValue.Number(1)).Ok, "no second answer");
-		Eq(g.View("ann").MyAnswer?.Num, 2.0, "my answer visible to me");
+		Eq(g.View("ann").MyAnswer?.Num, (double)right, "my answer visible to me");
 		Check(g.View("bob").MyAnswer == null, "not to others");
-		g.Answer("bob", 1, AnswerValue.Number(0));
+		g.Answer("bob", 1, AnswerValue.Number((right + 1) % 4));
 		Eq(g.Stage, Stage.Open, "still waiting for cat");
 		room.Disconnect("cat");
 		Eq(g.Stage, Stage.Reveal, "reveals when the last missing player leaves");
 		Eq(room.Scores["ann"], 3, "choice points");
-		Eq(g.View("host").Reveal!.Counts![2], 1, "counts");
+		Eq(g.View("host").Reveal!.Counts![right], 1, "counts");
 
 		// Estimation with a timer that runs out.
 		room.Join("cat", "cat");
@@ -150,7 +155,24 @@ public static class SelfTest
 		g.BuzzIn("cat");
 		g.Judge(true);
 		Eq(g.View("host").Reveal!.GuessTimeSec, 2.5, "guess time ignores pauses");
+
+		// Multiple choice: only exactly the right answers score.
 		room.Next();
+		Check(g.Question.IsMulti, "multi question");
+		var rightSet = g.Question.CorrectSet;
+		Eq(string.Join(",", rightSet.Select(i => g.Question.Choices[i]).OrderBy(s => s)), "Mars,Venus", "shuffled multi keeps its right answers");
+		Check(!g.Answer("ann", 7, AnswerValue.Picked(new int[0])).Ok, "empty multi answer rejected");
+		Check(!g.Answer("ann", 7, AnswerValue.Picked(new[] { 9 })).Ok, "invalid multi answer rejected");
+		var before = (Ann: room.Scores["ann"], Bob: room.Scores["bob"], Cat: room.Scores["cat"]);
+		Check(g.Answer("ann", 7, AnswerValue.Picked(rightSet.AsEnumerable().Reverse())).Ok, "ann picks both");
+		g.Answer("bob", 7, AnswerValue.Picked(rightSet.Take(1)));
+		g.Answer("cat", 7, AnswerValue.Picked(new[] { 0, 1, 2, 3 }));
+		Eq(g.Stage, Stage.Reveal, "multi reveals when all answered");
+		Eq(room.Scores["ann"] - before.Ann, 2, "exact set scores");
+		Eq(room.Scores["bob"] - before.Bob, 0, "half the set doesn't");
+		Eq(room.Scores["cat"] - before.Cat, 0, "picking everything doesn't");
+		Eq(string.Join(",", g.View("host").Reveal!.CorrectIndices!), string.Join(",", rightSet), "reveal marks both");
+		Eq(g.View("host").Reveal!.Counts![rightSet[0]], 3, "multi counts");
 		room.Next();
 		Eq(room.Phase, Phase.Finished, "podium after the last question");
 
@@ -191,6 +213,15 @@ public static class SelfTest
 
 		var again = QuizJson.Parse(QuizJson.Write(quiz), out _)!;
 		Eq(QuizJson.Write(again), QuizJson.Write(quiz), "write/read round trip");
+		var multi = Dev.SampleQuiz.Build().Questions.First(x => x.IsMulti).Clone();
+		Eq(multi.Mode, ClassicMode.Multi, "multi mode is saved");
+		Eq(string.Join(",", multi.CorrectChoices), "0,1", "multi correct answers are saved");
+		// Shuffling moves the right answer around (over many games it can't always stay first).
+		var choiceQ = new Question { Type = QuestionType.Classic, Mode = ClassicMode.Choice, Choices = new() { "a", "", "c", "d" }, CorrectChoice = 0 };
+		var rng = new Random(1);
+		var spots = Enumerable.Range(0, 40).Select(_ => QuizRules.ShuffleChoices(choiceQ, rng)).ToList();
+		Check(spots.All(s => s.Choices.Count == 3 && s.Choices[s.CorrectChoice] == "a"), "shuffle drops empty answers, keeps the right one");
+		Check(spots.Select(s => s.CorrectChoice).Distinct().Count() == 3, "shuffle puts the right answer in every spot");
 		var clone = quiz.Questions[1].Clone();
 		Eq(clone.Points, 2, "clone keeps numbers");
 		Eq(clone.AnswerNumber, 330.0, "clone keeps answer");

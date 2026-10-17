@@ -123,16 +123,27 @@ public partial class QuestionEditorScreen : Control
 	{
 		var choice = _draft.IsChoice;
 		var left = U.V(14, PromptArea("e.g. How many hours did we play last month?"),
-			U.Segmented(new[] { (ClassicMode.Buzzer, "Buzzer — first to buzz says the answer"), (ClassicMode.Choice, "A B C D — everyone picks") },
+			U.Segmented(new[]
+				{
+					(ClassicMode.Buzzer, "Buzzer — first to buzz"),
+					(ClassicMode.Choice, "Pick one — one is right"),
+					(ClassicMode.Multi, "Multiple choice — several right"),
+				},
 				_draft.Mode, mode =>
 				{
+					// Keep the marked answer when switching between the two choice modes.
+					if (mode == ClassicMode.Multi && _draft.CorrectChoices.Count == 0) _draft.CorrectChoices = new() { _draft.CorrectChoice };
+					if (mode == ClassicMode.Choice && _draft.CorrectChoices.Count > 0) _draft.CorrectChoice = _draft.CorrectChoices.Min();
 					_draft.Mode = mode;
 					Changed(true);
 				}));
 		if (choice)
 		{
-			var rows = U.V(8, U.Muted("Answers — click a letter to mark the correct one. Leave answers empty to use fewer.", 13));
+			var rows = U.V(8, U.Muted(_draft.IsMulti
+				? "Answers — tick every correct one. Leave answers empty to use fewer."
+				: "Answers — tick the correct one. Leave answers empty to use fewer.", 13));
 			for (var i = 0; i < 4; i++) rows.AddChild(ChoiceRow(i));
+			rows.AddChild(U.Muted("The order doesn't matter: answers are shuffled every time you host, so players can't learn where the right one usually is.", 13));
 			left.AddChild(rows);
 		}
 		else
@@ -148,7 +159,9 @@ public partial class QuestionEditorScreen : Control
 		var settings = new List<Control>();
 		if (choice) settings.Add(RoundSettings.TimeLimit(_draft, () => Changed()));
 		settings.Add(RoundSettings.Points(_draft, () => Changed()));
-		settings.Add(U.Muted(choice
+		settings.Add(U.Muted(_draft.IsMulti
+			? "Everyone picks all the answers they think are right on their own screen. Only players who pick exactly the right ones get the points. The answer is revealed when everyone has answered, the time runs out, or you reveal it."
+			: choice
 			? "Everyone picks A, B, C or D on their own screen. Everyone who picks the right one gets the points. The answer is revealed when everyone has answered, the time runs out, or you reveal it."
 			: "Players buzz in; the fastest answers first. You mark answers Correct or Wrong, and on Wrong the next in line gets a go. A correct answer reveals it; if nobody knows, you reveal it. Answer time per buzz is set in the lobby.", 13));
 		return Columns((left, 1.6f), (RoundSettings.Panel(settings.ToArray()), 1));
@@ -156,18 +169,20 @@ public partial class QuestionEditorScreen : Control
 
 	Control ChoiceRow(int i)
 	{
-		var correct = _draft.CorrectChoice == i;
-		var letter = U.Btn(QuizRules.ChoiceLetters[i], correct ? "TealButton" : "", () =>
+		var correct = _draft.CorrectSet.Contains(i);
+		var mark = U.Btn("✓", correct ? "TealButton" : "", () =>
 		{
-			_draft.CorrectChoice = i;
+			if (!_draft.IsMulti) _draft.CorrectChoice = i;
+			else if (!_draft.CorrectChoices.Remove(i)) _draft.CorrectChoices.Add(i);
 			Changed(true);
-		}).MinSize(44).Tip(Lang.F("Mark {0} as correct", QuizRules.ChoiceLetters[i]));
-		var input = U.Input(_draft.Choices[i], Lang.F("Answer {0}", QuizRules.ChoiceLetters[i]), t =>
+		}).MinSize(44).Tip(correct && _draft.IsMulti ? "Mark as wrong" : "Mark as correct");
+		if (!correct) mark.AddThemeColorOverride("font_color", C.Border);
+		var input = U.Input(_draft.Choices[i], i == 0 ? "An answer" : "Another answer", t =>
 		{
 			_draft.Choices[i] = t;
 			Changed();
 		}, 120);
-		var row = U.H(8, letter, input);
+		var row = U.H(8, mark, input);
 		if (correct) row.AddChild(U.Pill("Correct", C.Teal));
 		return row;
 	}

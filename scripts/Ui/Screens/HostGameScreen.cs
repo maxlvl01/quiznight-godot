@@ -90,6 +90,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 			if (q.ImageKey != null && !(q.Type == QuestionType.MapPin && reveal != null))
 				box.AddChild(new AssetImage(_assets, q.ImageKey, 440));
 			if (q.Choices != null) box.AddChild(GameParts.ChoiceGrid(game));
+			if (reveal == null && q.Mode == ClassicMode.Multi) box.AddChild(U.Muted("Several answers can be right — players pick all they think are.", 16));
 			if (reveal == null && q.Type == QuestionType.Estimation)
 				box.AddChild(U.Muted(string.IsNullOrEmpty(q.Unit) ? Lang.T("Everyone types a number on their own screen.") : Lang.F("Everyone types a number in {0} on their own screen.", q.Unit), 16));
 			if (reveal == null && q.Type == QuestionType.MapPin) box.AddChild(U.Muted("Everyone places a pin on the map on their own screen.", 16));

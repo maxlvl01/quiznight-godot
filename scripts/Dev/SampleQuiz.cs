@@ -58,6 +58,11 @@ public static class SampleQuiz
 				Id = "q7", Type = QuestionType.Sound, Prompt = "Name this sound!", AnswerText = "A beep", Points = 1,
 				Media = new MediaAsset { Mime = "audio/wav", Name = "beep.wav", DataUrl = DataUrl.Make("audio/wav", Beep(4)), DurationSec = 4 },
 			},
+			new()
+			{
+				Id = "q8", Type = QuestionType.Classic, Mode = ClassicMode.Multi, Prompt = "Which of these are planets?",
+				Choices = new() { "Mars", "Venus", "Pluto", "The Moon" }, CorrectChoices = new() { 0, 1 }, TimeLimitSec = 20, Points = 2,
+			},
 		};
 		return new Quiz
 		{
