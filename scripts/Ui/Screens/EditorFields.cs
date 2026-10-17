@@ -142,7 +142,9 @@ public partial class MediaField : VBoxContainer
 			_body.AddChild(U.Panel(U.V(4, U.Muted(hint, 14, true, HorizontalAlignment.Center),
 					U.Muted("Click below or drop the file on this window.", 12, true, HorizontalAlignment.Center))
 				.MinSize(0, 90).With(v => v.Alignment = BoxContainer.AlignmentMode.Center), "Inset"));
-			_body.AddChild(U.H(6, U.Small("Choose file…", PickFile)));
+			var row = U.H(6, U.Small("Choose file…", PickFile));
+			if (!IsSound) row.AddChild(U.Link("Have an MP4? Here's how to convert it", () => ShowGuide(null), 14));
+			_body.AddChild(row);
 			return;
 		}
 		var duration = _media.DurationSec is { } d ? $" · {U.Clock(Math.Round(d))}" : "";
@@ -208,8 +210,15 @@ public partial class MediaField : VBoxContainer
 
 	void PickFile() => Dialogs.OpenFile(this, IsSound ? "Pick a sound file" : "Pick a video", IsSound ? Media.SoundFilters : Media.VideoFilters, LoadFile);
 
+	void ShowGuide(string? video) => VideoGuide.Show(this, video, LoadFile);
+
 	public void LoadFile(string path)
 	{
+		if (!IsSound && Media.IsConvertibleVideo(path))
+		{
+			ShowGuide(path);
+			return;
+		}
 		try
 		{
 			Set(Media.ReadFile(path, _type));

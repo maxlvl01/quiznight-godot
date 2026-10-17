@@ -12,11 +12,23 @@ namespace QuizNight.Storage;
 public static class Media
 {
 	public static readonly string[] SoundFilters = { "*.mp3, *.ogg, *.wav ; Sound files" };
-	public static readonly string[] VideoFilters = { "*.ogv ; Ogg Theora video" };
+	// MP4 & co. are listed so they can be picked: picking one opens the conversion guide (VideoGuide).
+	public static readonly string[] VideoFilters = { "*.ogv, *.mp4, *.webm, *.mov, *.mkv, *.avi, *.m4v ; Videos" };
 
 	public const string VideoHelp =
 		"Godot can only play .ogv (Ogg Theora) videos. Convert MP4/WebM files first, e.g. with ffmpeg: " +
 		"ffmpeg -i trailer.mp4 -q:v 7 -q:a 5 trailer.ogv";
+
+	/// <summary>A video Godot can't play but ffmpeg can convert to .ogv.</summary>
+	public static bool IsConvertibleVideo(string path) =>
+		path.GetExtension().ToLowerInvariant() is "mp4" or "webm" or "mov" or "mkv" or "avi" or "m4v";
+
+	/// <summary>
+	/// ffmpeg command for an .ogv Godot plays well: Theora video at most 1280 px wide (smaller videos keep
+	/// their size), Vorbis audio, good quality. -y overwrites an older conversion with the same name.
+	/// </summary>
+	public static string ConvertCommand(string input, string output) =>
+		$"ffmpeg -y -i \"{input}\" -vf \"scale='min(1280,iw)':-2\" -c:v libtheora -q:v 7 -c:a libvorbis -q:a 5 \"{output}\"";
 
 	static string MimeFor(string ext) => ext switch
 	{

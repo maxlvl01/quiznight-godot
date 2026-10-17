@@ -243,6 +243,36 @@ public static class LangDe
 		["Export failed: {0}"] = "Export fehlgeschlagen: {0}",
 		["That file is not a quiz file."] = "Diese Datei ist keine Quizdatei.",
 
+		// ---------- MP4 → .ogv guide ----------
+		["Have an MP4? Here's how to convert it"] = "Hast du eine MP4? So wandelst du sie um",
+		["*.ogv, *.mp4, *.webm, *.mov, *.mkv, *.avi, *.m4v ; Videos"] = "*.ogv, *.mp4, *.webm, *.mov, *.mkv, *.avi, *.m4v ; Videos",
+		["Turn your video into an .ogv file"] = "Video in eine .ogv-Datei umwandeln",
+		["Close"] = "Schließen",
+		["your-video.mp4"] = "dein-video.mp4",
+		["your-video.ogv"] = "dein-video.ogv",
+		["Your video: {0}"] = "Dein Video: {0}",
+		["No video picked yet."] = "Noch kein Video gewählt.",
+		["The new file will be: {0}"] = "Die neue Datei wird: {0}",
+		["Pick your video…"] = "Dein Video wählen…",
+		["Use the converted video"] = "Umgewandeltes Video verwenden",
+		["Pick your video in step 2 first."] = "Wähle zuerst in Schritt 2 dein Video.",
+		["The .ogv file isn't there yet. Wait until the terminal is finished, then try again."] =
+			"Die .ogv-Datei ist noch nicht da. Warte, bis das Terminal fertig ist, und versuch es dann noch mal.",
+		["Quiznight can only play videos in the .ogv format. A free tool called ffmpeg turns your MP4 (or WebM, MOV, MKV) into one. It takes three steps."] =
+			"Quiznight kann nur Videos im .ogv-Format abspielen. Das kostenlose Programm ffmpeg wandelt deine MP4 (oder WebM, MOV, MKV) um. Das geht in drei Schritten.",
+		["Install ffmpeg (only the very first time)"] = "ffmpeg installieren (nur beim allerersten Mal)",
+		["Press the Windows key, type Terminal and press Enter. Then paste this line (Ctrl+V) and press Enter:"] =
+			"Drück die Windows-Taste, tippe Terminal und drück Enter. Füge dann diese Zeile ein (Strg+V) und drück Enter:",
+		["If it asks you to agree, type Y and press Enter. When it says \"Successfully installed\", close the window."] =
+			"Wenn du zustimmen sollst, tippe Y und drück Enter. Wenn „Successfully installed“ erscheint, schließ das Fenster.",
+		["Convert your video"] = "Dein Video umwandeln",
+		["Open the Terminal again (a new window, so it finds ffmpeg), paste this line and press Enter:"] =
+			"Öffne das Terminal noch mal (ein neues Fenster, damit es ffmpeg findet), füge diese Zeile ein und drück Enter:",
+		["Lots of text will scroll by. It's done when it stops and you can type again — a few seconds for a short clip, up to a minute or two for a long trailer."] =
+			"Es läuft viel Text durch. Fertig ist es, wenn er stoppt und du wieder tippen kannst – ein paar Sekunden bei einem kurzen Clip, bis zu ein, zwei Minuten bei einem langen Trailer.",
+		["Use it in your question"] = "In deiner Frage verwenden",
+		["Copy"] = "Kopieren",
+
 		// ---------- maps ----------
 		["Map: {0}"] = "Karte: {0}",
 		["Zoom in"] = "Hineinzoomen",

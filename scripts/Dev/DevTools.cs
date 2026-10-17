@@ -7,6 +7,7 @@
 //   --open TYPE                    open the editor on the sample quiz's question of that type
 //   --screen home|quizzes|quiz|settings  open that screen
 //   --lang en|de                   use that language this run (not saved)
+//   --video-guide [FILE]           open a new video question with the MP4 → .ogv guide
 //   --shot FILE [--after SEC]      save a screenshot after SEC seconds (default 2) and quit
 //   --shots DIR                    save a screenshot of every new game moment into DIR
 
@@ -99,6 +100,14 @@ public sealed class DevTools
 			var quiz = QuizStore.Save(SampleQuiz.Build());
 			var q = quiz.Questions.FirstOrDefault(x => x.Type == type || (type == "choice" && x.IsChoice)) ?? quiz.Questions[0];
 			_app.GoQuestion(quiz.Id, q.Id, null);
+		}
+		else if (Has("--video-guide"))
+		{
+			TakesOver = true;
+			var quiz = QuizStore.Save(SampleQuiz.Build());
+			_app.GoQuestion(quiz.Id, null, QuestionType.Video);
+			var video = Value("--video-guide") is { } v && !v.StartsWith("--") ? v : null;
+			Callable.From(() => Ui.Screens.VideoGuide.Show(_app.CurrentScreen!, video, _ => { })).CallDeferred();
 		}
 		else if (Value("--screen") is { } screen)
 		{
