@@ -1,0 +1,476 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Godot;
+using QuizNight.Shared;
+using QuizNight.Storage;
+
+namespace QuizNight.Ui.Screens;
+
+/// <summary>Edits one question. Changes stay in a draft until "Save question", so backing out discards them.</summary>
+public partial class QuestionEditorScreen : Control
+{
+	readonly Quiz _quiz;
+	readonly Question _draft;
+	readonly List<MapAsset> _maps;
+	readonly bool _isNew;
+	bool _dirty;
+	readonly Label _issues = U.Text("", 13, C.Muted, null, true);
+	readonly VBoxContainer _form = U.V(16);
+	ImageField? _primaryImage;
+	MediaField? _mediaField;
+
+	public QuestionEditorScreen() : this(new Quiz(), QuizRules.NewQuestion(QuestionType.Classic, "x"), true) { }
+
+	public QuestionEditorScreen(Quiz quiz, Question question, bool isNew)
+	{
+		_quiz = quiz;
+		_draft = question.Clone();
+		_maps = quiz.Maps.Select(m => m.Clone()).ToList();
+		_isNew = isNew;
+		SetAnchorsPreset(LayoutPreset.FullRect);
+
+		var title = QuestionType.Infos[_draft.Type].Label + (_draft.Type == QuestionType.Classic ? "" : " question");
+		var bar = U.Panel(U.H(12,
+			U.Link("← Back to quiz", Back, 14),
+			U.Heading(title, 22, false).Grow().With(l => l.HorizontalAlignment = HorizontalAlignment.Center),
+			U.Btn("Save question", "AccentButton", Save, 15)), "Bar");
+		var body = U.V(12, _issues, _form);
+		var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.GrowV();
+		scroll.AddChild(U.Pad(body.Grow(), 28, 16, 28, 28).Grow());
+		var layout = U.V(0, bar, scroll);
+		layout.SetAnchorsPreset(LayoutPreset.FullRect);
+		AddChild(layout);
+		BuildForm();
+	}
+
+	void Changed(bool rebuild = false)
+	{
+		_dirty = true;
+		if (rebuild) BuildForm();
+		else UpdateIssues();
+	}
+
+	void UpdateIssues()
+	{
+		var issues = QuizRules.QuestionIssues(_draft, _maps);
+		if (issues.Count == 0)
+		{
+			_issues.Text = "✓ Ready to play.";
+			_issues.AddThemeColorOverride("font_color", C.Teal);
+		}
+		else
+		{
+			_issues.Text = $"Still missing: {string.Join(" ", issues)} You can save anyway and finish it later.";
+			_issues.AddThemeColorOverride("font_color", C.Muted);
+		}
+	}
+
+	void BuildForm()
+	{
+		_form.Clear();
+		_primaryImage = null;
+		_mediaField = null;
+		_form.AddChild(_draft.Type switch
+		{
+			QuestionType.Classic => ClassicForm(),
+			QuestionType.Estimation => EstimationForm(),
+			QuestionType.MapPin => MapPinForm(),
+			_ => MediaForm(),
+		});
+		UpdateIssues();
+	}
+
+	static HBoxContainer Columns(params (Control Col, float Ratio)[] cols)
+	{
+		var row = U.H(24);
+		foreach (var (col, ratio) in cols)
+		{
+			col.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+			col.SizeFlagsStretchRatio = ratio;
+			row.AddChild(col);
+		}
+		return row;
+	}
+
+	Control PromptArea(string placeholder) =>
+		U.Field("Question", U.Area(_draft.Prompt, placeholder, t =>
+		{
+			_draft.Prompt = t;
+			Changed();
+		}, 3, QuestionLimits.PromptMaxLength));
+
+	Control PromptLine() =>
+		U.Field("Question text", U.Input(_draft.Prompt, "", t =>
+		{
+			_draft.Prompt = t;
+			Changed();
+		}, QuestionLimits.PromptMaxLength));
+
+	ImageField OptionalImage()
+	{
+		_primaryImage = new ImageField(_draft.Image, img =>
+		{
+			_draft.Image = img;
+			Changed();
+		}, Images.ScreenshotMax, "No image (optional)");
+		return _primaryImage;
+	}
+
+	// ---------- classic ----------
+
+	Control ClassicForm()
+	{
+		var choice = _draft.IsChoice;
+		var left = U.V(14, PromptArea("e.g. How many hours did we play last month?"),
+			U.Segmented(new[] { (ClassicMode.Buzzer, "Buzzer — first to buzz says the answer"), (ClassicMode.Choice, "A B C D — everyone picks") },
+				_draft.Mode, mode =>
+				{
+					_draft.Mode = mode;
+					Changed(true);
+				}));
+		if (choice)
+		{
+			var rows = U.V(8, U.Muted("Answers — click a letter to mark the correct one. Leave answers empty to use fewer.", 13));
+			for (var i = 0; i < 4; i++) rows.AddChild(ChoiceRow(i));
+			left.AddChild(rows);
+		}
+		else
+		{
+			left.AddChild(U.Field("Correct answer (only you see this)", U.Input(_draft.AnswerText, "", t =>
+			{
+				_draft.AnswerText = t;
+				Changed();
+			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold))));
+		}
+		left.AddChild(U.Field("Image (optional)", OptionalImage()));
+
+		var settings = new List<Control>();
+		if (choice) settings.Add(RoundSettings.TimeLimit(_draft, () => Changed()));
+		settings.Add(RoundSettings.Points(_draft, () => Changed()));
+		settings.Add(U.Muted(choice
+			? "Everyone picks A, B, C or D on their own screen. Everyone who picks the right one gets the points. The answer is revealed when everyone has answered, the time runs out, or you reveal it."
+			: "Players buzz in; the fastest answers first. You mark answers Correct or Wrong, and on Wrong the next in line gets a go. A correct answer reveals it; if nobody knows, you reveal it. Answer time per buzz is set in the lobby.", 13));
+		return Columns((left, 1.6f), (RoundSettings.Panel(settings.ToArray()), 1));
+	}
+
+	Control ChoiceRow(int i)
+	{
+		var correct = _draft.CorrectChoice == i;
+		var letter = U.Btn(QuizRules.ChoiceLetters[i], correct ? "TealButton" : "", () =>
+		{
+			_draft.CorrectChoice = i;
+			Changed(true);
+		}).MinSize(44).Tip($"Mark {QuizRules.ChoiceLetters[i]} as correct");
+		var input = U.Input(_draft.Choices[i], $"Answer {QuizRules.ChoiceLetters[i]}", t =>
+		{
+			_draft.Choices[i] = t;
+			Changed();
+		}, 120);
+		var row = U.H(8, letter, input);
+		if (correct) row.AddChild(U.Pill("Correct", C.Teal));
+		return row;
+	}
+
+	// ---------- estimation ----------
+
+	Control EstimationForm()
+	{
+		var left = U.V(14, PromptArea("e.g. How many hours did we play last month?"),
+			U.H(12,
+				U.Field("Correct number", new NumberField(_draft.AnswerNumber, v =>
+				{
+					_draft.AnswerNumber = v;
+					Changed();
+				}, placeholder: "e.g. 42")),
+				U.Field("Unit (optional)", U.Input(_draft.Unit, "e.g. hours", t =>
+				{
+					_draft.Unit = t;
+					Changed();
+				}, 20))),
+			U.Field("Image (optional)", OptionalImage()));
+		return Columns((left, 1.6f), (RoundSettings.Closeness(_draft, () => Changed()), 1));
+	}
+
+	// ---------- sound / video ----------
+
+	Control MediaForm()
+	{
+		var isSound = _draft.Type == QuestionType.Sound;
+		_mediaField = new MediaField(_draft.Media, _draft.Type, m =>
+		{
+			_draft.Media = m;
+			Changed();
+		});
+		var left = U.V(14, U.Field("Question", U.Input(_draft.Prompt, "", t =>
+			{
+				_draft.Prompt = t;
+				Changed();
+			}, QuestionLimits.PromptMaxLength)),
+			U.Field(isSound ? "Song or sound effect" : "Trailer or video", _mediaField),
+			U.Field("Correct answer (only you see this)", U.Input(_draft.AnswerText, isSound ? "e.g. Dragonborn – Skyrim" : "e.g. Elden Ring", t =>
+			{
+				_draft.AnswerText = t;
+				Changed();
+			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold))));
+		var settings = RoundSettings.Panel(
+			U.Field("Start playing at (seconds)", new NumberField(_draft.StartSec, v =>
+			{
+				_draft.StartSec = Math.Max(0, v ?? 0);
+				Changed();
+			}, 0, _draft.Media?.DurationSec), "Skip a silent intro or a title card that gives it away."),
+			RoundSettings.Points(_draft, () => Changed()),
+			U.Muted($"{(isSound ? "The sound" : "The video")} plays on your screen. Players buzz in on their own PC; playback pauses while someone answers and you mark it Correct or Wrong. Once it's guessed, everyone sees how many seconds of {(isSound ? "listening" : "watching")} it took. Answer time per buzz is set in the lobby.", 13));
+		return Columns((left, 1.6f), (settings, 1));
+	}
+
+	// ---------- map pin ----------
+
+	VBoxContainer _mapCol = U.V(10);
+	readonly Dictionary<string, Texture2D?> _mapTextures = new();
+	bool _addingMap;
+	const string NewMap = "__new";
+	const string PresetPrefix = "preset:";
+
+	Control MapPinForm()
+	{
+		_primaryImage = new ImageField(_draft.Image, img =>
+		{
+			_draft.Image = img;
+			Changed();
+		}, Images.ScreenshotMax, "The screenshot players have to locate.", false);
+		var left = U.V(14, U.Bold("1 · Screenshot", 16), _primaryImage, PromptLine());
+		_mapCol = U.V(10);
+		BuildMapColumn();
+		var check = new CheckBox { Text = "Players must buzz in first", ButtonPressed = _draft.BuzzFirst };
+		check.Toggled += on =>
+		{
+			_draft.BuzzFirst = on;
+			Changed();
+		};
+		var right = RoundSettings.Closeness(_draft, () => Changed(), U.V(4, check,
+			U.Muted("Not used in the game yet. Answer time per buzz is a game rule, set in the lobby.", 12)));
+		return Columns((left, 1), (_mapCol, 1.5f), (right, 0.8f));
+	}
+
+	MapAsset? CurrentMap => _maps.FirstOrDefault(m => m.Id == _draft.MapId);
+
+	Texture2D? MapTexture(MapAsset map)
+	{
+		if (MapPresets.Get(map.PresetId) is { } preset) return Images.BuiltinTexture(preset.ImagePath);
+		if (!_mapTextures.TryGetValue(map.Id, out var tex))
+		{
+			tex = map.Image.DataUrl != "" ? Images.TextureFromDataUrl(map.Image.DataUrl) : null;
+			_mapTextures[map.Id] = tex;
+		}
+		return tex;
+	}
+
+	void BuildMapColumn()
+	{
+		_mapCol.Clear();
+		_mapCol.AddChild(U.Bold("2 · Map and correct spot", 16));
+
+		var items = new List<(string, string)> { ("", "Choose a map…") };
+		items.AddRange(_maps.Select(m => (m.Id, m.Name)));
+		items.AddRange(MapPresets.All.Where(p => _maps.All(m => m.PresetId != p.Id)).Select(p => (PresetPrefix + p.Id, $"{p.Name}  (built-in)")));
+		items.Add((NewMap, "+ Upload a new map"));
+		_mapCol.AddChild(U.Select(items.ToArray(), _addingMap ? NewMap : _draft.MapId ?? "", id =>
+		{
+			_addingMap = id == NewMap;
+			if (id.StartsWith(PresetPrefix)) ChoosePreset(id[PresetPrefix.Length..]);
+			else if (!_addingMap)
+			{
+				_draft.MapId = id == "" ? null : id;
+				_draft.Target = null;
+				Changed();
+			}
+			BuildMapColumn();
+		}));
+
+		var map = CurrentMap;
+		if (_addingMap)
+		{
+			_mapCol.AddChild(MapUploader());
+			return;
+		}
+		if (map == null)
+		{
+			_mapCol.AddChild(U.Panel(U.Muted("Pick a game map or upload your own above.", 14, true, HorizontalAlignment.Center).MinSize(0, 120), "Inset"));
+			return;
+		}
+
+		var hint = U.Muted("", 13);
+		void UpdateHint(bool wow) => hint.Text = wow
+			? (_draft.Target != null ? "Correct spot set. Click again in any zone to move it." : "Open the zone and click to set the correct spot.") +
+			  " Players see how far off they were in game distance (yards converted to km/m); a guess on the wrong continent always counts as far away."
+			: _draft.Target != null ? "Correct spot set. Click again to move it." : "Click the map to set the correct spot. Scroll to zoom, drag to move.";
+
+		var credit = MapPresets.Get(map.PresetId)?.Credit;
+		if (map.PresetId == WowAtlas.PresetId)
+		{
+			_mapCol.AddChild(new WowAtlasView(_draft.Target, p =>
+			{
+				_draft.Target = p;
+				Changed();
+				UpdateHint(true);
+			}));
+			UpdateHint(true);
+			_mapCol.AddChild(hint);
+		}
+		else
+		{
+			var view = new MapView(map.Name, MapTexture(map), map.Image.Width, map.Image.Height);
+			view.Canvas.Target = _draft.Target;
+			view.Canvas.OnPick = p =>
+			{
+				_draft.Target = p;
+				view.Canvas.Target = p;
+				view.Canvas.QueueRedraw();
+				Changed();
+				UpdateHint(false);
+			};
+			_mapCol.AddChild(view);
+			UpdateHint(false);
+			_mapCol.AddChild(hint);
+			var scale = U.Muted("", 13);
+			void UpdateScale() => scale.Text = (map.WidthKm is > 0
+				? "Players see how far off they were in km/m."
+				: "No scale set — players see how far off they were in % of the map.") + " Applies to every question using this map.";
+			UpdateScale();
+			_mapCol.AddChild(U.H(12,
+				U.Field("Map name", U.Input(map.Name, "", t =>
+				{
+					map.Name = t;
+					Changed();
+				})),
+				U.Field("Map width in km (optional)", new NumberField(map.WidthKm, v =>
+				{
+					map.WidthKm = v is > 0 ? v : null;
+					Changed();
+					UpdateScale();
+				}, 0.001, placeholder: "unknown"))));
+			_mapCol.AddChild(scale);
+		}
+		if (credit != null) _mapCol.AddChild(U.Muted(credit, 12));
+	}
+
+	void ChoosePreset(string presetId)
+	{
+		_addingMap = false;
+		var existing = _maps.FirstOrDefault(m => m.PresetId == presetId);
+		if (existing == null)
+		{
+			var preset = MapPresets.Get(presetId)!;
+			var tex = Images.BuiltinTexture(preset.ImagePath);
+			existing = new MapAsset
+			{
+				Id = QuizStore.MakeId(),
+				Name = preset.Name,
+				WidthKm = preset.WidthKm,
+				PresetId = preset.Id,
+				Image = new ImageAsset { Width = tex?.GetWidth() ?? WowAtlas.ImageWidth, Height = tex?.GetHeight() ?? WowAtlas.ImageHeight },
+			};
+			_maps.Add(existing);
+		}
+		_draft.MapId = existing.Id;
+		_draft.Target = null;
+		Changed();
+	}
+
+	Control MapUploader()
+	{
+		ImageAsset? image = null;
+		var name = "";
+		double? widthKm = null;
+		var add = U.Btn("Add map", "TealButton", null, 14);
+		add.Disabled = true;
+		void Validate() => add.Disabled = image == null || name.Trim() == "";
+		add.Pressed += () =>
+		{
+			if (image == null) return;
+			var m = new MapAsset { Id = QuizStore.MakeId(), Name = name.Trim(), Image = image, WidthKm = widthKm };
+			_maps.Add(m);
+			_draft.MapId = m.Id;
+			_draft.Target = null;
+			_addingMap = false;
+			Changed();
+			BuildMapColumn();
+		};
+		var actions = U.H(8, U.Fill());
+		if (_maps.Count > 0)
+			actions.AddChild(U.Link("Cancel", () =>
+			{
+				_addingMap = false;
+				BuildMapColumn();
+			}, 14));
+		actions.AddChild(add);
+		return U.Panel(U.V(12,
+			new ImageField(null, img =>
+			{
+				image = img;
+				Validate();
+			}, Images.MapMax, "A map image (big is fine — it's kept up to 4096 px)."),
+			U.Field("Map name", U.Input("", "e.g. Skyrim", t =>
+			{
+				name = t;
+				Validate();
+			})),
+			U.Field("Map width in km (optional)", new NumberField(null, v => widthKm = v is > 0 ? v : null, 0.001, placeholder: "unknown"),
+				"How wide the whole image is in the real/game world. With it, players see distances in km/m; without it, in % of the map."),
+			actions), "Card2");
+	}
+
+	// ---------- save / back / paste / drop ----------
+
+	void Back()
+	{
+		if (!_dirty)
+		{
+			App.I.GoQuiz(_quiz.Id);
+			return;
+		}
+		Dialogs.Confirm(this, "Discard your changes to this question?", "Discard", () => App.I.GoQuiz(_quiz.Id));
+	}
+
+	void Save()
+	{
+		if (_isNew && _quiz.Questions.All(q => q.Id != _draft.Id)) _quiz.Questions.Add(_draft);
+		else
+		{
+			var i = _quiz.Questions.FindIndex(q => q.Id == _draft.Id);
+			if (i >= 0) _quiz.Questions[i] = _draft;
+			else _quiz.Questions.Add(_draft);
+		}
+		_quiz.Maps = _maps;
+		try
+		{
+			QuizStore.Save(_quiz);
+		}
+		catch (UserError e)
+		{
+			Dialogs.Info(this, e.Message, "Couldn't save");
+			return;
+		}
+		_dirty = false;
+		App.I.GoQuiz(_quiz.Id);
+	}
+
+	public override void _Input(InputEvent e)
+	{
+		if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.V, CtrlPressed: true } && DisplayServer.ClipboardHasImage() && _primaryImage != null)
+		{
+			_primaryImage.Paste();
+			GetViewport().SetInputAsHandled();
+		}
+	}
+
+	public void OnFilesDropped(string[] files)
+	{
+		var file = files.FirstOrDefault();
+		if (file == null) return;
+		if (_mediaField != null && Media.IsMediaPath(file)) _mediaField.LoadFile(file);
+		else if (_mediaField != null && file.GetExtension().ToLowerInvariant() is "mp4" or "webm" or "mov" or "mkv") _mediaField.LoadFile(file);
+		else if (_primaryImage != null && Images.IsImagePath(file)) _primaryImage.LoadFile(file);
+	}
+}

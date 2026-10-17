@@ -1,0 +1,198 @@
+// Reads and writes .quiznight.json files. Reading is forgiving: missing fields get their
+// defaults (that is also how files from older versions are migrated), wrong types are ignored.
+
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+
+namespace QuizNight.Shared;
+
+public static class QuizJson
+{
+	public const string NotAQuiz = "That file is not a quiz file.";
+
+	/// <summary>Parses a quiz file. Returns null (and an error) if it isn't one.</summary>
+	public static Quiz? Parse(string text, out string? error)
+	{
+		error = null;
+		JsonNode? root;
+		try
+		{
+			root = JsonNode.Parse(text);
+		}
+		catch (JsonException)
+		{
+			error = NotAQuiz;
+			return null;
+		}
+		if (root is not JsonObject o || o["questions"] is not JsonArray qs || o["maps"] is not JsonArray maps)
+		{
+			error = NotAQuiz;
+			return null;
+		}
+		var quiz = new Quiz
+		{
+			Version = QuizRules.FormatVersion,
+			Id = Str(o, "id"),
+			Title = Str(o, "title"),
+			CreatedAt = (long)Num(o, "createdAt", 0),
+			UpdatedAt = (long)Num(o, "updatedAt", 0),
+			Maps = maps.OfType<JsonObject>().Select(ReadMap).ToList(),
+			Questions = qs.OfType<JsonObject>().Select(ReadQuestion).ToList(),
+		};
+		return quiz;
+	}
+
+	public static string Write(Quiz quiz, bool indented = false)
+	{
+		var o = new JsonObject
+		{
+			["version"] = QuizRules.FormatVersion,
+			["id"] = quiz.Id,
+			["title"] = quiz.Title,
+			["createdAt"] = quiz.CreatedAt,
+			["updatedAt"] = quiz.UpdatedAt,
+			["maps"] = new JsonArray(quiz.Maps.Select(m => (JsonNode)WriteMap(m)).ToArray()),
+			["questions"] = new JsonArray(quiz.Questions.Select(q => (JsonNode)WriteQuestion(q)).ToArray()),
+		};
+		return o.ToJsonString(new JsonSerializerOptions { WriteIndented = indented });
+	}
+
+	public static JsonObject WriteQuestion(Question q)
+	{
+		var o = new JsonObject
+		{
+			["id"] = q.Id,
+			["type"] = q.Type,
+			["prompt"] = q.Prompt,
+			["points"] = q.Points,
+		};
+		switch (q.Type)
+		{
+			case QuestionType.Classic:
+				o["image"] = WriteImage(q.Image);
+				o["mode"] = q.Mode;
+				o["answer"] = q.AnswerText;
+				o["choices"] = new JsonArray(q.Choices.Select(c => (JsonNode)JsonValue.Create(c)!).ToArray());
+				o["correctChoice"] = q.CorrectChoice;
+				o["timeLimitSec"] = q.TimeLimitSec;
+				break;
+			case QuestionType.Sound:
+			case QuestionType.Video:
+				o["media"] = q.Media == null
+					? null
+					: new JsonObject
+					{
+						["dataUrl"] = q.Media.DataUrl,
+						["mime"] = q.Media.Mime,
+						["name"] = q.Media.Name,
+						["durationSec"] = q.Media.DurationSec,
+					};
+				o["startSec"] = q.StartSec;
+				o["answer"] = q.AnswerText;
+				break;
+			case QuestionType.Estimation:
+				o["image"] = WriteImage(q.Image);
+				o["answer"] = q.AnswerNumber;
+				o["unit"] = q.Unit;
+				WriteCloseness(o, q);
+				break;
+			case QuestionType.MapPin:
+				o["image"] = WriteImage(q.Image);
+				o["mapId"] = q.MapId;
+				o["target"] = q.Target is { } t ? new JsonObject { ["x"] = t.X, ["y"] = t.Y } : null;
+				o["buzzFirst"] = q.BuzzFirst;
+				WriteCloseness(o, q);
+				break;
+		}
+		return o;
+	}
+
+	public static Question ReadQuestion(JsonObject o)
+	{
+		var type = Str(o, "type");
+		var q = QuestionType.IsKnown(type) ? QuizRules.NewQuestion(type, Str(o, "id")) : new Question { Id = Str(o, "id"), Type = type };
+		q.Prompt = Str(o, "prompt", q.Prompt);
+		q.Points = (int)Num(o, "points", q.Points);
+		q.Image = ReadImage(o["image"]);
+		q.Mode = Str(o, "mode", ClassicMode.Buzzer) == ClassicMode.Choice ? ClassicMode.Choice : ClassicMode.Buzzer;
+		if (o["answer"] is JsonValue a)
+		{
+			if (a.TryGetValue<string>(out var s)) q.AnswerText = s;
+			else if (a.TryGetValue<double>(out var n)) q.AnswerNumber = n;
+		}
+		if (o["choices"] is JsonArray choices)
+		{
+			var list = choices.Select(c => c is JsonValue v && v.TryGetValue<string>(out var s) ? s : "").Take(4).ToList();
+			while (list.Count < 4) list.Add("");
+			q.Choices = list;
+		}
+		q.CorrectChoice = (int)Num(o, "correctChoice", 0);
+		q.TimeLimitSec = (int)Num(o, "timeLimitSec", q.TimeLimitSec);
+		if (o["media"] is JsonObject m)
+		{
+			q.Media = new MediaAsset
+			{
+				DataUrl = Str(m, "dataUrl"),
+				Mime = Str(m, "mime"),
+				Name = Str(m, "name"),
+				DurationSec = m["durationSec"] is JsonValue d && d.TryGetValue<double>(out var dur) ? dur : null,
+			};
+		}
+		q.StartSec = Num(o, "startSec", 0);
+		q.Unit = Str(o, "unit");
+		q.TieRule = Str(o, "tieRule", TieRule.AllScore) == TieRule.NobodyScores ? TieRule.NobodyScores : TieRule.AllScore;
+		q.Scoring = Str(o, "scoring", Scoring.ClosestWins) == Scoring.Top3 ? Scoring.Top3 : Scoring.ClosestWins;
+		q.MapId = o["mapId"] is JsonValue mid && mid.TryGetValue<string>(out var mapId) ? mapId : null;
+		q.Target = ReadPoint(o["target"]);
+		q.BuzzFirst = o["buzzFirst"] is JsonValue bf && bf.TryGetValue<bool>(out var b) && b;
+		return q;
+	}
+
+	public static JsonObject WriteMap(MapAsset m)
+	{
+		var o = new JsonObject
+		{
+			["id"] = m.Id,
+			["name"] = m.Name,
+			["image"] = WriteImage(m.Image),
+			["widthKm"] = m.WidthKm,
+		};
+		if (m.PresetId != null) o["presetId"] = m.PresetId;
+		return o;
+	}
+
+	public static MapAsset ReadMap(JsonObject o) => new()
+	{
+		Id = Str(o, "id"),
+		Name = Str(o, "name"),
+		Image = ReadImage(o["image"]) ?? new ImageAsset(),
+		WidthKm = o["widthKm"] is JsonValue w && w.TryGetValue<double>(out var km) ? km : null,
+		PresetId = o["presetId"] is JsonValue p && p.TryGetValue<string>(out var pid) ? pid : null,
+	};
+
+	public static NormPoint? ReadPoint(JsonNode? node) =>
+		node is JsonObject t && t["x"] is JsonValue x && t["y"] is JsonValue y && x.TryGetValue<double>(out var px) && y.TryGetValue<double>(out var py)
+			? new NormPoint(px, py)
+			: null;
+
+	static void WriteCloseness(JsonObject o, Question q)
+	{
+		o["timeLimitSec"] = q.TimeLimitSec;
+		o["tieRule"] = q.TieRule;
+		o["scoring"] = q.Scoring;
+	}
+
+	static JsonNode? WriteImage(ImageAsset? img) =>
+		img == null ? null : new JsonObject { ["dataUrl"] = img.DataUrl, ["width"] = img.Width, ["height"] = img.Height };
+
+	static ImageAsset? ReadImage(JsonNode? node) =>
+		node is JsonObject o ? new ImageAsset { DataUrl = Str(o, "dataUrl"), Width = (int)Num(o, "width", 0), Height = (int)Num(o, "height", 0) } : null;
+
+	static string Str(JsonObject o, string key, string fallback = "") =>
+		o[key] is JsonValue v && v.TryGetValue<string>(out var s) ? s : fallback;
+
+	static double Num(JsonObject o, string key, double fallback) =>
+		o[key] is JsonValue v && v.TryGetValue<double>(out var n) && double.IsFinite(n) ? n : fallback;
+}

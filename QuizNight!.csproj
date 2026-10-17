@@ -1,0 +1,15 @@
+<Project Sdk="Godot.NET.Sdk/4.7.2">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <RootNamespace>QuizNight</RootNamespace>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Steam lobbies (room codes) and Steam relay networking. Runs under the Spacewar test app (480). -->
+    <PackageReference Include="Facepunch.Steamworks" Version="2.3.3" />
+    <!-- The native Steam library has to sit next to the game's assemblies. -->
+    <None Include="steam_api64.dll" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

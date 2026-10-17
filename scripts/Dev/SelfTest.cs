@@ -1,0 +1,302 @@
+// Checks for the game rules, quiz files and networking. Run headless:
+//   Godot_console.exe --headless --path . -- --selftest
+// Exits with 0 when everything passes.
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Godot;
+using QuizNight.Net;
+using QuizNight.Server;
+using QuizNight.Shared;
+
+namespace QuizNight.Dev;
+
+public static class SelfTest
+{
+	static int _passed;
+	static readonly List<string> Failures = new();
+
+	static void Check(bool ok, string what)
+	{
+		if (ok) _passed++;
+		else Failures.Add(what);
+	}
+
+	static void Eq<T>(T actual, T expected, string what) => Check(Equals(actual, expected), $"{what}: expected {expected}, got {actual}");
+
+	sealed class Clock
+	{
+		public long Now = 1_000_000;
+	}
+
+	static (Room Room, Clock Clock) NewRoom(Quiz quiz, params string[] players)
+	{
+		var clock = new Clock();
+		var room = new Room("TEST", quiz, () => clock.Now);
+		foreach (var p in players) room.Join(p, p);
+		return (room, clock);
+	}
+
+	public static async Task<int> Run(Node node)
+	{
+		Rules();
+		Files();
+		Atlas();
+		Protocol();
+		await Network(node);
+
+		GD.Print($"Self-test: {_passed} passed, {Failures.Count} failed.");
+		foreach (var f in Failures) GD.PrintErr("  FAIL " + f);
+		return Failures.Count == 0 ? 0 : 1;
+	}
+
+	static void Rules()
+	{
+		// Closeness ranking: ties share a rank, nobodyScores drops tied winners.
+		var d = new List<(string, double)> { ("a", 5), ("b", 1), ("c", 1), ("d", 9) };
+		var r = Game.ClosenessPoints(d, 2, Scoring.Top3, TieRule.AllScore);
+		Eq(r["b"].Rank, 1, "tie rank b");
+		Eq(r["c"].Rank, 1, "tie rank c");
+		Eq(r["a"].Rank, 3, "rank after tie");
+		Eq(r["b"].Points, 6, "top3 first gets 3x");
+		Eq(r["a"].Points, 2, "top3 third gets 1x");
+		Eq(r["d"].Points, 0, "fourth gets nothing");
+		var none = Game.ClosenessPoints(d, 1, Scoring.ClosestWins, TieRule.NobodyScores);
+		Eq(none["b"].Points, 0, "nobodyScores tie");
+		Eq(Game.FormatDistance(0.312, 1), "312 m", "metres");
+		Eq(Game.FormatDistance(1.234, 1), "1.23 km", "km");
+		Eq(Game.FormatDistance(null, 12.34), "12.3 % of the map", "percent");
+		Eq(Game.Fmt(1234.5), "1,234.5", "number format");
+
+		var quiz = Dev.SampleQuiz.Build();
+		Eq(QuizRules.QuizIssues(quiz).Count, 0, "sample quiz is ready: " + string.Join(" ", QuizRules.QuizIssues(quiz)));
+
+		// Buzzer question: wrong, then the next in line is right.
+		var (room, clock) = NewRoom(quiz, "ann", "bob", "cat");
+		Check(room.Start().Ok, "start");
+		var g = room.Game!;
+		clock.Now += 1500;
+		Check(g.BuzzIn("bob"), "bob buzzes");
+		Check(!g.BuzzIn("bob"), "no double buzz");
+		clock.Now += 500;
+		g.BuzzIn("ann");
+		var v = g.View("cat");
+		Eq(v.Buzzes[0].Status, BuzzStatus.Answering, "first buzz answers");
+		Eq(v.Buzzes[1].Status, BuzzStatus.Waiting, "second waits");
+		Eq(v.Buzzes[0].AtSec, 1.5, "buzz time");
+		Check(v.HostAnswer == null, "players never see the host answer");
+		Check(room.ToState("host").Game!.HostAnswer == "Mars", "host sees the answer");
+		g.Judge(false);
+		Eq(g.View("host").Buzzes[1].Status, BuzzStatus.Answering, "next in line answers");
+		g.Judge(true);
+		Eq(g.Stage, Stage.Reveal, "correct reveals");
+		Eq(room.Scores["ann"], 1, "ann scored");
+		Eq(room.Scores["bob"], 0, "bob didn't");
+
+		// Choice question: everyone answers → reveal.
+		room.Next();
+		Eq(g.Index, 1, "next question");
+		Check(g.View("host").EndsAt != null, "choice has a timer");
+		Check(!g.Answer("ann", 1, AnswerValue.Number(7)).Ok, "invalid choice rejected");
+		Check(g.Answer("ann", 1, AnswerValue.Number(2)).Ok, "ann answers");
+		Check(!g.Answer("ann", 1, AnswerValue.Number(1)).Ok, "no second answer");
+		Eq(g.View("ann").MyAnswer?.Num, 2.0, "my answer visible to me");
+		Check(g.View("bob").MyAnswer == null, "not to others");
+		g.Answer("bob", 1, AnswerValue.Number(0));
+		Eq(g.Stage, Stage.Open, "still waiting for cat");
+		room.Disconnect("cat");
+		Eq(g.Stage, Stage.Reveal, "reveals when the last missing player leaves");
+		Eq(room.Scores["ann"], 3, "choice points");
+		Eq(g.View("host").Reveal!.Counts![2], 1, "counts");
+
+		// Estimation with a timer that runs out.
+		room.Join("cat", "cat");
+		room.Next();
+		g.Answer("ann", 2, AnswerValue.Number(90));
+		g.Answer("bob", 2, AnswerValue.Number(80));
+		clock.Now += 31_000;
+		Check(room.Tick(), "timer fires");
+		var rev = g.View("host").Reveal!;
+		Eq(rev.Entries[0].PlayerId, "ann", "closest first");
+		Eq(rev.Entries[0].Text, "90 keys (+2)", "estimation text");
+		Eq(rev.Entries[0].Points, 3, "top3 first");
+		Eq(rev.Entries[1].Points, 2, "top3 second");
+
+		// Map pin on Skyrim: exact answer is 0 m off.
+		room.Next();
+		g.Answer("ann", 3, AnswerValue.At(new NormPoint(0.49, 0.52)));
+		g.Answer("bob", 3, AnswerValue.At(new NormPoint(0.5, 0.52)));
+		g.Answer("cat", 3, AnswerValue.At(new NormPoint(0.9, 0.9)));
+		rev = g.View("host").Reveal!;
+		Eq(rev.Entries[0].Text, "0 m off", "exact pin");
+		Check(rev.Entries[1].Text.EndsWith("m off"), "near pin in m: " + rev.Entries[1].Text);
+		Check(g.AssetDataUrl("q3/image") != null, "current image available");
+		Check(g.AssetDataUrl("q5/image") == null, "future image hidden");
+		Eq(g.View("bob").Question.Map!.PresetId, "skyrim", "built-in map by preset");
+
+		// Sound: the play clock only counts while playing.
+		for (var i = 0; i < 5; i++) room.Next();
+		Eq(g.Question.Type, QuestionType.Sound, "sound question");
+		g.SetMedia(true);
+		clock.Now += 2000;
+		g.SetMedia(false);
+		clock.Now += 5000;
+		g.SetMedia(true);
+		clock.Now += 500;
+		g.BuzzIn("cat");
+		g.Judge(true);
+		Eq(g.View("host").Reveal!.GuessTimeSec, 2.5, "guess time ignores pauses");
+		room.Next();
+		room.Next();
+		Eq(room.Phase, Phase.Finished, "podium after the last question");
+
+		// Joining rules
+		var (lobby, _) = NewRoom(quiz, "a1");
+		Eq(lobby.Join("a2", "  A1 ").Error, "Someone in this room already uses that name.", "duplicate names");
+		Eq(lobby.Join("a3", "   ").Error, "Please enter a name.", "empty name");
+		Check(lobby.Join("a1", "whatever").Player?.Name == "a1", "same id gets the seat back");
+		Check(!lobby.Start().Ok, "needs two players");
+	}
+
+	static void Files()
+	{
+		// A quiz file as the web version exported it (format 1: classic without mode).
+		const string old = """
+		{"version":1,"id":"abc","title":"Old quiz","createdAt":1,"updatedAt":2,
+		 "maps":[{"id":"m1","name":"Skyrim","image":{"dataUrl":"data:image/webp;base64,AAAA","width":4096,"height":4096},"widthKm":467.1,"presetId":"skyrim"}],
+		 "questions":[
+		  {"id":"q1","points":1,"type":"classic","prompt":"Capital of France?","image":null,"answer":"Paris"},
+		  {"id":"q2","points":2,"type":"estimation","prompt":"How tall?","image":null,"answer":330,"unit":"m","timeLimitSec":30,"tieRule":"allScore","scoring":"top3"},
+		  {"id":"q3","points":1,"type":"mapPin","prompt":"Where?","image":{"dataUrl":"data:image/webp;base64,AAAA","width":10,"height":10},"mapId":"m1","target":{"x":0.25,"y":0.75},"buzzFirst":false,"timeLimitSec":60,"tieRule":"nobodyScores","scoring":"closestWins"},
+		  {"id":"q4","points":1,"type":"sound","prompt":"Song?","media":{"dataUrl":"data:audio/mpeg;base64,AAAA","mime":"audio/mpeg","name":"a.mp3","durationSec":3.5},"startSec":1.5,"answer":"X"}
+		 ]}
+		""";
+		var quiz = QuizJson.Parse(old, out var err);
+		Check(quiz != null && err == null, "old file parses");
+		if (quiz == null) return;
+		Eq(quiz.Questions[0].Mode, ClassicMode.Buzzer, "migrated classic mode");
+		Eq(quiz.Questions[0].AnswerText, "Paris", "classic answer");
+		Eq(quiz.Questions[1].AnswerNumber, 330.0, "estimation answer");
+		Eq(quiz.Questions[1].Scoring, Scoring.Top3, "scoring");
+		Eq(quiz.Questions[2].Target?.X, 0.25, "target");
+		Eq(quiz.Questions[2].TieRule, TieRule.NobodyScores, "tie rule");
+		Eq(quiz.Questions[3].StartSec, 1.5, "start sec");
+		Eq(quiz.Questions[3].Media?.DurationSec, 3.5, "duration");
+		Eq(quiz.Maps[0].PresetId, "skyrim", "preset id");
+		Eq(QuizRules.QuizIssues(quiz).Count, 0, "old quiz is playable: " + string.Join(" ", QuizRules.QuizIssues(quiz)));
+
+		var again = QuizJson.Parse(QuizJson.Write(quiz), out _)!;
+		Eq(QuizJson.Write(again), QuizJson.Write(quiz), "write/read round trip");
+		var clone = quiz.Questions[1].Clone();
+		Eq(clone.Points, 2, "clone keeps numbers");
+		Eq(clone.AnswerNumber, 330.0, "clone keeps answer");
+
+		Check(QuizJson.Parse("[1,2]", out _) == null, "array is not a quiz");
+		Check(QuizJson.Parse("{nope", out _) == null, "garbage is not a quiz");
+	}
+
+	static void Atlas()
+	{
+		var elwynn = WowAtlas.Get(1429);
+		var loc = WowAtlas.ToLocation(elwynn, new NormPoint(0.4, 0.6));
+		var world = WowAtlas.LocationToWorld(loc);
+		var back = WowAtlas.WorldToLocation(world)!.Value;
+		Check(Math.Abs(back.X - loc.X) < 0.01 && Math.Abs(back.Y - loc.Y) < 0.01, "world/zone round trip");
+		Eq(WowAtlas.ZoneAt(loc)?.Id, 1429, "zone lookup");
+		var a = WowAtlas.LocationToWorld(new WowAtlas.Location(0, -9000, 0));
+		var b = WowAtlas.LocationToWorld(new WowAtlas.Location(0, -9100, 0));
+		Check(Math.Abs(WowAtlas.DistanceKm(a, b) - 100 * 0.9144 / 1000) < 0.001, "same-continent distance in yards");
+		var kalimdor = WowAtlas.LocationToWorld(new WowAtlas.Location(1, 0, 0));
+		Check(WowAtlas.DistanceKm(a, kalimdor) > WowAtlas.DistanceKm(a, b) * 100, "wrong continent is far");
+	}
+
+	static void Protocol()
+	{
+		var state = new RoomState { Code = "ABCD", Phase = Phase.Playing, Scores = new() { ["x"] = 3 } };
+		state.Game = new GameView { Index = 2, Reveal = new RevealView { Target = new NormPoint(0.1, 0.2), Entries = new() { new RevealEntry { PlayerId = "x", Value = AnswerValue.At(new NormPoint(0.3, 0.4)) } } } };
+		var msg = Msg.Decode(Msg.Encode(Msg.State, state))!.Value;
+		Eq(msg.Type, Msg.State, "message type");
+		var back = Msg.Read<RoomState>(msg.Data)!;
+		Eq(back.Code, "ABCD", "state code");
+		Eq(back.Scores["x"], 3, "state scores");
+		Eq(back.Game!.Reveal!.Target!.Value.Y, 0.2, "state target");
+		Eq(back.Game.Reveal.Entries[0].Value!.Point!.Value.X, 0.3, "answer point");
+		Check(Msg.Decode(new byte[] { 1, 2, 3 }) == null, "garbage message ignored");
+
+		var reader = new FrameReader();
+		var frames = FrameReader.Frame(new byte[] { 1, 2, 3 }).Concat(FrameReader.Frame(new byte[] { 4 })).ToArray();
+		var got = reader.Feed(frames[..5]);
+		Eq(got.Count, 0, "partial frame waits");
+		got = reader.Feed(frames[5..]);
+		Eq(got.Count, 2, "two frames");
+		Eq(got[1][0], (byte)4, "frame content");
+		Eq(Limits.NormalizeCode(" ab-c1d9 "), "ABC1", "code normalising");
+	}
+
+	/// <summary>A real host and two players over TCP on this PC, through a whole buzzer question.</summary>
+	static async Task Network(Node node)
+	{
+		var quiz = SampleQuiz.Build();
+		var lan = new LanHostTransport();
+		var port = 47000 + (int)(Time.GetTicksMsec() % 1000);
+		if (lan.Listen(port) is { } error)
+		{
+			Failures.Add("listen: " + error);
+			return;
+		}
+		var host = new HostSession(new Room("NETT", quiz), lan, NetMode.Lan, port);
+		var ann = ClientSession.Lan("127.0.0.1", port, "Ann", "ann-id");
+		var bob = ClientSession.Lan("127.0.0.1", port, "Bob", "bob-id");
+		string? ended = null;
+		ann.Ended += r => ended = r;
+		ann.Start();
+		bob.Start();
+
+		async Task<bool> Until(Func<bool> cond, double seconds = 5)
+		{
+			var start = Time.GetTicksMsec();
+			while (!cond())
+			{
+				if (Time.GetTicksMsec() - start > seconds * 1000) return false;
+				host.Poll();
+				ann.Poll();
+				bob.Poll();
+				await node.ToSignal(node.GetTree(), SceneTree.SignalName.ProcessFrame);
+			}
+			return true;
+		}
+
+		Check(await Until(() => host.Room.Players.Count == 2 && ann.State?.Players.Count == 2 && bob.State?.Players.Count == 2), "both players joined");
+		Eq(ann.MyId, "lan:ann-id", "player id from client id");
+		Check(host.Start().Ok, "network start");
+		Check(await Until(() => bob.State?.Phase == Phase.Playing), "players see the game");
+		Check(bob.State!.Game!.HostAnswer == null, "no answer leaks to players");
+
+		// The question image comes over in parts.
+		var key = bob.State.Game.Question.ImageKey!;
+		bob.Assets.Get(key);
+		var loaded = false;
+		bob.Assets.Loaded += k => loaded |= k == key;
+		Check(await Until(() => loaded), "image arrives");
+		Check(bob.Assets.Get(key) != null, "image decoded");
+
+		bob.Buzz();
+		Check(await Until(() => ann.State?.Game?.Buzzes.Count == 1), "buzz reaches everyone");
+		host.Judge(true);
+		Check(await Until(() => ann.State?.Game?.Stage == Stage.Reveal), "reveal reaches players");
+		Eq(ann.State!.Score("lan:bob-id"), 1, "score sent");
+
+		host.Next();
+		Check(await Until(() => ann.State?.Game is { Index: 1, Stage: Stage.Open }), "next question");
+		Result? res = null;
+		ann.Answer(1, AnswerValue.Number(2), r => res = r);
+		Check(await Until(() => res != null) && res!.Ok, "answer accepted");
+
+		host.Close("Test over.");
+		Check(await Until(() => ended != null), "players learn the room closed");
+		Eq(ended, "Test over.", "close reason");
+		bob.Dispose();
+	}
+}
