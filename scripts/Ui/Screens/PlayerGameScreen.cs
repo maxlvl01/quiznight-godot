@@ -47,7 +47,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		_bar.Set($"{me.Name}|{room.Score(MyId)}", () => GameParts.Row(10,
 			new Avatar(me, 30), U.Bold(me.Name, 17).Raw(), U.Fill(), U.Pill(Lang.F("{0} pts", room.Score(MyId)), C.Accent)));
 
-		var key = $"{game.Index}|{game.Stage}";
+		var key = $"{game.Index}|{game.Stage}|{game.Shown}";
 		_question.Set(key, () =>
 		{
 			var box = U.V(10, GameParts.Row(10,
@@ -64,12 +64,17 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			_panel.Set($"{key}|reveal", () => Reveal(room));
 			return;
 		}
+		if (!game.Shown)
+		{
+			_panel.Set($"{key}|hidden", () => Status(U.Bold("Get ready…", 28), U.Muted("The host is about to show the next question.", 16)));
+			return;
+		}
 		if (q.Buzzer)
 		{
 			var mine = game.Buzzes.FirstOrDefault(b => b.PlayerId == MyId);
 			var answering = game.Buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Answering);
 			var place = game.Buzzes.Where(b => b.Status == BuzzStatus.Waiting).ToList().FindIndex(b => b.PlayerId == MyId);
-			_panel.Set($"{key}|{mine?.Status}|{place}|{answering?.PlayerId}", () => Buzzer(room));
+			_panel.Set($"{key}|{mine?.Status}|{place}|{answering?.PlayerId}|{game.BuzzersOpen}", () => Buzzer(room));
 		}
 		else if (q.Choices != null) _panel.Set($"{key}|{game.MyAnswer?.Num}|{string.Join(",", game.MyAnswer?.Picks ?? new List<int>())}", () => Choices(room));
 		else if (q.Type == QuestionType.Order) _panel.Set($"{key}|{game.MyAnswer?.Picks != null}", () => Order(room));
@@ -125,7 +130,9 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		var watch = game.Question.Type == QuestionType.Sound ? "Listen to the host's screen" : game.Question.Type is QuestionType.Video or QuestionType.Image ? "Watch the host's screen" : null;
 		if (watch != null) area.AddChild(U.Muted(watch, 16, false, HorizontalAlignment.Center).Center());
 		if (answering != null) area.AddChild(U.Muted(Lang.F("{0} is answering — buzz to get in line.", room.Player(answering.PlayerId).Name), 14, false, HorizontalAlignment.Center).Center());
-		area.AddChild(new BuzzButton(_client.Buzz).Center());
+		var buzz = new BuzzButton(_client.Buzz) { Disabled = !game.BuzzersOpen };
+		area.AddChild(buzz.Center());
+		if (!game.BuzzersOpen) area.AddChild(U.Muted("Buzzers are locked — the host unlocks them in a moment.", 15, false, HorizontalAlignment.Center).Center());
 		area.AddChild(U.Muted("or press Space", 13, false, HorizontalAlignment.Center).Center());
 		return U.Pad(area, 0, 10, 0, 10);
 	}
@@ -378,12 +385,17 @@ public partial class BuzzButton : Button
 			AddThemeStyleboxOverride(state, box);
 		}
 		foreach (var c in new[] { "font_color", "font_hover_color", "font_pressed_color", "font_focus_color" }) AddThemeColorOverride(c, new Color("#2a0a0e"));
+		// Locked: grey, until the host unlocks the buzzers.
+		var locked = UiTheme.Box(C.Panel2, 999, C.Border, 0);
+		locked.BorderWidthBottom = 12;
+		AddThemeStyleboxOverride("disabled", locked);
+		AddThemeColorOverride("font_disabled_color", C.Muted);
 		ButtonDown += Buzz;
 	}
 
 	void Buzz()
 	{
-		if (_sent) return;
+		if (_sent || Disabled) return;
 		_sent = true;
 		_onBuzz();
 	}

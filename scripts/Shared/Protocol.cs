@@ -66,7 +66,11 @@ public sealed class RoomSettings
 	public int AnswerTimeSec = Limits.AnswerTimeDefault;
 	/// <summary>Buzzer sound (an Sfx id) — played on the host and on every player's screen when someone buzzes.</summary>
 	public string BuzzerSound = "soft-beep";
-	public RoomSettings Clone() => new() { MaxPlayers = MaxPlayers, AnswerTimeSec = AnswerTimeSec, BuzzerSound = BuzzerSound };
+	/// <summary>Each question stays hidden until the host shows it (so they can read it out first).</summary>
+	public bool HostShowsQuestions = true;
+	/// <summary>Buzzers stay locked until the host unlocks them.</summary>
+	public bool HostUnlocksBuzzers = true;
+	public RoomSettings Clone() => new() { MaxPlayers = MaxPlayers, AnswerTimeSec = AnswerTimeSec, BuzzerSound = BuzzerSound, HostShowsQuestions = HostShowsQuestions, HostUnlocksBuzzers = HostUnlocksBuzzers };
 }
 
 public sealed class PublicPlayer
@@ -204,6 +208,10 @@ public sealed class GameView
 	public List<string> AnsweredIds = new();
 	public List<BuzzEntry> Buzzes = new();
 	public bool MediaPlaying;
+	/// <summary>False while the host hasn't shown the question yet (players get no content then).</summary>
+	public bool Shown = true;
+	/// <summary>Buzzer questions: whether players can buzz right now.</summary>
+	public bool BuzzersOpen = true;
 	public RevealView? Reveal;
 	/// <summary>Only in the state sent to that player.</summary>
 	public AnswerValue? MyAnswer;

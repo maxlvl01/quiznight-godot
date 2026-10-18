@@ -221,7 +221,7 @@ public sealed class DevTools
 		var g = state?.Game;
 		var moment = state == null
 			? _app.CurrentScreen?.GetType().Name ?? ""
-			: $"{state.Phase}-{g?.Index}-{g?.Stage}-{g?.Buzzes.Count}-{g?.Buzzes.Count(b => b.Status == BuzzStatus.Wrong)}-{g?.AnsweredIds.Count}-{state.Players.Count}";
+			: $"{state.Phase}-{g?.Index}-{g?.Stage}{(g is { Shown: false } ? "-hidden" : g is { Question.Buzzer: true, BuzzersOpen: false } ? "-locked" : "")}-{g?.Buzzes.Count}-{g?.Buzzes.Count(b => b.Status == BuzzStatus.Wrong)}-{g?.AnsweredIds.Count}-{state.Players.Count}";
 		if (moment != _lastMoment)
 		{
 			_lastMoment = moment;
@@ -241,7 +241,7 @@ public sealed class DevTools
 		var s = host.State;
 		var g = s.Game;
 		var answering = g?.Buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Answering);
-		var key = $"{s.Phase}|{g?.Index}|{g?.Stage}|{answering?.PlayerId}|{g?.Buzzes.Count}|{s.Players.Count(p => p.Connected)}";
+		var key = $"{s.Phase}|{g?.Index}|{g?.Stage}|{g?.Shown}|{g?.BuzzersOpen}|{answering?.PlayerId}|{g?.Buzzes.Count}|{s.Players.Count(p => p.Connected)}";
 		if (key != _pilotKey)
 		{
 			_pilotKey = key;
@@ -254,6 +254,16 @@ public sealed class DevTools
 				host.Start();
 				break;
 			case Phase.Playing when g!.Stage == Stage.Open:
+				if (!g.Shown)
+				{
+					if (waited > 1.2) host.ShowQuestion();
+					break;
+				}
+				if (g.Question.Buzzer && !g.BuzzersOpen && answering == null)
+				{
+					if (waited > 1.2) host.SetBuzzers(true);
+					break;
+				}
 				if (answering != null && waited > 1.5)
 				{
 					// The first buzz of a question is wrong when someone else is waiting, to show the queue.
@@ -295,7 +305,7 @@ public sealed class DevTools
 				return;
 			}
 			var g = client.State?.Game;
-			if (client.State?.Phase == Phase.Playing && g is { Stage: Stage.Open } && _handled != $"{g.Index}")
+			if (client.State?.Phase == Phase.Playing && g is { Stage: Stage.Open, Shown: true } && (!g.Question.Buzzer || g.BuzzersOpen) && _handled != $"{g.Index}")
 			{
 				_handled = $"{g.Index}";
 				_actAt = now + 0.8 + _rng.NextDouble() * 2.5;

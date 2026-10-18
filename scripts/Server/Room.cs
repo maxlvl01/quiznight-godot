@@ -54,6 +54,8 @@ public sealed class Room : IGameHooks
 	public long Now() => _clock();
 	public IReadOnlyList<string> ActivePlayerIds() => Players.Where(p => p.Connected).Select(p => p.Id).ToList();
 	public int AnswerTimeSec() => Settings.AnswerTimeSec;
+	public bool HostShowsQuestions() => Settings.HostShowsQuestions;
+	public bool HostUnlocksBuzzers() => Settings.HostUnlocksBuzzers;
 	public void Award(string playerId, int points) => Scores[playerId] = (Scores.TryGetValue(playerId, out var s) ? s : 0) + points;
 
 	/// <summary>The room as one viewer may see it: "host", or a player id.</summary>
@@ -119,7 +121,7 @@ public sealed class Room : IGameHooks
 		Game?.CheckAllAnswered();
 	}
 
-	public void UpdateSettings(int? maxPlayers = null, int? answerTimeSec = null)
+	public void UpdateSettings(int? maxPlayers = null, int? answerTimeSec = null, bool? hostShows = null, bool? hostUnlocks = null)
 	{
 		if (maxPlayers is { } mp)
 		{
@@ -128,6 +130,8 @@ public sealed class Room : IGameHooks
 			Settings.MaxPlayers = Math.Clamp(mp, min, Limits.MaxPlayersMax);
 		}
 		if (answerTimeSec is { } at) Settings.AnswerTimeSec = Math.Clamp(at, Limits.AnswerTimeMin, Limits.AnswerTimeMax);
+		if (hostShows is { } shows) Settings.HostShowsQuestions = shows;
+		if (hostUnlocks is { } unlocks) Settings.HostUnlocksBuzzers = unlocks;
 	}
 
 	public Result Start()

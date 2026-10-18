@@ -13,6 +13,8 @@ public interface IGameHooks
 {
 	/// <summary>Players currently connected (they are the ones we wait for).</summary>
 	IReadOnlyList<string> ActivePlayerIds();
+	bool HostShowsQuestions();
+	bool HostUnlocksBuzzers();
 	int AnswerTimeSec();
 	void Award(string playerId, int points);
 	long Now();
@@ -29,6 +31,10 @@ public sealed class Game
 
 	public int Index { get; private set; }
 	public string Stage { get; private set; } = Shared.Stage.Open;
+	/// <summary>The host has shown the current question (until then players get nothing of it).</summary>
+	public bool Shown { get; private set; }
+	/// <summary>Buzzer questions: players can buzz in.</summary>
+	public bool BuzzersOpen { get; private set; }
 	/// <summary>Past the last question: the room shows the podium.</summary>
 	public bool Finished { get; private set; }
 
@@ -75,8 +81,36 @@ public sealed class Game
 		_playedMs = 0;
 		_playingSince = null;
 		_reveal = null;
+		_endsAt = null;
+		Shown = false;
+		BuzzersOpen = false;
+		if (!_hooks.HostShowsQuestions()) StartShown(now);
+	}
+
+	/// <summary>The question appears: its timer starts and (unless the host unlocks them) the buzzers open.</summary>
+	void StartShown(long now)
+	{
+		Shown = true;
+		_openedAt = now;
 		var limit = TimeLimitSec(Question);
 		_endsAt = limit is { } l ? now + l * 1000L : null;
+		BuzzersOpen = Question.IsBuzzer && !_hooks.HostUnlocksBuzzers();
+	}
+
+	/// <summary>The host shows the hidden question to everyone.</summary>
+	public bool ShowQuestion()
+	{
+		if (Stage != Shared.Stage.Open || Shown) return false;
+		StartShown(_hooks.Now());
+		return true;
+	}
+
+	/// <summary>The host locks or unlocks the buzzers (buzzer questions, once shown).</summary>
+	public bool SetBuzzers(bool open)
+	{
+		if (Stage != Shared.Stage.Open || !Shown || !Question.IsBuzzer || BuzzersOpen == open) return false;
+		BuzzersOpen = open;
+		return true;
 	}
 
 	/// <summary>Runs timers. Returns true if something changed (the time ran out).</summary>
@@ -115,7 +149,7 @@ public sealed class Game
 	public bool BuzzIn(string playerId)
 	{
 		var q = Question;
-		if (Stage != Shared.Stage.Open || !q.IsBuzzer || _buzzes.Any(b => b.PlayerId == playerId)) return false;
+		if (Stage != Shared.Stage.Open || !q.IsBuzzer || !Shown || !BuzzersOpen || _buzzes.Any(b => b.PlayerId == playerId)) return false;
 		var now = _hooks.Now();
 		var someoneAnswering = _buzzes.Any(b => b.Status == BuzzStatus.Answering);
 		_buzzes.Add(new Buzz
@@ -150,6 +184,7 @@ public sealed class Game
 	{
 		var q = Question;
 		if (index != Index || Stage != Shared.Stage.Open) return Result.Fail("This question is already closed.");
+		if (!Shown) return Result.Fail("The host hasn't shown this question yet.");
 		if (q.IsBuzzer) return Result.Fail("This is a buzzer question.");
 		if (_answers.Any(a => a.PlayerId == playerId)) return Result.Fail("You already locked in your answer.");
 
@@ -500,7 +535,10 @@ public sealed class Game
 			Index = Index,
 			Total = _quiz.Questions.Count,
 			Stage = Stage,
-			Question = PublicQuestion(),
+			// A hidden question: players only learn its number, type and points.
+			Question = Shown || viewer == "host" || !open ? PublicQuestion() : new PublicQuestion { Type = Question.Type, Points = Question.Points, Buzzer = Question.IsBuzzer, Mode = Question.Type == QuestionType.Classic ? Question.Mode : null },
+			Shown = Shown || !open,
+			BuzzersOpen = BuzzersOpen,
 			EndsAt = open ? _endsAt : null,
 			AnswerEndsAt = open && _answeringSince is { } since ? since + _hooks.AnswerTimeSec() * 1000L : null,
 			AnsweredIds = _answers.Select(a => a.PlayerId).ToList(),
@@ -514,12 +552,14 @@ public sealed class Game
 	}
 
 	/// <summary>Image data for an asset key — only for questions already shown.</summary>
-	public string? AssetDataUrl(string key)
+	/// <param name="host">The host's own screen: may also have what players can't yet.</param>
+	public string? AssetDataUrl(string key, bool host = false)
 	{
 		var parts = key.Split('/');
 		if (parts.Length != 2 || !parts[0].StartsWith('q') || !int.TryParse(parts[0].AsSpan(1), out var index)) return null;
 		if (index < 0 || index > Index || index >= _quiz.Questions.Count) return null;
-		if (HiddenPicture(index)) return null;
+		if (!host && index == Index && !Shown && Stage == Shared.Stage.Open) return null;
+		if (!host && HiddenPicture(index)) return null;
 		var q = _quiz.Questions[index];
 		if (parts[1] == "image" && q.HasImageField && q.Image != null) return q.Image.DataUrl;
 		if (parts[1] == "map" && q.Type == QuestionType.MapPin) return _quiz.MapById(q.MapId)?.Image.DataUrl;

@@ -157,10 +157,10 @@ public sealed class HostSession : IDisposable
 		}
 	}
 
-	public void UpdateSettings(int? maxPlayers = null, int? answerTimeSec = null)
+	public void UpdateSettings(int? maxPlayers = null, int? answerTimeSec = null, bool? hostShows = null, bool? hostUnlocks = null)
 	{
 		if (Room.Phase != Phase.Lobby) return;
-		Room.UpdateSettings(maxPlayers, answerTimeSec);
+		Room.UpdateSettings(maxPlayers, answerTimeSec, hostShows, hostUnlocks);
 		Broadcast();
 	}
 
@@ -187,6 +187,8 @@ public sealed class HostSession : IDisposable
 	public void Judge(bool correct) => GameAction(g => g.Judge(correct));
 	public void Reveal() => GameAction(g => g.HostReveal());
 	public void ToggleWritten(string playerId) => GameAction(g => g.ToggleWritten(playerId));
+	public void ShowQuestion() => GameAction(g => g.ShowQuestion());
+	public void SetBuzzers(bool open) => GameAction(g => g.SetBuzzers(open));
 
 	public void Next()
 	{

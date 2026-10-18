@@ -48,6 +48,12 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **New question type: Write the answer.** Everyone types their answer. Answers matching yours are ticked
   automatically — case, accents, "the" and small typos don't matter, and you can accept several answers
   ("Mount Everest / Everest"). At the reveal you can tick or untick any answer and the points follow.
+- **You decide when each question appears.** A new question starts hidden: on your screen it's frosted over
+  and players only see "Get ready…". Read it out first (the new **Host notes** window shows the question and
+  answer — if you share only the game window in Discord, nobody else sees it), then press **Show question**
+  or Space. Timers, music, videos and image reveals only start then.
+- **You unlock the buzzers.** On buzzer questions the buzzers stay locked (grey) until you press **Unlock
+  buzzers** or Space, and you can lock them again any time. Both are lobby rules you can switch off.
 - **Multiple choice questions:** a third kind of classic question where several answers can be right. Tick every
   correct answer in the editor; players pick all they think are right and then lock in. Only players who pick
   exactly the right ones get the points.

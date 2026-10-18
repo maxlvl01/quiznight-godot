@@ -31,10 +31,12 @@ public static class SelfTest
 		public long Now = 1_000_000;
 	}
 
+	/// <summary>A room whose questions show and whose buzzers open by themselves (host control is tested on its own).</summary>
 	static (Room Room, Clock Clock) NewRoom(Quiz quiz, params string[] players)
 	{
 		var clock = new Clock();
 		var room = new Room("TEST", quiz, () => clock.Now);
+		room.UpdateSettings(hostShows: false, hostUnlocks: false);
 		foreach (var p in players) room.Join(p, p);
 		return (room, clock);
 	}
@@ -224,6 +226,28 @@ public static class SelfTest
 		room.Next();
 		Eq(room.Phase, Phase.Finished, "podium after the last question");
 
+
+		// Host control: a question stays hidden until shown; buzzers stay locked until unlocked.
+		var (ctl, ctlClock) = NewRoom(quiz, "ann", "bob");
+		ctl.UpdateSettings(hostShows: true, hostUnlocks: true);
+		Check(ctl.Start().Ok, "start with host control");
+		var cg = ctl.Game!;
+		Check(!cg.Shown, "question starts hidden");
+		Eq(ctl.ToState("ann").Game!.Question.Prompt, "", "players don't see a hidden question");
+		Eq(ctl.ToState("host").Game!.Question.Prompt, "Which planet is known as the Red Planet?", "the host does");
+		Check(!cg.BuzzIn("ann"), "no buzzing while hidden");
+		Check(cg.ShowQuestion() && cg.Shown, "host shows the question");
+		Check(!cg.BuzzersOpen && !cg.BuzzIn("ann"), "buzzers still locked");
+		Check(cg.SetBuzzers(true) && cg.BuzzIn("ann"), "host unlocks, ann buzzes");
+		cg.Judge(true);
+		ctl.Next();
+		Eq(cg.Index, 1, "next question");
+		Check(!cg.Shown && cg.View("host").EndsAt == null, "a timed question's clock waits while hidden");
+		Check(!cg.Answer("ann", 1, AnswerValue.Number(0)).Ok, "no answers while hidden");
+		ctlClock.Now += 60_000;
+		Check(!ctl.Tick(), "no time-out while hidden");
+		cg.ShowQuestion();
+		Check(cg.View("host").EndsAt == ctlClock.Now + 20_000, "the timer starts when shown");
 		// Joining rules
 		var (lobby, _) = NewRoom(quiz, "a1");
 		Eq(lobby.Join("a2", "  A1 ").Error, "Someone in this room already uses that name.", "duplicate names");
@@ -333,6 +357,7 @@ public static class SelfTest
 			return;
 		}
 		var host = new HostSession(new Room("NETT", quiz), lan, NetMode.Lan, port);
+		host.Room.UpdateSettings(hostShows: false, hostUnlocks: false);
 		var ann = ClientSession.Lan("127.0.0.1", port, "Ann", "ann-id");
 		var bob = ClientSession.Lan("127.0.0.1", port, "Bob", "bob-id");
 		string? ended = null;

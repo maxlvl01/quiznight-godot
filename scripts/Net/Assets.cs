@@ -33,7 +33,7 @@ public sealed class HostAssets(Func<Room?> room) : AssetSource
 	public override Texture2D? Get(string key)
 	{
 		if (Cache.TryGetValue(key, out var tex)) return tex;
-		var dataUrl = room()?.Game?.AssetDataUrl(key);
+		var dataUrl = room()?.Game?.AssetDataUrl(key, host: true);
 		if (dataUrl == null) return null;
 		tex = Images.TextureFromDataUrl(dataUrl);
 		Cache[key] = tex;

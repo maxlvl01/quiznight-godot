@@ -104,6 +104,13 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 		if (connected < Limits.MinPlayersToStart)
 			_content.AddChild(U.Muted(Lang.F("Needs at least {0} players.", Limits.MinPlayersToStart), 13, false, HorizontalAlignment.Right).End());
 	}
+
+	static CheckBox Rule(string text, bool on, Action<bool> changed)
+	{
+		var box = new CheckBox { Text = text, ButtonPressed = on, MouseDefaultCursorShape = CursorShape.PointingHand };
+		box.Toggled += v => changed(v);
+		return box;
+	}
 }
 
 public partial class WaitingRoomScreen : Control, IRoomScreen
