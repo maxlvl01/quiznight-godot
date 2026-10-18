@@ -40,12 +40,14 @@ public static class Prefs
 		}
 	}
 
-	public static void ApplyAudio()
+	/// <summary>The saved volumes, or <paramref name="preview"/> (the settings screen's unsaved ones).</summary>
+	public static void ApplyAudio(Settings.Values? preview = null)
 	{
-		SetVolume("Master", Settings.MasterVolume);
-		SetVolume(MusicBus, Settings.MusicVolume);
-		SetVolume(GameMusicBus, Settings.GameMusicVolume);
-		SetVolume(SfxBus, Settings.SfxVolume);
+		var v = preview ?? Settings.Current;
+		SetVolume("Master", v.Master);
+		SetVolume(MusicBus, v.Music);
+		SetVolume(GameMusicBus, v.GameMusic);
+		SetVolume(SfxBus, v.Sfx);
 	}
 
 	static void SetVolume(string bus, int percent)

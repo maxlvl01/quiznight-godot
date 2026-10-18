@@ -23,7 +23,8 @@ public static class Lang
 			TranslationServer.AddTranslation(de);
 			_registered = true;
 		}
-		TranslationServer.SetLocale(code == "de" ? "de" : "en");
+		var locale = code == "de" ? "de" : "en";
+		if (TranslationServer.GetLocale() != locale) TranslationServer.SetLocale(locale);
 	}
 
 	/// <summary>"de" on a German Windows, else "en" (used until the player picks one).</summary>

@@ -50,6 +50,25 @@ public static class Settings
 
 	// ---------- settings screen ----------
 
+	/// <summary>Everything on the settings screen as one value: the screen edits a copy and saves it with Apply.</summary>
+	public sealed record Values(string Language, int Master, int Music, int GameMusic, int Sfx, string Buzzer, string WindowMode, Vector2I WindowSize);
+
+	public static Values Defaults => new(Lang.SystemDefault, 80, 80, 60, 100, Storage.Sfx.DefaultBuzzer, "windowed", new Vector2I(1600, 900));
+
+	public static Values Current => new(Language, MasterVolume, MusicVolume, GameMusicVolume, SfxVolume, BuzzerSound, WindowMode, WindowSize);
+
+	public static void Save(Values v)
+	{
+		Language = v.Language;
+		MasterVolume = v.Master;
+		MusicVolume = v.Music;
+		GameMusicVolume = v.GameMusic;
+		SfxVolume = v.Sfx;
+		BuzzerSound = v.Buzzer;
+		WindowMode = v.WindowMode;
+		WindowSize = v.WindowSize;
+	}
+
 	static int GetPercent(string key, int fallback) => int.TryParse(Get(key, ""), out var v) ? Mathf.Clamp(v, 0, 100) : fallback;
 
 	public static string Language
@@ -60,25 +79,25 @@ public static class Settings
 
 	public static int MasterVolume
 	{
-		get => GetPercent("volume_master", 80);
+		get => GetPercent("volume_master", Defaults.Master);
 		set => Set("volume_master", value.ToString());
 	}
 
 	public static int MusicVolume
 	{
-		get => GetPercent("volume_music", 80);
+		get => GetPercent("volume_music", Defaults.Music);
 		set => Set("volume_music", value.ToString());
 	}
 
 	public static int GameMusicVolume
 	{
-		get => GetPercent("volume_game_music", 60);
+		get => GetPercent("volume_game_music", Defaults.GameMusic);
 		set => Set("volume_game_music", value.ToString());
 	}
 
 	public static int SfxVolume
 	{
-		get => GetPercent("volume_sfx", 100);
+		get => GetPercent("volume_sfx", Defaults.Sfx);
 		set => Set("volume_sfx", value.ToString());
 	}
 
@@ -92,7 +111,7 @@ public static class Settings
 	/// <summary>"windowed", "fullscreen" (exclusive) or "borderless" (borderless fullscreen window).</summary>
 	public static string WindowMode
 	{
-		get => Get("window_mode", "windowed");
+		get => Get("window_mode", Defaults.WindowMode);
 		set => Set("window_mode", value);
 	}
 

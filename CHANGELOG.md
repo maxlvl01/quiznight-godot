@@ -20,6 +20,8 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
     and for sound effects.
   - Window mode (windowed, fullscreen, borderless) and window size.
   - Language: English or Deutsch.
+  - Changes only count once you press **Apply** (volumes and language preview right away). **Discard** goes
+    back, **Reset to defaults** fills in the standard values, and leaving with unsaved changes asks first.
 - **Video questions explain how to use an MP4:** pick or drop an MP4 (or WebM, MOV, MKV) and a short
   3-step guide opens. It shows exactly what to paste to turn it into the .ogv format the game can play
   (with the free tool ffmpeg), then adds the converted video with one click. Also there as a link

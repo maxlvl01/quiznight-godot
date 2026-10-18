@@ -5,43 +5,57 @@ using QuizNight.Storage;
 
 namespace QuizNight.Ui.Screens;
 
-/// <summary>Audio (master, music, sound effects), video (window mode, size) and language.</summary>
+/// <summary>
+/// Audio (master, music, game music, sound effects, buzzer), video (window mode, size) and language.
+/// Changes are a draft until Apply: volumes and the language preview right away, the window changes on
+/// Apply. Discard goes back to what's saved, Reset fills in the defaults (still to be applied).
+/// </summary>
 public partial class SettingsScreen : Control
 {
+	// Kept across rebuilds of this screen (a language change rebuilds it so all text switches).
+	static Settings.Values? _draft;
+	static string? _note;
+
+	static Settings.Values Draft => _draft ??= Settings.Current;
+	static bool Dirty => Draft != Settings.Current;
+
+	readonly Label _status = U.Muted("", 13, false, HorizontalAlignment.Right);
+	readonly Button _apply;
+	readonly Button _discard;
+	readonly Button _reset;
+
 	public SettingsScreen()
 	{
 		SetAnchorsPreset(LayoutPreset.FullRect);
+		var d = Draft;
 
 		var audio = U.Card(14,
 			U.Eyebrow("Audio"),
-			Volume("Master volume", "Everything Quiznight plays.", Settings.MasterVolume, v => Settings.MasterVolume = v),
-			Volume("Music", "Songs and clips in sound and video questions.", Settings.MusicVolume, v => Settings.MusicVolume = v),
-			Volume("Game music", "Menu music and the podium jingle.", Settings.GameMusicVolume, v => Settings.GameMusicVolume = v),
-			Volume("Sound effects", "Buzzer and other sound effects.", Settings.SfxVolume, v => Settings.SfxVolume = v),
+			Volume("Master volume", "Everything Quiznight plays.", d.Master, v => Change(Draft with { Master = v })),
+			Volume("Music", "Songs and clips in sound and video questions.", d.Music, v => Change(Draft with { Music = v })),
+			Volume("Game music", "Menu music and the podium jingle.", d.GameMusic, v => Change(Draft with { GameMusic = v })),
+			Volume("Sound effects", "Buzzer and other sound effects.", d.Sfx, v => Change(Draft with { Sfx = v })),
 			new HSeparator(),
 			BuzzerSection()).Grow();
 
 		var sizes = Prefs.WindowSizes.Select(s => ($"{s.X}x{s.Y}", $"{s.X} × {s.Y}")).ToArray();
-		var current = Settings.WindowSize;
-		var size = U.Select(sizes, $"{current.X}x{current.Y}", id =>
+		var size = U.Select(sizes, $"{d.WindowSize.X}x{d.WindowSize.Y}", id =>
 		{
 			var p = id.Split('x');
-			Settings.WindowSize = new Vector2I(int.Parse(p[0]), int.Parse(p[1]));
-			Prefs.ApplyWindow();
+			Change(Draft with { WindowSize = new Vector2I(int.Parse(p[0]), int.Parse(p[1])) });
 		});
 		var sizeHint = U.Muted("", 12);
 		void UpdateSize()
 		{
-			var windowed = Settings.WindowMode == "windowed";
+			var windowed = Draft.WindowMode == "windowed";
 			size.Disabled = !windowed;
 			sizeHint.Text = windowed ? "" : Lang.T("Fullscreen always uses your monitor's resolution.");
 			sizeHint.Visible = !windowed;
 		}
 		UpdateSize();
-		var mode = U.Segmented(new[] { ("windowed", "Windowed"), ("fullscreen", "Fullscreen"), ("borderless", "Borderless") }, Settings.WindowMode, id =>
+		var mode = U.Segmented(new[] { ("windowed", "Windowed"), ("fullscreen", "Fullscreen"), ("borderless", "Borderless") }, d.WindowMode, id =>
 		{
-			Settings.WindowMode = id;
-			Prefs.ApplyWindow();
+			Change(Draft with { WindowMode = id });
 			UpdateSize();
 		});
 		var video = U.Card(12,
@@ -53,20 +67,105 @@ public partial class SettingsScreen : Control
 
 		var language = U.Card(12,
 			U.Eyebrow("Language"),
-			U.Segmented(Lang.All, Settings.Language, code =>
+			U.Segmented(Lang.All, d.Language, code =>
 			{
-				Settings.Language = code;
-				Lang.Use(code);
+				Change(Draft with { Language = code });
 				// Rebuild so text made from parts (Lang.F) switches too.
 				Callable.From(App.I.GoSettings).CallDeferred();
 			}),
 			U.Muted("Changes all menus and game screens. Quiz questions stay in the language they were written in.", 12));
 
+		_reset = U.Btn("↺ Reset to defaults", "", () =>
+		{
+			_draft = Settings.Defaults;
+			_note = "reset";
+			Preview();
+			App.I.GoSettings();
+		});
+		_discard = U.Btn("Discard", "", () =>
+		{
+			_draft = Settings.Current;
+			_note = null;
+			Preview();
+			App.I.GoSettings();
+		});
+		_apply = U.Btn("Apply", "AccentButton", Apply);
+		var bar = U.H(10, _reset, _status.Grow(), _discard, _apply);
+		_status.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+
 		var page = U.V(14,
-			U.Link("← Home", () => App.I.GoHome()).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin),
+			U.Link("← Home", Leave).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin),
 			U.Heading("Settings", 34),
-			U.H(14, audio, U.V(14, video, language).Grow()));
-		AddChild(U.Page(page, 980));
+			U.H(14, audio, U.V(14, video, language).Grow()),
+			U.Gap(8));
+		// The buttons stay at the bottom of the screen; the settings scroll above them.
+		var scroll = U.Page(page, 980);
+		scroll.SizeFlagsVertical = SizeFlags.ExpandFill;
+		var footer = new Column { MaxWidth = 980, PadTop = 0 };
+		footer.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		footer.AddChild(U.Pad(bar, 0, 12, 0, 14));
+		var footerPanel = U.Panel(footer, "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel, 0, C.Border, 0, 0, 0)));
+		var root = U.V(0, scroll, new HSeparator(), footerPanel);
+		root.SetAnchorsPreset(LayoutPreset.FullRect);
+		AddChild(root);
+		UpdateBar();
+	}
+
+	/// <summary>A new draft: hear the volumes and see the language now, keep the rest for Apply.</summary>
+	void Change(Settings.Values draft)
+	{
+		_draft = draft;
+		_note = null;
+		Preview();
+		UpdateBar();
+	}
+
+	static void Preview()
+	{
+		Prefs.ApplyAudio(Draft);
+		Lang.Use(Draft.Language);
+	}
+
+	void Apply()
+	{
+		var windowChanged = Draft.WindowMode != Settings.WindowMode || Draft.WindowSize != Settings.WindowSize;
+		Settings.Save(Draft);
+		Prefs.ApplyAudio();
+		Lang.Use(Settings.Language);
+		if (windowChanged) Prefs.ApplyWindow();
+		_note = "applied";
+		UpdateBar();
+	}
+
+	/// <summary>Back home; unsaved changes are dropped (after asking).</summary>
+	void Leave()
+	{
+		void Go()
+		{
+			_draft = null;
+			_note = null;
+			Prefs.ApplyAudio();
+			Lang.Use(Settings.Language);
+			App.I.GoHome();
+		}
+		if (Dirty) Dialogs.Confirm(this, "You have changes you haven't applied. Leave without saving them?", "Discard changes", Go);
+		else Go();
+	}
+
+	void UpdateBar()
+	{
+		_apply.Disabled = !Dirty;
+		_discard.Disabled = !Dirty;
+		_reset.Disabled = Draft == Settings.Defaults;
+		var (text, color) = _note switch
+		{
+			"applied" when !Dirty => (Lang.T("✓ Settings saved"), C.Teal),
+			"reset" when Dirty => (Lang.T("Defaults filled in — press Apply to keep them."), C.Accent),
+			_ when Dirty => (Lang.T("Unsaved changes"), C.Accent),
+			_ => ("", C.Muted),
+		};
+		_status.Text = text;
+		_status.AddThemeColorOverride("font_color", color);
 	}
 
 	Control BuzzerSection()
@@ -77,8 +176,8 @@ public partial class SettingsScreen : Control
 			try
 			{
 				Sfx.SetCustom(path);
-				Settings.BuzzerSound = Sfx.Custom;
 				Sfx.PlayBuzzer(Sfx.Custom);
+				_draft = Draft with { Buzzer = Sfx.Custom };
 				App.I.GoSettings();
 			}
 			catch (UserError e)
@@ -89,13 +188,13 @@ public partial class SettingsScreen : Control
 		}));
 		return U.V(6,
 			U.Text("Buzzer sound", 15),
-			BuzzerPicker.Make(Settings.BuzzerSound, id => Settings.BuzzerSound = id, true),
+			BuzzerPicker.Make(Draft.Buzzer, id => Change(Draft with { Buzzer = id }), true),
 			U.Muted("Plays for the host and all players when someone buzzes in. This is the default for new lobbies; the host can still change it in the lobby for one night. If you host with your own sound, players hear their own default buzzer instead.", 12),
 			U.H(10, own, U.Muted(Lang.F("MP3, OGG or WAV, up to {0} MB.", Sfx.CustomMaxMb), 12, false).With(l => l.SizeFlagsVertical = SizeFlags.ShrinkCenter)),
 			error);
 	}
 
-	static Control Volume(string label, string hint, int value, System.Action<int> save)
+	static Control Volume(string label, string hint, int value, System.Action<int> changed)
 	{
 		var shown = U.Mono($"{value}%", 15, C.Muted);
 		var slider = new HSlider { MinValue = 0, MaxValue = 100, Step = 1, Value = value, MouseDefaultCursorShape = CursorShape.PointingHand };
@@ -103,8 +202,7 @@ public partial class SettingsScreen : Control
 		slider.ValueChanged += v =>
 		{
 			shown.Text = $"{(int)v}%";
-			save((int)v);
-			Prefs.ApplyAudio();
+			changed((int)v);
 		};
 		return U.V(4, U.H(8, U.Text(label, 15).Grow(), shown), slider, U.Muted(hint, 12));
 	}
