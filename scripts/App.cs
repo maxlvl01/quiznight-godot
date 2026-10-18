@@ -51,7 +51,12 @@ public partial class App : Control
 		if (args.Contains("--selftest")) Lang.Use("en");
 		if (!args.Contains("--no-steam") && !args.Contains("--selftest") && !args.Contains("--bot")) SteamService.Init();
 		_dev = DevTools.FromArgs(this, args);
-		if (_dev?.TakesOver != true) GoHome();
+		if (_dev?.TakesOver != true)
+		{
+			GoHome();
+			WhatsNew.ShowIfUpdated(this);
+			UpdatePrompt.CheckAndInstall(this);
+		}
 	}
 
 	public override void _Process(double delta)

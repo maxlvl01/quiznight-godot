@@ -78,9 +78,12 @@ public static partial class VideoGuide
 	}
 
 	/// <summary>Dimmed backdrop with a centred, scrollable card. Esc or a click outside closes it.</summary>
-	partial class GuideOverlay : Control
+	/// <summary>A dimmed full-window cover with a centred, scrolling card (also used by What's new and the updater).</summary>
+	public partial class GuideOverlay : Control
 	{
 		readonly ScrollContainer _scroll = new() { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+		/// <summary>Click outside or Esc closes it (off while an update downloads).</summary>
+		public bool Closable = true;
 
 		public GuideOverlay()
 		{
@@ -90,7 +93,7 @@ public static partial class VideoGuide
 			dim.SetAnchorsPreset(LayoutPreset.FullRect);
 			dim.GuiInput += e =>
 			{
-				if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }) QueueFree();
+				if (Closable && e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }) QueueFree();
 			};
 			AddChild(dim);
 			var center = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };
@@ -123,7 +126,7 @@ public static partial class VideoGuide
 
 		public override void _UnhandledKeyInput(InputEvent e)
 		{
-			if (e is InputEventKey { Pressed: true, Keycode: Key.Escape })
+			if (Closable && e is InputEventKey { Pressed: true, Keycode: Key.Escape })
 			{
 				QueueFree();
 				GetViewport().SetInputAsHandled();

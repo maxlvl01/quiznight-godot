@@ -97,8 +97,13 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
 - Godot C# classes need a parameterless constructor (we add `public X() : this(...)`).
 - `steam_api64.dll` comes from the Facepunch package's `content/` folder and is copied to the build
   output by the csproj (`None … CopyToOutputDirectory`).
-- Exporting builds for friends needs the 4.7.2 **mono** export templates (Editor → Manage Export
-  Templates) — not installed yet. Not verified that the Steam DLL lands in the export.
+- **Exporting:** the 4.7.2 mono templates are installed (Windows x86_64). C# export needs `QuizNight!.sln`
+  next to the csproj. The build lands in `build/Quiznight/`; `steam_api64.dll` ends up in the
+  `data_QuizNight!_windows_x86_64` folder and Steam works from there (checked with `--steam-check`).
+- **Releases & updates:** `tools/release.sh` exports, zips and publishes a GitHub release on the public
+  `maxlvl01/quiznight-releases` repo (code lives in the private `maxlvl01/quiznight`). Exported games check
+  it at startup (`Storage/Updater.cs`) and update themselves; "What's new" is read from the shipped
+  CHANGELOG.md, so its `## [version]` / `### Added|Changed|Fixed|Removed` layout matters.
 
 ## Versioning rules
 

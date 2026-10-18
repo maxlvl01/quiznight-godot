@@ -1,0 +1,133 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+using Godot;
+using QuizNight.Shared;
+using QuizNight.Storage;
+
+namespace QuizNight.Ui.Screens;
+
+/// <summary>
+/// "What's new": the changelog of the versions since the one last opened, grouped into New / Changed /
+/// Fixed / Removed. Shown once after an update (or a first install), and from the version link on Home.
+/// </summary>
+public static class WhatsNew
+{
+	const string ChangelogPath = "res://CHANGELOG.md";
+
+	static List<Changelog.Release> Read()
+	{
+		using var file = Godot.FileAccess.Open(ChangelogPath, Godot.FileAccess.ModeFlags.Read);
+		return file == null ? new List<Changelog.Release>() : Changelog.Parse(file.GetAsText());
+	}
+
+	/// <summary>After an update: shows what changed since the last version opened, then remembers this one.</summary>
+	public static void ShowIfUpdated(Node owner)
+	{
+		var current = AppVersion.Parse(App.Version);
+		var seen = AppVersion.Parse(Settings.LastSeenVersion);
+		if (current is not { } now || seen is { } s && !(now > s)) return;
+		var releases = Changelog.Between(Read(), seen, now);
+		Settings.LastSeenVersion = App.Version;
+		if (releases.Count > 0) Show(owner, releases.Take(3).ToList());
+	}
+
+	/// <summary>The notes of this version (from the version link on Home).</summary>
+	public static void ShowCurrent(Node owner)
+	{
+		var releases = Read();
+		var current = releases.FirstOrDefault(r => r.Version is { } v && AppVersion.Parse(App.Version) is { } now && v.CompareTo(now) == 0) ?? releases.FirstOrDefault();
+		if (current != null) Show(owner, new List<Changelog.Release> { current });
+	}
+
+	static void Show(Node owner, List<Changelog.Release> releases)
+	{
+		var overlay = new VideoGuide.GuideOverlay();
+		var box = U.V(16);
+		box.AddChild(U.Eyebrow("What's new"));
+		box.AddChild(U.Heading(Lang.F("Quiznight {0}", App.Version), 32, false));
+		foreach (var release in releases)
+		{
+			if (releases.Count > 1 || release.Title != "")
+				box.AddChild(U.Bold($"{release.VersionText}" + (release.Title != "" ? $" — {release.Title}" : ""), 18).Raw());
+			foreach (var section in release.Sections.Where(s => s.Items.Count > 0))
+			{
+				var (label, color) = Kind(section.Kind);
+				box.AddChild(U.Pill(label, color).With(p => p.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin));
+				var list = U.V(10);
+				foreach (var item in section.Items) list.AddChild(Bullet(item, color));
+				box.AddChild(list);
+			}
+		}
+		box.AddChild(U.Btn("Let's go!", "AccentButton", overlay.QueueFree, 18).With(b => b.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd));
+		overlay.SetContent(U.Pad(box, 28, 26, 28, 26));
+		owner.AddChild(overlay);
+	}
+
+	static (string Label, Color Color) Kind(string kind) => kind.ToLowerInvariant() switch
+	{
+		"added" => ("New", C.Teal),
+		"changed" => ("Changed", C.Sky),
+		"fixed" => ("Fixed", C.Accent),
+		"removed" => ("Removed", C.Coral),
+		_ => (kind, C.Muted),
+	};
+
+	/// <summary>One point: coloured dot, text with **bold** and `code` from the markdown.</summary>
+	static Control Bullet(string markdown, Color color)
+	{
+		var text = Regex.Replace(markdown.Replace("[", "[lb]"), @"\*\*(.+?)\*\*", "[b]$1[/b]");
+		text = Regex.Replace(text, "`(.+?)`", "[code]$1[/code]");
+		var label = new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, Text = text, AutoTranslateMode = Node.AutoTranslateModeEnum.Disabled };
+		label.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		label.AddThemeFontSizeOverride("normal_font_size", 16);
+		label.AddThemeFontSizeOverride("bold_font_size", 16);
+		label.AddThemeFontOverride("bold_font", Fonts.Bold);
+		label.AddThemeColorOverride("default_color", C.Text);
+		var dot = new Panel { CustomMinimumSize = new Vector2(8, 8), SizeFlagsVertical = Control.SizeFlags.ShrinkBegin };
+		dot.AddThemeStyleboxOverride("panel", UiTheme.Box(color, 4, null, 0, 0, 0));
+		return U.H(12, U.Pad(dot, 0, 8, 0, 0), label);
+	}
+}
+
+/// <summary>At startup (exported builds): looks for a newer version and installs it, restarting the game.</summary>
+public static class UpdatePrompt
+{
+	public static async void CheckAndInstall(Node owner)
+	{
+		if (!Updater.Enabled || await Updater.CheckAsync() is not { } release || !GodotObject.IsInstanceValid(owner)) return;
+		// Not in the middle of a game: only from the home screen.
+		if (App.I.Host != null || App.I.Client != null) return;
+
+		var overlay = new VideoGuide.GuideOverlay { Closable = false };
+		var status = U.Muted(Lang.F("Downloading version {0}…", release.Version), 15);
+		var bar = new ProgressBar { MinValue = 0, MaxValue = 1, Step = 0, ShowPercentage = false, CustomMinimumSize = new Vector2(0, 10) };
+		bar.AddThemeStyleboxOverride("background", UiTheme.Box(C.Panel2, 5, null, 0, 0, 0));
+		bar.AddThemeStyleboxOverride("fill", UiTheme.Box(C.Accent, 5, null, 0, 0, 0));
+		var error = U.Error();
+		var later = U.Small("Not now", overlay.QueueFree);
+		var box = U.V(14,
+			U.Eyebrow("Update"),
+			U.Heading(Lang.F("Quiznight {0} is here!", release.Version), 30, false),
+			U.Muted(Lang.F("You have {0}. The game downloads the new version, restarts and then shows you what's new.", App.Version), 15),
+			bar, status, error, later.With(b => b.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd));
+		overlay.SetContent(U.Pad(box, 28, 26, 28, 26));
+		owner.AddChild(overlay);
+		try
+		{
+			await Updater.InstallAsync(release, p =>
+			{
+				bar.Value = p;
+				if (p >= 1) status.Text = Lang.T("Restarting…");
+			});
+			later.Disabled = true;
+		}
+		catch (Exception e)
+		{
+			error.Text = Lang.F("The update didn't work: {0} You can keep playing this version.", e.Message);
+			error.Visible = true;
+			status.Visible = false;
+		}
+	}
+}

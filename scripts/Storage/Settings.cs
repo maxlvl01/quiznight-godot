@@ -30,6 +30,13 @@ public static class Settings
 		Cfg.Save(FilePath);
 	}
 
+	/// <summary>The version that last showed "What's new" (so it shows once after each update).</summary>
+	public static string LastSeenVersion
+	{
+		get => Get("last_seen_version", "");
+		set => Set("last_seen_version", value);
+	}
+
 	public static string PlayerName
 	{
 		get => Get("player_name", "");

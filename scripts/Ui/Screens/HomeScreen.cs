@@ -65,7 +65,7 @@ public partial class HomeScreen : Control
 
 		var grid = U.H(16, host, join);
 		page.AddChild(grid);
-		page.AddChild(U.Muted($"v{App.Version}", 12, false, HorizontalAlignment.Center).Center());
+		page.AddChild(U.H(6, U.Muted($"v{App.Version}  ·", 12, false), U.Link("What's new", () => WhatsNew.ShowCurrent(this), 12)).Center());
 
 		AddChild(U.Page(page, 960, 56));
 		var settings = U.Small("Settings", App.I.GoSettings);

@@ -302,6 +302,15 @@ public static class SelfTest
 
 		Check(QuizJson.Parse("[1,2]", out _) == null, "array is not a quiz");
 		Check(QuizJson.Parse("{nope", out _) == null, "garbage is not a quiz");
+
+		// Versions and the changelog (What's new, updater).
+		Check(AppVersion.Parse("0.5.0") > AppVersion.Parse("0.5.0a")!.Value && AppVersion.Parse("0.5.1a") > AppVersion.Parse("0.5.0")!.Value, "version order");
+		Check(AppVersion.Parse("v0.10.0a") > AppVersion.Parse("0.9.3")!.Value, "tags and two-digit numbers");
+		Check(AppVersion.Parse("hello") == null, "not a version");
+		var notes = Changelog.Parse(Godot.FileAccess.GetFileAsString("res://CHANGELOG.md"));
+		var thisVersion = notes.FirstOrDefault(r => r.Version is { } nv && AppVersion.Parse(App.Version) is { } av && nv.CompareTo(av) == 0);
+		Check(thisVersion != null && thisVersion.Sections.Any(s => s.Kind == "Added" && s.Items.Count > 3), "the changelog has this version's notes");
+		Eq(Changelog.Between(notes, AppVersion.Parse("0.4.0a"), AppVersion.Parse(App.Version)!.Value).Count, 1, "what's new since 0.4.0a");
 	}
 
 	static void Atlas()
