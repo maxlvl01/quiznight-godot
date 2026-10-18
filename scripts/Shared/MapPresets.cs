@@ -13,6 +13,19 @@
 //   different, so north-south distances read ~1% short.
 // - GTA IV: interactive-game-maps calibration lx = (x + 2571) * 0.0321 on a 6000 px wide image
 //   (zoom 5 = 32 px per unit), i.e. 6000 / 32 / 0.0321 m. y scale differs by ~0.7%.
+// - Zelda BotW / TotK (surface and Depths): zeldamods objmap tiles (zoom 5), 24000 x 20000 px at zoom 7 = 2 px per
+//   game unit over x -6000..6000, z -5000..5000; units are metres, so the image is 12 x 10 km.
+// - Elden Ring: Elden Ring Compass tiles; its master map is the m60 grid at 1 px per world unit (metre). Zoom 5 =
+//   2 m per px. Lands Between = the 19 x 18 tiles that exist (4864 x 4608 px); Land of Shadow = a 2564 x 3072 px cut.
+// - RDR2: Rockstar Social Club map tiles; the RDR2 Collectors Map (jeanropke) maps game metres with 0.01552 Leaflet
+//   units per metre on a 176 x 144 unit map, i.e. 11340 m wide; we keep the 5420 of its 5632 zoom-5 px that are map.
+// - Cyberpunk 2077: NC Zoning Board satellite tiles, whose square spans CET x -6298..5815 (metres); we keep
+//   3716 of its 4096 zoom-4 px (the rest is empty).
+// - GTA San Andreas: 6000 px satellite map of the -3000..3000 world square, 1 px per metre.
+// - Forza Horizon 6: the FH6 Heatmap live map (calibrated to the game's position telemetry in metres) puts
+//   3.5131 m in one px of its 6144 px image; we keep a 4900 px wide cut (less sea).
+// - PUBG: official no-text maps (pubg/api-assets, 8192 px); the API gives each map's size in cm (Erangel,
+//   Miramar, Taego, Vikendi, Deston 816000; Sanhok 408000).
 // - WoW Classic: a whole atlas (world → continents → zones) with exact game regions instead of
 //   one scale; see WowAtlas. Its WidthKm is null and MapDistance measures in yards.
 
@@ -42,6 +55,30 @@ public static class MapPresets
 			"Satellite map © Rockstar Games."),
 		new("gta4", "GTA IV – Liberty City", Round(6000 / 32 / 0.0321 / 1000), "res://assets/maps/gta4.webp",
 			"In-game map © Rockstar Games, via GTAvision.com."),
+		new("botw", "Zelda: Breath of the Wild – Hyrule", 12, "res://assets/maps/botw.webp",
+			"Map: zeldamods objmap (from the game's map). Zelda © Nintendo."),
+		new("totk", "Zelda: Tears of the Kingdom – Hyrule", 12, "res://assets/maps/totk.webp",
+			"Map: zeldamods objmap (from the game's map). Zelda © Nintendo."),
+		new("totk-depths", "Zelda: Tears of the Kingdom – the Depths", 12, "res://assets/maps/totk-depths.webp",
+			"Map: zeldamods objmap (from the game's map). Zelda © Nintendo."),
+		new("eldenring", "Elden Ring – the Lands Between", Round(4864 * 2 / 1000.0), "res://assets/maps/eldenring.webp",
+			"Map: Elden Ring Compass (from the game's map). Elden Ring © FromSoftware / Bandai Namco."),
+		new("eldenring-dlc", "Elden Ring – Land of Shadow (DLC)", Round(2564 * 2 / 1000.0), "res://assets/maps/eldenring-dlc.webp",
+			"Map: Elden Ring Compass (from the game's map). Elden Ring © FromSoftware / Bandai Namco."),
+		new("rdr2", "Red Dead Redemption 2", Round(5420 / 5632.0 * 176 / 0.01552 / 1000), "res://assets/maps/rdr2.webp",
+			"In-game map © Rockstar Games, via Rockstar Social Club; scale from the RDR2 Collectors Map."),
+		new("cyberpunk", "Cyberpunk 2077 – Night City", Round(3716 / 4096.0 * (5815 - -6298) / 1000), "res://assets/maps/cyberpunk.webp",
+			"Satellite map: NC Zoning Board. Unofficial fan work, not approved/endorsed by CD PROJEKT RED."),
+		new("gtasa", "GTA San Andreas", 6, "res://assets/maps/gtasa.webp",
+			"Satellite map via SAMAP. GTA San Andreas © Rockstar Games."),
+		new("fh6", "Forza Horizon 6 – Japan", Round(4900 * 3.5131 / 1000), "res://assets/maps/fh6.webp",
+			"Map: FH6 Heatmap (kthwang3). Forza Horizon 6 © Microsoft / Playground Games."),
+		new("pubg-erangel", "PUBG – Erangel", 8.16, "res://assets/maps/pubg-erangel.webp", "Official map © KRAFTON (PUBG API assets)."),
+		new("pubg-miramar", "PUBG – Miramar", 8.16, "res://assets/maps/pubg-miramar.webp", "Official map © KRAFTON (PUBG API assets)."),
+		new("pubg-taego", "PUBG – Taego", 8.16, "res://assets/maps/pubg-taego.webp", "Official map © KRAFTON (PUBG API assets)."),
+		new("pubg-vikendi", "PUBG – Vikendi", 8.16, "res://assets/maps/pubg-vikendi.webp", "Official map © KRAFTON (PUBG API assets)."),
+		new("pubg-deston", "PUBG – Deston", 8.16, "res://assets/maps/pubg-deston.webp", "Official map © KRAFTON (PUBG API assets)."),
+		new("pubg-sanhok", "PUBG – Sanhok", 4.08, "res://assets/maps/pubg-sanhok.webp", "Official map © KRAFTON (PUBG API assets)."),
 		new(WowAtlas.PresetId, "WoW Classic – Azeroth (one seamless map, zoom into any zone)", null, WowAtlas.ImagePath(WowAtlas.World),
 			"Maps © Blizzard Entertainment; zones stitched by the OpenMap addon (MIT). Distances in game yards, exact per zone."),
 	};

@@ -1,6 +1,9 @@
 # More built-in maps for Map pin — research (October 2026)
 
-Nothing here is implemented yet. A preset needs two things: **one full map image** and **its real width**
+**Status (0.7.1b):** added BotW, TotK (surface + Depths), Elden Ring (+ DLC), RDR2, Cyberpunk 2077, GTA San Andreas,
+Forza Horizon 6 and PUBG (Erangel, Miramar, Taego, Vikendi, Deston, Sanhok); sources and scales are in `MapPresets.cs`.
+Not done: Morrowind (UESP is behind a bot check now), Fallout, The Witcher 3 (no reliable scale per region yet),
+retail WoW and WoW Forever. A preset needs two things: **one full map image** and **its real width**
 (so distances and scoring work, see `MapPresets.cs`). Games whose coordinates are in metres can be
 calibrated exactly, like Skyrim and GTA V. For the others we only have estimates.
 

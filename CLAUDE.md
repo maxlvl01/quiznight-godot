@@ -22,7 +22,10 @@ the original design decisions; most still apply.
 - **Quiz files extend the web version's format** (`.quiznight.json`, now format 4: multi choice, image reveal, timeline,
   put in order, write the answer), so old exports import as-is.
   `QuizJson` reads forgivingly (= migration) and writes only each type's fields.
-  Built-in map images are not stored in files (they ship with the game, `assets/maps/`).
+  Built-in map images are not stored in files (they ship with the game, `assets/maps/`). Each one's source and
+  scale is noted in `MapPresets.cs`; `tools/stitch_map.gd` builds them from downloaded tiles (run one Godot at a
+  time: two at once hang). They import as lossy WebP (`compress/mode=1`), otherwise every 4096 px map adds ~15 MB
+  to the download.
 - **The host runs the pace.** Questions open hidden (`Game.Shown`) until the host shows them; buzzers stay
   locked (`BuzzersOpen`) until unlocked — both lobby rules. Players get no content of a hidden question, and
   an image reveal's picture only at the reveal. Choice answers and order items are shuffled per game
@@ -73,7 +76,7 @@ dotnet build "QuizNight!.csproj"                              # compile — run 
 "$G" --path . --resolution 1600x900 -- --no-steam --open mapPin --shot out.png    # screenshot a screen
 ```
 
-`--screen home|quizzes|quiz|settings`, `--open classic|choice|multi|estimation|mapPin|wow|sound|image|order|timeline|write`, `--start-at N` (with `--autopilot`), `--map-zoom Z [--map-at X,Y]` (WoW map), `--lang en|de` (this run only), `--shot FILE --after SEC`
+`--screen home|quizzes|quiz|settings`, `--open classic|choice|multi|estimation|mapPin|wow|sound|image|order|timeline|write` (`--map-preset ID` with mapPin), `--start-at N` (with `--autopilot`), `--map-zoom Z [--map-at X,Y]` (WoW map), `--lang en|de` (this run only), `--shot FILE --after SEC`
 (see `DevTools.cs`). Full solo test: host with `--autopilot --players 2` plus two `--bot` instances.
 Screenshots need a window (no `--headless`); the window opens briefly on the user's screen.
 
@@ -105,8 +108,9 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
   it at startup (`Storage/Updater.cs`) and update themselves; "What's new" is read from the shipped
   CHANGELOG.md, so its `## [version]` / `### Added|Changed|Fixed|Removed` layout matters.
 - **AnyConverter** (the user's separate Python/tkinter converter, `C:\Users\Xbox3\Desktop\AnyConverter`, not in git)
-  ships in the Windows zip as `AnyConverter/AnyConverter.exe`; `release.sh` copies it from its `dist/` (override with
-  `ANYCONVERTER=…`) and stops if it's missing. Rebuild it with `py -m PyInstaller --noconfirm AnyConverter.spec`.
+  ships in the Windows zip as `AnyConverter/AnyConverter.exe` and in the Linux zip as `AnyConverter/AnyConverter`;
+  `release.sh` copies them from its `dist/` (`AnyConverter.exe`, and `linux/AnyConverter-linux-x86_64.tar.gz` from its
+  GitHub Actions build; override with `ANYCONVERTER=…` / `ANYCONVERTER_LINUX=…`) and stops if one is missing. Rebuild it with `py -m PyInstaller --noconfirm AnyConverter.spec`.
   `VideoGuide` opens it with `--format ogv FILE`. FFmpeg is deliberately not bundled (too big): AnyConverter
   prompts players to install it.
 

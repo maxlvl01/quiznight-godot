@@ -11,7 +11,19 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
-## [0.7.1b] — Quiznight is now in beta
+## [0.7.1b] — beta, with 15 new game maps
+
+### Added
+- **15 new built-in maps for Map pin questions**, all with their real size, so "how far off" is right:
+  - **Zelda:** Breath of the Wild (Hyrule), Tears of the Kingdom (Hyrule and the Depths).
+  - **Elden Ring:** the Lands Between and the Land of Shadow (DLC).
+  - **Red Dead Redemption 2**, **Cyberpunk 2077** (Night City), **GTA San Andreas** and **Forza Horizon 6** (Japan).
+  - **PUBG:** Erangel, Miramar, Taego, Vikendi, Deston and Sanhok.
+
+  Pick them under "Choose a map…" in a map pin question (the list is now sorted A–Z). Most have no place names on
+  them; the Red Dead and Elden Ring maps show some, like in the game.
+- **AnyConverter on Linux:** the Linux download now comes with AnyConverter too, and the video guide's
+  **Open AnyConverter** button works there. AnyConverter itself is a newer, faster version.
 
 ### Changed
 - **Quiznight is in beta now.** The stamp next to the logo says BETA instead of ALPHA, and versions end in "b".

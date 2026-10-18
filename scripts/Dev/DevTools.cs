@@ -104,7 +104,18 @@ public sealed class DevTools
 		else if (Value("--open") is { } type)
 		{
 			TakesOver = true;
-			var quiz = QuizStore.Save(SampleQuiz.Build());
+			var sample = SampleQuiz.Build();
+			// --map-preset ID (with --open mapPin): the map pin question uses that built-in map instead of Skyrim
+			if (Value("--map-preset") is { } presetId && MapPresets.Get(presetId) is { } preset && Images.BuiltinTexture(preset.ImagePath) is { } tex)
+			{
+				var map = new MapAsset { Id = "map-" + preset.Id, Name = preset.Name, PresetId = preset.Id, WidthKm = preset.WidthKm,
+					Image = new ImageAsset { Width = tex.GetWidth(), Height = tex.GetHeight() } };
+				sample.Maps.Add(map);
+				var pin = sample.Questions.First(x => x.Type == QuestionType.MapPin && x.MapId == "map-skyrim");
+				pin.MapId = map.Id;
+				pin.Target = new NormPoint(0.5, 0.5);
+			}
+			var quiz = QuizStore.Save(sample);
 			var q = quiz.Questions.FirstOrDefault(x => x.Type == type || (type == "choice" && x.Mode == ClassicMode.Choice) || (type == "multi" && x.IsMulti) || (type == "image" && x.Type == QuestionType.Image) || (type == "timeline" && x.IsTimeline) || (type == "wow" && x.MapId != null && quiz.MapById(x.MapId)?.PresetId == WowAtlas.PresetId)) ?? quiz.Questions[0];
 			_app.GoQuestion(quiz.Id, q.Id, null);
 		}

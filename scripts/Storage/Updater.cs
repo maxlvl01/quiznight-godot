@@ -146,6 +146,7 @@ public static class Updater
 		while kill -0 "$PID" 2>/dev/null && [ $i -lt 120 ]; do sleep 0.5; i=$((i+1)); done
 		cp -rf "$FROM"/. "$TO"/
 		chmod +x "$EXE"
+		[ -f "$TO/AnyConverter/AnyConverter" ] && chmod +x "$TO/AnyConverter/AnyConverter"
 		cd "$TO" && nohup "$EXE" >/dev/null 2>&1 &
 		""";
 }

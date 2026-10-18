@@ -59,12 +59,12 @@ public static partial class VideoGuide
 
 		var header = U.H(10, U.Heading("Turn your video into an .ogv file", 24).Grow(), U.Small("Close", d.QueueFree).With(b => b.SizeFlagsVertical = Control.SizeFlags.ShrinkBegin));
 		var content = AnyConverterPath is { } converter
-			// The Windows build ships AnyConverter: two clicks instead of the terminal.
+			// The Windows and Linux builds ship AnyConverter: two clicks instead of the terminal.
 			? U.V(16, header,
 				U.Text("Quiznight can only play videos in the .ogv format. AnyConverter, which comes with Quiznight, turns your MP4 (or WebM, MOV, MKV) into one.", 15, null, null, true),
 				Step(1, "Convert your video",
 					U.H(10, pick, pickedLabel.With(l => l.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter)),
-					U.Btn("Open AnyConverter", "AccentButton", () => OS.CreateProcess(converter, input != null ? new[] { "--format", "ogv", WinPath(input) } : new[] { "--format", "ogv" }), 15)
+					U.Btn("Open AnyConverter", "AccentButton", () => OpenAnyConverter(converter, input), 15)
 						.With(b => b.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin),
 					U.Muted("It opens with your video and .ogv already chosen: press Convert and wait until it says Done. The very first time, it helps you install FFmpeg, the free tool that does the converting.", 13)),
 				Step(2, "Use it in your question",
@@ -149,20 +149,29 @@ public static partial class VideoGuide
 		}
 	}
 
-	/// <summary>AnyConverter, shipped with the Windows build in an AnyConverter folder next to the game (null when it isn't there).</summary>
+	/// <summary>AnyConverter, shipped with the Windows and Linux builds in an AnyConverter folder next to the game (null when it isn't there).</summary>
 	static string? AnyConverterPath
 	{
 		get
 		{
-			if (OS.GetName() != "Windows") return null;
-			var path = Path.Combine(Path.GetDirectoryName(OS.GetExecutablePath()) ?? "", "AnyConverter", "AnyConverter.exe");
+			var name = OS.GetName() switch { "Windows" => "AnyConverter.exe", "Linux" => "AnyConverter", _ => null };
+			if (name == null) return null;
+			var path = Path.Combine(Path.GetDirectoryName(OS.GetExecutablePath()) ?? "", "AnyConverter", name);
 			return File.Exists(path) ? path : null;
 		}
 	}
 
+	static void OpenAnyConverter(string converter, string? video)
+	{
+		// Zips made on Windows lose the executable bit.
+		if (OS.GetName() == "Linux") OS.Execute("chmod", new[] { "+x", converter });
+		OS.CreateProcess(converter, video != null ? new[] { "--format", "ogv", WinPath(video) } : new[] { "--format", "ogv" });
+	}
+
 	static string OgvPath(string video) => Path.ChangeExtension(video, ".ogv");
 
-	static string WinPath(string path) => path.Replace('/', '\\');
+	/// <summary>Backslashes on Windows; other systems keep the path as it is.</summary>
+	static string WinPath(string path) => OS.GetName() == "Windows" ? path.Replace('/', '\\') : path;
 
 	static Control Step(int n, string title, params Control[] body)
 	{

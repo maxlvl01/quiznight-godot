@@ -10,6 +10,7 @@ cd "$(dirname "$0")/.."
 G="${GODOT:-/c/Users/Xbox3/Desktop/Godot_v4.7.2-stable_mono_win64/Godot_v4.7.2-stable_mono_win64_console.exe}"
 REPO="maxlvl01/quiznight-releases"
 ANYCONVERTER="${ANYCONVERTER:-/c/Users/Xbox3/Desktop/AnyConverter/dist/AnyConverter.exe}"
+ANYCONVERTER_LINUX="${ANYCONVERTER_LINUX:-/c/Users/Xbox3/Desktop/AnyConverter/dist/linux/AnyConverter-linux-x86_64.tar.gz}"
 VERSION=$(sed -n 's/^config\/version="\(.*\)"/\1/p' project.godot)
 OUT="build/Quiznight"
 ZIP="build/Quiznight-$VERSION-windows.zip"
@@ -34,6 +35,11 @@ echo "== Linux build"
 rm -rf "$OUT_LINUX" && mkdir -p "$OUT_LINUX"
 "$G" --headless --path . --export-release "Linux" "$OUT_LINUX/Quiznight.x86_64" > build/export-linux.log 2>&1 || true
 [ -f "$OUT_LINUX/Quiznight.x86_64" ] && [ -f "$OUT_LINUX/data_QuizNight!_linuxbsd_x86_64/libsteam_api.so" ] || { echo "Linux export failed, see build/export-linux.log"; exit 1; }
+# AnyConverter's native Linux build (from its GitHub Actions run or build_linux.sh, packed as AnyConverter-linux/AnyConverter).
+[ -f "$ANYCONVERTER_LINUX" ] || { echo "AnyConverter for Linux not found at $ANYCONVERTER_LINUX (set ANYCONVERTER_LINUX)"; exit 1; }
+rm -rf build/anyconverter-linux && mkdir -p build/anyconverter-linux "$OUT_LINUX/AnyConverter"
+/c/Windows/System32/tar.exe -x -f "$ANYCONVERTER_LINUX" -C build/anyconverter-linux
+cp build/anyconverter-linux/AnyConverter-linux/AnyConverter "$OUT_LINUX/AnyConverter/AnyConverter"
 # (the export builds the C# for Linux; build it for Windows again for the editor and the self-test)
 dotnet build "QuizNight!.csproj" -nologo -v q
 

@@ -356,6 +356,13 @@ public static class SelfTest
 		Eq(quiz.Maps[0].PresetId, "skyrim", "preset id");
 		Eq(QuizRules.QuizIssues(quiz).Count, 0, "old quiz is playable: " + string.Join(" ", QuizRules.QuizIssues(quiz)));
 
+		// Built-in maps: every image ships, ids are unique, and all but the WoW atlas have a real width.
+		Check(MapPresets.All.All(p => ResourceLoader.Exists(p.ImagePath)), "every built-in map image exists: " + string.Join(", ", MapPresets.All.Where(p => !ResourceLoader.Exists(p.ImagePath)).Select(p => p.Id)));
+		Eq(MapPresets.All.Select(p => p.Id).Distinct().Count(), MapPresets.All.Count, "built-in map ids are unique");
+		Check(MapPresets.All.All(p => p.Id == WowAtlas.PresetId || p.WidthKm > 0), "built-in maps have a scale");
+		Eq(MapPresets.Get("botw")!.WidthKm, 12.0, "Hyrule is 12 km wide");
+		Eq(MapPresets.Get("fh6")!.WidthKm, 17.214, "FH6 Japan width");
+
 		var again = QuizJson.Parse(QuizJson.Write(quiz), out _)!;
 		Eq(QuizJson.Write(again), QuizJson.Write(quiz), "write/read round trip");
 		var multi = Dev.SampleQuiz.Build().Questions.First(x => x.IsMulti).Clone();

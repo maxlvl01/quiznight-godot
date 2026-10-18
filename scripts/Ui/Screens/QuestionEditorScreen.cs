@@ -478,7 +478,7 @@ public partial class QuestionEditorScreen : Control
 
 		var items = new List<(string, string)> { ("", "Choose a map…") };
 		items.AddRange(_maps.Select(m => (m.Id, m.Name)));
-		items.AddRange(MapPresets.All.Where(p => _maps.All(m => m.PresetId != p.Id)).Select(p => (PresetPrefix + p.Id, Lang.F("{0}  (built-in)", p.Name))));
+		items.AddRange(MapPresets.All.Where(p => _maps.All(m => m.PresetId != p.Id)).OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).Select(p => (PresetPrefix + p.Id, Lang.F("{0}  (built-in)", p.Name))));
 		items.Add((NewMap, "+ Upload a new map"));
 		_mapCol.AddChild(U.Select(items.ToArray(), _addingMap ? NewMap : _draft.MapId ?? "", id =>
 		{
