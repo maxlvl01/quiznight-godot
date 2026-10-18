@@ -34,6 +34,8 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - The empty "Image (optional)" box in the editor is smaller, and the question box is two lines high.
 
 ### Fixed
+- On the timeline, "◀ Oldest" and "Newest ▶" now sit right at the ends of the timeline instead of at the edges of
+  the screen, for the host and the players.
 - **The Skyrim map no longer has a big empty border** on the right and at the bottom. Pins in quizzes you already
   made move along with it, and distances stay correct.
 - The sample quiz's "Where is Whiterun?" pin is now actually on Whiterun.

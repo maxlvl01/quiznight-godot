@@ -114,12 +114,16 @@ public static class GameParts
 
 	/// <summary>
 	/// The timeline left to right, with a gap before, between and after the cards. With <paramref name="pick"/>
-	/// the gaps are buttons (gaps already tried are crossed out); without it only tried gaps show (✗).
+	/// the gaps are buttons (gaps already tried are crossed out); without it only tried gaps show (✗). The ends
+	/// ("◀ Oldest", "Newest ▶") are the first and last items of the row.
 	/// </summary>
 	public static Control TimelineRow(PublicQuestion q, TimelineView tl, int? picked = null, Action<int>? pick = null)
 	{
 		var flow = U.Flow(8);
 		flow.Alignment = FlowContainer.AlignmentMode.Center;
+		// The ends sit right next to the first and last gap, so the arrows line up with the timeline.
+		Control End(string text) => U.Muted(text, 14, false).Raw().With(l => l.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter);
+		flow.AddChild(End("◀ " + (q.OrderTop ?? "")));
 		for (var g = 0; g <= tl.Placed.Count; g++)
 		{
 			var gap = g;
@@ -140,8 +144,8 @@ public static class GameParts
 				flow.AddChild(TimelineCard(c.Text, c.Label, c.Start));
 			}
 		}
-		var ends = U.H(0, U.Muted("◀ " + (q.OrderTop ?? ""), 14, false).Raw(), U.Fill(), U.Muted((q.OrderBottom ?? "") + " ▶", 14, false).Raw());
-		return U.V(8, ends, flow);
+		flow.AddChild(End((q.OrderBottom ?? "") + " ▶"));
+		return flow;
 	}
 
 	/// <summary>"Ann put Elden Ring in the wrong place." and the like.</summary>
