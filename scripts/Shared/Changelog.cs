@@ -1,4 +1,4 @@
-// Versions (MAJOR.MINOR.HOTFIX with an optional letter: "0.5.0a" = alpha, "0.6.2b" = beta) and the
+// Versions (MAJOR.MINOR.HOTFIX with an optional letter: "0.5.0a" = alpha, "0.7.1b" = beta) and the
 // changelog, read from CHANGELOG.md (shipped with the game) for the "What's new" screen.
 
 using System;

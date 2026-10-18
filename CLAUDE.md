@@ -112,7 +112,7 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
 
 ## Versioning rules
 
-Same as the web version: **MAJOR.MINOR.HOTFIX** (`0.4.0a` = alpha, `0.6.2b` = beta; the home screen stamp follows the letter), stored in
+Same as the web version: **MAJOR.MINOR.HOTFIX** (`0.4.0a` = alpha, `0.7.1b` = beta; the home screen stamp follows the letter), stored in
 `project.godot` (`application/config/version`). Add changelog entries under `[Unreleased]` in
 CHANGELOG.md while working (plain language, for friends to read). If the quiz file format changes,
 bump `QuizRules.FormatVersion` and keep old files loading.

@@ -7,11 +7,11 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 - **MINOR**: new features that don't break anything (new question type, new screen).
 - **HOTFIX**: bug fixes only.
 
-`0.x.y` means the game is still in development: a letter `a` is an alpha, `b` a beta (from 0.6.2b on).
+`0.x.y` means the game is still in development: a letter `a` is an alpha, `b` a beta (from 0.7.1b on).
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
-## [0.6.2b] — Quiznight is now in beta
+## [0.7.1b] — Quiznight is now in beta
 
 ### Changed
 - **Quiznight is in beta now.** The stamp next to the logo says BETA instead of ALPHA, and versions end in "b".
