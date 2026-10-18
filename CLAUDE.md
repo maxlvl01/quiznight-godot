@@ -19,9 +19,14 @@ the original design decisions; most still apply.
   makes the room code findable. Host leaves = room closed.
 - **LAN mode (plain TCP, port 7777)** exists for testing several copies on one PC (Steam can't
   connect you to yourself) and for offline play on the same Wi-Fi.
-- **Same quiz file format as the web version** (`.quiznight.json`, format 2), so old exports
-  import as-is. `QuizJson` reads forgivingly (= migration) and writes only each type's fields.
+- **Quiz files extend the web version's format** (`.quiznight.json`, now format 3: multi choice, image reveal,
+  put in order, write the answer), so old exports import as-is.
+  `QuizJson` reads forgivingly (= migration) and writes only each type's fields.
   Built-in map images are not stored in files (they ship with the game, `assets/maps/`).
+- **The host runs the pace.** Questions open hidden (`Game.Shown`) until the host shows them; buzzers stay
+  locked (`BuzzersOpen`) until unlocked — both lobby rules. Players get no content of a hidden question, and
+  an image reveal's picture only at the reveal. Choice answers and order items are shuffled per game
+  (`QuizRules.ShuffleChoices`/`ShuffleOrder`); the stored quiz is never changed.
 - **Game state is per viewer** (`Room.ToState(viewer)`): players never get answers before the
   reveal. Question images/custom maps are fetched by asset key (`q3/image`, `q3/map`) only for
   questions already shown, split into ≤300 KB parts (Steam's message limit is 512 KB).
@@ -46,9 +51,9 @@ the original design decisions; most still apply.
 | `scripts/Server/HostSession.cs` | Host side: messages ↔ room, per-viewer broadcast, asset sending |
 | `scripts/Net/` | `SteamTransport` (lobbies + relay), `LanTransport` (TCP), `ClientSession` (player side, auto-reconnect), `Assets`, `ServerClock` |
 | `scripts/Storage/` | `QuizStore` (user://quizzes), `Images`, `Media`, `Settings` |
-| `scripts/Ui/` | `UiKit` (theme, colours, builders), `Widgets`, `MapView` (zoom/pan map), `WowMap` (seamless WoW map: world → continents → stitched zone tiles → cities) |
+| `scripts/Ui/` | `UiKit` (theme, colours, builders), `Widgets`, `MapView` (zoom/pan map), `WowMap` (seamless WoW map: world → continents → stitched zone tiles → cities), `ImageReveal` (zoom/pixel reveal) |
 | `assets/maps/wow/stitched/` | OpenMap's baked zone art (207 tiles), converted by `tools/openmap_tiles.gd` from the addon's `Media/Textures/MapZones` (BLP) |
-| `scripts/Ui/Screens/` | Home, QuizList, QuizOverview, QuestionEditor, HostLobby, WaitingRoom, HostGame, PlayerGame, Podium |
+| `scripts/Ui/Screens/` | Home, QuizList, QuizOverview, QuestionEditor, HostLobby, WaitingRoom, HostGame (+ Curtain, HostNotes window), PlayerGame, Podium, Settings |
 | `scripts/Dev/` | `SelfTest`, `SampleQuiz`, `DevTools` (bots, autopilot, screenshots) |
 
 User data: `%APPDATA%\Quiznight\` (quizzes, settings.cfg, cache).
@@ -68,7 +73,7 @@ dotnet build "QuizNight!.csproj"                              # compile — run 
 "$G" --path . --resolution 1600x900 -- --no-steam --open mapPin --shot out.png    # screenshot a screen
 ```
 
-`--screen home|quizzes|quiz|settings`, `--open classic|choice|multi|estimation|mapPin|wow|sound`, `--map-zoom Z [--map-at X,Y]` (WoW map), `--lang en|de` (this run only), `--shot FILE --after SEC`
+`--screen home|quizzes|quiz|settings`, `--open classic|choice|multi|estimation|mapPin|wow|sound|image|order|write`, `--map-zoom Z [--map-at X,Y]` (WoW map), `--lang en|de` (this run only), `--shot FILE --after SEC`
 (see `DevTools.cs`). Full solo test: host with `--autopilot --players 2` plus two `--bot` instances.
 Screenshots need a window (no `--headless`); the window opens briefly on the user's screen.
 
