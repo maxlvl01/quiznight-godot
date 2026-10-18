@@ -1,4 +1,4 @@
-// Versions (MAJOR.MINOR.HOTFIX with an optional letter: "0.5.0a" = 0.5.0 in development) and the
+// Versions (MAJOR.MINOR.HOTFIX with an optional letter: "0.5.0a" = alpha, "0.6.2b" = beta) and the
 // changelog, read from CHANGELOG.md (shipped with the game) for the "What's new" screen.
 
 using System;
@@ -20,7 +20,7 @@ public readonly record struct AppVersion(int Major, int Minor, int Hotfix, strin
 			m.Groups[3].Success && m.Groups[3].Value != "" ? int.Parse(m.Groups[3].Value) : 0, m.Groups[4].Value.ToLowerInvariant());
 	}
 
-	/// <summary>Numbers first; for the same numbers a letter ("a", in development) comes before the finished version.</summary>
+	/// <summary>Numbers first; for the same numbers a letter ("a" alpha, "b" beta) comes before the finished version, and "a" before "b".</summary>
 	public int CompareTo(AppVersion other)
 	{
 		var c = (Major, Minor, Hotfix).CompareTo((other.Major, other.Minor, other.Hotfix));

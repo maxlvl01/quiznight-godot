@@ -7,12 +7,14 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 - **MINOR**: new features that don't break anything (new question type, new screen).
 - **HOTFIX**: bug fixes only.
 
-`0.x.y` means the game is still in development. `1.0.0` will be the first complete, playable quiz night.
+`0.x.y` means the game is still in development: a letter `a` is an alpha, `b` a beta (from 0.6.2b on).
+`1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
-## [Unreleased]
+## [0.6.2b] — Quiznight is now in beta
 
 ### Changed
+- **Quiznight is in beta now.** The stamp next to the logo says BETA instead of ALPHA, and versions end in "b".
 - **No more scrolling in the game screens and the question editor.** Pictures and maps now take the space that's
   left on the screen instead of a fixed size, so everything fits in the window — on the host's screen, on the
   players' screens and in the editor. On the map pin reveal, players see the answer and the scores next to a big map.

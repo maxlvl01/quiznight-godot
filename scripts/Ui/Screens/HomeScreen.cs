@@ -22,14 +22,17 @@ public partial class HomeScreen : Control
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		_mode = SteamService.Available ? Settings.Mode : NetMode.Lan;
 
-		var brand = U.H(18,
-			U.H(0, U.Text("Quiznight", 64, C.Text, Fonts.Black), U.Text("!", 64, C.Accent, Fonts.Black)),
-			U.Panel(U.Text("ALPHA", 22, C.Coral, Fonts.Mono), "Clear").With(p =>
+		var brand = U.H(18, U.H(0, U.Text("Quiznight", 64, C.Text, Fonts.Black), U.Text("!", 64, C.Accent, Fonts.Black)));
+		// The stamp next to the logo follows the version letter: 0.5.0a = alpha, 0.6.2b = beta, none when finished.
+		var stage = AppVersion.Parse(App.Version)?.Suffix switch { "a" => "ALPHA", "b" => "BETA", _ => null };
+		if (stage != null)
+			brand.AddChild(U.Panel(U.Text(stage, 22, C.Coral, Fonts.Mono), "Clear").With(p =>
 			{
 				p.AddThemeStyleboxOverride("panel", UiTheme.Box(Colors.Transparent, 10, C.Coral, 3, 12, 2));
 				p.RotationDegrees = -6;
 				p.SizeFlagsVertical = SizeFlags.ShrinkCenter;
-			})).Center();
+			}));
+		brand.Center();
 
 		var page = U.V(18, brand,
 			U.Muted("Quiz nights with your friends — on Discord or on the couch.", 17, false, HorizontalAlignment.Center).Center());
