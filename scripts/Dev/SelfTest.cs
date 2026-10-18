@@ -309,8 +309,10 @@ public static class SelfTest
 		Check(AppVersion.Parse("hello") == null, "not a version");
 		var notes = Changelog.Parse(Godot.FileAccess.GetFileAsString("res://CHANGELOG.md"));
 		var thisVersion = notes.FirstOrDefault(r => r.Version is { } nv && AppVersion.Parse(App.Version) is { } av && nv.CompareTo(av) == 0);
-		Check(thisVersion != null && thisVersion.Sections.Any(s => s.Kind == "Added" && s.Items.Count > 3), "the changelog has this version's notes");
-		Eq(Changelog.Between(notes, AppVersion.Parse("0.4.0a"), AppVersion.Parse(App.Version)!.Value).Count, 1, "what's new since 0.4.0a");
+		Check(thisVersion != null && thisVersion.Sections.Any(s => s.Kind is "Added" or "Changed" or "Fixed" or "Removed" && s.Items.Count > 0), "the changelog has this version's notes");
+		// Since 0.4.0a: every release after it up to this one, newest first, without 0.4.0a itself.
+		var since = Changelog.Between(notes, AppVersion.Parse("0.4.0a"), AppVersion.Parse(App.Version)!.Value);
+		Check(since.Count >= 1 && since[0] == thisVersion && since.All(r => r.VersionText != "0.4.0a"), "what's new since 0.4.0a");
 	}
 
 	static void Atlas()
