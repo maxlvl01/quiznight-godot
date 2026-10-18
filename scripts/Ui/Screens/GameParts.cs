@@ -38,6 +38,80 @@ public static class GameParts
 		return list;
 	}
 
+	/// <summary>
+	/// The side column on the host's and the players' screens: the buzz order, the timeline's turn order or who has
+	/// answered, then the scores. <paramref name="me"/> (a player) is highlighted.
+	/// </summary>
+	public static void SideInfo(VBoxContainer side, RoomState room, string? me = null)
+	{
+		var game = room.Game!;
+		var q = game.Question;
+		var tl = game.Stage == Stage.Open ? game.Timeline : null;
+		if (q.Buzzer && game.Stage == Stage.Open)
+		{
+			side.AddChild(U.Eyebrow("Buzz order"));
+			if (game.Shown && !game.BuzzersOpen) side.AddChild(U.Pill("Buzzers locked", C.Coral));
+			side.AddChild(BuzzQueue(room));
+		}
+		else if (tl != null)
+		{
+			side.AddChild(U.Eyebrow("Turn order — fewest points first"));
+			for (var i = 0; i < tl.TurnOrder.Count; i++)
+			{
+				var p = room.Player(tl.TurnOrder[i]);
+				var now = p.Id == tl.TurnPlayerId;
+				var missed = tl.Missed.Contains(p.Id);
+				var status = now ? Lang.T("Placing now") : missed ? Lang.T("Missed this one") : !p.Connected ? Lang.T("(offline)") : "";
+				var row = Row(8, RankBadge(i + 1), new Avatar(p, 26), U.V(0, U.Text(p.Name, 15).Raw(), U.Muted(status, 12, false)).Grow());
+				var panel = U.Panel(row, "Clear");
+				panel.AddThemeStyleboxOverride("panel", UiTheme.Box(now ? new Color(C.Accent, 0.1f) : C.Panel2, 10, now ? C.Accent : p.Id == me ? C.Teal : C.Border, 1, 10, 6));
+				if (missed || !p.Connected) panel.Modulate = new Color(1, 1, 1, 0.55f);
+				side.AddChild(panel);
+			}
+		}
+		else if (game.Stage == Stage.Open && game.Shown)
+		{
+			var connected = room.Players.Count(p => p.Connected);
+			side.AddChild(U.Eyebrow(Lang.F("Answers: {0} / {1}", game.AnsweredIds.Count, connected)));
+			var chips = U.Flow(6);
+			foreach (var p in room.Players) chips.AddChild(Chips.Player(p, game.AnsweredIds.Contains(p.Id) ? "✓" : null, p.Id == me, !game.AnsweredIds.Contains(p.Id)));
+			side.AddChild(chips);
+		}
+		if (side.GetChildCount() > 0) side.AddChild(U.Gap(4));
+		side.AddChild(U.Eyebrow("Scores"));
+		side.AddChild(Scoreboard(room, me));
+	}
+
+	/// <summary>Who buzzed, in order, with their status and time.</summary>
+	public static Control BuzzQueue(RoomState room)
+	{
+		var game = room.Game!;
+		if (game.Buzzes.Count == 0) return U.Muted("Nobody has buzzed yet.", 14);
+		var list = U.V(6);
+		for (var i = 0; i < game.Buzzes.Count; i++)
+		{
+			var b = game.Buzzes[i];
+			var p = room.Player(b.PlayerId);
+			var status = b.Status switch
+			{
+				BuzzStatus.Answering => "Answering now",
+				BuzzStatus.Waiting => "Next in line",
+				BuzzStatus.Wrong => "Wrong",
+				_ => "Correct",
+			};
+			var row = Row(8, RankBadge(i + 1), new Avatar(p, 26),
+				U.V(0, U.Text(p.Name, 15).Raw(), U.Muted(status, 12, false)).Grow(),
+				U.Mono(game.Question.HasPlayClock ? U.FormatSeconds(b.AtSec) : $"{b.AtSec:0.00} s", 13, C.Muted));
+			var border = b.Status switch { BuzzStatus.Answering => C.Accent, BuzzStatus.Correct => C.Teal, _ => C.Border };
+			var bg = b.Status == BuzzStatus.Answering ? new Color(C.Accent, 0.1f) : C.Panel2;
+			var panel = U.Panel(row, "Clear");
+			panel.AddThemeStyleboxOverride("panel", UiTheme.Box(bg, 10, border, 1, 10, 6));
+			if (b.Status == BuzzStatus.Wrong) panel.Modulate = new Color(1, 1, 1, 0.55f);
+			list.AddChild(panel);
+		}
+		return list;
+	}
+
 	/// <summary>The answer and everyone's result, shown on the host screen after the reveal.</summary>
 	/// <param name="toggle">Host, write-the-answer: tick or untick a player's answer.</param>
 	public static Control RevealPanel(RoomState room, Action<string>? toggle = null)

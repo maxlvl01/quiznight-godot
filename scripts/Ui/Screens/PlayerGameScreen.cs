@@ -8,13 +8,17 @@ using QuizNight.Storage;
 
 namespace QuizNight.Ui.Screens;
 
-/// <summary>A player's screen: buzz button, A–D buttons, number field or map — then the reveal.</summary>
+/// <summary>
+/// A player's screen: buzz button, A–D buttons, number field or map — then the reveal. Laid out like the host's
+/// screen: a bar on top, the question and the answer area in a card, the buzz order / answers and scores on the side.
+/// </summary>
 public partial class PlayerGameScreen : Control, IRoomScreen
 {
 	readonly ClientSession _client;
 	readonly Keyed _bar = new();
 	readonly Keyed _question = new();
 	readonly Keyed _panel = new();
+	readonly VBoxContainer _side = U.V(10);
 	RoomState _room = new();
 
 	public PlayerGameScreen() : this(null!) { }
@@ -23,8 +27,16 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 	{
 		_client = client;
 		SetAnchorsPreset(LayoutPreset.FullRect);
-		var page = U.V(16, _bar, _question, _panel);
-		AddChild(U.Page(page, 860, 20));
+		// The card fills the column; pictures and maps in it take the height that's left.
+		var card = U.Panel(U.V(14, _question, _panel).GrowV()).GrowV();
+		var stageScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.Grow(3).GrowV();
+		stageScroll.AddChild(card.Grow());
+		var sideScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.MinSize(310).GrowV();
+		sideScroll.AddChild(U.Panel(_side).Grow().GrowV());
+		var body = U.Pad(U.H(16, stageScroll, sideScroll), 16, 16, 16, 16).GrowV();
+		var layout = U.V(0, _bar, body);
+		layout.SetAnchorsPreset(LayoutPreset.FullRect);
+		AddChild(layout);
 	}
 
 	string MyId => _client.MyId ?? "";
@@ -44,16 +56,24 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		if (_heardIndex >= 0 && game.Buzzes.Count > heard) Sfx.PlayRoomBuzzer(room.Settings.BuzzerSound);
 		_heardIndex = game.Index;
 		_heardBuzzes = game.Buzzes.Count;
-		_bar.Set($"{me.Name}|{room.Score(MyId)}", () => GameParts.Row(10,
-			new Avatar(me, 30), U.Bold(me.Name, 17).Raw(), U.Fill(), U.Pill(Lang.F("{0} pts", room.Score(MyId)), C.Accent)));
+		_bar.Set($"{game.Index}|{me.Name}|{room.Score(MyId)}", () => U.Panel(GameParts.Row(12,
+			U.H(0, U.Text("Quiznight", 20, C.Text, Fonts.Black), U.Text("!", 20, C.Accent, Fonts.Black)),
+			U.Pill(Lang.F("Question {0} / {1}", game.Index + 1, game.Total)),
+			Chips.Question(q),
+			U.Pill(q.Points == 1 ? Lang.T("1 point") : Lang.F("{0} points", q.Points)),
+			U.Fill(),
+			new Avatar(me, 28), U.Bold(me.Name, 17).Raw(),
+			U.Pill(Lang.F("{0} pts", room.Score(MyId)), C.Accent)), "Bar"));
+
+		_side.Clear();
+		GameParts.SideInfo(_side, room, MyId);
 
 		var key = $"{game.Index}|{game.Stage}|{game.Shown}";
 		_question.Set(key, () =>
 		{
-			var box = U.V(10, GameParts.Row(10,
-				U.Muted(Lang.F("Question {0} / {1}", game.Index + 1, game.Total), 14, false), Chips.Question(q), U.Fill(),
-				game.Stage == Stage.Open ? new Countdown(game.EndsAt) : U.Gap(0)));
-			box.AddChild(U.Text(q.Prompt, 28, C.Text, Fonts.Black, true).Raw());
+			var box = U.V(14, GameParts.Row(16,
+				U.Text(game.Shown || game.Stage == Stage.Reveal ? q.Prompt : "", 30, C.Text, Fonts.Black, true).Raw(),
+				game.Stage == Stage.Open && game.Shown ? new Countdown(game.EndsAt, null, 30) : U.Gap(0)));
 			if (q.ImageKey != null && q.Type != QuestionType.MapPin && game.Stage == Stage.Open)
 				box.AddChild(new AssetImage(_client.Assets, q.ImageKey, U.Flexible));
 			return box;
@@ -91,7 +111,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		box.Alignment = BoxContainer.AlignmentMode.Center;
 		foreach (var k in kids)
 			if (k is Label l) l.HorizontalAlignment = HorizontalAlignment.Center;
-		return U.Panel(box.MinSize(0, 180));
+		return U.Panel(box.MinSize(0, 180), "Card2");
 	}
 
 	void Submit(int index, AnswerValue value, Label error)
@@ -218,7 +238,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		lockIn.Pressed += Send;
 		field.TextSubmitted += _ => Send();
 		field.CallDeferred(Control.MethodName.GrabFocus);
-		return U.Card(12, U.Field(unit != "" ? Lang.F("Your guess ({0})", unit) : Lang.T("Your guess"), field), lockIn, error);
+		return U.V(12, U.Field(unit != "" ? Lang.F("Your guess ({0})", unit) : Lang.T("Your guess"), field), lockIn, error);
 	}
 
 	/// <summary>Put in order: move items up and down, then lock in. Top of the list = OrderTop.</summary>
@@ -361,7 +381,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		lockIn.Pressed += Send;
 		field.TextSubmitted += _ => Send();
 		field.CallDeferred(Control.MethodName.GrabFocus);
-		return U.Card(12, U.Field("Your answer", field), lockIn, error);
+		return U.V(12, U.Field("Your answer", field), lockIn, error);
 	}
 
 	Control MapPin(RoomState room)
@@ -444,13 +464,10 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		if (q.Type == QuestionType.Image && q.ImageKey != null) box.AddChild(new AssetImage(_client.Assets, q.ImageKey, U.Flexible));
 		if (q.Type == QuestionType.MapPin && q.Map != null)
 		{
-			// The answer and scores on the left, the map with everyone's pins as big as the rest of the screen.
+			// The answer on the left, the map with everyone's pins as big as the rest of the card.
 			box.RemoveChild(panel);
-			var side = U.V(14, panel, U.Eyebrow("Scores"), GameParts.Scoreboard(room, MyId)).MinSize(330);
-			return U.H(16, side, GameMap.Make(q.Map, _client.Assets.Map(q.Map), reveal.Target, null, GameParts.RevealPins(room), U.Flexible).Grow());
+			return U.H(16, U.V(0, panel).MinSize(280), GameMap.Make(q.Map, _client.Assets.Map(q.Map), reveal.Target, null, GameParts.RevealPins(room), U.Flexible).Grow());
 		}
-		box.AddChild(U.Eyebrow("Scores"));
-		box.AddChild(GameParts.Scoreboard(room, MyId));
 		return box;
 	}
 }

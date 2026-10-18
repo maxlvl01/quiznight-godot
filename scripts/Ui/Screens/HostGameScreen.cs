@@ -199,39 +199,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 		});
 
 		_side.Clear();
-		if (q.Buzzer && game.Stage == Stage.Open)
-		{
-			_side.AddChild(U.Eyebrow("Buzz order"));
-			if (game.Shown && !game.BuzzersOpen) _side.AddChild(U.Pill("Buzzers locked", C.Coral));
-			_side.AddChild(BuzzQueue(room));
-		}
-		else if (tl != null)
-		{
-			_side.AddChild(U.Eyebrow("Turn order — fewest points first"));
-			for (var i = 0; i < tl.TurnOrder.Count; i++)
-			{
-				var p = room.Player(tl.TurnOrder[i]);
-				var now = p.Id == tl.TurnPlayerId;
-				var missed = tl.Missed.Contains(p.Id);
-				var status = now ? Lang.T("Placing now") : missed ? Lang.T("Missed this one") : !p.Connected ? Lang.T("(offline)") : "";
-				var row = GameParts.Row(8, GameParts.RankBadge(i + 1), new Avatar(p, 26), U.V(0, U.Text(p.Name, 15).Raw(), U.Muted(status, 12, false)).Grow());
-				var panel = U.Panel(row, "Clear");
-				panel.AddThemeStyleboxOverride("panel", UiTheme.Box(now ? new Color(C.Accent, 0.1f) : C.Panel2, 10, now ? C.Accent : C.Border, 1, 10, 6));
-				if (missed || !p.Connected) panel.Modulate = new Color(1, 1, 1, 0.55f);
-				_side.AddChild(panel);
-			}
-		}
-		else if (game.Stage == Stage.Open)
-		{
-			var connected = room.Players.Count(p => p.Connected);
-			_side.AddChild(U.Eyebrow(Lang.F("Answers: {0} / {1}", game.AnsweredIds.Count, connected)));
-			var chips = U.Flow(6);
-			foreach (var p in room.Players) chips.AddChild(Chips.Player(p, game.AnsweredIds.Contains(p.Id) ? "✓" : null, false, !game.AnsweredIds.Contains(p.Id)));
-			_side.AddChild(chips);
-		}
-		_side.AddChild(U.Gap(4));
-		_side.AddChild(U.Eyebrow("Scores"));
-		_side.AddChild(GameParts.Scoreboard(room));
+		GameParts.SideInfo(_side, room);
 		_side.AddChild(U.Gap(6));
 		_side.AddChild(U.Link("End quiz early", () => Dialogs.Confirm(this, "End the quiz now and show the final results?", "End quiz", _host.Finish), 14)
 			.With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin));
@@ -253,34 +221,6 @@ public partial class HostGameScreen : Control, IRoomScreen
 	}
 
 	public override void _ExitTree() => HostNotes.Close();
-	static Control BuzzQueue(RoomState room)
-	{
-		var game = room.Game!;
-		if (game.Buzzes.Count == 0) return U.Muted("Nobody has buzzed yet.", 14);
-		var list = U.V(6);
-		for (var i = 0; i < game.Buzzes.Count; i++)
-		{
-			var b = game.Buzzes[i];
-			var p = room.Player(b.PlayerId);
-			var status = b.Status switch
-			{
-				BuzzStatus.Answering => "Answering now",
-				BuzzStatus.Waiting => "Next in line",
-				BuzzStatus.Wrong => "Wrong",
-				_ => "Correct",
-			};
-			var row = GameParts.Row(8, GameParts.RankBadge(i + 1), new Avatar(p, 26),
-				U.V(0, U.Text(p.Name, 15).Raw(), U.Muted(status, 12, false)).Grow(),
-				U.Mono(game.Question.HasPlayClock ? U.FormatSeconds(b.AtSec) : $"{b.AtSec:0.00} s", 13, C.Muted));
-			var border = b.Status switch { BuzzStatus.Answering => C.Accent, BuzzStatus.Correct => C.Teal, _ => C.Border };
-			var bg = b.Status == BuzzStatus.Answering ? new Color(C.Accent, 0.1f) : C.Panel2;
-			var panel = U.Panel(row, "Clear");
-			panel.AddThemeStyleboxOverride("panel", UiTheme.Box(bg, 10, border, 1, 10, 6));
-			if (b.Status == BuzzStatus.Wrong) panel.Modulate = new Color(1, 1, 1, 0.55f);
-			list.AddChild(panel);
-		}
-		return list;
-	}
 }
 
 /// <summary>Hold to show the answer, so it doesn't sit on a shared screen.</summary>

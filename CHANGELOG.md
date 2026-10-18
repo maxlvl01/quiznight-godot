@@ -26,6 +26,9 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
   **Open AnyConverter** button works there. AnyConverter itself is a newer, faster version.
 
 ### Changed
+- **The players' screen now looks like the host's:** a bar on top with the question number, type and points
+  (and your name and score), the question and your answer in a card, and a column on the right with the buzz order,
+  the timeline's turn order or who has answered, and the scores.
 - **Quiznight is in beta now.** The stamp next to the logo says BETA instead of ALPHA, and versions end in "b".
 - **No more scrolling in the game screens and the question editor.** Pictures and maps now take the space that's
   left on the screen instead of a fixed size, so everything fits in the window — on the host's screen, on the
