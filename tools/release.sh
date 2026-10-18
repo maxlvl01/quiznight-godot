@@ -9,6 +9,7 @@ cd "$(dirname "$0")/.."
 
 G="${GODOT:-/c/Users/Xbox3/Desktop/Godot_v4.7.2-stable_mono_win64/Godot_v4.7.2-stable_mono_win64_console.exe}"
 REPO="maxlvl01/quiznight-releases"
+ANYCONVERTER="${ANYCONVERTER:-/c/Users/Xbox3/Desktop/AnyConverter/dist/AnyConverter.exe}"
 VERSION=$(sed -n 's/^config\/version="\(.*\)"/\1/p' project.godot)
 OUT="build/Quiznight"
 ZIP="build/Quiznight-$VERSION-windows.zip"
@@ -24,6 +25,10 @@ dotnet build "QuizNight!.csproj" -nologo -v q
 rm -rf "$OUT" && mkdir -p "$OUT"
 "$G" --headless --path . --export-release "Windows Desktop" "$OUT/Quiznight.exe" > build/export.log 2>&1 || true
 [ -f "$OUT/Quiznight.exe" ] && [ -d "$OUT/data_QuizNight!_windows_x86_64" ] || { echo "Export failed, see build/export.log"; exit 1; }
+# AnyConverter (our MP4 → .ogv converter, a separate project) ships with the Windows build; the video guide opens it.
+# FFmpeg isn't bundled: AnyConverter helps players install it the first time.
+[ -f "$ANYCONVERTER" ] || { echo "AnyConverter.exe not found at $ANYCONVERTER (build it with PyInstaller, or set ANYCONVERTER)"; exit 1; }
+mkdir -p "$OUT/AnyConverter" && cp "$ANYCONVERTER" "$OUT/AnyConverter/AnyConverter.exe"
 
 echo "== Linux build"
 rm -rf "$OUT_LINUX" && mkdir -p "$OUT_LINUX"

@@ -40,14 +40,16 @@ public static partial class VideoGuide
 		{
 			if (input == null)
 			{
-				status.Text = Lang.T("Pick your video in step 2 first.");
+				status.Text = Lang.T(AnyConverterPath != null ? "Pick your video in step 1 first." : "Pick your video in step 2 first.");
 				status.Visible = true;
 				return;
 			}
 			var ogv = OgvPath(input);
 			if (!File.Exists(ogv))
 			{
-				status.Text = Lang.T("The .ogv file isn't there yet. Wait until the terminal is finished, then try again.");
+				status.Text = Lang.T(AnyConverterPath != null
+					? "The .ogv file isn't there yet. Wait until AnyConverter says Done, then try again."
+					: "The .ogv file isn't there yet. Wait until the terminal is finished, then try again.");
 				status.Visible = true;
 				return;
 			}
@@ -55,8 +57,21 @@ public static partial class VideoGuide
 			useOgv(ogv);
 		}, 15);
 
-		var content = U.V(16,
-			U.H(10, U.Heading("Turn your video into an .ogv file", 24).Grow(), U.Small("Close", d.QueueFree).With(b => b.SizeFlagsVertical = Control.SizeFlags.ShrinkBegin)),
+		var header = U.H(10, U.Heading("Turn your video into an .ogv file", 24).Grow(), U.Small("Close", d.QueueFree).With(b => b.SizeFlagsVertical = Control.SizeFlags.ShrinkBegin));
+		var content = AnyConverterPath is { } converter
+			// The Windows build ships AnyConverter: two clicks instead of the terminal.
+			? U.V(16, header,
+				U.Text("Quiznight can only play videos in the .ogv format. AnyConverter, which comes with Quiznight, turns your MP4 (or WebM, MOV, MKV) into one.", 15, null, null, true),
+				Step(1, "Convert your video",
+					U.H(10, pick, pickedLabel.With(l => l.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter)),
+					U.Btn("Open AnyConverter", "AccentButton", () => OS.CreateProcess(converter, input != null ? new[] { "--format", "ogv", WinPath(input) } : new[] { "--format", "ogv" }), 15)
+						.With(b => b.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin),
+					U.Muted("It opens with your video and .ogv already chosen: press Convert and wait until it says Done. The very first time, it helps you install FFmpeg, the free tool that does the converting.", 13)),
+				Step(2, "Use it in your question",
+					resultLabel,
+					use.With(b => b.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin),
+					status))
+			: U.V(16, header,
 			U.Text("Quiznight can only play videos in the .ogv format. A free tool called ffmpeg turns your MP4 (or WebM, MOV, MKV) into one. It takes three steps.", 15, null, null, true),
 			Step(1, "Install ffmpeg (only the very first time)",
 				U.Text("Press the Windows key, type Terminal and press Enter. Then paste this line (Ctrl+V) and press Enter:", 14, null, null, true),
@@ -131,6 +146,17 @@ public static partial class VideoGuide
 				QueueFree();
 				GetViewport().SetInputAsHandled();
 			}
+		}
+	}
+
+	/// <summary>AnyConverter, shipped with the Windows build in an AnyConverter folder next to the game (null when it isn't there).</summary>
+	static string? AnyConverterPath
+	{
+		get
+		{
+			if (OS.GetName() != "Windows") return null;
+			var path = Path.Combine(Path.GetDirectoryName(OS.GetExecutablePath()) ?? "", "AnyConverter", "AnyConverter.exe");
+			return File.Exists(path) ? path : null;
 		}
 	}
 

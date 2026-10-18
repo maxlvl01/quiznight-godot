@@ -104,6 +104,11 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
   `maxlvl01/quiznight-releases` repo (code lives in the private `maxlvl01/quiznight-godot`; `maxlvl01/quiznight` is the web version). Exported games check
   it at startup (`Storage/Updater.cs`) and update themselves; "What's new" is read from the shipped
   CHANGELOG.md, so its `## [version]` / `### Added|Changed|Fixed|Removed` layout matters.
+- **AnyConverter** (the user's separate Python/tkinter converter, `C:\Users\Xbox3\Desktop\AnyConverter`, not in git)
+  ships in the Windows zip as `AnyConverter/AnyConverter.exe`; `release.sh` copies it from its `dist/` (override with
+  `ANYCONVERTER=…`) and stops if it's missing. Rebuild it with `py -m PyInstaller --noconfirm AnyConverter.spec`.
+  `VideoGuide` opens it with `--format ogv FILE`. FFmpeg is deliberately not bundled (too big): AnyConverter
+  prompts players to install it.
 
 ## Versioning rules
 

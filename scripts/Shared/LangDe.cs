@@ -373,6 +373,11 @@ public static class LangDe
 		["The new file will be: {0}"] = "Die neue Datei wird: {0}",
 		["Pick your video…"] = "Dein Video wählen…",
 		["Use the converted video"] = "Umgewandeltes Video verwenden",
+		["Pick your video in step 1 first."] = "Wähle zuerst in Schritt 1 dein Video.",
+		["The .ogv file isn't there yet. Wait until AnyConverter says Done, then try again."] = "Die .ogv-Datei ist noch nicht da. Warte, bis AnyConverter „Done“ anzeigt, und versuch es dann noch einmal.",
+		["Quiznight can only play videos in the .ogv format. AnyConverter, which comes with Quiznight, turns your MP4 (or WebM, MOV, MKV) into one."] = "Quiznight kann Videos nur im .ogv-Format abspielen. AnyConverter, das bei Quiznight dabei ist, wandelt deine MP4 (oder WebM, MOV, MKV) darin um.",
+		["Open AnyConverter"] = "AnyConverter öffnen",
+		["It opens with your video and .ogv already chosen: press Convert and wait until it says Done. The very first time, it helps you install FFmpeg, the free tool that does the converting."] = "Es öffnet sich mit deinem Video und .ogv schon ausgewählt: Drück auf Convert und warte, bis „Done“ dasteht. Beim allerersten Mal hilft es dir, FFmpeg zu installieren – das kostenlose Programm, das die Umwandlung macht.",
 		["Pick your video in step 2 first."] = "Wähle zuerst in Schritt 2 dein Video.",
 		["The .ogv file isn't there yet. Wait until the terminal is finished, then try again."] =
 			"Die .ogv-Datei ist noch nicht da. Warte, bis das Terminal fertig ist, und versuch es dann noch mal.",

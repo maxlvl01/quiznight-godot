@@ -10,6 +10,14 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `0.x.y` means the game is still in development. `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
+## [Unreleased]
+
+### Added
+- **AnyConverter comes with Quiznight (Windows).** It's in the new AnyConverter folder next to the game. When you add a
+  video question with an MP4 (or WebM, MOV, MKV), the guide now has an **Open AnyConverter** button: it opens with your
+  video and .ogv already picked, you press Convert, then "Use the converted video". No more typing commands into a
+  terminal. The first time, AnyConverter helps you install FFmpeg, the free tool that does the converting.
+
 ## [0.5.1a] — lobby fix
 
 ### Fixed
