@@ -189,6 +189,38 @@ public static class SelfTest
 		g.Judge(true);
 		Eq(g.View("host").Reveal!.GuessTimeSec, 4.0, "guessed after 4 s");
 		Check(g.View("ann").Question.ImageKey != null && g.AssetDataUrl(Game.ImageKey(8)) != null, "everyone gets the picture at the reveal");
+
+		// Put in order: shown shuffled; only the perfect order scores.
+		room.Next();
+		Eq(g.Question.Type, QuestionType.Order, "order question");
+		var shownItems = g.View("ann").Question.Items!;
+		Eq(string.Join(",", g.Question.CorrectOrder.Select(i => shownItems[i])), "Doom,Half-Life,Portal,Elden Ring", "shuffled order keeps the right order");
+		Check(!shownItems.SequenceEqual(new[] { "Doom", "Half-Life", "Portal", "Elden Ring" }), "never shown already in order");
+		Check(!g.Answer("ann", 9, AnswerValue.Picked(new[] { 0, 0, 1, 2 })).Ok, "an order must use every item once");
+		before = (room.Scores["ann"], room.Scores["bob"], room.Scores["cat"]);
+		g.Answer("ann", 9, AnswerValue.Picked(g.Question.CorrectOrder));
+		g.Answer("bob", 9, AnswerValue.Picked(g.Question.CorrectOrder.AsEnumerable().Reverse()));
+		g.Answer("cat", 9, AnswerValue.Picked(new[] { g.Question.CorrectOrder[1], g.Question.CorrectOrder[0], g.Question.CorrectOrder[2], g.Question.CorrectOrder[3] }));
+		Eq(g.Stage, Stage.Reveal, "order reveals when all answered");
+		Eq(room.Scores["ann"] - before.Ann, 2, "perfect order scores");
+		Eq(room.Scores["cat"] - before.Cat, 0, "almost right doesn't");
+		Eq(g.View("host").Reveal!.Entries.First(e => e.PlayerId == "cat").Text, "2 of 4 in the right place", "order reveal text");
+		Eq(g.View("host").Reveal!.AnswerText, "Doom → Half-Life → Portal → Elden Ring", "order answer");
+
+		// Write the answer: close enough is ticked; the host can tick or untick.
+		room.Next();
+		Eq(g.Question.Type, QuestionType.Write, "write question");
+		Check(!g.Answer("ann", 10, AnswerValue.Written("   ")).Ok, "empty answer rejected");
+		before = (room.Scores["ann"], room.Scores["bob"], room.Scores["cat"]);
+		g.Answer("ann", 10, AnswerValue.Written("canbera"));
+		g.Answer("bob", 10, AnswerValue.Written("Sydney"));
+		g.Answer("cat", 10, AnswerValue.Written("The Canberra!"));
+		Eq(room.Scores["ann"] - before.Ann, 1, "small typo counts");
+		Eq(room.Scores["cat"] - before.Cat, 1, "case, 'the' and punctuation don't matter");
+		Eq(room.Scores["bob"] - before.Bob, 0, "wrong answer doesn't");
+		Check(g.ToggleWritten("bob") && room.Scores["bob"] - before.Bob == 1, "host ticks an answer");
+		Check(g.ToggleWritten("ann") && room.Scores["ann"] - before.Ann == 0, "host unticks one");
+		Check(!QuizRules.WrittenMatches("Sydney", "Canberra / Canberra City") && QuizRules.WrittenMatches("canberra city", "Canberra / Canberra City"), "several accepted answers");
 		room.Next();
 		Eq(room.Phase, Phase.Finished, "podium after the last question");
 

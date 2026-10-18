@@ -89,7 +89,8 @@ public partial class HostGameScreen : Control, IRoomScreen
 		_player?.Update(game);
 		_imageReveal?.Update(game);
 
-		_content.Set(key, () =>
+		// (rebuilt when the host ticks a written answer)
+		_content.Set(reveal != null ? $"{key}|{string.Join(",", reveal.WinnerIds)}" : key, () =>
 		{
 			var box = U.V(14);
 			if (q.ImageKey != null && q.Type != QuestionType.Image && !(q.Type == QuestionType.MapPin && reveal != null))
@@ -99,13 +100,19 @@ public partial class HostGameScreen : Control, IRoomScreen
 			if (reveal == null && q.Type == QuestionType.Estimation)
 				box.AddChild(U.Muted(string.IsNullOrEmpty(q.Unit) ? Lang.T("Everyone types a number on their own screen.") : Lang.F("Everyone types a number in {0} on their own screen.", q.Unit), 16));
 			if (reveal == null && q.Type == QuestionType.MapPin) box.AddChild(U.Muted("Everyone places a pin on the map on their own screen.", 16));
+			if (reveal == null && q.Type == QuestionType.Order)
+			{
+				box.AddChild(GameParts.OrderList(q));
+				box.AddChild(U.Muted("Everyone puts these in order on their own screen.", 16));
+			}
+			if (reveal == null && q.Type == QuestionType.Write) box.AddChild(U.Muted("Everyone types their answer on their own screen.", 16));
 			if (q.Type == QuestionType.MapPin && reveal != null && q.Map != null)
 			{
 				// Map and results side by side, so everything fits on the TV.
 				var map = GameMap.Make(q.Map, _assets.Map(q.Map), reveal.Target, null, GameParts.RevealPins(room), 330).Grow(1.6f);
 				box.AddChild(U.H(20, map, GameParts.RevealPanel(room).Grow()));
 			}
-			else if (reveal != null) box.AddChild(GameParts.RevealPanel(room));
+			else if (reveal != null) box.AddChild(GameParts.RevealPanel(room, q.Type == QuestionType.Write ? _host.ToggleWritten : null));
 			return box;
 		});
 

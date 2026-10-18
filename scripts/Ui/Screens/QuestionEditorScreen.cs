@@ -30,7 +30,7 @@ public partial class QuestionEditorScreen : Control
 		_isNew = isNew;
 		SetAnchorsPreset(LayoutPreset.FullRect);
 
-		var title = QuestionType.Infos[_draft.Type].Label + (_draft.Type == QuestionType.Classic ? "" : " question");
+		var title = QuestionType.Infos[_draft.Type].Label + (_draft.Type is QuestionType.MapPin or QuestionType.Estimation or QuestionType.Sound or QuestionType.Video ? " question" : "");
 		var bar = U.Panel(U.H(12,
 			U.Link("← Back to quiz", Back, 14),
 			U.Heading(title, 22, false).Grow().With(l => l.HorizontalAlignment = HorizontalAlignment.Center),
@@ -77,6 +77,8 @@ public partial class QuestionEditorScreen : Control
 			QuestionType.Estimation => EstimationForm(),
 			QuestionType.MapPin => MapPinForm(),
 			QuestionType.Image => ImageRevealForm(),
+			QuestionType.Order => OrderForm(),
+			QuestionType.Write => WriteForm(),
 			_ => MediaForm(),
 		});
 		UpdateIssues();
@@ -239,6 +241,70 @@ public partial class QuestionEditorScreen : Control
 			U.Muted(isSound
 				? "The sound plays on your screen. Players buzz in on their own PC; playback pauses while someone answers and you mark it Correct or Wrong. Once it's guessed, everyone sees how many seconds of listening it took. Answer time per buzz is set in the lobby."
 				: "The video plays on your screen. Players buzz in on their own PC; playback pauses while someone answers and you mark it Correct or Wrong. Once it's guessed, everyone sees how many seconds of watching it took. Answer time per buzz is set in the lobby.", 13));
+		return Columns((left, 1.6f), (settings, 1));
+	}
+
+	// ---------- put in order ----------
+
+	Control OrderForm()
+	{
+		var rows = U.V(8);
+		for (var i = 0; i < _draft.Items.Count; i++)
+		{
+			var at = i;
+			var remove = U.Small("×", () =>
+			{
+				_draft.Items.RemoveAt(at);
+				Changed(true);
+			}).Tip("Remove");
+			remove.Disabled = _draft.Items.Count <= QuestionLimits.OrderItemsMin;
+			rows.AddChild(U.H(8, U.Mono($"{at + 1}.", 16, C.Muted).MinSize(28), U.Input(_draft.Items[at], at == 0 ? "e.g. Doom" : "", t =>
+			{
+				_draft.Items[at] = t;
+				Changed();
+			}, 80).Grow(), remove));
+		}
+		var add = U.Small("+ Add item", () =>
+		{
+			_draft.Items.Add("");
+			Changed(true);
+		});
+		add.Disabled = _draft.Items.Count >= QuestionLimits.OrderItemsMax;
+		var left = U.V(14, PromptArea("e.g. Put these games in the order they came out"),
+			U.Field("Top of the list means", U.Input(_draft.OrderTop, "e.g. Oldest", t =>
+			{
+				_draft.OrderTop = t;
+				Changed();
+			}, 30)),
+			U.Field("Items, in the right order", U.V(8, rows, add.With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin)),
+				Lang.F("Type them top to bottom ({0}–{1} items). Players get them shuffled.", QuestionLimits.OrderItemsMin, QuestionLimits.OrderItemsMax)),
+			U.Field("Bottom of the list means", U.Input(_draft.OrderBottom, "e.g. Newest", t =>
+			{
+				_draft.OrderBottom = t;
+				Changed();
+			}, 30)));
+		var settings = RoundSettings.Panel(
+			RoundSettings.TimeLimit(_draft, () => Changed()),
+			RoundSettings.Points(_draft, () => Changed()),
+			U.Muted("Everyone puts the items in order on their own screen. Only a perfect order gets the points; the reveal shows how many each player had in the right place.", 13));
+		return Columns((left, 1.6f), (settings, 1));
+	}
+
+	// ---------- write the answer ----------
+
+	Control WriteForm()
+	{
+		var left = U.V(14, PromptArea("e.g. What's the capital of Australia?"),
+			U.Field("Accepted answers", U.Input(_draft.AnswerText, "e.g. Canberra", t =>
+			{
+				_draft.AnswerText = t;
+				Changed();
+			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold)), "Separate several with / (e.g. \"Mount Everest / Everest\"). Case, accents and small typos don't matter."),
+			U.Field("Image (optional)", OptionalImage()));
+		var settings = RoundSettings.Panel(
+			RoundSettings.TimeLimit(_draft, () => Changed()),
+			RoundSettings.Points(_draft, () => Changed()),
+			U.Muted("Everyone types their answer on their own screen. Answers that match are ticked for you; at the reveal you can tick or untick any answer, and the points follow.", 13));
 		return Columns((left, 1.6f), (settings, 1));
 	}
 

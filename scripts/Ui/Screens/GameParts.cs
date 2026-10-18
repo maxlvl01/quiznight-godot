@@ -1,5 +1,6 @@
 // Pieces shared by the host (TV) and player game screens.
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
@@ -38,7 +39,8 @@ public static class GameParts
 	}
 
 	/// <summary>The answer and everyone's result, shown on the host screen after the reveal.</summary>
-	public static Control RevealPanel(RoomState room)
+	/// <param name="toggle">Host, write-the-answer: tick or untick a player's answer.</param>
+	public static Control RevealPanel(RoomState room, Action<string>? toggle = null)
 	{
 		var game = room.Game!;
 		var reveal = game.Reveal!;
@@ -74,10 +76,26 @@ public static class GameParts
 			row.AddChild(U.Text(p.Name, 15).Raw().MinSize(140));
 			row.AddChild(U.Text(e.Text, 15, C.Muted).Raw().Grow());
 			row.AddChild(U.Text(e.Points > 0 ? $"+{e.Points}" : "", 15, C.Teal, Fonts.Bold).MinSize(36));
+			if (toggle != null)
+			{
+				var id = e.PlayerId;
+				row.AddChild(U.Btn(e.Correct ? "✓ Counts" : "Doesn't count", e.Correct ? "TealButton" : "SmallButton", () => toggle(id), 14).Tip("Click to change"));
+			}
 			list.AddChild(U.Panel(row, e.Points > 0 ? "Scored" : "Card2").With(c => c.AddThemeStyleboxOverride("panel",
 				UiTheme.Box(e.Points > 0 ? new Color(C.Teal, 0.1f) : C.Panel2, 10, e.Points > 0 ? C.Teal : C.Border, 1, 10, 6))));
 		}
 		box.AddChild(list);
+		return box;
+	}
+
+	/// <summary>Put in order: the shuffled items between what the top and the bottom mean.</summary>
+	public static Control OrderList(PublicQuestion q, float size = 22)
+	{
+		var box = U.V(8);
+		if (!string.IsNullOrWhiteSpace(q.OrderTop)) box.AddChild(U.Muted("▲ " + q.OrderTop, 15).Raw());
+		foreach (var item in q.Items ?? new List<string>())
+			box.AddChild(U.Panel(U.Text(item, (int)size, null, Fonts.Bold, true).Raw(), "Card2"));
+		if (!string.IsNullOrWhiteSpace(q.OrderBottom)) box.AddChild(U.Muted("▼ " + q.OrderBottom, 15).Raw());
 		return box;
 	}
 

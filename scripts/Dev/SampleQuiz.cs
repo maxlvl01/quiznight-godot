@@ -69,6 +69,15 @@ public static class SampleQuiz
 				Image = tex?.GetImage() is { } map ? Images.Encode((Image)map.Duplicate(), 1024) : Picture(1280, 720, new Color("#456"), new Color("#123"), "?"),
 				RevealStyle = RevealStyle.Pixelate, RevealSec = 20, Focus = new NormPoint(0.5, 0.45),
 			},
+			new()
+			{
+				Id = "q10", Type = QuestionType.Order, Prompt = "Put these games in the order they came out",
+				Items = new() { "Doom", "Half-Life", "Portal", "Elden Ring" }, OrderTop = "Oldest", OrderBottom = "Newest", TimeLimitSec = 30, Points = 2,
+			},
+			new()
+			{
+				Id = "q11", Type = QuestionType.Write, Prompt = "What's the capital of Australia?", AnswerText = "Canberra", TimeLimitSec = 30, Points = 1,
+			},
 		};
 		return new Quiz
 		{

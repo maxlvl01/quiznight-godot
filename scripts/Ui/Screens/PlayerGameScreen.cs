@@ -72,6 +72,8 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			_panel.Set($"{key}|{mine?.Status}|{place}|{answering?.PlayerId}", () => Buzzer(room));
 		}
 		else if (q.Choices != null) _panel.Set($"{key}|{game.MyAnswer?.Num}|{string.Join(",", game.MyAnswer?.Picks ?? new List<int>())}", () => Choices(room));
+		else if (q.Type == QuestionType.Order) _panel.Set($"{key}|{game.MyAnswer?.Picks != null}", () => Order(room));
+		else if (q.Type == QuestionType.Write) _panel.Set($"{key}|{game.MyAnswer?.Text}", () => Write(room));
 		else if (q.Type == QuestionType.Estimation) _panel.Set($"{key}|{game.MyAnswer?.Num}", () => Estimate(room));
 		else _panel.Set($"{key}|{game.MyAnswer?.Point != null}", () => MapPin(room));
 	}
@@ -208,6 +210,63 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		field.TextSubmitted += _ => Send();
 		field.CallDeferred(Control.MethodName.GrabFocus);
 		return U.Card(12, U.Field(unit != "" ? Lang.F("Your guess ({0})", unit) : Lang.T("Your guess"), field), lockIn, error);
+	}
+
+	/// <summary>Put in order: move items up and down, then lock in. Top of the list = OrderTop.</summary>
+	Control Order(RoomState room)
+	{
+		var game = room.Game!;
+		var q = game.Question;
+		var items = q.Items ?? new List<string>();
+		if (game.MyAnswer?.Picks is { } locked)
+		{
+			var mine = U.V(6, U.Muted("Locked in", 15));
+			for (var i = 0; i < locked.Count; i++) mine.AddChild(U.Text($"{i + 1}. {items[locked[i]]}", 18).Raw());
+			mine.AddChild(U.Muted("Waiting for the others…", 14));
+			return Status(mine);
+		}
+		// Starts in the order the host shows them.
+		var order = Enumerable.Range(0, items.Count).ToList();
+		var error = U.Error();
+		var rows = U.V(8);
+		void Build()
+		{
+			rows.Clear();
+			if (!string.IsNullOrWhiteSpace(q.OrderTop)) rows.AddChild(U.Muted("▲ " + q.OrderTop, 15).Raw());
+			for (var i = 0; i < order.Count; i++)
+			{
+				var at = i;
+				var up = U.Small("▲", () => { (order[at - 1], order[at]) = (order[at], order[at - 1]); Build(); });
+				var down = U.Small("▼", () => { (order[at + 1], order[at]) = (order[at], order[at + 1]); Build(); });
+				up.Disabled = at == 0;
+				down.Disabled = at == order.Count - 1;
+				rows.AddChild(U.Panel(GameParts.Row(10, U.Mono($"{at + 1}", 18, C.Muted), U.Text(items[order[at]], 19, C.Text, Fonts.Bold, true).Raw().Grow(), up, down), "Card2"));
+			}
+			if (!string.IsNullOrWhiteSpace(q.OrderBottom)) rows.AddChild(U.Muted("▼ " + q.OrderBottom, 15).Raw());
+		}
+		Build();
+		var lockIn = U.Btn("Lock in order", "TealButton", () => Submit(game.Index, AnswerValue.Picked(order), error), 20);
+		return U.V(12, U.Muted("Use ▲ and ▼ to put them in the right order.", 15), rows, lockIn, error);
+	}
+
+	/// <summary>Write the answer: type it and lock it in.</summary>
+	Control Write(RoomState room)
+	{
+		var game = room.Game!;
+		if (game.MyAnswer?.Text is { } mine)
+			return Status(U.Muted("Locked in", 15), U.Text(mine, 32, C.Text, Fonts.Bold, true).Raw(), U.Muted("Waiting for the others…", 14));
+		var error = U.Error();
+		var lockIn = U.Btn("Lock in answer", "TealButton", null, 20);
+		lockIn.Disabled = true;
+		var field = U.Input("", "Type your answer", t => lockIn.Disabled = t.Trim() == "", QuestionLimits.WrittenMaxLength).With(e => e.ThemeTypeVariation = "BigInput");
+		void Send()
+		{
+			if (field.Text.Trim() != "") Submit(game.Index, AnswerValue.Written(field.Text), error);
+		}
+		lockIn.Pressed += Send;
+		field.TextSubmitted += _ => Send();
+		field.CallDeferred(Control.MethodName.GrabFocus);
+		return U.Card(12, U.Field("Your answer", field), lockIn, error);
 	}
 
 	Control MapPin(RoomState room)

@@ -302,6 +302,8 @@ public sealed class DevTools
 				var q = g.Question;
 				var index = g.Index;
 				_action = q.Buzzer ? client.Buzz
+					: q.Type == QuestionType.Order ? () => client.Answer(index, AnswerValue.Picked(Enumerable.Range(0, q.Items!.Count).OrderBy(_ => _rng.Next())), _ => { })
+					: q.Type == QuestionType.Write ? () => client.Answer(index, AnswerValue.Written(new[] { "Canberra", "canbera!", "Sydney" }[_rng.Next(3)]), _ => { })
 					: q.Mode == ClassicMode.Multi ? () => client.Answer(index, AnswerValue.Picked(new[] { RandomChoice(q), RandomChoice(q) }), _ => { })
 					: q.Choices != null ? () => client.Answer(index, AnswerValue.Number(RandomChoice(q)), _ => { })
 					: q.Type == QuestionType.Estimation ? () => client.Answer(index, AnswerValue.Number(_rng.Next(60, 120)), _ => { })

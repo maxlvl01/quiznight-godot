@@ -95,6 +95,15 @@ public partial class TypeIcon : Control
 				DrawRect(new Rect2(P(3, 5), P(18, 14)), color, false, w, true);
 				DrawPolyline(new[] { P(10, 9.5f), P(10, 14.5f), P(14.5f, 12), P(10, 9.5f) }, color, w, true);
 				break;
+			case QuestionType.Order:
+				foreach (var y in new[] { 6f, 12f, 18f }) DrawLine(P(3, y), P(14, y), color, w, true);
+				DrawPolyline(new[] { P(19, 4), P(19, 20) }, color, w, true);
+				DrawPolyline(new[] { P(16, 17), P(19, 20.5f), P(22, 17) }, color, w, true);
+				break;
+			case QuestionType.Write:
+				DrawPolyline(new[] { P(4, 20), P(5, 15), P(16, 4), P(20, 8), P(9, 19), P(4, 20) }, color, w, true);
+				DrawLine(P(14, 6), P(18, 10), color, w, true);
+				break;
 			case QuestionType.Image:
 				DrawRect(new Rect2(P(3, 4), P(18, 16)), color, false, w, true);
 				DrawPolyline(new[] { P(4, 18), P(10, 11), P(14, 15), P(16, 13), P(20, 17) }, color, w, true);

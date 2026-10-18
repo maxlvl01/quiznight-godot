@@ -42,6 +42,12 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
   seconds as you like (5–120). It shows on the host's screen only; players buzz in, it pauses while someone
   answers, and at the reveal everyone sees the whole picture and how many seconds it took. The editor has a
   live preview.
+- **New question type: Put in order.** Type 3–6 things in the right order (e.g. games by release date) and
+  what the top and bottom mean ("Oldest" / "Newest"). Players get them shuffled and sort them with ▲ ▼. A
+  perfect order scores; the reveal shows how many each player had in the right place.
+- **New question type: Write the answer.** Everyone types their answer. Answers matching yours are ticked
+  automatically — case, accents, "the" and small typos don't matter, and you can accept several answers
+  ("Mount Everest / Everest"). At the reveal you can tick or untick any answer and the points follow.
 - **Multiple choice questions:** a third kind of classic question where several answers can be right. Tick every
   correct answer in the editor; players pick all they think are right and then lock in. Only players who pick
   exactly the right ones get the points.

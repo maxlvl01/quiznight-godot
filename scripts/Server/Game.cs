@@ -53,7 +53,7 @@ public sealed class Game
 		{
 			Version = quiz.Version, Id = quiz.Id, Title = quiz.Title, CreatedAt = quiz.CreatedAt, UpdatedAt = quiz.UpdatedAt,
 			Maps = quiz.Maps,
-			Questions = quiz.Questions.Select(q => q.IsChoice ? QuizRules.ShuffleChoices(q, rng) : q).ToList(),
+			Questions = quiz.Questions.Select(q => q.IsChoice ? QuizRules.ShuffleChoices(q, rng) : q.Type == QuestionType.Order ? QuizRules.ShuffleOrder(q, rng) : q).ToList(),
 		};
 		_hooks = hooks;
 		Open(0);
@@ -61,7 +61,7 @@ public sealed class Game
 
 	public Question Question => _quiz.Questions[Index];
 
-	static int? TimeLimitSec(Question q) => q.IsCloseness || q.IsChoice ? q.TimeLimitSec : null;
+	static int? TimeLimitSec(Question q) => q.HasTimeLimit ? q.TimeLimitSec : null;
 
 	void Open(int index)
 	{
@@ -158,6 +158,19 @@ public sealed class Game
 		{
 			if (raw?.Num is not { } n || !double.IsFinite(n)) return Result.Fail("Please enter a number.");
 			value = AnswerValue.Number(n);
+		}
+		else if (q.Type == QuestionType.Order)
+		{
+			// Every shown item exactly once, top first.
+			if (raw?.Picks is not { } order || order.Count != q.Items.Count || !order.OrderBy(i => i).SequenceEqual(Enumerable.Range(0, q.Items.Count)))
+				return Result.Fail("Put all the items in order.");
+			value = AnswerValue.Picked(order);
+		}
+		else if (q.Type == QuestionType.Write)
+		{
+			var text = (raw?.Text ?? "").Trim();
+			if (text == "") return Result.Fail("Type your answer.");
+			value = AnswerValue.Written(text.Length > QuestionLimits.WrittenMaxLength ? text[..QuestionLimits.WrittenMaxLength] : text);
 		}
 		else if (q.IsMulti)
 		{
@@ -265,6 +278,45 @@ public sealed class Game
 			};
 		}
 
+		if (q.Type == QuestionType.Order)
+		{
+			var n = q.Items.Count;
+			var entries = _answers.Select(a =>
+			{
+				var order = a.Value.Picks!;
+				var right = Enumerable.Range(0, n).Count(i => order[i] == q.CorrectOrder[i]);
+				return new RevealEntry
+				{
+					PlayerId = a.PlayerId,
+					Value = a.Value,
+					Text = right == n ? Lang.T("All in the right order!") : Lang.F("{0} of {1} in the right place", right, n),
+					Correct = right == n,
+					Points = right == n ? q.Points : 0,
+				};
+			}).OrderByDescending(e => e.Correct).ToList();
+			return new RevealView
+			{
+				AnswerText = OrderText(q),
+				WinnerIds = entries.Where(e => e.Correct).Select(e => e.PlayerId).ToList(),
+				Entries = entries,
+			};
+		}
+
+		if (q.Type == QuestionType.Write)
+		{
+			var entries = _answers.Select(a =>
+			{
+				var correct = QuizRules.WrittenMatches(a.Value.Text!, q.AnswerText);
+				return new RevealEntry { PlayerId = a.PlayerId, Value = a.Value, Text = a.Value.Text!, Correct = correct, Points = correct ? q.Points : 0 };
+			}).ToList();
+			return new RevealView
+			{
+				AnswerText = q.AnswerText,
+				WinnerIds = entries.Where(e => e.Correct).Select(e => e.PlayerId).ToList(),
+				Entries = entries,
+			};
+		}
+
 		if (q.Type == QuestionType.Classic)
 		{
 			var counts = new int[q.Choices.Count];
@@ -348,6 +400,22 @@ public sealed class Game
 		};
 	}
 
+	/// <summary>Write the answer, at the reveal: the host ticks or unticks a player's answer (points follow).</summary>
+	public bool ToggleWritten(string playerId)
+	{
+		if (Stage != Shared.Stage.Reveal || Question.Type != QuestionType.Write || _reveal?.Entries.FirstOrDefault(e => e.PlayerId == playerId) is not { } entry)
+			return false;
+		entry.Correct = !entry.Correct;
+		var points = entry.Correct ? Question.Points : 0;
+		_hooks.Award(playerId, points - entry.Points);
+		entry.Points = points;
+		_reveal.WinnerIds = _reveal.Entries.Where(e => e.Correct).Select(e => e.PlayerId).ToList();
+		return true;
+	}
+
+	/// <summary>"Doom → Half-Life → Portal".</summary>
+	static string OrderText(Question q) => string.Join(" → ", q.CorrectOrder.Select(i => q.Items[i]));
+
 	static List<int> Picks(AnswerValue v) => v.Picks ?? (v.Num is { } n ? new List<int> { (int)n } : new List<int>());
 
 	/// <summary>"C: 29", or for several "A: Red · C: Blue".</summary>
@@ -381,6 +449,14 @@ public sealed class Game
 				pq.TimeLimitSec = q.TimeLimitSec;
 			}
 		}
+		if (q.Type == QuestionType.Order)
+		{
+			pq.Items = q.Items;
+			pq.OrderTop = q.OrderTop;
+			pq.OrderBottom = q.OrderBottom;
+			pq.TimeLimitSec = q.TimeLimitSec;
+		}
+		if (q.Type == QuestionType.Write) pq.TimeLimitSec = q.TimeLimitSec;
 		if (q.Type == QuestionType.Estimation)
 		{
 			pq.Unit = q.Unit;
@@ -409,6 +485,7 @@ public sealed class Game
 	{
 		var q = Question;
 		if (q.Type == QuestionType.Classic) return q.IsChoice ? ChoiceText(q, q.CorrectSet) : q.AnswerText;
+		if (q.Type == QuestionType.Order) return OrderText(q);
 		if (q.Type == QuestionType.Estimation) return $"{Fmt(q.AnswerNumber ?? 0)}{(q.Unit != "" ? " " + q.Unit : "")}";
 		if (q.Type == QuestionType.MapPin) return Lang.T("The marked spot on the map (shown at the reveal).");
 		return q.AnswerText;

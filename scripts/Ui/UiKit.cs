@@ -38,6 +38,8 @@ public static class C
 		QuestionType.Sound => Coral,
 		QuestionType.Video => Sky,
 		QuestionType.Image => Pink,
+		QuestionType.Order => Lime,
+		QuestionType.Write => Orange,
 		_ => Muted,
 	};
 }

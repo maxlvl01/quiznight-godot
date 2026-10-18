@@ -186,6 +186,7 @@ public sealed class HostSession : IDisposable
 	public void SetMedia(bool playing) => GameAction(g => g.Stage == Stage.Open && g.SetMedia(playing));
 	public void Judge(bool correct) => GameAction(g => g.Judge(correct));
 	public void Reveal() => GameAction(g => g.HostReveal());
+	public void ToggleWritten(string playerId) => GameAction(g => g.ToggleWritten(playerId));
 
 	public void Next()
 	{

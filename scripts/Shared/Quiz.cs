@@ -15,9 +15,11 @@ public static class QuestionType
 	public const string Sound = "sound";
 	public const string Video = "video";
 	public const string Image = "image";
+	public const string Order = "order";
+	public const string Write = "write";
 
 	/// <summary>Order the editor shows them in.</summary>
-	public static readonly string[] All = { MapPin, Estimation, Classic, Sound, Video, Image };
+	public static readonly string[] All = { MapPin, Estimation, Classic, Sound, Video, Image, Order, Write };
 
 	public record Info(string Label, string Short, string Blurb);
 
@@ -29,6 +31,8 @@ public static class QuestionType
 		[Sound] = new("Sound", "sound", "Play a song or sound effect. Players buzz in; shows how fast it was guessed."),
 		[Video] = new("Video", "video", "Play a trailer or clip. Players buzz in; shows how fast it was guessed."),
 		[Image] = new("Image reveal", "image reveal", "A picture starts zoomed right in or pixelated and slowly gets clearer. Players buzz in; shows how fast it was guessed."),
+		[Order] = new("Put in order", "order", "Players put a few things in the right order, e.g. oldest to newest. Everyone answers at once."),
+		[Write] = new("Write the answer", "write", "Everyone types their answer. Matching answers are ticked for you; you can tick or untick any at the reveal."),
 	};
 
 	public static bool IsKnown(string type) => Infos.ContainsKey(type);
@@ -171,6 +175,13 @@ public sealed class Question
 	/// <summary>Zoom: the spot it starts zoomed in on (0–1 on the picture).</summary>
 	public NormPoint Focus = new(0.5, 0.5);
 
+	// put in order: the items in the right order (top first), and what the two ends mean
+	public List<string> Items = new() { "", "", "" };
+	public string OrderTop = "";
+	public string OrderBottom = "";
+	/// <summary>In a running game only (not saved): the shown, shuffled items' indexes in the right order.</summary>
+	public List<int> CorrectOrder = new();
+
 	// estimation
 	public double? AnswerNumber;
 	public string Unit = "";
@@ -197,7 +208,9 @@ public sealed class Question
 	public List<int> CorrectSet => IsMulti ? CorrectChoices.Distinct().OrderBy(i => i).ToList() : new List<int> { CorrectChoice };
 	/// <summary>Players buzz in (classic buzzer, sound, video) instead of everyone answering.</summary>
 	public bool IsBuzzer => HasPlayClock || (Type == QuestionType.Classic && !IsChoice);
-	public bool HasImageField => Type is QuestionType.Classic or QuestionType.Estimation or QuestionType.MapPin or QuestionType.Image;
+	/// <summary>Everyone answers within a time limit (instead of buzzing in).</summary>
+	public bool HasTimeLimit => IsCloseness || IsChoice || Type is QuestionType.Order or QuestionType.Write;
+	public bool HasImageField => Type is QuestionType.Classic or QuestionType.Estimation or QuestionType.MapPin or QuestionType.Image or QuestionType.Write;
 
 	// Through text: in-memory JsonValues don't convert between number types when read back.
 	public Question Clone() =>
@@ -231,6 +244,9 @@ public static class QuestionLimits
 	public const int RevealSecMin = 5;
 	public const int RevealSecMax = 120;
 	public const int RevealSecDefault = 20;
+	public const int OrderItemsMin = 3;
+	public const int OrderItemsMax = 6;
+	public const int WrittenMaxLength = 80;
 }
 
 public static class QuizRules
@@ -259,6 +275,66 @@ public static class QuizRules
 		return copy;
 	}
 
+	/// <summary>A copy of a put-in-order question with its items shuffled for showing (CorrectOrder says the right order).</summary>
+	public static Question ShuffleOrder(Question q, Random rng)
+	{
+		var copy = q.Clone();
+		var items = q.Items.Where(i => !string.IsNullOrWhiteSpace(i)).ToList();
+		var shown = Enumerable.Range(0, items.Count).OrderBy(_ => rng.Next()).ToList();
+		// Never shown already in the right order (that would give it away).
+		if (items.Count > 1 && shown.SequenceEqual(Enumerable.Range(0, items.Count))) shown.Reverse();
+		copy.Items = shown.Select(i => items[i]).ToList();
+		copy.CorrectOrder = Enumerable.Range(0, items.Count).Select(i => shown.IndexOf(i)).ToList();
+		return copy;
+	}
+
+	/// <summary>
+	/// Whether a written answer matches one of the accepted ones ("Canberra / Canberra City"): ignores case,
+	/// accents, punctuation, a leading "the" and small typos (1 letter in 5+, 2 in 9+).
+	/// </summary>
+	public static bool WrittenMatches(string answer, string accepted)
+	{
+		var a = Normalize(answer);
+		if (a == "") return false;
+		foreach (var option in accepted.Split('/', ';', '\n'))
+		{
+			var o = Normalize(option);
+			if (o == "") continue;
+			var allowed = o.Length >= 9 ? 2 : o.Length >= 5 ? 1 : 0;
+			if (Distance(a, o) <= allowed) return true;
+		}
+		return false;
+	}
+
+	static string Normalize(string s)
+	{
+		var decomposed = s.Trim().ToLowerInvariant().Normalize(System.Text.NormalizationForm.FormD);
+		var kept = new System.Text.StringBuilder();
+		foreach (var ch in decomposed)
+		{
+			if (char.IsLetterOrDigit(ch)) kept.Append(ch);
+			else if (char.IsWhiteSpace(ch) || ch is '-' or '_') kept.Append(' ');
+		}
+		var words = kept.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList();
+		if (words.Count > 1 && words[0] is "the" or "der" or "die" or "das") words.RemoveAt(0);
+		return string.Join(' ', words);
+	}
+
+	/// <summary>Edit distance (insert, delete, change one letter).</summary>
+	static int Distance(string a, string b)
+	{
+		var prev = Enumerable.Range(0, b.Length + 1).ToArray();
+		for (var i = 1; i <= a.Length; i++)
+		{
+			var cur = new int[b.Length + 1];
+			cur[0] = i;
+			for (var j = 1; j <= b.Length; j++)
+				cur[j] = Math.Min(Math.Min(cur[j - 1] + 1, prev[j] + 1), prev[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1));
+			prev = cur;
+		}
+		return prev[b.Length];
+	}
+
 	/// <summary>Largest media file the editor accepts (it is stored in the quiz file).</summary>
 	public static int MediaMaxMb(string type) => type == QuestionType.Sound ? 25 : 80;
 
@@ -279,6 +355,10 @@ public static class QuizRules
 			case QuestionType.Image:
 				q.Prompt = "What is this?";
 				break;
+			case QuestionType.Order:
+				q.OrderTop = "Oldest";
+				q.OrderBottom = "Newest";
+				break;
 			case QuestionType.MapPin:
 				q.Prompt = "Where is this?";
 				q.TimeLimitSec = QuestionLimits.MapTimeLimitSec;
@@ -294,7 +374,8 @@ public static class QuizRules
 		if (q.Type == QuestionType.Classic)
 			return q.IsMulti ? $"{kind} · {Lang.T("several correct")} · {q.TimeLimitSec} s"
 				: q.IsChoice ? $"{kind} · A–D · {q.TimeLimitSec} s" : $"{kind} · {Lang.T("buzzer")}";
-		if (q.IsCloseness) return $"{kind} · {q.TimeLimitSec} s";
+		if (q.Type == QuestionType.Order) return $"{kind} · {Lang.F("{0} items", q.Items.Count(i => !string.IsNullOrWhiteSpace(i)))} · {q.TimeLimitSec} s";
+		if (q.HasTimeLimit) return $"{kind} · {q.TimeLimitSec} s";
 		return $"{kind} · {Lang.T("buzzer")}";
 	}
 
@@ -320,6 +401,9 @@ public static class QuizRules
 			if (q.Media == null || q.Media.DataUrl == "") issues.Add(Lang.T(q.Type == QuestionType.Sound ? "Upload a sound file." : "Upload a video."));
 			if (string.IsNullOrWhiteSpace(q.AnswerText)) issues.Add(Lang.T("The correct answer is missing."));
 		}
+		if (q.Type == QuestionType.Order && q.Items.Count(i => !string.IsNullOrWhiteSpace(i)) < QuestionLimits.OrderItemsMin)
+			issues.Add(Lang.F("Fill in at least {0} items.", QuestionLimits.OrderItemsMin));
+		if (q.Type == QuestionType.Write && string.IsNullOrWhiteSpace(q.AnswerText)) issues.Add(Lang.T("The correct answer is missing."));
 		if (q.Type == QuestionType.Image)
 		{
 			if (q.Image == null) issues.Add(Lang.T("Upload a picture."));

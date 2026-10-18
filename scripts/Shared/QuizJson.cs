@@ -94,6 +94,17 @@ public static class QuizJson
 				o["startSec"] = q.StartSec;
 				o["answer"] = q.AnswerText;
 				break;
+			case QuestionType.Order:
+				o["items"] = new JsonArray(q.Items.Select(i => (JsonNode)JsonValue.Create(i)!).ToArray());
+				o["orderTop"] = q.OrderTop;
+				o["orderBottom"] = q.OrderBottom;
+				o["timeLimitSec"] = q.TimeLimitSec;
+				break;
+			case QuestionType.Write:
+				o["image"] = WriteImage(q.Image);
+				o["answer"] = q.AnswerText;
+				o["timeLimitSec"] = q.TimeLimitSec;
+				break;
 			case QuestionType.Image:
 				o["image"] = WriteImage(q.Image);
 				o["answer"] = q.AnswerText;
@@ -142,6 +153,10 @@ public static class QuizJson
 		if (o["correctChoices"] is JsonArray correct)
 			q.CorrectChoices = correct.Select(c => c is JsonValue v && v.TryGetValue<double>(out var n) ? (int)n : -1).Where(i => i is >= 0 and < 4).Distinct().ToList();
 		q.TimeLimitSec = (int)Num(o, "timeLimitSec", q.TimeLimitSec);
+		if (o["items"] is JsonArray items)
+			q.Items = items.Select(i => i is JsonValue v && v.TryGetValue<string>(out var s) ? s : "").Take(QuestionLimits.OrderItemsMax).ToList();
+		q.OrderTop = Str(o, "orderTop", q.OrderTop);
+		q.OrderBottom = Str(o, "orderBottom", q.OrderBottom);
 		q.RevealStyle = Str(o, "revealStyle", RevealStyle.Zoom) == RevealStyle.Pixelate ? RevealStyle.Pixelate : RevealStyle.Zoom;
 		q.RevealSec = Math.Clamp((int)Num(o, "revealSec", q.RevealSec), QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax);
 		if (o["focus"] is JsonObject focus) q.Focus = new NormPoint(Math.Clamp(Num(focus, "x", 0.5), 0, 1), Math.Clamp(Num(focus, "y", 0.5), 0, 1));

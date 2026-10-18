@@ -110,10 +110,13 @@ public sealed class AnswerValue
 	public double? Num;
 	public NormPoint? Point;
 	public List<int>? Picks;
+	/// <summary>Write the answer: what the player typed.</summary>
+	public string? Text;
 
 	public static AnswerValue Number(double n) => new() { Num = n };
 	public static AnswerValue At(NormPoint p) => new() { Point = p };
 	public static AnswerValue Picked(IEnumerable<int> picks) => new() { Picks = picks.ToList() };
+	public static AnswerValue Written(string text) => new() { Text = text };
 }
 
 /// <summary>Where players can get a question's map. Built-in maps ship with the game.</summary>
@@ -141,6 +144,10 @@ public sealed class PublicQuestion
 	public string? Mode;
 	/// <summary>Choice mode: answers by letter index; empty answers are null.</summary>
 	public List<string?>? Choices;
+	/// <summary>Put in order: the items, shuffled, and what the top and bottom of the list mean.</summary>
+	public List<string>? Items;
+	public string? OrderTop;
+	public string? OrderBottom;
 	public string? Unit;
 	public PublicMap? Map;
 	public int? TimeLimitSec;
