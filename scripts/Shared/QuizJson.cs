@@ -99,6 +99,13 @@ public static class QuizJson
 				o["orderTop"] = q.OrderTop;
 				o["orderBottom"] = q.OrderBottom;
 				o["timeLimitSec"] = q.TimeLimitSec;
+				o["orderMode"] = q.OrderMode;
+				if (q.IsTimeline)
+				{
+					o["itemLabels"] = new JsonArray(q.Items.Select((_, i) => (JsonNode)JsonValue.Create(q.ItemLabel(i))!).ToArray());
+					o["timelineStart"] = q.TimelineStart;
+					o["keepGoing"] = q.KeepGoing;
+				}
 				break;
 			case QuestionType.Write:
 				o["image"] = WriteImage(q.Image);
@@ -153,8 +160,14 @@ public static class QuizJson
 		if (o["correctChoices"] is JsonArray correct)
 			q.CorrectChoices = correct.Select(c => c is JsonValue v && v.TryGetValue<double>(out var n) ? (int)n : -1).Where(i => i is >= 0 and < 4).Distinct().ToList();
 		q.TimeLimitSec = (int)Num(o, "timeLimitSec", q.TimeLimitSec);
+		q.OrderMode = Str(o, "orderMode", OrderMode.All) == OrderMode.Timeline ? OrderMode.Timeline : OrderMode.All;
 		if (o["items"] is JsonArray items)
-			q.Items = items.Select(i => i is JsonValue v && v.TryGetValue<string>(out var s) ? s : "").Take(QuestionLimits.OrderItemsMax).ToList();
+			q.Items = items.Select(i => i is JsonValue v && v.TryGetValue<string>(out var s) ? s : "")
+				.Take(q.IsTimeline ? QuestionLimits.TimelineItemsMax : QuestionLimits.OrderItemsMax).ToList();
+		if (o["itemLabels"] is JsonArray labels)
+			q.ItemLabels = labels.Select(i => i is JsonValue v && v.TryGetValue<string>(out var s) ? s : "").Take(q.Items.Count).ToList();
+		q.TimelineStart = Math.Clamp((int)Num(o, "timelineStart", 0), 0, Math.Max(0, q.Items.Count - 1));
+		q.KeepGoing = o["keepGoing"] is not JsonValue kg || !kg.TryGetValue<bool>(out var keep) || keep;
 		q.OrderTop = Str(o, "orderTop", q.OrderTop);
 		q.OrderBottom = Str(o, "orderBottom", q.OrderBottom);
 		q.RevealStyle = Str(o, "revealStyle", RevealStyle.Zoom) == RevealStyle.Pixelate ? RevealStyle.Pixelate : RevealStyle.Zoom;

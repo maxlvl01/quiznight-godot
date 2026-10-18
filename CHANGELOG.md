@@ -10,6 +10,22 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `0.x.y` means the game is still in development. `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
+## [Unreleased]
+
+### Added
+- **Put in order: new "Timeline" way to play.** In the editor, switch "How it's played" to **Timeline — take turns**.
+  Give each item what it shows once it's placed (e.g. its year), and mark the one that **starts** on the timeline (it
+  can be anywhere: oldest, newest or in between). Up to 10 items.
+  - Players take turns, fewest points first. On your turn you click the gap where the next item goes and lock in.
+  - Right: it's placed with its year, you score right away and place the next one too (or switch off "Whoever is
+    right keeps going" to pass the turn every time).
+  - Wrong: the gap is crossed out and the next player tries the same item. If nobody gets it, it's placed for free.
+  - Each turn has its own timer. The host can skip a player or place the item for free.
+  - The sample quiz has a new question 12 to try it.
+
+### Changed
+- Quiz files are now format 4 (for the timeline). Older files still load.
+
 ## [0.5.2a] — AnyConverter included
 
 ### Added

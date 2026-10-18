@@ -41,6 +41,56 @@ public static class SelfTest
 		return (room, clock);
 	}
 
+	/// <summary>Put in order as a timeline: turns (fewest points first), wrong guesses pass the item on, time-outs, skips, free placing.</summary>
+	static void Timeline(Room room, Clock clock, Game g)
+	{
+		Check(g.Question.IsTimeline, "timeline question");
+		var years = new Dictionary<string, int> { ["Doom"] = 1993, ["Half-Life"] = 1998, ["Portal"] = 2007, ["Elden Ring"] = 2022 };
+		TimelineView Tl() => g.View("host").Timeline!;
+		int Right() => Tl().Placed.Count(c => years[c.Text] < years[Tl().Current!]);
+		int Wrong() => Enumerable.Range(0, Tl().Placed.Count + 1).First(i => i != Right() && !Tl().WrongGaps.Contains(i));
+		var start = room.Scores.ToDictionary(p => p.Key, p => p.Value);
+
+		Check(g.View("host").EndsAt == null, "a timeline has no question timer, only turn timers");
+		Eq(Tl().Placed.Count, 1, "one item starts on the timeline");
+		Check(Tl().Placed[0] is { Text: "Half-Life", Label: "1998", Start: true }, "the start item shows its year");
+		var order = Tl().TurnOrder;
+		Check(order.Select(id => start[id]).SequenceEqual(order.Select(id => start[id]).OrderBy(s => s)), "fewest points go first");
+		Eq(Tl().TurnPlayerId, order[0], "the first player's turn");
+		Check(g.View("ann").Timeline?.Current != null && g.View("ann").Reveal == null, "players see the item to place");
+		Check(!g.Answer(order[1], 11, AnswerValue.Number(0)).Ok, "only the player whose turn it is can place");
+
+		// Item 1: order[0] is wrong, order[1] gets it and keeps going.
+		var wrongGap = Wrong();
+		Check(g.Answer(order[0], 11, AnswerValue.Number(wrongGap)).Ok, "a wrong guess is accepted");
+		Eq(Tl().TurnPlayerId, order[1], "a wrong guess passes the item on");
+		Check(Tl().WrongGaps.Contains(wrongGap) && Tl().Last!.Kind == TimelineEventKind.Wrong, "the wrong gap is marked");
+		Check(!g.Answer(order[1], 11, AnswerValue.Number(wrongGap)).Ok, "a gap already tried can't be picked again");
+		Check(g.Answer(order[1], 11, AnswerValue.Number(Right())).Ok, "the right gap");
+		Eq(Tl().Placed.Count, 2, "the item is placed");
+		Eq(room.Scores[order[1]] - start[order[1]], 1, "a placed item scores right away");
+		Eq(Tl().TurnPlayerId, order[1], "whoever is right keeps going");
+
+		// Item 2: time runs out, the host skips, the last one misses: it's placed for free.
+		clock.Now += 31_000;
+		room.Tick();
+		Check(Tl().TurnPlayerId == order[2] && Tl().Last!.Kind == TimelineEventKind.TimeUp, "time up passes the item on");
+		Check(g.SkipTurn() && Tl().TurnPlayerId == order[0], "the host skips a player");
+		g.Answer(order[0], 11, AnswerValue.Number(Wrong()));
+		Check(Tl().Placed.Count == 3 && Tl().Last!.Kind == TimelineEventKind.Free, "nobody got it: placed for free");
+		Eq(Tl().TurnPlayerId, order[1], "the next player starts the next item");
+
+		// Item 3, the last one: placing it reveals.
+		g.Answer(order[1], 11, AnswerValue.Number(Right()));
+		Eq(g.Stage, Stage.Reveal, "all placed: reveal");
+		var reveal = g.View("host").Reveal!;
+		Eq(reveal.AnswerText, "Doom (1993) → Half-Life (1998) → Portal (2007) → Elden Ring (2022)", "timeline answer with years");
+		Eq(reveal.Entries[0].PlayerId, order[1], "the reveal lists the best first");
+		Eq(reveal.Entries[0].Text, "placed 2 items", "how many each placed");
+		Eq(room.Scores[order[1]] - start[order[1]], 2, "points aren't given twice at the reveal");
+		Eq(room.Scores[order[0]] - start[order[0]], 0, "no points for misses");
+	}
+
 	public static async Task<int> Run(Node node)
 	{
 		Rules();
@@ -224,6 +274,8 @@ public static class SelfTest
 		Check(g.ToggleWritten("ann") && room.Scores["ann"] - before.Ann == 0, "host unticks one");
 		Check(!QuizRules.WrittenMatches("Sydney", "Canberra / Canberra City") && QuizRules.WrittenMatches("canberra city", "Canberra / Canberra City"), "several accepted answers");
 		room.Next();
+		Timeline(room, clock, g);
+		room.Next();
 		Eq(room.Phase, Phase.Finished, "podium after the last question");
 
 
@@ -288,6 +340,11 @@ public static class SelfTest
 		var multi = Dev.SampleQuiz.Build().Questions.First(x => x.IsMulti).Clone();
 		Eq(multi.Mode, ClassicMode.Multi, "multi mode is saved");
 		Eq(string.Join(",", multi.CorrectChoices), "0,1", "multi correct answers are saved");
+		var timelineQ = Dev.SampleQuiz.Build().Questions.First(x => x.IsTimeline).Clone();
+		Check(timelineQ.IsTimeline && timelineQ.TimelineStart == 1 && string.Join(",", timelineQ.ItemLabels) == "1993,1998,2007,2022" && timelineQ.KeepGoing, "timeline settings are saved");
+		var shuffledTl = QuizRules.ShuffleOrder(timelineQ, new Random(3));
+		Eq(shuffledTl.Items[shuffledTl.TimelineStart], "Half-Life", "the start item survives the shuffle");
+		Eq(shuffledTl.ItemLabel(shuffledTl.Items.IndexOf("Portal")), "2007", "labels move with their items");
 		var image = Dev.SampleQuiz.Build().Questions.First(x => x.Type == QuestionType.Image).Clone();
 		Check(image.RevealStyle == RevealStyle.Pixelate && image.RevealSec == 20 && Math.Abs(image.Focus.Y - 0.45) < 1e-9, "image reveal settings are saved");
 		// Shuffling moves the right answer around (over many games it can't always stay first).

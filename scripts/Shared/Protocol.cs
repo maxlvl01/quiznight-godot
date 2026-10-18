@@ -152,6 +152,8 @@ public sealed class PublicQuestion
 	public List<string>? Items;
 	public string? OrderTop;
 	public string? OrderBottom;
+	/// <summary>Put in order: "all" or "timeline".</summary>
+	public string? OrderMode;
 	public string? Unit;
 	public PublicMap? Map;
 	public int? TimeLimitSec;
@@ -159,6 +161,58 @@ public sealed class PublicQuestion
 
 	public bool IsMedia => Type is QuestionType.Sound or QuestionType.Video;
 	public bool HasPlayClock => IsMedia || Type == QuestionType.Image;
+	public bool IsTimeline => Type == QuestionType.Order && OrderMode == Shared.OrderMode.Timeline;
+}
+
+/// <summary>A running timeline (put in order, taking turns): what's placed, what comes next, whose turn it is.</summary>
+public sealed class TimelineView
+{
+	/// <summary>The items on the timeline so far, left to right.</summary>
+	public List<TimelineCard> Placed = new();
+	/// <summary>The item to place now (null once all are placed).</summary>
+	public string? Current;
+	/// <summary>Items still to come after the current one.</summary>
+	public int Left;
+	public string? TurnPlayerId;
+	/// <summary>Host-clock deadline for the current turn.</summary>
+	public long? TurnEndsAt;
+	/// <summary>Gaps already tried for the current item (gap g = before Placed[g]; Placed.Count = after the last).</summary>
+	public List<int> WrongGaps = new();
+	/// <summary>Turn order (fewest points first when the question was shown).</summary>
+	public List<string> TurnOrder = new();
+	/// <summary>Players who already missed the current item.</summary>
+	public List<string> Missed = new();
+	public TimelineEvent? Last;
+}
+
+public sealed class TimelineCard
+{
+	public string Text = "";
+	/// <summary>What it shows once placed, e.g. its year.</summary>
+	public string Label = "";
+	/// <summary>Who placed it (null: it started there, or nobody got it).</summary>
+	public string? PlacedBy;
+	public bool Start;
+}
+
+/// <summary>What just happened on the timeline.</summary>
+public sealed class TimelineEvent
+{
+	public string Kind = TimelineEventKind.Right;
+	public string? PlayerId;
+	public string Item = "";
+}
+
+public static class TimelineEventKind
+{
+	public const string Right = "right";
+	public const string Wrong = "wrong";
+	/// <summary>The turn's time ran out.</summary>
+	public const string TimeUp = "timeUp";
+	/// <summary>The host skipped the player (or they left).</summary>
+	public const string Skipped = "skipped";
+	/// <summary>Nobody got it (or the host placed it): it was put in its place for free.</summary>
+	public const string Free = "free";
 }
 
 public sealed class BuzzEntry
@@ -213,6 +267,8 @@ public sealed class GameView
 	/// <summary>Buzzer questions: whether players can buzz right now.</summary>
 	public bool BuzzersOpen = true;
 	public RevealView? Reveal;
+	/// <summary>Timeline questions, once shown.</summary>
+	public TimelineView? Timeline;
 	/// <summary>Only in the state sent to that player.</summary>
 	public AnswerValue? MyAnswer;
 	/// <summary>Only in the host's state: the correct answer, before the reveal.</summary>

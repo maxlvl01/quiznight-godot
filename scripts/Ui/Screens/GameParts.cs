@@ -99,6 +99,64 @@ public static class GameParts
 		return box;
 	}
 
+	// ---------- timeline ----------
+
+	/// <summary>One item on the timeline: its text and (once placed) its label, e.g. the year.</summary>
+	public static Control TimelineCard(string text, string label, bool start = false, bool big = false)
+	{
+		var box = U.V(2, U.Text(text, big ? 24 : 17, C.Text, Fonts.Bold, true, HorizontalAlignment.Center).Raw());
+		if (label != "") box.AddChild(U.Mono(label, big ? 20 : 16, C.Accent).Raw().With(l => l.HorizontalAlignment = HorizontalAlignment.Center));
+		var card = U.Panel(box, "Clear").MinSize(big ? 220 : 120, big ? 0 : 64);
+		card.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel2, 12, start ? C.Lime : C.Border, start ? 2 : 1, 12, 10));
+		card.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
+		return card;
+	}
+
+	/// <summary>
+	/// The timeline left to right, with a gap before, between and after the cards. With <paramref name="pick"/>
+	/// the gaps are buttons (gaps already tried are crossed out); without it only tried gaps show (✗).
+	/// </summary>
+	public static Control TimelineRow(PublicQuestion q, TimelineView tl, int? picked = null, Action<int>? pick = null)
+	{
+		var flow = U.Flow(8);
+		flow.Alignment = FlowContainer.AlignmentMode.Center;
+		for (var g = 0; g <= tl.Placed.Count; g++)
+		{
+			var gap = g;
+			var wrong = tl.WrongGaps.Contains(g);
+			if (pick != null)
+			{
+				var b = U.Btn(wrong ? "✗" : gap == picked ? "▼" : "+", gap == picked ? "TealButton" : "SmallButton", () => pick(gap), 20).MinSize(52, 64);
+				b.Disabled = wrong;
+				b.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
+				b.TooltipText = Lang.T(gap == 0 ? "Before the first one" : gap == tl.Placed.Count ? "After the last one" : "Between these two");
+				flow.AddChild(b);
+			}
+			else if (wrong) flow.AddChild(U.Text("✗", 24, C.Coral, Fonts.Black).With(l => l.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter));
+			if (g < tl.Placed.Count)
+			{
+				var c = tl.Placed[g];
+				flow.AddChild(TimelineCard(c.Text, c.Label, c.Start));
+			}
+		}
+		var ends = U.H(0, U.Muted("◀ " + (q.OrderTop ?? ""), 14, false).Raw(), U.Fill(), U.Muted((q.OrderBottom ?? "") + " ▶", 14, false).Raw());
+		return U.V(8, ends, flow);
+	}
+
+	/// <summary>"Ann put Elden Ring in the wrong place." and the like.</summary>
+	public static string TimelineEventText(RoomState room, TimelineEvent e)
+	{
+		var name = e.PlayerId != null ? room.Player(e.PlayerId).Name : "";
+		return e.Kind switch
+		{
+			TimelineEventKind.Right => Lang.F("{0} placed {1} right!", name, e.Item),
+			TimelineEventKind.Wrong => Lang.F("{0} put {1} in the wrong place.", name, e.Item),
+			TimelineEventKind.TimeUp => Lang.F("{0} ran out of time.", name),
+			TimelineEventKind.Skipped => Lang.F("{0} was skipped.", name),
+			_ => Lang.F("Nobody got {0}, so it's placed for free.", e.Item),
+		};
+	}
+
 	/// <summary>A–D tiles on the host screen (with counts at the reveal) — 2 columns.</summary>
 	public static Control ChoiceGrid(GameView game)
 	{

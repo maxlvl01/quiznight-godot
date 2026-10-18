@@ -77,6 +77,8 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			_panel.Set($"{key}|{mine?.Status}|{place}|{answering?.PlayerId}|{game.BuzzersOpen}", () => Buzzer(room));
 		}
 		else if (q.Choices != null) _panel.Set($"{key}|{game.MyAnswer?.Num}|{string.Join(",", game.MyAnswer?.Picks ?? new List<int>())}", () => Choices(room));
+		else if (game.Timeline is { } tl)
+			_panel.Set($"{key}|tl|{tl.Placed.Count}|{tl.TurnPlayerId}|{string.Join(",", tl.WrongGaps)}|{tl.Last?.Kind}{tl.Last?.PlayerId}{tl.Last?.Item}", () => Timeline(room));
 		else if (q.Type == QuestionType.Order) _panel.Set($"{key}|{game.MyAnswer?.Picks != null}", () => Order(room));
 		else if (q.Type == QuestionType.Write) _panel.Set($"{key}|{game.MyAnswer?.Text}", () => Write(room));
 		else if (q.Type == QuestionType.Estimation) _panel.Set($"{key}|{game.MyAnswer?.Num}", () => Estimate(room));
@@ -254,6 +256,71 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		Build();
 		var lockIn = U.Btn("Lock in order", "TealButton", () => Submit(game.Index, AnswerValue.Picked(order), error), 20);
 		return U.V(12, U.Muted("Use ▲ and ▼ to put them in the right order.", 15), rows, lockIn, error);
+	}
+
+	/// <summary>Timeline: on your turn, pick the gap the item goes in and lock in; otherwise watch whose turn it is.</summary>
+	Control Timeline(RoomState room)
+	{
+		var game = room.Game!;
+		var tl = game.Timeline!;
+		var box = U.V(14);
+		if (tl.Last != null)
+			box.AddChild(U.Text(GameParts.TimelineEventText(room, tl.Last), 16, tl.Last.Kind == TimelineEventKind.Right ? C.Teal : C.Muted, null, true, HorizontalAlignment.Center).Raw());
+		if (tl.TurnPlayerId != MyId || tl.Current == null)
+		{
+			var info = new List<Control>();
+			if (tl.TurnPlayerId is { } turn && tl.Current != null)
+			{
+				var p = room.Player(turn);
+				info.Add(GameParts.Row(10, new Avatar(p, 30), U.Bold(Lang.F("{0}'s turn", p.Name), 22).Raw(), new Countdown(tl.TurnEndsAt, null, 22)).With(r => r.Alignment = BoxContainer.AlignmentMode.Center));
+				info.Add(U.Muted(Lang.F("Where does {0} go?", tl.Current), 16, false, HorizontalAlignment.Center).Raw());
+			}
+			if (tl.Missed.Contains(MyId)) info.Add(U.Muted("You missed this one — the others get a go.", 14, false, HorizontalAlignment.Center));
+			if (info.Count > 0) box.AddChild(Status(info.ToArray()));
+			box.AddChild(GameParts.TimelineRow(game.Question, tl));
+			return box;
+		}
+
+		// My turn.
+		var banner = U.Panel(GameParts.Row(16,
+			U.Text("Your turn!", 30, C.AccentInk, Fonts.Black),
+			U.Text(Lang.F("Where does {0} go? Pick a gap, then lock in.", tl.Current), 17, C.AccentInk, null, true).Raw().Grow(),
+			new Countdown(tl.TurnEndsAt, null, 24)));
+		banner.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Accent, 14, null, 0, 20, 14));
+		box.AddChild(banner);
+		box.AddChild(GameParts.TimelineCard(tl.Current, "", false, true).With(c => c.SizeFlagsHorizontal = SizeFlags.ShrinkCenter));
+		var error = U.Error();
+		var lockIn = U.Btn("Lock in", "TealButton", null, 20).Center();
+		lockIn.Disabled = true;
+		int? picked = null;
+		var rowSlot = U.V(0);
+		void Build()
+		{
+			rowSlot.Clear();
+			rowSlot.AddChild(GameParts.TimelineRow(game.Question, tl, picked, gap =>
+			{
+				picked = gap;
+				lockIn.Disabled = false;
+				Build();
+			}));
+		}
+		Build();
+		lockIn.Pressed += () =>
+		{
+			if (picked is not { } gap) return;
+			lockIn.Disabled = true;
+			_client.Answer(game.Index, AnswerValue.Number(gap), result =>
+			{
+				if (result.Ok || !IsInstanceValid(error)) return;
+				error.Text = result.Error ?? "";
+				error.Visible = true;
+				lockIn.Disabled = false;
+			});
+		};
+		box.AddChild(rowSlot);
+		box.AddChild(lockIn);
+		box.AddChild(error);
+		return box;
 	}
 
 	/// <summary>Write the answer: type it and lock it in.</summary>

@@ -2,6 +2,7 @@
 //   --selftest                     run the checks and quit (exit code 0 = all passed)
 //   --host-sample | --host FILE    host the sample quiz / a quiz file in LAN mode
 //   --autopilot [--players N]      as host: start with N players, judge buzzes, go to the next question
+//   --start-at N                   with --autopilot: skip straight to question N (1 = first)
 //   --quit-at-end                  quit a few seconds after the podium
 //   --bot NAME [--address IP]      join a LAN room and answer on its own
 //   --open TYPE                    open the editor on the sample quiz's question of that type
@@ -41,6 +42,7 @@ public sealed class DevTools
 
 	bool _autopilot;
 	int _players = 2;
+	int _startAt;
 	bool _quitAtEnd;
 	string? _pilotKey;
 	double _pilotSince;
@@ -73,6 +75,7 @@ public sealed class DevTools
 		_autopilot = Has("--autopilot");
 		_quitAtEnd = Has("--quit-at-end");
 		if (int.TryParse(Value("--players"), out var n)) _players = n;
+		if (int.TryParse(Value("--start-at"), out var first)) _startAt = first - 1;
 		if (Value("--lang") is { } lang) Lang.Use(lang);
 
 		if (Has("--selftest"))
@@ -102,7 +105,7 @@ public sealed class DevTools
 		{
 			TakesOver = true;
 			var quiz = QuizStore.Save(SampleQuiz.Build());
-			var q = quiz.Questions.FirstOrDefault(x => x.Type == type || (type == "choice" && x.Mode == ClassicMode.Choice) || (type == "multi" && x.IsMulti) || (type == "image" && x.Type == QuestionType.Image) || (type == "wow" && x.MapId != null && quiz.MapById(x.MapId)?.PresetId == WowAtlas.PresetId)) ?? quiz.Questions[0];
+			var q = quiz.Questions.FirstOrDefault(x => x.Type == type || (type == "choice" && x.Mode == ClassicMode.Choice) || (type == "multi" && x.IsMulti) || (type == "image" && x.Type == QuestionType.Image) || (type == "timeline" && x.IsTimeline) || (type == "wow" && x.MapId != null && quiz.MapById(x.MapId)?.PresetId == WowAtlas.PresetId)) ?? quiz.Questions[0];
 			_app.GoQuestion(quiz.Id, q.Id, null);
 		}
 		else if (Has("--video-guide"))
@@ -221,7 +224,7 @@ public sealed class DevTools
 		var g = state?.Game;
 		var moment = state == null
 			? _app.CurrentScreen?.GetType().Name ?? ""
-			: $"{state.Phase}-{g?.Index}-{g?.Stage}{(g is { Shown: false } ? "-hidden" : g is { Question.Buzzer: true, BuzzersOpen: false } ? "-locked" : "")}-{g?.Buzzes.Count}-{g?.Buzzes.Count(b => b.Status == BuzzStatus.Wrong)}-{g?.AnsweredIds.Count}-{state.Players.Count}";
+			: $"{state.Phase}-{g?.Index}-{g?.Stage}{(g is { Shown: false } ? "-hidden" : g is { Question.Buzzer: true, BuzzersOpen: false } ? "-locked" : "")}-{g?.Buzzes.Count}-{g?.Buzzes.Count(b => b.Status == BuzzStatus.Wrong)}-{g?.AnsweredIds.Count}-{state.Players.Count}{(g?.Timeline is { } tl ? $"-tl{tl.Placed.Count}{tl.TurnOrder.IndexOf(tl.TurnPlayerId ?? "")}{tl.WrongGaps.Count}" : "")}";
 		if (moment != _lastMoment)
 		{
 			_lastMoment = moment;
@@ -241,7 +244,7 @@ public sealed class DevTools
 		var s = host.State;
 		var g = s.Game;
 		var answering = g?.Buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Answering);
-		var key = $"{s.Phase}|{g?.Index}|{g?.Stage}|{g?.Shown}|{g?.BuzzersOpen}|{answering?.PlayerId}|{g?.Buzzes.Count}|{s.Players.Count(p => p.Connected)}";
+		var key = $"{s.Phase}|{g?.Index}|{g?.Stage}|{g?.Shown}|{g?.BuzzersOpen}|{answering?.PlayerId}|{g?.Buzzes.Count}|{s.Players.Count(p => p.Connected)}|{g?.Timeline?.Placed.Count}|{g?.Timeline?.TurnPlayerId}|{g?.Timeline?.WrongGaps.Count}";
 		if (key != _pilotKey)
 		{
 			_pilotKey = key;
@@ -252,6 +255,9 @@ public sealed class DevTools
 		{
 			case Phase.Lobby when s.Players.Count(p => p.Connected) >= _players && waited > 1.5:
 				host.Start();
+				break;
+			case Phase.Playing when g!.Index < _startAt:
+				host.Next();
 				break;
 			case Phase.Playing when g!.Stage == Stage.Open:
 				if (!g.Shown)
@@ -305,7 +311,21 @@ public sealed class DevTools
 				return;
 			}
 			var g = client.State?.Game;
-			if (client.State?.Phase == Phase.Playing && g is { Stage: Stage.Open, Shown: true } && (!g.Question.Buzzer || g.BuzzersOpen) && _handled != $"{g.Index}")
+			// Timeline: on its turn, a bot picks a gap nobody has tried yet.
+			if (client.State?.Phase == Phase.Playing && g is { Stage: Stage.Open, Timeline: { } tl } && tl.TurnPlayerId == client.MyId && tl.Current != null)
+			{
+				var turnKey = $"{g.Index}|tl|{tl.Placed.Count}|{tl.WrongGaps.Count}";
+				if (_handled != turnKey)
+				{
+					_handled = turnKey;
+					_actAt = now + 1.2 + _rng.NextDouble() * 2;
+					var gaps = Enumerable.Range(0, tl.Placed.Count + 1).Where(i => !tl.WrongGaps.Contains(i)).ToList();
+					var gap = gaps[_rng.Next(gaps.Count)];
+					var index = g.Index;
+					_action = () => client.Answer(index, AnswerValue.Number(gap), _ => { });
+				}
+			}
+			else if (client.State?.Phase == Phase.Playing && g is { Stage: Stage.Open, Shown: true, Timeline: null } && (!g.Question.Buzzer || g.BuzzersOpen) && _handled != $"{g.Index}")
 			{
 				_handled = $"{g.Index}";
 				_actAt = now + 0.8 + _rng.NextDouble() * 2.5;

@@ -56,6 +56,7 @@ public sealed class Room : IGameHooks
 	public int AnswerTimeSec() => Settings.AnswerTimeSec;
 	public bool HostShowsQuestions() => Settings.HostShowsQuestions;
 	public bool HostUnlocksBuzzers() => Settings.HostUnlocksBuzzers;
+	public int Score(string playerId) => Scores.GetValueOrDefault(playerId);
 	public void Award(string playerId, int points) => Scores[playerId] = (Scores.TryGetValue(playerId, out var s) ? s : 0) + points;
 
 	/// <summary>The room as one viewer may see it: "host", or a player id.</summary>

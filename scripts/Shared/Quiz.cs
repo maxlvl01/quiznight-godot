@@ -31,7 +31,7 @@ public static class QuestionType
 		[Sound] = new("Sound", "sound", "Play a song or sound effect. Players buzz in; shows how fast it was guessed."),
 		[Video] = new("Video", "video", "Play a trailer or clip. Players buzz in; shows how fast it was guessed."),
 		[Image] = new("Image reveal", "image reveal", "A picture starts zoomed right in or pixelated and slowly gets clearer. Players buzz in; shows how fast it was guessed."),
-		[Order] = new("Put in order", "order", "Players put a few things in the right order, e.g. oldest to newest. Everyone answers at once."),
+		[Order] = new("Put in order", "order", "Players put a few things in the right order, e.g. oldest to newest. Everyone at once, or taking turns on a timeline."),
 		[Write] = new("Write the answer", "write", "Everyone types their answer. Matching answers are ticked for you; you can tick or untick any at the reveal."),
 	};
 
@@ -45,6 +45,21 @@ public static class ClassicMode
 	public const string Choice = "choice";
 	/// <summary>Like choice, but several answers can be right; players pick all they think are.</summary>
 	public const string Multi = "multi";
+}
+
+/// <summary>How a put-in-order question is played.</summary>
+public static class OrderMode
+{
+	/// <summary>Everyone sorts all the items at once on their own screen.</summary>
+	public const string All = "all";
+	/// <summary>Players take turns placing one item at a time on a timeline that starts with one item.</summary>
+	public const string Timeline = "timeline";
+
+	public static readonly (string Id, string Label)[] Modes =
+	{
+		(All, "Everyone at once"),
+		(Timeline, "Timeline — take turns"),
+	};
 }
 
 /// <summary>How an image reveal question uncovers its picture.</summary>
@@ -181,6 +196,13 @@ public sealed class Question
 	public string OrderBottom = "";
 	/// <summary>In a running game only (not saved): the shown, shuffled items' indexes in the right order.</summary>
 	public List<int> CorrectOrder = new();
+	public string OrderMode = Shared.OrderMode.All;
+	/// <summary>Timeline: what each item shows once it's placed, e.g. its year (same index as Items).</summary>
+	public List<string> ItemLabels = new();
+	/// <summary>Timeline: the item (index into Items) that starts on the timeline.</summary>
+	public int TimelineStart;
+	/// <summary>Timeline: whoever places an item right places the next one too (else the turn passes on).</summary>
+	public bool KeepGoing = true;
 
 	// estimation
 	public double? AnswerNumber;
@@ -203,13 +225,17 @@ public sealed class Question
 	/// <summary>Everyone picks from the answers (one correct, or several in multi mode).</summary>
 	public bool IsChoice => Type == QuestionType.Classic && Mode is ClassicMode.Choice or ClassicMode.Multi;
 	public bool IsMulti => Type == QuestionType.Classic && Mode == ClassicMode.Multi;
+	/// <summary>Put in order, played in turns on a timeline.</summary>
+	public bool IsTimeline => Type == QuestionType.Order && OrderMode == Shared.OrderMode.Timeline;
+	/// <summary>Timeline: the label for item i (empty if none).</summary>
+	public string ItemLabel(int i) => i >= 0 && i < ItemLabels.Count ? ItemLabels[i] : "";
 
 	/// <summary>Indexes of the right answers, in either choice mode.</summary>
 	public List<int> CorrectSet => IsMulti ? CorrectChoices.Distinct().OrderBy(i => i).ToList() : new List<int> { CorrectChoice };
 	/// <summary>Players buzz in (classic buzzer, sound, video) instead of everyone answering.</summary>
 	public bool IsBuzzer => HasPlayClock || (Type == QuestionType.Classic && !IsChoice);
 	/// <summary>Everyone answers within a time limit (instead of buzzing in).</summary>
-	public bool HasTimeLimit => IsCloseness || IsChoice || Type is QuestionType.Order or QuestionType.Write;
+	public bool HasTimeLimit => IsCloseness || IsChoice || Type is QuestionType.Write || (Type == QuestionType.Order && !IsTimeline);
 	public bool HasImageField => Type is QuestionType.Classic or QuestionType.Estimation or QuestionType.MapPin or QuestionType.Image or QuestionType.Write;
 
 	// Through text: in-memory JsonValues don't convert between number types when read back.
@@ -246,6 +272,8 @@ public static class QuestionLimits
 	public const int RevealSecDefault = 20;
 	public const int OrderItemsMin = 3;
 	public const int OrderItemsMax = 6;
+	public const int TimelineItemsMax = 10;
+	public const int TimelineLabelMaxLength = 20;
 	public const int WrittenMaxLength = 80;
 }
 
@@ -254,8 +282,9 @@ public static class QuizRules
 	/// <summary>
 	/// 2: classic questions got an A–D mode, new sound and video types (old files are migrated).
 	/// 3: classic "multi" mode with several correct answers (correctChoices); image reveal, order and write questions.
+	/// 4: put in order can be played as a timeline (orderMode, itemLabels, timelineStart, keepGoing).
 	/// </summary>
-	public const int FormatVersion = 3;
+	public const int FormatVersion = 4;
 
 	public static readonly string[] ChoiceLetters = { "A", "B", "C", "D" };
 
@@ -279,12 +308,16 @@ public static class QuizRules
 	public static Question ShuffleOrder(Question q, Random rng)
 	{
 		var copy = q.Clone();
-		var items = q.Items.Where(i => !string.IsNullOrWhiteSpace(i)).ToList();
+		var filled = Enumerable.Range(0, q.Items.Count).Where(i => !string.IsNullOrWhiteSpace(q.Items[i])).ToList();
+		var items = filled.Select(i => q.Items[i]).ToList();
 		var shown = Enumerable.Range(0, items.Count).OrderBy(_ => rng.Next()).ToList();
 		// Never shown already in the right order (that would give it away).
 		if (items.Count > 1 && shown.SequenceEqual(Enumerable.Range(0, items.Count))) shown.Reverse();
 		copy.Items = shown.Select(i => items[i]).ToList();
+		copy.ItemLabels = shown.Select(i => q.ItemLabel(filled[i])).ToList();
 		copy.CorrectOrder = Enumerable.Range(0, items.Count).Select(i => shown.IndexOf(i)).ToList();
+		// Timeline: the start item's new place (the first filled item if the marked one is empty).
+		copy.TimelineStart = Math.Max(0, shown.IndexOf(Math.Max(0, filled.IndexOf(q.TimelineStart))));
 		return copy;
 	}
 
@@ -374,7 +407,8 @@ public static class QuizRules
 		if (q.Type == QuestionType.Classic)
 			return q.IsMulti ? $"{kind} · {Lang.T("several correct")} · {q.TimeLimitSec} s"
 				: q.IsChoice ? $"{kind} · A–D · {q.TimeLimitSec} s" : $"{kind} · {Lang.T("buzzer")}";
-		if (q.Type == QuestionType.Order) return $"{kind} · {Lang.F("{0} items", q.Items.Count(i => !string.IsNullOrWhiteSpace(i)))} · {q.TimeLimitSec} s";
+		if (q.Type == QuestionType.Order)
+			return $"{kind} · {(q.IsTimeline ? Lang.T("timeline") + " · " : "")}{Lang.F("{0} items", q.Items.Count(i => !string.IsNullOrWhiteSpace(i)))} · {q.TimeLimitSec} s";
 		if (q.HasTimeLimit) return $"{kind} · {q.TimeLimitSec} s";
 		return $"{kind} · {Lang.T("buzzer")}";
 	}

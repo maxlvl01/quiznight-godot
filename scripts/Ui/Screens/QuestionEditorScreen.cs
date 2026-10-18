@@ -248,6 +248,10 @@ public partial class QuestionEditorScreen : Control
 
 	Control OrderForm()
 	{
+		var timeline = _draft.IsTimeline;
+		var max = timeline ? QuestionLimits.TimelineItemsMax : QuestionLimits.OrderItemsMax;
+		// Labels follow their items (a timeline shows each item's label, e.g. its year, once it's placed).
+		while (_draft.ItemLabels.Count < _draft.Items.Count) _draft.ItemLabels.Add("");
 		var rows = U.V(8);
 		for (var i = 0; i < _draft.Items.Count; i++)
 		{
@@ -255,38 +259,98 @@ public partial class QuestionEditorScreen : Control
 			var remove = U.Small("×", () =>
 			{
 				_draft.Items.RemoveAt(at);
+				if (at < _draft.ItemLabels.Count) _draft.ItemLabels.RemoveAt(at);
+				if (_draft.TimelineStart > at || _draft.TimelineStart >= _draft.Items.Count) _draft.TimelineStart = Math.Max(0, _draft.TimelineStart - 1);
 				Changed(true);
 			}).Tip("Remove");
 			remove.Disabled = _draft.Items.Count <= QuestionLimits.OrderItemsMin;
-			rows.AddChild(U.H(8, U.Mono($"{at + 1}.", 16, C.Muted).MinSize(28), U.Input(_draft.Items[at], at == 0 ? "e.g. Doom" : "", t =>
+			var row = U.H(8, U.Mono($"{at + 1}.", 16, C.Muted).MinSize(28), U.Input(_draft.Items[at], at == 0 ? "e.g. Doom" : "", t =>
 			{
 				_draft.Items[at] = t;
 				Changed();
-			}, 80).Grow(), remove));
+			}, 80).Grow());
+			if (timeline)
+			{
+				row.AddChild(U.Input(_draft.ItemLabels[at], at == 0 ? "e.g. 1993" : "", t =>
+				{
+					_draft.ItemLabels[at] = t;
+					Changed();
+				}, QuestionLimits.TimelineLabelMaxLength).MinSize(120).Tip("Shown once it's placed").With(e => e.SizeFlagsHorizontal = SizeFlags.Fill));
+				var isStart = _draft.TimelineStart == at;
+				var startBtn = U.Btn(isStart ? "✓ Starts" : "Starts", isStart ? "TealButton" : "SmallButton", () =>
+				{
+					_draft.TimelineStart = at;
+					Changed(true);
+				}, 14).Tip("This one is already on the timeline when the question starts").MinSize(104);
+				row.AddChild(startBtn);
+			}
+			row.AddChild(remove);
+			rows.AddChild(row);
 		}
 		var add = U.Small("+ Add item", () =>
 		{
 			_draft.Items.Add("");
+			_draft.ItemLabels.Add("");
 			Changed(true);
 		});
-		add.Disabled = _draft.Items.Count >= QuestionLimits.OrderItemsMax;
-		var left = U.V(14, PromptArea("e.g. Put these games in the order they came out"),
-			U.Field("Top of the list means", U.Input(_draft.OrderTop, "e.g. Oldest", t =>
+		add.Disabled = _draft.Items.Count >= max;
+		var mode = U.Field("How it's played", U.Segmented(OrderMode.Modes, _draft.OrderMode, id =>
+		{
+			_draft.OrderMode = id;
+			// Back to everyone at once: at most its own number of items.
+			if (id == OrderMode.All && _draft.Items.Count > QuestionLimits.OrderItemsMax)
 			{
-				_draft.OrderTop = t;
-				Changed();
-			}, 30)),
+				_draft.Items = _draft.Items.Take(QuestionLimits.OrderItemsMax).ToList();
+				_draft.ItemLabels = _draft.ItemLabels.Take(QuestionLimits.OrderItemsMax).ToList();
+				_draft.TimelineStart = Math.Min(_draft.TimelineStart, _draft.Items.Count - 1);
+			}
+			Changed(true);
+		}));
+		var left = U.V(14, PromptArea("e.g. Put these games in the order they came out"), mode,
+			U.H(12,
+				U.Field(timeline ? "Left end means" : "Top of the list means", U.Input(_draft.OrderTop, "e.g. Oldest", t =>
+				{
+					_draft.OrderTop = t;
+					Changed();
+				}, 30)).Grow(),
+				U.Field(timeline ? "Right end means" : "Bottom of the list means", U.Input(_draft.OrderBottom, "e.g. Newest", t =>
+				{
+					_draft.OrderBottom = t;
+					Changed();
+				}, 30)).Grow()),
 			U.Field("Items, in the right order", U.V(8, rows, add.With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin)),
-				Lang.F("Type them top to bottom ({0}–{1} items). Players get them shuffled.", QuestionLimits.OrderItemsMin, QuestionLimits.OrderItemsMax)),
-			U.Field("Bottom of the list means", U.Input(_draft.OrderBottom, "e.g. Newest", t =>
+				timeline
+					? Lang.F("Type them in order ({0}–{1} items) with what each one shows once it's placed, e.g. its year. \"Starts\" is the one already on the timeline: it can be anywhere in the order.", QuestionLimits.OrderItemsMin, max)
+					: Lang.F("Type them top to bottom ({0}–{1} items). Players get them shuffled.", QuestionLimits.OrderItemsMin, max)));
+
+		Control settings;
+		if (timeline)
+		{
+			var keepGoing = new CheckBox { Text = "Whoever is right keeps going", ButtonPressed = _draft.KeepGoing, MouseDefaultCursorShape = CursorShape.PointingHand };
+			keepGoing.Toggled += on =>
 			{
-				_draft.OrderBottom = t;
+				_draft.KeepGoing = on;
 				Changed();
-			}, 30)));
-		var settings = RoundSettings.Panel(
-			RoundSettings.TimeLimit(_draft, () => Changed()),
-			RoundSettings.Points(_draft, () => Changed()),
-			U.Muted("Everyone puts the items in order on their own screen. Only a perfect order gets the points; the reveal shows how many each player had in the right place.", 13));
+			};
+			settings = RoundSettings.Panel(
+				U.Field("Time per turn (seconds)", new NumberField(_draft.TimeLimitSec, v =>
+				{
+					_draft.TimeLimitSec = (int)Math.Clamp(Math.Round(v ?? QuestionLimits.TimeLimitMin), QuestionLimits.TimeLimitMin, QuestionLimits.TimeLimitMax);
+					Changed();
+				}, QuestionLimits.TimeLimitMin, QuestionLimits.TimeLimitMax, true)),
+				U.Field("Points per item placed", new NumberField(_draft.Points, v =>
+				{
+					_draft.Points = (int)Math.Clamp(Math.Round(v ?? QuestionLimits.PointsMin), QuestionLimits.PointsMin, QuestionLimits.PointsMax);
+					Changed();
+				}, QuestionLimits.PointsMin, QuestionLimits.PointsMax, true)),
+				U.V(4, keepGoing, U.Muted("Off: the turn passes on after every item.", 12)),
+				U.Muted("Players take turns, fewest points first. On your turn you pick where the next item goes on the timeline. Right: it's placed with its label, you score and carry on. Wrong: the next player tries the same item. If nobody gets it, it's placed for free and the next player starts the next item.", 13));
+		}
+		else
+			settings = RoundSettings.Panel(
+				RoundSettings.TimeLimit(_draft, () => Changed()),
+				RoundSettings.Points(_draft, () => Changed()),
+				U.Muted("Everyone puts the items in order on their own screen. Only a perfect order gets the points; the reveal shows how many each player had in the right place.", 13));
 		return Columns((left, 1.6f), (settings, 1));
 	}
 

@@ -16,6 +16,7 @@ public interface IGameHooks
 	bool HostShowsQuestions();
 	bool HostUnlocksBuzzers();
 	int AnswerTimeSec();
+	int Score(string playerId);
 	void Award(string playerId, int points);
 	long Now();
 }
@@ -51,6 +52,19 @@ public sealed class Game
 	long? _playingSince;
 	RevealView? _reveal;
 
+	// Timeline (put in order, taking turns). Items are indexes into the shown (shuffled) Items.
+	readonly List<int> _tlPlaced = new();
+	readonly Dictionary<int, string?> _tlPlacedBy = new();
+	readonly Queue<int> _tlDeck = new();
+	int? _tlCurrent;
+	readonly List<string> _tlOrder = new();
+	string? _tlTurn;
+	long? _tlTurnEnds;
+	readonly List<string> _tlMissed = new();
+	readonly List<int> _tlWrongGaps = new();
+	readonly Dictionary<string, int> _tlPoints = new();
+	TimelineEvent? _tlLast;
+
 	public Game(Quiz quiz, IGameHooks hooks, Random? rng = null)
 	{
 		// Choice answers get a new random order every game (the quiz itself isn't changed).
@@ -82,6 +96,17 @@ public sealed class Game
 		_playingSince = null;
 		_reveal = null;
 		_endsAt = null;
+		_tlPlaced.Clear();
+		_tlPlacedBy.Clear();
+		_tlDeck.Clear();
+		_tlCurrent = null;
+		_tlOrder.Clear();
+		_tlTurn = null;
+		_tlTurnEnds = null;
+		_tlMissed.Clear();
+		_tlWrongGaps.Clear();
+		_tlPoints.Clear();
+		_tlLast = null;
 		Shown = false;
 		BuzzersOpen = false;
 		if (!_hooks.HostShowsQuestions()) StartShown(now);
@@ -95,6 +120,7 @@ public sealed class Game
 		var limit = TimeLimitSec(Question);
 		_endsAt = limit is { } l ? now + l * 1000L : null;
 		BuzzersOpen = Question.IsBuzzer && !_hooks.HostUnlocksBuzzers();
+		if (Question.IsTimeline) StartTimeline(now);
 	}
 
 	/// <summary>The host shows the hidden question to everyone.</summary>
@@ -116,6 +142,11 @@ public sealed class Game
 	/// <summary>Runs timers. Returns true if something changed (the time ran out).</summary>
 	public bool Tick()
 	{
+		if (Stage == Shared.Stage.Open && _tlTurnEnds is { } turnEnds && _hooks.Now() >= turnEnds)
+		{
+			MissTurn(TimelineEventKind.TimeUp);
+			return true;
+		}
 		if (Stage != Shared.Stage.Open || _endsAt is not { } ends || _hooks.Now() < ends) return false;
 		DoReveal();
 		return true;
@@ -186,6 +217,11 @@ public sealed class Game
 		if (index != Index || Stage != Shared.Stage.Open) return Result.Fail("This question is already closed.");
 		if (!Shown) return Result.Fail("The host hasn't shown this question yet.");
 		if (q.IsBuzzer) return Result.Fail("This is a buzzer question.");
+		if (q.IsTimeline)
+		{
+			if (raw?.Num is not { } gap || gap != Math.Floor(gap)) return Result.Fail("Pick a spot on the timeline.");
+			return Place(playerId, (int)gap);
+		}
 		if (_answers.Any(a => a.PlayerId == playerId)) return Result.Fail("You already locked in your answer.");
 
 		AnswerValue value;
@@ -234,6 +270,12 @@ public sealed class Game
 	/// <summary>Someone left or reconnected: maybe everyone who is still here has answered.</summary>
 	public bool CheckAllAnswered()
 	{
+		// Timeline: the player whose turn it is left, so the next one goes.
+		if (Stage == Shared.Stage.Open && _tlTurn is { } turn && !_hooks.ActivePlayerIds().Contains(turn))
+		{
+			MissTurn(TimelineEventKind.Skipped);
+			return true;
+		}
 		if (Stage != Shared.Stage.Open || Question.IsBuzzer || _answers.Count == 0) return false;
 		if (!_hooks.ActivePlayerIds().All(id => _answers.Any(a => a.PlayerId == id))) return false;
 		DoReveal();
@@ -253,10 +295,161 @@ public sealed class Game
 		if (Stage == Shared.Stage.Reveal) return;
 		SetMedia(false);
 		Stage = Shared.Stage.Reveal;
+		_tlTurn = null;
+		_tlTurnEnds = null;
 		_reveal = ComputeReveal();
-		foreach (var e in _reveal.Entries)
-			if (e.Points != 0) _hooks.Award(e.PlayerId, e.Points);
+		// (timeline points were awarded as the items were placed)
+		if (!Question.IsTimeline)
+			foreach (var e in _reveal.Entries)
+				if (e.Points != 0) _hooks.Award(e.PlayerId, e.Points);
 	}
+
+	// ---------- timeline ----------
+
+	/// <summary>Where item i belongs: its index in the right order.</summary>
+	int Rank(int item) => Question.CorrectOrder.IndexOf(item);
+
+	/// <summary>The gap item i belongs in on the current timeline.</summary>
+	int RightGap(int item) => _tlPlaced.Count(p => Rank(p) < Rank(item));
+
+	void StartTimeline(long now)
+	{
+		var q = Question;
+		_tlPlaced.Add(q.TimelineStart);
+		_tlPlacedBy[q.TimelineStart] = null;
+		// The rest come in the shown (shuffled) order.
+		foreach (var i in Enumerable.Range(0, q.Items.Count).Where(i => i != q.TimelineStart)) _tlDeck.Enqueue(i);
+		// Fewest points first; ties in the order people joined.
+		var active = _hooks.ActivePlayerIds();
+		_tlOrder.AddRange(active.Select((id, joined) => (id, joined)).OrderBy(p => _hooks.Score(p.id)).ThenBy(p => p.joined).Select(p => p.id));
+		NextItem(_tlOrder.FirstOrDefault(), now);
+	}
+
+	/// <summary>The next player after this one in turn order (still connected; with skipMissed, not yet missed the current item).</summary>
+	string? NextPlayer(string? after, bool skipMissed)
+	{
+		var active = _hooks.ActivePlayerIds();
+		// People who joined during the question queue up at the end.
+		foreach (var id in active)
+			if (!_tlOrder.Contains(id)) _tlOrder.Add(id);
+		if (_tlOrder.Count == 0) return null;
+		var start = after != null ? _tlOrder.IndexOf(after) : -1;
+		for (var k = 1; k <= _tlOrder.Count; k++)
+		{
+			var id = _tlOrder[((start + k) % _tlOrder.Count + _tlOrder.Count) % _tlOrder.Count];
+			if (active.Contains(id) && !(skipMissed && _tlMissed.Contains(id))) return id;
+		}
+		return null;
+	}
+
+	/// <summary>On to the next item (or the reveal once all are placed); the given player places it.</summary>
+	void NextItem(string? player, long now)
+	{
+		_tlMissed.Clear();
+		_tlWrongGaps.Clear();
+		if (_tlDeck.Count == 0)
+		{
+			_tlCurrent = null;
+			DoReveal();
+			return;
+		}
+		_tlCurrent = _tlDeck.Dequeue();
+		_tlTurn = player != null && _hooks.ActivePlayerIds().Contains(player) ? player : NextPlayer(player, false);
+		_tlTurnEnds = _tlTurn != null ? now + Question.TimeLimitSec * 1000L : null;
+	}
+
+	void PutDown(int item, string? by)
+	{
+		_tlPlaced.Insert(RightGap(item), item);
+		_tlPlacedBy[item] = by;
+	}
+
+	/// <summary>A player puts the current item into a gap (0 = before the first card, Placed.Count = after the last).</summary>
+	Result Place(string playerId, int gap)
+	{
+		if (_tlCurrent is not { } item) return Result.Fail("This question is already closed.");
+		if (_tlTurn != playerId) return Result.Fail("It's not your turn.");
+		if (gap < 0 || gap > _tlPlaced.Count || _tlWrongGaps.Contains(gap)) return Result.Fail("Pick a spot on the timeline.");
+		var now = _hooks.Now();
+		var text = Question.Items[item];
+		if (gap == RightGap(item))
+		{
+			PutDown(item, playerId);
+			_tlPoints[playerId] = _tlPoints.GetValueOrDefault(playerId) + Question.Points;
+			_hooks.Award(playerId, Question.Points);
+			_tlLast = new TimelineEvent { Kind = TimelineEventKind.Right, PlayerId = playerId, Item = text };
+			NextItem(Question.KeepGoing ? playerId : NextPlayer(playerId, false), now);
+			return Result.Success();
+		}
+		_tlWrongGaps.Add(gap);
+		_tlLast = new TimelineEvent { Kind = TimelineEventKind.Wrong, PlayerId = playerId, Item = text };
+		PassOn(playerId, now);
+		return Result.Success();
+	}
+
+	/// <summary>The current player misses (time up, skipped or gone): the next one tries the same item.</summary>
+	void MissTurn(string kind)
+	{
+		if (_tlCurrent is not { } item || _tlTurn is not { } player) return;
+		_tlLast = new TimelineEvent { Kind = kind, PlayerId = player, Item = Question.Items[item] };
+		PassOn(player, _hooks.Now());
+	}
+
+	void PassOn(string player, long now)
+	{
+		_tlMissed.Add(player);
+		if (NextPlayer(player, true) is { } next)
+		{
+			_tlTurn = next;
+			_tlTurnEnds = now + Question.TimeLimitSec * 1000L;
+			return;
+		}
+		// Everyone missed it: it goes in its place for free, and the next player starts the next item.
+		PlaceForFree(player, now);
+	}
+
+	void PlaceForFree(string? lastPlayer, long now)
+	{
+		if (_tlCurrent is not { } item) return;
+		PutDown(item, null);
+		_tlLast = new TimelineEvent { Kind = TimelineEventKind.Free, Item = Question.Items[item] };
+		NextItem(NextPlayer(lastPlayer, false), now);
+	}
+
+	/// <summary>Host: skip the player whose turn it is.</summary>
+	public bool SkipTurn()
+	{
+		if (Stage != Shared.Stage.Open || _tlTurn == null) return false;
+		MissTurn(TimelineEventKind.Skipped);
+		return true;
+	}
+
+	/// <summary>Host: put the current item in its place without points; the next player gets the next item.</summary>
+	public bool PlaceCurrentForFree()
+	{
+		if (Stage != Shared.Stage.Open || _tlCurrent == null) return false;
+		PlaceForFree(_tlTurn, _hooks.Now());
+		return true;
+	}
+
+	TimelineView TimelineView() => new()
+	{
+		Placed = _tlPlaced.Select(i => new TimelineCard
+		{
+			Text = Question.Items[i],
+			Label = Question.ItemLabel(i),
+			PlacedBy = _tlPlacedBy.GetValueOrDefault(i),
+			Start = i == Question.TimelineStart,
+		}).ToList(),
+		Current = _tlCurrent is { } c ? Question.Items[c] : null,
+		Left = _tlDeck.Count,
+		TurnPlayerId = _tlTurn,
+		TurnEndsAt = Stage == Shared.Stage.Open ? _tlTurnEnds : null,
+		WrongGaps = _tlWrongGaps.ToList(),
+		TurnOrder = _tlOrder.ToList(),
+		Missed = _tlMissed.ToList(),
+		Last = _tlLast,
+	};
 
 	static readonly CultureInfo En = CultureInfo.GetCultureInfo("en-GB");
 
@@ -310,6 +503,27 @@ public sealed class Game
 					Correct = b.Status == BuzzStatus.Correct,
 					Points = b.Status == BuzzStatus.Correct ? q.Points : 0,
 				}).ToList(),
+			};
+		}
+
+		if (q.IsTimeline)
+		{
+			var entries = _tlOrder.Select(id =>
+			{
+				var placed = _tlPlacedBy.Count(p => p.Value == id);
+				return new RevealEntry
+				{
+					PlayerId = id,
+					Text = placed == 1 ? Lang.T("placed 1 item") : Lang.F("placed {0} items", placed),
+					Correct = placed > 0,
+					Points = _tlPoints.GetValueOrDefault(id),
+				};
+			}).OrderByDescending(e => e.Points).ToList();
+			return new RevealView
+			{
+				AnswerText = OrderText(q),
+				WinnerIds = entries.Where(e => e.Points > 0).Select(e => e.PlayerId).ToList(),
+				Entries = entries,
 			};
 		}
 
@@ -448,8 +662,9 @@ public sealed class Game
 		return true;
 	}
 
-	/// <summary>"Doom → Half-Life → Portal".</summary>
-	static string OrderText(Question q) => string.Join(" → ", q.CorrectOrder.Select(i => q.Items[i]));
+	/// <summary>"Doom → Half-Life → Portal" (a timeline with its labels: "Doom (1993) → …").</summary>
+	static string OrderText(Question q) => string.Join(" → ", q.CorrectOrder.Select(i =>
+		q.IsTimeline && q.ItemLabel(i) is { Length: > 0 } label ? $"{q.Items[i]} ({label})" : q.Items[i]));
 
 	static List<int> Picks(AnswerValue v) => v.Picks ?? (v.Num is { } n ? new List<int> { (int)n } : new List<int>());
 
@@ -489,6 +704,7 @@ public sealed class Game
 			pq.Items = q.Items;
 			pq.OrderTop = q.OrderTop;
 			pq.OrderBottom = q.OrderBottom;
+			pq.OrderMode = q.OrderMode;
 			pq.TimeLimitSec = q.TimeLimitSec;
 		}
 		if (q.Type == QuestionType.Write) pq.TimeLimitSec = q.TimeLimitSec;
@@ -536,7 +752,7 @@ public sealed class Game
 			Total = _quiz.Questions.Count,
 			Stage = Stage,
 			// A hidden question: players only learn its number, type and points.
-			Question = Shown || viewer == "host" || !open ? PublicQuestion() : new PublicQuestion { Type = Question.Type, Points = Question.Points, Buzzer = Question.IsBuzzer, Mode = Question.Type == QuestionType.Classic ? Question.Mode : null },
+			Question = Shown || viewer == "host" || !open ? PublicQuestion() : new PublicQuestion { Type = Question.Type, Points = Question.Points, Buzzer = Question.IsBuzzer, Mode = Question.Type == QuestionType.Classic ? Question.Mode : null, OrderMode = Question.Type == QuestionType.Order ? Question.OrderMode : null },
 			Shown = Shown || !open,
 			BuzzersOpen = BuzzersOpen,
 			EndsAt = open ? _endsAt : null,
@@ -545,6 +761,8 @@ public sealed class Game
 			Buzzes = _buzzes.Select(b => new BuzzEntry { PlayerId = b.PlayerId, Status = b.Status, AtSec = b.AtMs / 1000.0 }).ToList(),
 			MediaPlaying = _playingSince != null,
 			Reveal = _reveal,
+			// (the timeline only exists once the question is shown)
+			Timeline = Question.IsTimeline && Shown ? TimelineView() : null,
 		};
 		if (viewer == "host") view.HostAnswer = HostAnswer();
 		else view.MyAnswer = _answers.FirstOrDefault(a => a.PlayerId == viewer).Value;

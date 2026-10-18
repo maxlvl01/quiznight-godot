@@ -69,6 +69,9 @@ public partial class HostGameScreen : Control, IRoomScreen
 		HostNotes.Update(game);
 		_game = game;
 		var key = $"{game.Index}|{game.Stage}";
+		var tl = game.Stage == Stage.Open ? game.Timeline : null;
+		// Timeline: rebuilt on every move.
+		var tlKey = tl == null ? "" : $"|{tl.Placed.Count}|{tl.TurnPlayerId}|{string.Join(",", tl.WrongGaps)}|{tl.Last?.Kind}{tl.Last?.PlayerId}{tl.Last?.Item}";
 
 		_bar.Set($"{game.Index}", () => U.Panel(GameParts.Row(12,
 			U.H(0, U.Text("Quiznight", 20, C.Text, Fonts.Black), U.Text("!", 20, C.Accent, Fonts.Black)),
@@ -101,7 +104,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 		_imageReveal?.Update(game);
 
 		// (rebuilt when the host ticks a written answer)
-		_content.Set(reveal != null ? $"{key}|{string.Join(",", reveal.WinnerIds)}" : key, () =>
+		_content.Set(reveal != null ? $"{key}|{string.Join(",", reveal.WinnerIds)}" : key + tlKey, () =>
 		{
 			var box = U.V(14);
 			if (q.ImageKey != null && q.Type != QuestionType.Image && !(q.Type == QuestionType.MapPin && reveal != null))
@@ -111,7 +114,28 @@ public partial class HostGameScreen : Control, IRoomScreen
 			if (reveal == null && q.Type == QuestionType.Estimation)
 				box.AddChild(U.Muted(string.IsNullOrEmpty(q.Unit) ? Lang.T("Everyone types a number on their own screen.") : Lang.F("Everyone types a number in {0} on their own screen.", q.Unit), 16));
 			if (reveal == null && q.Type == QuestionType.MapPin) box.AddChild(U.Muted("Everyone places a pin on the map on their own screen.", 16));
-			if (reveal == null && q.Type == QuestionType.Order)
+			if (tl != null)
+			{
+				var current = tl.Current != null
+					? GameParts.Row(14, U.Muted("Where does it go?", 17, false), GameParts.TimelineCard(tl.Current, "", false, true),
+						U.Muted(tl.Left == 1 ? Lang.T("1 more after this") : Lang.F("{0} more after this", tl.Left), 15, false))
+					: U.Gap(0);
+				if (current is BoxContainer currentRow) currentRow.Alignment = BoxContainer.AlignmentMode.Center;
+				box.AddChild(current);
+				box.AddChild(GameParts.TimelineRow(q, tl));
+				var status = GameParts.Row(10);
+				status.Alignment = BoxContainer.AlignmentMode.Center;
+				if (tl.Last != null) status.AddChild(U.Text(GameParts.TimelineEventText(room, tl.Last), 17, tl.Last.Kind == TimelineEventKind.Right ? C.Teal : C.Muted).Raw());
+				if (tl.TurnPlayerId is { } turn)
+				{
+					var p = room.Player(turn);
+					status.AddChild(new Avatar(p, 28));
+					status.AddChild(U.Bold(Lang.F("{0}'s turn", p.Name), 18).Raw());
+					status.AddChild(new Countdown(tl.TurnEndsAt, null, 22));
+				}
+				box.AddChild(status);
+			}
+			else if (reveal == null && q.Type == QuestionType.Order)
 			{
 				box.AddChild(GameParts.OrderList(q));
 				box.AddChild(U.Muted("Everyone puts these in order on their own screen.", 16));
@@ -129,7 +153,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 
 		var answering = game.Buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Answering);
 		var last = game.Index + 1 >= game.Total;
-		_controls.Set($"{key}|{answering?.PlayerId}|{answering?.AtSec}|{game.Shown}|{game.BuzzersOpen}", () =>
+		_controls.Set($"{key}|{answering?.PlayerId}|{answering?.AtSec}|{game.Shown}|{game.BuzzersOpen}|{tl?.TurnPlayerId}|{tl?.Current}", () =>
 		{
 			var row = GameParts.Row(10);
 			row.Alignment = BoxContainer.AlignmentMode.End;
@@ -152,6 +176,10 @@ public partial class HostGameScreen : Control, IRoomScreen
 				if (game.BuzzersOpen) row.AddChild(U.Btn("Lock buzzers", "", () => _host.SetBuzzers(false)));
 				else row.AddChild(U.Btn("Unlock buzzers  (Space)", "AccentButton", () => _host.SetBuzzers(true), 20));
 			}
+			if (tl?.TurnPlayerId is { } turnId)
+				row.AddChild(U.Btn(Lang.F("Skip {0}", room.Player(turnId).Name), "", _host.SkipTurn).Tip("The next player tries the same item"));
+			if (tl?.Current != null)
+				row.AddChild(U.Btn("Place it for free", "", _host.PlaceForFree).Tip("Puts the item in its place without points; the next player gets the next one"));
 			if (game.Stage == Stage.Open)
 			{
 				if (game.HostAnswer != null) row.AddChild(new PeekButton(game.HostAnswer));
@@ -167,6 +195,22 @@ public partial class HostGameScreen : Control, IRoomScreen
 			_side.AddChild(U.Eyebrow("Buzz order"));
 			if (game.Shown && !game.BuzzersOpen) _side.AddChild(U.Pill("Buzzers locked", C.Coral));
 			_side.AddChild(BuzzQueue(room));
+		}
+		else if (tl != null)
+		{
+			_side.AddChild(U.Eyebrow("Turn order — fewest points first"));
+			for (var i = 0; i < tl.TurnOrder.Count; i++)
+			{
+				var p = room.Player(tl.TurnOrder[i]);
+				var now = p.Id == tl.TurnPlayerId;
+				var missed = tl.Missed.Contains(p.Id);
+				var status = now ? Lang.T("Placing now") : missed ? Lang.T("Missed this one") : !p.Connected ? Lang.T("(offline)") : "";
+				var row = GameParts.Row(8, GameParts.RankBadge(i + 1), new Avatar(p, 26), U.V(0, U.Text(p.Name, 15).Raw(), U.Muted(status, 12, false)).Grow());
+				var panel = U.Panel(row, "Clear");
+				panel.AddThemeStyleboxOverride("panel", UiTheme.Box(now ? new Color(C.Accent, 0.1f) : C.Panel2, 10, now ? C.Accent : C.Border, 1, 10, 6));
+				if (missed || !p.Connected) panel.Modulate = new Color(1, 1, 1, 0.55f);
+				_side.AddChild(panel);
+			}
 		}
 		else if (game.Stage == Stage.Open)
 		{

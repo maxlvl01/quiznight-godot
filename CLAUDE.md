@@ -19,7 +19,7 @@ the original design decisions; most still apply.
   makes the room code findable. Host leaves = room closed.
 - **LAN mode (plain TCP, port 7777)** exists for testing several copies on one PC (Steam can't
   connect you to yourself) and for offline play on the same Wi-Fi.
-- **Quiz files extend the web version's format** (`.quiznight.json`, now format 3: multi choice, image reveal,
+- **Quiz files extend the web version's format** (`.quiznight.json`, now format 4: multi choice, image reveal, timeline,
   put in order, write the answer), so old exports import as-is.
   `QuizJson` reads forgivingly (= migration) and writes only each type's fields.
   Built-in map images are not stored in files (they ship with the game, `assets/maps/`).
@@ -73,7 +73,7 @@ dotnet build "QuizNight!.csproj"                              # compile — run 
 "$G" --path . --resolution 1600x900 -- --no-steam --open mapPin --shot out.png    # screenshot a screen
 ```
 
-`--screen home|quizzes|quiz|settings`, `--open classic|choice|multi|estimation|mapPin|wow|sound|image|order|write`, `--map-zoom Z [--map-at X,Y]` (WoW map), `--lang en|de` (this run only), `--shot FILE --after SEC`
+`--screen home|quizzes|quiz|settings`, `--open classic|choice|multi|estimation|mapPin|wow|sound|image|order|timeline|write`, `--start-at N` (with `--autopilot`), `--map-zoom Z [--map-at X,Y]` (WoW map), `--lang en|de` (this run only), `--shot FILE --after SEC`
 (see `DevTools.cs`). Full solo test: host with `--autopilot --players 2` plus two `--bot` instances.
 Screenshots need a window (no `--headless`); the window opens briefly on the user's screen.
 
