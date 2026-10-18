@@ -89,6 +89,10 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 				v => _host.UpdateSettings(maxPlayers: v)),
 			Stepper.Make("Answer time per buzz", room.Settings.AnswerTimeSec, Limits.AnswerTimeMin, Limits.AnswerTimeMax,
 				v => _host.UpdateSettings(answerTimeSec: v), " s"),
+			Rule("I show each question myself (it stays hidden until I press Show — Space)", room.Settings.HostShowsQuestions,
+				on => _host.UpdateSettings(hostShows: on)),
+			Rule("I unlock the buzzers myself (after reading the question out — Space)", room.Settings.HostUnlocksBuzzers,
+				on => _host.UpdateSettings(hostUnlocks: on)),
 			BuzzerPicker.Make(_host.BuzzerSound, id => _host.BuzzerSound = id, false)), "Inset");
 		_content.AddChild(rules);
 
