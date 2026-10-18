@@ -17,7 +17,7 @@ public static class SampleQuiz
 	{
 		var skyrim = new MapAsset { Id = "map-skyrim", Name = "Skyrim", PresetId = "skyrim", WidthKm = MapPresets.Get("skyrim")!.WidthKm };
 		var tex = Images.BuiltinTexture(MapPresets.Get("skyrim")!.ImagePath);
-		skyrim.Image = new ImageAsset { Width = tex?.GetWidth() ?? 4096, Height = tex?.GetHeight() ?? 4096 };
+		skyrim.Image = new ImageAsset { Width = tex?.GetWidth() ?? SkyrimCrop.Width, Height = tex?.GetHeight() ?? SkyrimCrop.Height };
 		var wow = new MapAsset { Id = "map-wow", Name = "WoW Classic – Azeroth", PresetId = WowAtlas.PresetId, Image = new ImageAsset { Width = WowAtlas.ImageWidth, Height = WowAtlas.ImageHeight } };
 		var custom = new MapAsset { Id = "map-custom", Name = "Test grid", Image = Picture(1600, 1000, new Color("#2b6"), new Color("#135"), "GRID"), WidthKm = 10 };
 
@@ -41,7 +41,7 @@ public static class SampleQuiz
 			new()
 			{
 				Id = "q4", Type = QuestionType.MapPin, Prompt = "Where is Whiterun?", Image = Picture(1280, 720, new Color("#8a7a55"), new Color("#2c2a20"), "SCREENSHOT"),
-				MapId = skyrim.Id, Target = new NormPoint(0.49, 0.52), TimeLimitSec = 60, Points = 1,
+				MapId = skyrim.Id, Target = new NormPoint(0.57, 0.555), TimeLimitSec = 60, Points = 1,
 			},
 			new()
 			{

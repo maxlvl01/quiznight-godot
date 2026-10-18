@@ -41,14 +41,14 @@ public partial class ImageField : VBoxContainer
 		Control preview;
 		if (_image != null && _image.DataUrl != "")
 		{
-			preview = new FitImage { MaxHeight = 300, Texture = Images.TextureFromDataUrl(_image.DataUrl) };
+			preview = new FitImage { MaxHeight = U.Flexible, Texture = Images.TextureFromDataUrl(_image.DataUrl) };
 		}
 		else
 		{
 			preview = U.V(4,
 				U.Muted(_emptyText, 14, true, HorizontalAlignment.Center),
 				U.Muted("Drop a file on this window, or copy a screenshot (Win+Shift+S) and press Ctrl+V.", 12, true, HorizontalAlignment.Center))
-				.MinSize(0, 120).With(v => v.Alignment = BoxContainer.AlignmentMode.Center);
+				.MinSize(0, 64).With(v => v.Alignment = BoxContainer.AlignmentMode.Center);
 		}
 		var box = U.Panel(preview, "Inset");
 		box.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Bg, 12, C.Border, 1, 10, 10).With(s => s.BorderBlend = false));

@@ -19,7 +19,7 @@ public partial class QuizListScreen : Control
 			U.Btn("Import file", "", Import),
 			U.Btn("New quiz", "AccentButton", Create));
 		var page = U.V(14, U.Link("← Home", () => App.I.GoHome()).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin), head, _error, _list);
-		AddChild(U.Page(page, 980));
+		AddChild(U.Page(page, 980, 20));
 		Refresh();
 	}
 

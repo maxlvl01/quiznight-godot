@@ -37,7 +37,8 @@ public partial class QuestionEditorScreen : Control
 			U.Btn("Save question", "AccentButton", Save, 15)), "Bar");
 		var body = U.V(12, _issues, _form);
 		var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.GrowV();
-		scroll.AddChild(U.Pad(body.Grow(), 28, 16, 28, 28).Grow());
+		scroll.AddChild(U.Pad(body.Grow().GrowV(), 28, 16, 28, 28).Grow().GrowV());
+		_form.SizeFlagsVertical = SizeFlags.ExpandFill;
 		var layout = U.V(0, bar, scroll);
 		layout.SetAnchorsPreset(LayoutPreset.FullRect);
 		AddChild(layout);
@@ -81,6 +82,8 @@ public partial class QuestionEditorScreen : Control
 			QuestionType.Write => WriteForm(),
 			_ => MediaForm(),
 		});
+		// Maps and previews take the height that's left, so the form fits without scrolling.
+		U.PropagateGrow(_form);
 		UpdateIssues();
 	}
 
@@ -101,7 +104,7 @@ public partial class QuestionEditorScreen : Control
 		{
 			_draft.Prompt = t;
 			Changed();
-		}, 3, QuestionLimits.PromptMaxLength));
+		}, 2, QuestionLimits.PromptMaxLength));
 
 	Control PromptLine() =>
 		U.Field("Question text", U.Input(_draft.Prompt, "", t =>
@@ -392,7 +395,7 @@ public partial class QuestionEditorScreen : Control
 		if (_draft.Image != null)
 		{
 			var zoom = _draft.RevealStyle == RevealStyle.Zoom;
-			var preview = new HostImageReveal(null, _draft, 320);
+			var preview = new HostImageReveal(null, _draft, U.Flexible);
 			preview.View.ShowFocus = zoom;
 			if (zoom)
 				preview.View.OnPick = p =>
@@ -411,12 +414,14 @@ public partial class QuestionEditorScreen : Control
 				_draft.RevealStyle = style;
 				Changed(true);
 			})),
-			U.Field("Seconds until it's fully clear", new NumberField(_draft.RevealSec, v =>
-			{
-				_draft.RevealSec = (int)Math.Clamp(v ?? QuestionLimits.RevealSecDefault, QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax);
-				Changed();
-			}, QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax, true), Lang.F("{0}–{1} seconds.", QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax)),
-			RoundSettings.Points(_draft, () => Changed()),
+			// (side by side, so the preview and the settings fit next to the picture)
+			U.H(12,
+				U.Field("Seconds until it's fully clear", new NumberField(_draft.RevealSec, v =>
+				{
+					_draft.RevealSec = (int)Math.Clamp(v ?? QuestionLimits.RevealSecDefault, QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax);
+					Changed();
+				}, QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax, true), Lang.F("{0}–{1} seconds.", QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax)).Grow(1.4f),
+				RoundSettings.Points(_draft, () => Changed()).Grow()),
 			U.Muted("The picture is shown on your screen only and gets clearer over time. Players buzz in on their own PC; it pauses while someone answers and you mark it Correct or Wrong. Once it's guessed, everyone sees the whole picture and how many seconds it took. Answer time per buzz is set in the lobby.", 13));
 		right.AddChild(settings);
 		return Columns((left, 1.6f), (right, 1));
@@ -467,6 +472,8 @@ public partial class QuestionEditorScreen : Control
 	void BuildMapColumn()
 	{
 		_mapCol.Clear();
+		// (once it's built: the map takes the height that's left)
+		Callable.From(() => U.PropagateGrow(_form)).CallDeferred();
 		_mapCol.AddChild(U.Bold("2 · Map and correct spot", 16));
 
 		var items = new List<(string, string)> { ("", "Choose a map…") };
@@ -512,13 +519,13 @@ public partial class QuestionEditorScreen : Control
 				_draft.Target = p;
 				Changed();
 				UpdateHint(true);
-			}));
+			}, null, U.Flexible));
 			UpdateHint(true);
 			_mapCol.AddChild(hint);
 		}
 		else
 		{
-			var view = new MapView(map.Name, MapTexture(map), map.Image.Width, map.Image.Height);
+			var view = new MapView(map.Name, MapTexture(map), map.Image.Width, map.Image.Height, U.Flexible);
 			view.Canvas.Target = _draft.Target;
 			view.Canvas.OnPick = p =>
 			{

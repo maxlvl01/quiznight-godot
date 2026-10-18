@@ -77,7 +77,8 @@ public partial class ImageRevealView : Control
 
 	void UpdateHeight()
 	{
-		var h = Mathf.Min(_maxHeight, Size.X * Aspect);
+		if (_maxHeight <= 0) this.MarkFlexible();
+		var h = U.FitHeight(_maxHeight, Size.X * Aspect);
 		if (Mathf.Abs(CustomMinimumSize.Y - h) > 0.5f) CustomMinimumSize = new Vector2(0, h);
 	}
 
@@ -192,7 +193,13 @@ public partial class HostImageReveal : VBoxContainer
 		AddThemeConstantOverride("separation", 10);
 		_view.MaxHeight = maxHeight;
 		_view.Set(q.Image is { DataUrl: not "" } img ? Storage.Images.TextureFromDataUrl(img.DataUrl) : null, q.RevealStyle, q.Focus);
-		AddChild(U.Panel(_view, "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Bg, 12, C.Border, 1, 0, 0))));
+		var frame = U.Panel(_view, "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Bg, 12, C.Border, 1, 0, 0)));
+		AddChild(frame);
+		if (maxHeight <= 0)
+		{
+			frame.SizeFlagsVertical = SizeFlags.ExpandFill;
+			SizeFlagsVertical = SizeFlags.ExpandFill;
+		}
 		_toggle = U.Small("Pause", () =>
 		{
 			_autoPaused = false;
@@ -219,7 +226,7 @@ public partial class HostImageReveal : VBoxContainer
 	{
 		_open = game.Stage == Stage.Open;
 		// At the reveal it makes room for the answer below it.
-		if (!_open) _view.MaxHeight = Mathf.Min(_view.MaxHeight, 300);
+		if (!_open && _view.MaxHeight > 0) _view.MaxHeight = Mathf.Min(_view.MaxHeight, 300);
 		var answering = _open && game.Buzzes.Any(b => b.Status == BuzzStatus.Answering);
 		if (answering && !_paused)
 		{

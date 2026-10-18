@@ -87,7 +87,8 @@ public partial class MapCanvas : Control
 
 	void UpdateHeight()
 	{
-		var h = Mathf.Min(MaxHeight, Size.X * _aspect);
+		if (MaxHeight <= 0) this.MarkFlexible();
+		var h = U.FitHeight(MaxHeight, Size.X * _aspect);
 		if (Mathf.Abs(CustomMinimumSize.Y - h) > 0.5f) CustomMinimumSize = new Vector2(0, h);
 	}
 
@@ -314,7 +315,14 @@ public partial class MapView : VBoxContainer
 		SizeFlagsHorizontal = SizeFlags.ExpandFill;
 		if (name != "") AddChild(U.Muted(Lang.F("Map: {0}", name), 13, false));
 		Canvas.MaxHeight = maxHeight;
-		AddChild(U.Panel(Canvas, "Inset").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Bg, 10, C.Border, 1, 0, 0))));
+		var frame = U.Panel(Canvas, "Inset").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Bg, 10, C.Border, 1, 0, 0)));
+		AddChild(frame);
+		if (maxHeight <= 0)
+		{
+			Canvas.MarkFlexible();
+			frame.SizeFlagsVertical = SizeFlags.ExpandFill;
+			SizeFlagsVertical = SizeFlags.ExpandFill;
+		}
 		_in = U.Small("+", () => Canvas.ZoomCenter(1.5f)).Tip("Zoom in");
 		_out = U.Small("−", () => Canvas.ZoomCenter(1 / 1.5f)).Tip("Zoom out");
 		_fit = U.Small("Fit", Canvas.ResetView);

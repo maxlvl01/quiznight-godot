@@ -204,8 +204,8 @@ public static class SelfTest
 
 		// Map pin on Skyrim: exact answer is 0 m off.
 		room.Next();
-		g.Answer("ann", 3, AnswerValue.At(new NormPoint(0.49, 0.52)));
-		g.Answer("bob", 3, AnswerValue.At(new NormPoint(0.5, 0.52)));
+		g.Answer("ann", 3, AnswerValue.At(new NormPoint(0.57, 0.555)));
+		g.Answer("bob", 3, AnswerValue.At(new NormPoint(0.575, 0.555)));
 		g.Answer("cat", 3, AnswerValue.At(new NormPoint(0.9, 0.9)));
 		rev = g.View("host").Reveal!;
 		Eq(rev.Entries[0].Text, "0 m off", "exact pin");
@@ -345,7 +345,11 @@ public static class SelfTest
 		Eq(quiz.Questions[0].AnswerText, "Paris", "classic answer");
 		Eq(quiz.Questions[1].AnswerNumber, 330.0, "estimation answer");
 		Eq(quiz.Questions[1].Scoring, Scoring.Top3, "scoring");
-		Eq(quiz.Questions[2].Target?.X, 0.25, "target");
+		// (saved with the old 4096 px square Skyrim map: moved onto the cropped one)
+		Check(Math.Abs(quiz.Questions[2].Target!.Value.X - (0.25 * 4096 - 56) / 3472) < 1e-9 && quiz.Questions[2].Target!.Value.Y == 1 /* below the crop: kept on the edge */, "old Skyrim pin moved onto the cropped map");
+		Check(quiz.Maps[0].Image.Width == 3472 && quiz.Maps[0].Image.Height == 2892 && quiz.Maps[0].WidthKm == MapPresets.Get("skyrim")!.WidthKm, "old Skyrim map gets the cropped size and scale");
+		var reloaded = QuizJson.Parse(QuizJson.Write(quiz), out _)!;
+		Eq(reloaded.Questions[2].Target, quiz.Questions[2].Target, "a moved pin isn't moved twice");
 		Eq(quiz.Questions[2].TieRule, TieRule.NobodyScores, "tie rule");
 		Eq(quiz.Questions[3].StartSec, 1.5, "start sec");
 		Eq(quiz.Questions[3].Media?.DurationSec, 3.5, "duration");

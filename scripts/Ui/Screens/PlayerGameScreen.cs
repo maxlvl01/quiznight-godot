@@ -55,7 +55,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 				game.Stage == Stage.Open ? new Countdown(game.EndsAt) : U.Gap(0)));
 			box.AddChild(U.Text(q.Prompt, 28, C.Text, Fonts.Black, true).Raw());
 			if (q.ImageKey != null && q.Type != QuestionType.MapPin && game.Stage == Stage.Open)
-				box.AddChild(new AssetImage(_client.Assets, q.ImageKey, 360));
+				box.AddChild(new AssetImage(_client.Assets, q.ImageKey, U.Flexible));
 			return box;
 		});
 
@@ -383,7 +383,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 				pin = p;
 				lockIn.Disabled = false;
 				lockIn.Text = "Lock in pin";
-			}, null, 600)
+			}, null, U.Flexible)
 			: U.Error("This question has no map.");
 		// Custom maps arrive from the host; redraw once they're here.
 		if (q.Map?.AssetKey is { } key && map is MapView view && view.Canvas != null && _client.Assets.Get(key) == null)
@@ -399,7 +399,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		var box = U.V(10);
 		if (q.ImageKey != null)
 		{
-			var shot = new AssetImage(_client.Assets, q.ImageKey, 600);
+			var shot = new AssetImage(_client.Assets, q.ImageKey, U.Flexible);
 			map.Visible = false;
 			box.AddChild(U.Segmented(new[] { ("shot", "Screenshot"), ("map", "Map") }, "shot", id =>
 			{
@@ -441,9 +441,14 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		if (mine is { Points: > 0 }) panel.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(C.Teal, 0.08f), 14, C.Teal, 1, 24, 22));
 		var box = U.V(14, panel);
 		// Image reveal: everyone gets the whole picture now.
-		if (q.Type == QuestionType.Image && q.ImageKey != null) box.AddChild(new AssetImage(_client.Assets, q.ImageKey, 360));
+		if (q.Type == QuestionType.Image && q.ImageKey != null) box.AddChild(new AssetImage(_client.Assets, q.ImageKey, U.Flexible));
 		if (q.Type == QuestionType.MapPin && q.Map != null)
-			box.AddChild(GameMap.Make(q.Map, _client.Assets.Map(q.Map), reveal.Target, null, GameParts.RevealPins(room), 520));
+		{
+			// The answer and scores on the left, the map with everyone's pins as big as the rest of the screen.
+			box.RemoveChild(panel);
+			var side = U.V(14, panel, U.Eyebrow("Scores"), GameParts.Scoreboard(room, MyId)).MinSize(330);
+			return U.H(16, side, GameMap.Make(q.Map, _client.Assets.Map(q.Map), reveal.Target, null, GameParts.RevealPins(room), U.Flexible).Grow());
+		}
 		box.AddChild(U.Eyebrow("Scores"));
 		box.AddChild(GameParts.Scoreboard(room, MyId));
 		return box;

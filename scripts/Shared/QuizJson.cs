@@ -42,6 +42,7 @@ public static class QuizJson
 			Maps = maps.OfType<JsonObject>().Select(ReadMap).ToList(),
 			Questions = qs.OfType<JsonObject>().Select(ReadQuestion).ToList(),
 		};
+		SkyrimCrop.Migrate(quiz);
 		return quiz;
 	}
 

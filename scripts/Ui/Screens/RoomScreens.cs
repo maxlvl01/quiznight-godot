@@ -41,7 +41,7 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 	{
 		_host = host;
 		SetAnchorsPreset(LayoutPreset.FullRect);
-		AddChild(U.Page(U.Panel(_content), 900));
+		AddChild(U.Page(U.Panel(_content), 900, 16));
 	}
 
 	public void Refresh(RoomState room)
@@ -53,7 +53,7 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 			.With(l => l.SizeFlagsVertical = SizeFlags.ShrinkEnd)));
 
 		_content.AddChild(U.Muted("Lobby code", 15));
-		var code = U.Text(room.Code, 72, C.Accent, Fonts.Mono);
+		var code = U.Text(room.Code, 64, C.Accent, Fonts.Mono);
 		var copied = U.Small("Copy code", null);
 		copied.Pressed += () =>
 		{

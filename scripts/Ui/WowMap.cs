@@ -249,6 +249,7 @@ public partial class WowAtlasView : VBoxContainer
 				onPick(p);
 			};
 		AddChild(new MapView("", null, WowAtlas.ImageWidth, WowAtlas.ImageHeight, maxHeight, Canvas));
+		if (maxHeight <= 0) SizeFlagsVertical = SizeFlags.ExpandFill;
 		if (onPick != null) AddChild(U.Muted("Zoom in for more detail: first the zones, then the cities. Click to place the pin.", 12));
 
 		// Start on what matters: the pin and everyone's guesses, or the zone of an existing pin.

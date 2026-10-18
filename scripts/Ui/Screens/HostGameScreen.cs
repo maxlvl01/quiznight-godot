@@ -31,12 +31,13 @@ public partial class HostGameScreen : Control, IRoomScreen
 		SetAnchorsPreset(LayoutPreset.FullRect);
 
 		_content.AddThemeConstantOverride("separation", 14);
-		var stageCard = U.Panel(U.V(14, _head, _media, _content));
+		// The card fills the column; pictures and maps in it take the height that's left.
+		var stageCard = U.Panel(U.V(14, _head, _media, _content).GrowV()).GrowV();
 		// The curtain covers the question until the host shows it.
-		var stageStack = new MarginContainer();
+		var stageStack = new MarginContainer().GrowV();
 		stageStack.AddChild(stageCard);
 		stageStack.AddChild(_curtain);
-		var stage = U.V(12, stageStack, _controls).Grow(3);
+		var stage = U.V(12, stageStack, _controls).Grow(3).GrowV();
 		var stageScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.Grow(3).GrowV();
 		stageScroll.AddChild(stage);
 		var side = U.Panel(_side).MinSize(330).GrowV();
@@ -94,7 +95,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 			_imageReveal = null;
 			if (!game.Shown) return null;
 			if (q.Type == QuestionType.Image)
-				return _imageReveal = new HostImageReveal(_host, _host.Room.Quiz.Questions[game.Index]);
+				return _imageReveal = new HostImageReveal(_host, _host.Room.Quiz.Questions[game.Index], U.Flexible);
 			if (!q.IsMedia) return null;
 			var media = _host.Room.Quiz.Questions[game.Index].Media;
 			_player = new HostMedia(_host, q, media, game.Index);
@@ -108,7 +109,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 		{
 			var box = U.V(14);
 			if (q.ImageKey != null && q.Type != QuestionType.Image && !(q.Type == QuestionType.MapPin && reveal != null))
-				box.AddChild(new AssetImage(_assets, q.ImageKey, 440));
+				box.AddChild(new AssetImage(_assets, q.ImageKey, U.Flexible));
 			if (q.Choices != null) box.AddChild(GameParts.ChoiceGrid(game));
 			if (reveal == null && q.Mode == ClassicMode.Multi) box.AddChild(U.Muted("Several answers can be right — players pick all they think are.", 16));
 			if (reveal == null && q.Type == QuestionType.Estimation)
@@ -148,7 +149,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 			if (q.Type == QuestionType.MapPin && reveal != null && q.Map != null)
 			{
 				// Map and results side by side, so everything fits on the TV.
-				var map = GameMap.Make(q.Map, _assets.Map(q.Map), reveal.Target, null, GameParts.RevealPins(room), 330).Grow(1.6f);
+				var map = GameMap.Make(q.Map, _assets.Map(q.Map), reveal.Target, null, GameParts.RevealPins(room), U.Flexible).Grow(1.6f);
 				box.AddChild(U.H(20, map, GameParts.RevealPanel(room).Grow()));
 			}
 			else if (reveal != null) box.AddChild(GameParts.RevealPanel(room, q.Type == QuestionType.Write ? _host.ToggleWritten : null));
@@ -357,7 +358,7 @@ public partial class HostMedia : VBoxContainer
 				AddChild(U.Error(Media.VideoHelp));
 				return;
 			}
-			_video = new VideoStreamPlayer { Stream = stream, Bus = Prefs.MusicBus, Expand = true, CustomMinimumSize = new Vector2(0, 460) };
+			_video = new VideoStreamPlayer { Stream = stream, Bus = Prefs.MusicBus, Expand = true, CustomMinimumSize = new Vector2(0, 200) }.MarkFlexible();
 			AddChild(U.Panel(_video, "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(Colors.Black, 12, null, 0, 0, 0))));
 			_toggle = U.Small("Pause", Toggle);
 			_time = U.Mono("0:00", 15, C.Muted);

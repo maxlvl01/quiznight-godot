@@ -169,7 +169,18 @@ public partial class Countdown : HBoxContainer
 public partial class FitImage : Control
 {
 	Texture2D? _texture;
-	public float MaxHeight = 420;
+	float _maxHeight = 420;
+	/// <summary>Tallest it gets; U.Flexible: as tall as the space left.</summary>
+	public float MaxHeight
+	{
+		get => _maxHeight;
+		set
+		{
+			_maxHeight = value;
+			if (value <= 0) this.MarkFlexible();
+			UpdateHeight();
+		}
+	}
 	/// <summary>Aspect (height / width) to reserve space with while the texture is still loading.</summary>
 	public float PlaceholderAspect = 0.5625f;
 
@@ -190,7 +201,8 @@ public partial class FitImage : Control
 
 	void UpdateHeight()
 	{
-		var h = Mathf.Min(MaxHeight, Size.X * Aspect);
+		if (MaxHeight <= 0) this.MarkFlexible();
+		var h = U.FitHeight(MaxHeight, Size.X * Aspect);
 		if (Mathf.Abs(CustomMinimumSize.Y - h) > 0.5f) CustomMinimumSize = new Vector2(0, h);
 	}
 
@@ -255,7 +267,12 @@ public partial class Keyed : VBoxContainer
 		if (key == _key) return;
 		_key = key;
 		this.Clear();
-		if (build() is { } c) AddChild(c);
+		SizeFlagsVertical = SizeFlags.Fill;
+		if (build() is { } c)
+		{
+			AddChild(c);
+			if (U.PropagateGrow(c)) SizeFlagsVertical = SizeFlags.ExpandFill;
+		}
 	}
 
 	/// <summary>Forces the next Set to rebuild.</summary>

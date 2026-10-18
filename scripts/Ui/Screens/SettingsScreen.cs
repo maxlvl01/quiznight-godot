@@ -114,12 +114,10 @@ public partial class SettingsScreen : Control
 		_status.SizeFlagsVertical = SizeFlags.ShrinkCenter;
 
 		var page = U.V(14,
-			U.Link("← Home", Leave).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin),
-			U.Heading("Settings", 34),
-			U.H(14, audio, U.V(14, video, language).Grow()),
-			U.Gap(8));
+			U.H(16, U.Link("← Home", Leave).With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter), U.Heading("Settings", 34)),
+			U.H(14, audio, U.V(14, video, language).Grow()));
 		// The buttons stay at the bottom of the screen; the settings scroll above them.
-		var scroll = U.Page(page, 980);
+		var scroll = U.Page(page, 980, 20);
 		scroll.SizeFlagsVertical = SizeFlags.ExpandFill;
 		var footer = new Column { MaxWidth = 980, PadTop = 0 };
 		footer.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -224,6 +222,10 @@ public partial class SettingsScreen : Control
 			shown.Text = $"{(int)v}%";
 			changed((int)v);
 		};
-		return U.V(4, U.H(8, U.Text(label, 15).Grow(), shown), slider, U.Muted(hint, 12));
+		// One row: name, slider, value (the explanation is the tooltip).
+		var row = U.H(12, U.Text(label, 15).MinSize(150).With(l => l.SizeFlagsVertical = SizeFlags.ShrinkCenter), slider.With(s => s.SizeFlagsVertical = SizeFlags.ShrinkCenter), shown.MinSize(48).With(l => l.HorizontalAlignment = HorizontalAlignment.Right));
+		row.TooltipText = Lang.T(hint);
+		slider.TooltipText = Lang.T(hint);
+		return row;
 	}
 }

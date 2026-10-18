@@ -215,6 +215,22 @@ public sealed class DevTools
 		var img = _app.GetViewport().GetTexture().GetImage();
 		var err = img.SavePng(path);
 		GD.Print(err == Error.Ok ? $"Screenshot: {path}" : $"Screenshot failed: {err}");
+		ReportScrolling(_app, System.IO.Path.GetFileName(path));
+	}
+
+	/// <summary>Prints every visible scroll area whose content doesn't fit (the screen needs scrolling there).</summary>
+	static void ReportScrolling(Node node, string where)
+	{
+		foreach (var child in node.GetChildren())
+		{
+			if (child is ScrollContainer { Visible: true } sc && sc.IsVisibleInTree() && sc.GetChildCount() > 0 && sc.GetChild(0) is Control content)
+			{
+				var need = content.GetCombinedMinimumSize().Y;
+				if (need > sc.Size.Y + 2 && sc.VerticalScrollMode != ScrollContainer.ScrollMode.Disabled)
+					GD.Print($"SCROLLS {where}: {sc.GetParent()?.GetType().Name}/{sc.Name} needs {need:0} of {sc.Size.Y:0} (+{need - sc.Size.Y:0})");
+			}
+			ReportScrolling(child, where);
+		}
 	}
 
 	/// <summary>A screenshot whenever the screen shows something new (after it settles).</summary>

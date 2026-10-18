@@ -211,6 +211,38 @@ public static class UiTheme
 /// <summary>Builders that keep screen code short.</summary>
 public static class U
 {
+	/// <summary>
+	/// As a picture's or map's max height: no fixed height, it takes the space left in its column (down to
+	/// FlexMinHeight). Its parents must expand vertically too (GrowV), or there is no space to take.
+	/// </summary>
+	public const float Flexible = 0;
+	public const float FlexMinHeight = 150;
+
+	/// <summary>The height a picture/map asks for: its natural height up to maxHeight, or a small minimum when flexible.</summary>
+	public static float FitHeight(float maxHeight, float natural) => Mathf.Min(maxHeight > 0 ? maxHeight : FlexMinHeight, natural);
+
+	/// <summary>Tags a picture, map or video as flexible: it takes the height that's left (see PropagateGrow).</summary>
+	public static T MarkFlexible<T>(this T c) where T : Control
+	{
+		c.SetMeta("flexible", true);
+		c.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+		return c;
+	}
+
+	/// <summary>
+	/// Makes every container above a flexible child (MarkFlexible) expand too, so the flexible child really gets
+	/// the height that's left. Returns whether anything inside is flexible.
+	/// </summary>
+	public static bool PropagateGrow(Control c)
+	{
+		var grows = c.HasMeta("flexible");
+		if (c is Container and not ScrollContainer)
+			foreach (var child in c.GetChildren().OfType<Control>())
+				if (PropagateGrow(child)) grows = true;
+		if (grows && c is Container) c.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+		return grows;
+	}
+
 	public static Label Text(string text, int size = 0, Color? color = null, Font? font = null, bool wrap = false,
 		HorizontalAlignment align = HorizontalAlignment.Left)
 	{
@@ -450,7 +482,7 @@ public static class U
 	{
 		var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
 		scroll.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		var col = new Column { MaxWidth = maxWidth, PadTop = padTop };
+		var col = new Column { MaxWidth = maxWidth, PadTop = padTop, PadBottom = Mathf.Min(36, padTop) };
 		col.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		col.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
 		col.AddChild(content);

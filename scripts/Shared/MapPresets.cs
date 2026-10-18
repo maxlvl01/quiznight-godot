@@ -5,6 +5,9 @@
 // - Skyrim / Oblivion: UESP gamemap world bounds (posLeft..posRight in game units), which map
 //   onto the full square tile pyramid. 4096 units = 1 cell = 58.5 m, i.e. 64 units per yard.
 //   Skyrim: -233600..291000, Oblivion: -262144..262144. Image = UESP zoom-4 tiles stitched.
+//   Skyrim's 4096 px square was cropped to the map itself (x 56..3528, y 28..2920; the rest was flat
+//   padding), so its width is 3472/4096 of those bounds. Quizzes saved with the square are moved over
+//   by SkyrimCrop when they load.
 // - GTA V: the common FiveM/Leaflet calibration (center 117.3/172.8, scale 0.02072/0.0205 per
 //   256 px tile at zoom 0), game units = metres. x spans 256/0.02072 m; the y scale is ~1%
 //   different, so north-south distances read ~1% short.
@@ -31,7 +34,7 @@ public static class MapPresets
 
 	public static readonly IReadOnlyList<MapPreset> All = new List<MapPreset>
 	{
-		new("skyrim", "Skyrim", Round((291000 - -233600) * BethesdaUnitKm), "res://assets/maps/skyrim.webp",
+		new("skyrim", "Skyrim", Round((291000 - -233600) * BethesdaUnitKm * SkyrimCrop.Width / SkyrimCrop.OldSize), "res://assets/maps/skyrim.webp",
 			"Map: UESP.net (CC BY-SA 2.5). Skyrim © Bethesda."),
 		new("oblivion", "TES IV: Oblivion – Cyrodiil", Round((262144 - -262144) * BethesdaUnitKm), "res://assets/maps/oblivion.webp",
 			"Map: UESP.net (CC BY-SA 2.5). Oblivion © Bethesda."),
@@ -44,4 +47,28 @@ public static class MapPresets
 	};
 
 	public static MapPreset? Get(string? id) => id == null ? null : All.FirstOrDefault(p => p.Id == id);
+}
+
+/// <summary>Where the cropped Skyrim map sits in the old 4096 px square (for quizzes saved before the crop).</summary>
+public static class SkyrimCrop
+{
+	public const int OldSize = 4096;
+	public const int Left = 56, Top = 28, Width = 3472, Height = 2892;
+
+	/// <summary>A spot on the old square image, on the cropped one.</summary>
+	public static NormPoint FromOld(NormPoint p) =>
+		new(Math.Clamp((p.X * OldSize - Left) / Width, 0, 1), Math.Clamp((p.Y * OldSize - Top) / Height, 0, 1));
+
+	/// <summary>Moves a quiz saved with the old square Skyrim map onto the cropped one (pins, size and scale).</summary>
+	public static void Migrate(Quiz quiz)
+	{
+		foreach (var map in quiz.Maps.Where(m => m.PresetId == "skyrim" && m.Image.Width == OldSize && m.Image.Height == OldSize))
+		{
+			map.Image.Width = Width;
+			map.Image.Height = Height;
+			map.WidthKm = MapPresets.Get("skyrim")!.WidthKm;
+			foreach (var q in quiz.Questions.Where(q => q.MapId == map.Id && q.Target != null))
+				q.Target = FromOld(q.Target!.Value);
+		}
+	}
 }

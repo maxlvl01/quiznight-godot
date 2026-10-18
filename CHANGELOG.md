@@ -10,6 +10,20 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `0.x.y` means the game is still in development. `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
+## [Unreleased]
+
+### Changed
+- **No more scrolling in the game screens and the question editor.** Pictures and maps now take the space that's
+  left on the screen instead of a fixed size, so everything fits in the window — on the host's screen, on the
+  players' screens and in the editor. On the map pin reveal, players see the answer and the scores next to a big map.
+- **Settings is more compact:** each volume is one row (hover it for what it does), so the whole screen fits.
+- The empty "Image (optional)" box in the editor is smaller, and the question box is two lines high.
+
+### Fixed
+- **The Skyrim map no longer has a big empty border** on the right and at the bottom. Pins in quizzes you already
+  made move along with it, and distances stay correct.
+- The sample quiz's "Where is Whiterun?" pin is now actually on Whiterun.
+
 ## [0.6.1a] — the timeline goes at the host's pace
 
 ### Changed
