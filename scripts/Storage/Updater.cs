@@ -1,7 +1,7 @@
 // Updates the game from GitHub: the public repo ReleasesRepo has one release per version (tag "v0.5.0a")
-// with the Windows build as "Quiznight-<version>-windows.zip". At startup the game asks for the latest
-// release; if it's newer, it downloads and unpacks it, then a small PowerShell script waits for the game
-// to close, copies the new files over the install folder and starts it again.
+// with the builds as "Quiznight-<version>-windows.zip" and "…-linux.zip". At startup the game asks for the
+// latest release; if it's newer, it downloads and unpacks it, then a small script (PowerShell on Windows,
+// sh on Linux) waits for the game to close, copies the new files over the install folder and starts it again.
 // Only in exported builds — never while running from the Godot editor or a dev build.
 
 using System;
@@ -19,12 +19,14 @@ namespace QuizNight.Storage;
 public static class Updater
 {
 	public const string ReleasesRepo = "maxlvl01/quiznight-releases";
-	public const string ZipSuffix = "-windows.zip";
+	static bool IsWindows => OS.GetName() == "Windows";
+	/// <summary>The release asset for this system: "Quiznight-0.5.0a-windows.zip" or "…-linux.zip".</summary>
+	public static string ZipSuffix => IsWindows ? "-windows.zip" : "-linux.zip";
 
 	public sealed record Release(AppVersion Version, string ZipUrl, long Size);
 
-	/// <summary>Exported Windows builds only (the editor and `godot --path .` runs never update themselves).</summary>
-	public static bool Enabled => OS.HasFeature("template") && OS.GetName() == "Windows";
+	/// <summary>Exported Windows and Linux builds only (the editor and `godot --path .` runs never update themselves).</summary>
+	public static bool Enabled => OS.HasFeature("template") && (IsWindows || OS.GetName() == "Linux");
 
 	static HttpClient NewClient(TimeSpan timeout)
 	{
@@ -58,6 +60,19 @@ public static class Updater
 
 	static string UpdateDir => ProjectSettings.GlobalizePath("user://update");
 
+	/// <summary>At startup: removes what the last update left behind (the download and the unpacked files).</summary>
+	public static void CleanUp()
+	{
+		try
+		{
+			if (Directory.Exists(UpdateDir)) Directory.Delete(UpdateDir, true);
+		}
+		catch (Exception e)
+		{
+			GD.Print($"Couldn't clean up the last update: {e.Message}");
+		}
+	}
+
 	/// <summary>Downloads and unpacks the release, starts the helper that swaps the files, and quits the game.</summary>
 	public static async Task InstallAsync(Release release, Action<float> progress)
 	{
@@ -90,19 +105,29 @@ public static class Updater
 		var exeName = Path.GetFileName(OS.GetExecutablePath());
 		if (!File.Exists(Path.Combine(newFiles, exeName))) throw new InvalidOperationException($"The update doesn't contain {exeName}.");
 
-		var script = Path.Combine(UpdateDir, "apply.ps1");
-		File.WriteAllText(script, ApplyScript);
 		var installDir = Path.GetDirectoryName(OS.GetExecutablePath())!;
-		OS.CreateProcess("powershell.exe", new[]
+		var pid = OS.GetProcessId().ToString();
+		if (IsWindows)
 		{
-			"-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", script,
-			"-ProcId", OS.GetProcessId().ToString(), "-From", newFiles, "-To", installDir, "-Exe", OS.GetExecutablePath(),
-		});
+			var script = Path.Combine(UpdateDir, "apply.ps1");
+			File.WriteAllText(script, WindowsScript);
+			OS.CreateProcess("powershell.exe", new[]
+			{
+				"-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", script,
+				"-ProcId", pid, "-From", newFiles, "-To", installDir, "-Exe", OS.GetExecutablePath(),
+			});
+		}
+		else
+		{
+			var script = Path.Combine(UpdateDir, "apply.sh");
+			File.WriteAllText(script, LinuxScript.Replace("\r", ""));
+			OS.CreateProcess("/bin/sh", new[] { script, pid, newFiles, installDir, OS.GetExecutablePath() });
+		}
 		App.I.Quit();
 	}
 
 	/// <summary>Waits for the game to close, copies the new build over the old one (retrying while files are still locked), restarts it.</summary>
-	const string ApplyScript = """
+	const string WindowsScript = """
 		param([int]$ProcId, [string]$From, [string]$To, [string]$Exe)
 		Wait-Process -Id $ProcId -Timeout 60 -ErrorAction SilentlyContinue
 		Start-Sleep -Milliseconds 500
@@ -111,5 +136,16 @@ public static class Updater
 			catch { Start-Sleep -Seconds 1 }
 		}
 		Start-Process -FilePath $Exe -WorkingDirectory $To
+		""";
+
+	/// <summary>The same for Linux (zips made on Windows lose the executable bit, so it's set again).</summary>
+	const string LinuxScript = """
+		#!/bin/sh
+		PID=$1; FROM=$2; TO=$3; EXE=$4
+		i=0
+		while kill -0 "$PID" 2>/dev/null && [ $i -lt 120 ]; do sleep 0.5; i=$((i+1)); done
+		cp -rf "$FROM"/. "$TO"/
+		chmod +x "$EXE"
+		cd "$TO" && nohup "$EXE" >/dev/null 2>&1 &
 		""";
 }

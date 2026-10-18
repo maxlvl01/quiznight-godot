@@ -13,6 +13,10 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 ## [0.5.0a] — more question types, host control, seamless WoW map
 
 ### Added
+- **The game updates itself.** When a new version is out, Quiznight downloads it at start, restarts and
+  then shows you what's new (also under "What's new" at the bottom of the home screen).
+- **Linux version** (64-bit, with Steam): download the `-linux.zip`, unzip it and start `Quiznight.x86_64`
+  (if it won't start, make it runnable first: `chmod +x Quiznight.x86_64`).
 - **German translation:** the whole game is now also in German. Pick the language under Settings;
   on a German Windows it starts in German by itself. Quiz questions stay as they were written.
 - **Settings screen** (button at the top right of the home screen):

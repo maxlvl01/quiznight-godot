@@ -55,6 +55,7 @@ public partial class App : Control
 		{
 			GoHome();
 			WhatsNew.ShowIfUpdated(this);
+			if (Updater.Enabled) Updater.CleanUp();
 			UpdatePrompt.CheckAndInstall(this);
 		}
 	}

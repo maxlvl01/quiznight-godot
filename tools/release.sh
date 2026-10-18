@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds the game and publishes it as a GitHub release that the in-game updater picks up.
-#   tools/release.sh            build + self-test + zip + publish the version in project.godot
+#   tools/release.sh            build (Windows + Linux) + self-test + zip + publish the version in project.godot
 #   tools/release.sh --dry-run  everything except publishing
 # The release notes are this version's section of CHANGELOG.md. The release goes to the public
 # builds-only repo (the code repo, maxlvl01/quiznight-godot, stays private). Needs `gh` logged in and the export templates.
@@ -12,6 +12,8 @@ REPO="maxlvl01/quiznight-releases"
 VERSION=$(sed -n 's/^config\/version="\(.*\)"/\1/p' project.godot)
 OUT="build/Quiznight"
 ZIP="build/Quiznight-$VERSION-windows.zip"
+OUT_LINUX="build/Quiznight-linux"
+ZIP_LINUX="build/Quiznight-$VERSION-linux.zip"
 NOTES="build/notes-$VERSION.md"
 DRY=${1:-}
 
@@ -23,6 +25,13 @@ rm -rf "$OUT" && mkdir -p "$OUT"
 "$G" --headless --path . --export-release "Windows Desktop" "$OUT/Quiznight.exe" > build/export.log 2>&1 || true
 [ -f "$OUT/Quiznight.exe" ] && [ -d "$OUT/data_QuizNight!_windows_x86_64" ] || { echo "Export failed, see build/export.log"; exit 1; }
 
+echo "== Linux build"
+rm -rf "$OUT_LINUX" && mkdir -p "$OUT_LINUX"
+"$G" --headless --path . --export-release "Linux" "$OUT_LINUX/Quiznight.x86_64" > build/export-linux.log 2>&1 || true
+[ -f "$OUT_LINUX/Quiznight.x86_64" ] && [ -f "$OUT_LINUX/data_QuizNight!_linuxbsd_x86_64/libsteam_api.so" ] || { echo "Linux export failed, see build/export-linux.log"; exit 1; }
+# (the export builds the C# for Linux; build it for Windows again for the editor and the self-test)
+dotnet build "QuizNight!.csproj" -nologo -v q
+
 echo "== Self-test of the exported build"
 "$OUT/Quiznight.exe" --headless -- --selftest > build/selftest.log 2>&1 || { tail -20 build/selftest.log; exit 1; }
 tail -1 build/selftest.log
@@ -31,6 +40,10 @@ echo "== Zipping"
 rm -f "$ZIP"
 powershell -NoProfile -Command "Compress-Archive -Path '$OUT/*' -DestinationPath '$ZIP' -CompressionLevel Optimal"
 ls -la "$ZIP"
+# Windows' tar writes zips with forward slashes, which Linux needs.
+rm -f "$ZIP_LINUX"
+(cd "$OUT_LINUX" && /c/Windows/System32/tar.exe -a -c -f "../../$ZIP_LINUX" *)
+ls -la "$ZIP_LINUX"
 
 # This version's notes: from its "## [version]" line up to the next "## [".
 awk -v v="## [$VERSION]" 'index($0, v) == 1 { on = 1; next } /^## \[/ { on = 0 } on' CHANGELOG.md > "$NOTES"
@@ -41,5 +54,11 @@ if [ "$DRY" = "--dry-run" ]; then
 fi
 
 echo "== Publishing v$VERSION to $REPO"
-gh release create "v$VERSION" "$ZIP" --repo "$REPO" --title "Quiznight $VERSION" --notes-file "$NOTES" --latest
+if gh release view "v$VERSION" --repo "$REPO" >/dev/null 2>&1; then
+	# Same version again (e.g. a rebuilt build): replace the files and notes.
+	gh release upload "v$VERSION" "$ZIP" "$ZIP_LINUX" --repo "$REPO" --clobber
+	gh release edit "v$VERSION" --repo "$REPO" --notes-file "$NOTES"
+else
+	gh release create "v$VERSION" "$ZIP" "$ZIP_LINUX" --repo "$REPO" --title "Quiznight $VERSION" --notes-file "$NOTES" --latest
+fi
 echo "Done: https://github.com/$REPO/releases/tag/v$VERSION"
