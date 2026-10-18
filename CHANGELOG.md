@@ -10,7 +10,7 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `0.x.y` means the game is still in development. `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
-## [Unreleased]
+## [0.5.2a] — AnyConverter included
 
 ### Added
 - **AnyConverter comes with Quiznight (Windows).** It's in the new AnyConverter folder next to the game. When you add a
