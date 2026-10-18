@@ -325,25 +325,34 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		// My turn.
 		var banner = U.Panel(GameParts.Row(16,
 			U.Text("Your turn!", 30, C.AccentInk, Fonts.Black),
-			U.Text(Lang.F("Where does {0} go? Pick a gap, then lock in.", tl.Current), 17, C.AccentInk, null, true).Raw().Grow(),
+			U.Text(Lang.F("Where does {0} go? Drag it into the timeline, then lock in.", tl.Current), 17, C.AccentInk, null, true).Raw().Grow(),
 			new Countdown(tl.TurnEndsAt, null, 24)));
 		banner.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Accent, 14, null, 0, 20, 14));
 		box.AddChild(banner);
-		box.AddChild(GameParts.TimelineCard(tl.Current, "", false, true).With(c => c.SizeFlagsHorizontal = SizeFlags.ShrinkCenter));
 		var error = U.Error();
 		var lockIn = U.Btn("Lock in", "TealButton", null, 20).Center();
 		lockIn.Disabled = true;
 		int? picked = null;
+		// The tray above the timeline holds the item until it's dropped in a gap; it can be moved until you lock in.
+		var tray = U.V(6).MinSize(0, 96);
+		tray.Alignment = BoxContainer.AlignmentMode.Center;
 		var rowSlot = U.V(0);
 		void Build()
 		{
+			tray.Clear();
+			if (picked == null)
+			{
+				tray.AddChild(new TimelineDragCard(tl.Current, false));
+				tray.AddChild(U.Muted("Drag it into the timeline · or click a gap", 13, false, HorizontalAlignment.Center).Center());
+			}
+			else tray.AddChild(U.Muted(Lang.F("Not sure? Drag {0} to another gap, or lock in.", tl.Current), 15, false, HorizontalAlignment.Center).Raw().Center());
 			rowSlot.Clear();
 			rowSlot.AddChild(GameParts.TimelineRow(game.Question, tl, picked, gap =>
 			{
 				picked = gap;
 				lockIn.Disabled = false;
 				Build();
-			}));
+			}, tl.Current));
 		}
 		Build();
 		lockIn.Pressed += () =>
@@ -358,6 +367,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 				lockIn.Disabled = false;
 			});
 		};
+		box.AddChild(tray);
 		box.AddChild(rowSlot);
 		box.AddChild(lockIn);
 		box.AddChild(error);

@@ -13,7 +13,9 @@
 //   --shots DIR                    save a screenshot of every new game moment into DIR
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Godot;
 using QuizNight.Net;
 using QuizNight.Shared;
@@ -93,7 +95,8 @@ public sealed class DevTools
 			TakesOver = true;
 			var address = Value("--address") ?? "127.0.0.1";
 			_app.JoinRoom(NetMode.Lan, address, name, "bot-" + name.ToLowerInvariant());
-			_bot = new Bot(_app);
+			// --bot-drag (with a window): on its timeline turns the bot drags the item with the mouse, moves it once, then locks in.
+			_bot = new Bot(_app, Has("--bot-drag"), _shotsDir != null ? n => Screenshot(System.IO.Path.Combine(_shotsDir, $"{++_shotCount:00}-{n}.png")) : null);
 		}
 		else if (Has("--host-sample") || Value("--host") != null)
 		{
@@ -327,7 +330,7 @@ public sealed class DevTools
 	}
 
 	/// <summary>A pretend player: buzzes and answers after a short random wait.</summary>
-	sealed class Bot(App app)
+	sealed class Bot(App app, bool drag = false, Action<string>? shot = null)
 	{
 		readonly Random _rng = new();
 		string? _handled;
@@ -360,7 +363,7 @@ public sealed class DevTools
 					var gaps = Enumerable.Range(0, tl.Placed.Count + 1).Where(i => !tl.WrongGaps.Contains(i)).ToList();
 					var gap = gaps[_rng.Next(gaps.Count)];
 					var index = g.Index;
-					_action = () => client.Answer(index, AnswerValue.Number(gap), _ => { });
+					_action = drag ? () => DragAndLockIn(gaps[0], gap) : () => client.Answer(index, AnswerValue.Number(gap), _ => { });
 				}
 			}
 			else if (client.State?.Phase == Phase.Playing && g is { Stage: Stage.Open, Shown: true, Timeline: null } && (!g.Question.Buzzer || g.BuzzersOpen) && _handled != $"{g.Index}")
@@ -383,6 +386,55 @@ public sealed class DevTools
 				var a = _action;
 				_action = null;
 				a();
+			}
+		}
+
+		/// <summary>Drags the item from the tray into gap <paramref name="first"/>, then on to <paramref name="last"/>, and locks in — with real mouse events.</summary>
+		async void DragAndLockIn(int first, int last)
+		{
+			var tree = app.GetTree();
+			async Task Frames(int n)
+			{
+				for (var i = 0; i < n; i++) await app.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+			}
+			// The gaps in timeline order; the gap holding the dropped item is that card.
+			List<Control> Gaps() => All(app).Where(c => c is Ui.Screens.TimelineGap || c is Ui.Screens.TimelineDragCard { Placed: true }).ToList();
+			async Task Drag(Control from, Control to, string name)
+			{
+				var vp = app.GetViewport();
+				Vector2 a = from.GetGlobalRect().GetCenter(), b = to.GetGlobalRect().GetCenter();
+				vp.PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = a, GlobalPosition = a, ButtonMask = MouseButtonMask.Left }, true);
+				await Frames(2);
+				for (var i = 1; i <= 15; i++)
+				{
+					var p = a.Lerp(b, i / 15f);
+					vp.PushInput(new InputEventMouseMotion { Position = p, GlobalPosition = p, Relative = (b - a) / 15, ButtonMask = MouseButtonMask.Left }, true);
+					await Frames(1);
+				}
+				await Frames(3);
+				shot?.Invoke(name);
+				vp.PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false, Position = b, GlobalPosition = b }, true);
+				await Frames(5);
+			}
+			await Frames(2);
+			if (All(app).OfType<Ui.Screens.TimelineDragCard>().FirstOrDefault(c => !c.Placed) is not { } tray) return;
+			await Drag(tray, Gaps()[first], "drag-into-timeline");
+			shot?.Invoke("dropped");
+			if (last != first && All(app).OfType<Ui.Screens.TimelineDragCard>().FirstOrDefault(c => c.Placed) is { } placed)
+			{
+				await Drag(placed, Gaps()[last], "drag-to-another-gap");
+				shot?.Invoke("moved");
+			}
+			if (All(app).OfType<Button>().FirstOrDefault(b => b.Text == Lang.T("Lock in") && !b.Disabled) is { } lockIn)
+				lockIn.EmitSignal(BaseButton.SignalName.Pressed);
+		}
+
+		static IEnumerable<Control> All(Node n)
+		{
+			foreach (var child in n.GetChildren())
+			{
+				if (child is Control { Visible: true } c) yield return c;
+				foreach (var d in All(child)) yield return d;
 			}
 		}
 

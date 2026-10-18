@@ -26,6 +26,9 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
   **Open AnyConverter** button works there. AnyConverter itself is a newer, faster version.
 
 ### Changed
+- **Timeline: drag and drop.** On your turn the game to place sits above the timeline as a card: drag it into the gap
+  where you think it goes. The gaps light up while you drag. Changed your mind? Drag it to another gap, as often as
+  you like, then press **Lock in**. Clicking a gap still works too.
 - **The players' screen now looks like the host's:** a bar on top with the question number, type and points
   (and your name and score), the question and your answer in a card, and a column on the right with the buzz order,
   the timeline's turn order or who has answered, and the scores.

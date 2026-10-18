@@ -188,10 +188,11 @@ public static class GameParts
 
 	/// <summary>
 	/// The timeline left to right, with a gap before, between and after the cards. With <paramref name="pick"/>
-	/// the gaps are buttons (gaps already tried are crossed out); without it only tried gaps show (✗). The ends
+	/// the gaps are buttons you click or drop <paramref name="item"/> on (gaps already tried are crossed out), and the
+	/// picked gap holds the item as a card you can drag again; without it only tried gaps show (✗). The ends
 	/// ("◀ Oldest", "Newest ▶") are the first and last items of the row.
 	/// </summary>
-	public static Control TimelineRow(PublicQuestion q, TimelineView tl, int? picked = null, Action<int>? pick = null)
+	public static Control TimelineRow(PublicQuestion q, TimelineView tl, int? picked = null, Action<int>? pick = null, string? item = null)
 	{
 		var flow = U.Flow(8);
 		flow.Alignment = FlowContainer.AlignmentMode.Center;
@@ -204,11 +205,13 @@ public static class GameParts
 			var wrong = tl.WrongGaps.Contains(g);
 			if (pick != null)
 			{
-				var b = U.Btn(wrong ? "✗" : gap == picked ? "▼" : "+", gap == picked ? "TealButton" : "SmallButton", () => pick(gap), 20).MinSize(52, 64);
-				b.Disabled = wrong;
-				b.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
-				b.TooltipText = Lang.T(gap == 0 ? "Before the first one" : gap == tl.Placed.Count ? "After the last one" : "Between these two");
-				flow.AddChild(b);
+				if (gap == picked) flow.AddChild(new TimelineDragCard(item ?? "", true));
+				else
+				{
+					var b = new TimelineGap(wrong, () => pick(gap));
+					b.TooltipText = Lang.T(gap == 0 ? "Before the first one" : gap == tl.Placed.Count ? "After the last one" : "Between these two");
+					flow.AddChild(b);
+				}
 			}
 			else if (wrong) flow.AddChild(U.Text("✗", 24, C.Coral, Fonts.Black).With(l => l.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter));
 			else if (gap == picked) flow.AddChild(U.Text("▼", 26, C.Teal, Fonts.Black).With(l => l.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter));

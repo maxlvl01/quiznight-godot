@@ -636,5 +636,10 @@ public static class LangDe
 		["Where does {0} go?"] = "Wohin gehört {0}?",
 		["You missed this one — the others get a go."] = "Den hast du verpasst – jetzt sind die anderen dran.",
 		["Where does {0} go? Pick a gap, then lock in."] = "Wohin gehört {0}? Wähle eine Lücke und bestätige.",
+		["Where does {0} go? Drag it into the timeline, then lock in."] = "Wohin gehört {0}? Zieh es in die Zeitleiste und bestätige.",
+		["Drag it into the timeline · or click a gap"] = "In die Zeitleiste ziehen · oder eine Lücke anklicken",
+		["Not sure? Drag {0} to another gap, or lock in."] = "Unsicher? Zieh {0} in eine andere Lücke oder bestätige.",
+		["Drag it into the timeline"] = "In die Zeitleiste ziehen",
+		["Drag it to another gap if you change your mind"] = "Zieh es in eine andere Lücke, wenn du es dir anders überlegst",
 	};
 }
