@@ -133,6 +133,7 @@ public static class GameParts
 				flow.AddChild(b);
 			}
 			else if (wrong) flow.AddChild(U.Text("✗", 24, C.Coral, Fonts.Black).With(l => l.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter));
+			else if (gap == picked) flow.AddChild(U.Text("▼", 26, C.Teal, Fonts.Black).With(l => l.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter));
 			if (g < tl.Placed.Count)
 			{
 				var c = tl.Placed[g];
@@ -151,6 +152,7 @@ public static class GameParts
 		{
 			TimelineEventKind.Right => Lang.F("{0} placed {1} right!", name, e.Item),
 			TimelineEventKind.Wrong => Lang.F("{0} put {1} in the wrong place.", name, e.Item),
+			TimelineEventKind.Locked => Lang.F("{0} locked in where {1} goes.", name, e.Item),
 			TimelineEventKind.TimeUp => Lang.F("{0} ran out of time.", name),
 			TimelineEventKind.Skipped => Lang.F("{0} was skipped.", name),
 			_ => Lang.F("Nobody got {0}, so it's placed for free.", e.Item),

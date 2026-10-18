@@ -60,28 +60,45 @@ public static class SelfTest
 		Check(g.View("ann").Timeline?.Current != null && g.View("ann").Reveal == null, "players see the item to place");
 		Check(!g.Answer(order[1], 11, AnswerValue.Number(0)).Ok, "only the player whose turn it is can place");
 
-		// Item 1: order[0] is wrong, order[1] gets it and keeps going.
+		// Item 1: order[0] is wrong, order[1] gets it and keeps going. Nothing is judged until the host reveals it.
 		var wrongGap = Wrong();
-		Check(g.Answer(order[0], 11, AnswerValue.Number(wrongGap)).Ok, "a wrong guess is accepted");
-		Eq(Tl().TurnPlayerId, order[1], "a wrong guess passes the item on");
-		Check(Tl().WrongGaps.Contains(wrongGap) && Tl().Last!.Kind == TimelineEventKind.Wrong, "the wrong gap is marked");
+		Check(g.Answer(order[0], 11, AnswerValue.Number(wrongGap)).Ok, "a guess is accepted");
+		Check(Tl().Phase == TimelinePhase.Locked && Tl().PendingGap == wrongGap && Tl().TurnEndsAt == null, "locked in: waits for the host, timer stopped");
+		Check(!g.Answer(order[0], 11, AnswerValue.Number(Right())).Ok, "no changing a locked-in spot");
+		clock.Now += 60_000;
+		room.Tick();
+		Eq(Tl().Phase, TimelinePhase.Locked, "no time-out while waiting for the host");
+		Check(!g.NextTurn(), "no next turn before the reveal");
+		Check(g.RevealPlacement() && Tl().Phase == TimelinePhase.Result, "the host reveals");
+		Check(Tl().WrongGaps.Contains(wrongGap) && Tl().Last!.Kind == TimelineEventKind.Wrong && Tl().TurnPlayerId == order[0], "wrong: marked, the turn stays until the host goes on");
+		Check(g.NextTurn() && Tl().TurnPlayerId == order[1] && Tl().Phase == TimelinePhase.Choosing, "next turn: the next player tries the same item");
 		Check(!g.Answer(order[1], 11, AnswerValue.Number(wrongGap)).Ok, "a gap already tried can't be picked again");
 		Check(g.Answer(order[1], 11, AnswerValue.Number(Right())).Ok, "the right gap");
-		Eq(Tl().Placed.Count, 2, "the item is placed");
+		Eq(Tl().Placed.Count, 1, "not placed before the reveal");
+		g.RevealPlacement();
+		Eq(Tl().Placed.Count, 2, "placed at the reveal");
+		Check(Tl().WrongGaps.Count == 0, "once placed, the old wrong gaps are gone");
 		Eq(room.Scores[order[1]] - start[order[1]], 1, "a placed item scores right away");
+		g.NextTurn();
 		Eq(Tl().TurnPlayerId, order[1], "whoever is right keeps going");
 
-		// Item 2: time runs out, the host skips, the last one misses: it's placed for free.
+		// Item 2: time runs out (waits for the host too), the host skips, the last one misses: it's placed for free.
 		clock.Now += 31_000;
 		room.Tick();
-		Check(Tl().TurnPlayerId == order[2] && Tl().Last!.Kind == TimelineEventKind.TimeUp, "time up passes the item on");
-		Check(g.SkipTurn() && Tl().TurnPlayerId == order[0], "the host skips a player");
+		Check(Tl().Phase == TimelinePhase.Result && Tl().Last!.Kind == TimelineEventKind.TimeUp, "time up waits for the host");
+		Check(g.NextTurn() && Tl().TurnPlayerId == order[2], "time up passes the item on");
+		Check(g.SkipTurn() && Tl().TurnPlayerId == order[0] && Tl().Phase == TimelinePhase.Choosing, "the host skips a player");
 		g.Answer(order[0], 11, AnswerValue.Number(Wrong()));
+		g.RevealPlacement();
+		g.NextTurn();
 		Check(Tl().Placed.Count == 3 && Tl().Last!.Kind == TimelineEventKind.Free, "nobody got it: placed for free");
 		Eq(Tl().TurnPlayerId, order[1], "the next player starts the next item");
 
-		// Item 3, the last one: placing it reveals.
+		// Item 3, the last one: after the reveal, the host's next step shows the results.
 		g.Answer(order[1], 11, AnswerValue.Number(Right()));
+		g.RevealPlacement();
+		Eq(g.Stage, Stage.Open, "the results wait for the host");
+		g.NextTurn();
 		Eq(g.Stage, Stage.Reveal, "all placed: reveal");
 		var reveal = g.View("host").Reveal!;
 		Eq(reveal.AnswerText, "Doom (1993) → Half-Life (1998) → Portal (2007) → Elden Ring (2022)", "timeline answer with years");

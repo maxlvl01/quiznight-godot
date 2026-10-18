@@ -71,7 +71,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 		var key = $"{game.Index}|{game.Stage}";
 		var tl = game.Stage == Stage.Open ? game.Timeline : null;
 		// Timeline: rebuilt on every move.
-		var tlKey = tl == null ? "" : $"|{tl.Placed.Count}|{tl.TurnPlayerId}|{string.Join(",", tl.WrongGaps)}|{tl.Last?.Kind}{tl.Last?.PlayerId}{tl.Last?.Item}";
+		var tlKey = tl == null ? "" : $"|{tl.Phase}|{tl.PendingGap}|{tl.Placed.Count}|{tl.TurnPlayerId}|{string.Join(",", tl.WrongGaps)}|{tl.Last?.Kind}{tl.Last?.PlayerId}{tl.Last?.Item}";
 
 		_bar.Set($"{game.Index}", () => U.Panel(GameParts.Row(12,
 			U.H(0, U.Text("Quiznight", 20, C.Text, Fonts.Black), U.Text("!", 20, C.Accent, Fonts.Black)),
@@ -118,15 +118,19 @@ public partial class HostGameScreen : Control, IRoomScreen
 			{
 				var current = tl.Current != null
 					? GameParts.Row(14, U.Muted("Where does it go?", 17, false), GameParts.TimelineCard(tl.Current, "", false, true),
-						U.Muted(tl.Left == 1 ? Lang.T("1 more after this") : Lang.F("{0} more after this", tl.Left), 15, false))
+						U.Muted(tl.Left == 0 ? Lang.T("The last one!") : tl.Left == 1 ? Lang.T("1 more after this") : Lang.F("{0} more after this", tl.Left), 15, false))
 					: U.Gap(0);
 				if (current is BoxContainer currentRow) currentRow.Alignment = BoxContainer.AlignmentMode.Center;
 				box.AddChild(current);
-				box.AddChild(GameParts.TimelineRow(q, tl));
+				box.AddChild(GameParts.TimelineRow(q, tl, tl.PendingGap));
 				var status = GameParts.Row(10);
 				status.Alignment = BoxContainer.AlignmentMode.Center;
-				if (tl.Last != null) status.AddChild(U.Text(GameParts.TimelineEventText(room, tl.Last), 17, tl.Last.Kind == TimelineEventKind.Right ? C.Teal : C.Muted).Raw());
-				if (tl.TurnPlayerId is { } turn)
+				if (tl.Last != null)
+				{
+					var color = tl.Last.Kind == TimelineEventKind.Right ? C.Teal : tl.Last.Kind is TimelineEventKind.Wrong or TimelineEventKind.TimeUp ? C.Coral : C.Muted;
+					status.AddChild(U.Text(GameParts.TimelineEventText(room, tl.Last), tl.Phase == TimelinePhase.Choosing ? 17 : 22, color, Fonts.Bold).Raw());
+				}
+				if (tl.Phase == TimelinePhase.Choosing && tl.TurnPlayerId is { } turn)
 				{
 					var p = room.Player(turn);
 					status.AddChild(new Avatar(p, 28));
@@ -153,7 +157,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 
 		var answering = game.Buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Answering);
 		var last = game.Index + 1 >= game.Total;
-		_controls.Set($"{key}|{answering?.PlayerId}|{answering?.AtSec}|{game.Shown}|{game.BuzzersOpen}|{tl?.TurnPlayerId}|{tl?.Current}", () =>
+		_controls.Set($"{key}|{answering?.PlayerId}|{answering?.AtSec}|{game.Shown}|{game.BuzzersOpen}|{tl?.TurnPlayerId}|{tl?.Current}|{tl?.Phase}", () =>
 		{
 			var row = GameParts.Row(10);
 			row.Alignment = BoxContainer.AlignmentMode.End;
@@ -176,14 +180,18 @@ public partial class HostGameScreen : Control, IRoomScreen
 				if (game.BuzzersOpen) row.AddChild(U.Btn("Lock buzzers", "", () => _host.SetBuzzers(false)));
 				else row.AddChild(U.Btn("Unlock buzzers  (Space)", "AccentButton", () => _host.SetBuzzers(true), 20));
 			}
-			if (tl?.TurnPlayerId is { } turnId)
+			if (tl is { Phase: TimelinePhase.Choosing, TurnPlayerId: { } turnId })
 				row.AddChild(U.Btn(Lang.F("Skip {0}", room.Player(turnId).Name), "", _host.SkipTurn).Tip("The next player tries the same item"));
-			if (tl?.Current != null)
+			if (tl is { Current: not null, Phase: not TimelinePhase.Locked })
 				row.AddChild(U.Btn("Place it for free", "", _host.PlaceForFree).Tip("Puts the item in its place without points; the next player gets the next one"));
 			if (game.Stage == Stage.Open)
 			{
 				if (game.HostAnswer != null) row.AddChild(new PeekButton(game.HostAnswer));
-				row.AddChild(U.Btn("Reveal answer", "", _host.Reveal));
+				row.AddChild(U.Btn("Reveal answer", "", _host.Reveal).Tip(tl != null ? "Ends the timeline now and shows the right order" : null));
+				// The timeline waits for the host: reveal the locked-in spot, then start the next turn.
+				if (tl?.Phase == TimelinePhase.Locked) row.AddChild(U.Btn("Reveal  (Space)", "AccentButton", _host.RevealPlacement, 20));
+				if (tl?.Phase == TimelinePhase.Result)
+					row.AddChild(U.Btn(tl.Current == null && tl.Left == 0 ? "Show results  (Space)" : "Next turn  (Space)", "AccentButton", _host.NextTurn, 20));
 			}
 			else row.AddChild(U.Btn(last ? "Show final results" : "Next question", "AccentButton", _host.Next, 20));
 			return row;
@@ -236,6 +244,8 @@ public partial class HostGameScreen : Control, IRoomScreen
 	{
 		if (e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Space } || _game is not { Stage: Stage.Open } game) return;
 		if (!game.Shown) _host.ShowQuestion();
+		else if (game.Timeline?.Phase == TimelinePhase.Locked) _host.RevealPlacement();
+		else if (game.Timeline?.Phase == TimelinePhase.Result) _host.NextTurn();
 		else if (game.Question.Buzzer && !game.BuzzersOpen && game.Buzzes.All(b => b.Status != BuzzStatus.Answering)) _host.SetBuzzers(true);
 		else return;
 		GetViewport().SetInputAsHandled();

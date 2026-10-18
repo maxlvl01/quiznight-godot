@@ -10,6 +10,17 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `0.x.y` means the game is still in development. `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
+## [Unreleased]
+
+### Changed
+- **The timeline now goes at your pace.** When a player locks in a spot, nothing is shown as right or wrong until
+  you press **Reveal** (or Space). After the result, the next turn only starts when you press **Next turn** (Space),
+  and after the last item **Show results**. A turn that runs out of time also waits for you. Players see "Locked
+  in!" and then "Right! +1" or "Not quite." on their own screen.
+
+### Fixed
+- After an item was placed, the ✗ from an earlier wrong guess no longer stays on the timeline in the wrong spot.
+
 ## [0.6.0a] — Timeline: take turns putting things in order
 
 ### Added

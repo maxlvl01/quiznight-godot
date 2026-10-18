@@ -78,7 +78,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		}
 		else if (q.Choices != null) _panel.Set($"{key}|{game.MyAnswer?.Num}|{string.Join(",", game.MyAnswer?.Picks ?? new List<int>())}", () => Choices(room));
 		else if (game.Timeline is { } tl)
-			_panel.Set($"{key}|tl|{tl.Placed.Count}|{tl.TurnPlayerId}|{string.Join(",", tl.WrongGaps)}|{tl.Last?.Kind}{tl.Last?.PlayerId}{tl.Last?.Item}", () => Timeline(room));
+			_panel.Set($"{key}|tl|{tl.Phase}|{tl.PendingGap}|{tl.Placed.Count}|{tl.TurnPlayerId}|{string.Join(",", tl.WrongGaps)}|{tl.Last?.Kind}{tl.Last?.PlayerId}{tl.Last?.Item}", () => Timeline(room));
 		else if (q.Type == QuestionType.Order) _panel.Set($"{key}|{game.MyAnswer?.Picks != null}", () => Order(room));
 		else if (q.Type == QuestionType.Write) _panel.Set($"{key}|{game.MyAnswer?.Text}", () => Write(room));
 		else if (q.Type == QuestionType.Estimation) _panel.Set($"{key}|{game.MyAnswer?.Num}", () => Estimate(room));
@@ -264,8 +264,29 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		var game = room.Game!;
 		var tl = game.Timeline!;
 		var box = U.V(14);
-		if (tl.Last != null)
+		if (tl.Last != null && tl.Phase == TimelinePhase.Choosing)
 			box.AddChild(U.Text(GameParts.TimelineEventText(room, tl.Last), 16, tl.Last.Kind == TimelineEventKind.Right ? C.Teal : C.Muted, null, true, HorizontalAlignment.Center).Raw());
+		if (tl.Phase != TimelinePhase.Choosing)
+		{
+			// Waiting for the host: the locked-in spot, then the result.
+			var mine = tl.TurnPlayerId == MyId;
+			var info = new List<Control>();
+			if (tl.Phase == TimelinePhase.Locked)
+			{
+				info.Add(U.Bold(mine ? Lang.T("Locked in!") : Lang.F("{0} locked in.", room.Player(tl.TurnPlayerId ?? "").Name), 24).Raw());
+				info.Add(U.Muted(Lang.F("Is that where {0} goes? The host reveals it in a moment.", tl.Current ?? ""), 16, false, HorizontalAlignment.Center).Raw());
+			}
+			else if (tl.Last != null)
+			{
+				var right = tl.Last.Kind == TimelineEventKind.Right;
+				info.Add(U.Text(mine && right ? Lang.F("Right! +{0}", game.Question.Points) : mine ? Lang.T("Not quite.") : GameParts.TimelineEventText(room, tl.Last), 26,
+					right ? C.Teal : C.Coral, Fonts.Black, true, HorizontalAlignment.Center).Raw());
+				info.Add(U.Muted("Waiting for the host to continue…", 14, false, HorizontalAlignment.Center));
+			}
+			box.AddChild(Status(info.ToArray()));
+			box.AddChild(GameParts.TimelineRow(game.Question, tl, tl.PendingGap));
+			return box;
+		}
 		if (tl.TurnPlayerId != MyId || tl.Current == null)
 		{
 			var info = new List<Control>();

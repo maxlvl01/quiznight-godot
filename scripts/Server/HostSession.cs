@@ -191,6 +191,8 @@ public sealed class HostSession : IDisposable
 	public void SetBuzzers(bool open) => GameAction(g => g.SetBuzzers(open));
 	public void SkipTurn() => GameAction(g => g.SkipTurn());
 	public void PlaceForFree() => GameAction(g => g.PlaceCurrentForFree());
+	public void RevealPlacement() => GameAction(g => g.RevealPlacement());
+	public void NextTurn() => GameAction(g => g.NextTurn());
 
 	public void Next()
 	{

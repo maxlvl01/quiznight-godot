@@ -224,7 +224,7 @@ public sealed class DevTools
 		var g = state?.Game;
 		var moment = state == null
 			? _app.CurrentScreen?.GetType().Name ?? ""
-			: $"{state.Phase}-{g?.Index}-{g?.Stage}{(g is { Shown: false } ? "-hidden" : g is { Question.Buzzer: true, BuzzersOpen: false } ? "-locked" : "")}-{g?.Buzzes.Count}-{g?.Buzzes.Count(b => b.Status == BuzzStatus.Wrong)}-{g?.AnsweredIds.Count}-{state.Players.Count}{(g?.Timeline is { } tl ? $"-tl{tl.Placed.Count}{tl.TurnOrder.IndexOf(tl.TurnPlayerId ?? "")}{tl.WrongGaps.Count}" : "")}";
+			: $"{state.Phase}-{g?.Index}-{g?.Stage}{(g is { Shown: false } ? "-hidden" : g is { Question.Buzzer: true, BuzzersOpen: false } ? "-locked" : "")}-{g?.Buzzes.Count}-{g?.Buzzes.Count(b => b.Status == BuzzStatus.Wrong)}-{g?.AnsweredIds.Count}-{state.Players.Count}{(g?.Timeline is { } tl ? $"-tl{tl.Placed.Count}{tl.TurnOrder.IndexOf(tl.TurnPlayerId ?? "")}{tl.WrongGaps.Count}{tl.Phase[0]}" : "")}";
 		if (moment != _lastMoment)
 		{
 			_lastMoment = moment;
@@ -244,7 +244,7 @@ public sealed class DevTools
 		var s = host.State;
 		var g = s.Game;
 		var answering = g?.Buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Answering);
-		var key = $"{s.Phase}|{g?.Index}|{g?.Stage}|{g?.Shown}|{g?.BuzzersOpen}|{answering?.PlayerId}|{g?.Buzzes.Count}|{s.Players.Count(p => p.Connected)}|{g?.Timeline?.Placed.Count}|{g?.Timeline?.TurnPlayerId}|{g?.Timeline?.WrongGaps.Count}";
+		var key = $"{s.Phase}|{g?.Index}|{g?.Stage}|{g?.Shown}|{g?.BuzzersOpen}|{answering?.PlayerId}|{g?.Buzzes.Count}|{s.Players.Count(p => p.Connected)}|{g?.Timeline?.Placed.Count}|{g?.Timeline?.TurnPlayerId}|{g?.Timeline?.WrongGaps.Count}|{g?.Timeline?.Phase}";
 		if (key != _pilotKey)
 		{
 			_pilotKey = key;
@@ -268,6 +268,17 @@ public sealed class DevTools
 				if (g.Question.Buzzer && !g.BuzzersOpen && answering == null)
 				{
 					if (waited > 1.2) host.SetBuzzers(true);
+					break;
+				}
+				// Timeline: reveal the locked-in spot, then go on to the next turn.
+				if (g.Timeline?.Phase == TimelinePhase.Locked)
+				{
+					if (waited > 1.5) host.RevealPlacement();
+					break;
+				}
+				if (g.Timeline?.Phase == TimelinePhase.Result)
+				{
+					if (waited > 1.5) host.NextTurn();
 					break;
 				}
 				if (answering != null && waited > 1.5)
@@ -312,7 +323,7 @@ public sealed class DevTools
 			}
 			var g = client.State?.Game;
 			// Timeline: on its turn, a bot picks a gap nobody has tried yet.
-			if (client.State?.Phase == Phase.Playing && g is { Stage: Stage.Open, Timeline: { } tl } && tl.TurnPlayerId == client.MyId && tl.Current != null)
+			if (client.State?.Phase == Phase.Playing && g is { Stage: Stage.Open, Timeline: { } tl } && tl.TurnPlayerId == client.MyId && tl.Current != null && tl.Phase == TimelinePhase.Choosing)
 			{
 				var turnKey = $"{g.Index}|tl|{tl.Placed.Count}|{tl.WrongGaps.Count}";
 				if (_handled != turnKey)

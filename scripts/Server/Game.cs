@@ -64,6 +64,10 @@ public sealed class Game
 	readonly List<int> _tlWrongGaps = new();
 	readonly Dictionary<string, int> _tlPoints = new();
 	TimelineEvent? _tlLast;
+	string _tlPhase = TimelinePhase.Choosing;
+	int? _tlPending;
+	/// <summary>Result phase: whether the last turn placed the item (else it passes on).</summary>
+	bool _tlResultRight;
 
 	public Game(Quiz quiz, IGameHooks hooks, Random? rng = null)
 	{
@@ -107,6 +111,9 @@ public sealed class Game
 		_tlWrongGaps.Clear();
 		_tlPoints.Clear();
 		_tlLast = null;
+		_tlPhase = TimelinePhase.Choosing;
+		_tlPending = null;
+		_tlResultRight = false;
 		Shown = false;
 		BuzzersOpen = false;
 		if (!_hooks.HostShowsQuestions()) StartShown(now);
@@ -271,7 +278,7 @@ public sealed class Game
 	public bool CheckAllAnswered()
 	{
 		// Timeline: the player whose turn it is left, so the next one goes.
-		if (Stage == Shared.Stage.Open && _tlTurn is { } turn && !_hooks.ActivePlayerIds().Contains(turn))
+		if (Stage == Shared.Stage.Open && _tlPhase == TimelinePhase.Choosing && _tlTurn is { } turn && !_hooks.ActivePlayerIds().Contains(turn))
 		{
 			MissTurn(TimelineEventKind.Skipped);
 			return true;
@@ -355,6 +362,13 @@ public sealed class Game
 		}
 		_tlCurrent = _tlDeck.Dequeue();
 		_tlTurn = player != null && _hooks.ActivePlayerIds().Contains(player) ? player : NextPlayer(player, false);
+		StartTurn(now);
+	}
+
+	void StartTurn(long now)
+	{
+		_tlPhase = TimelinePhase.Choosing;
+		_tlPending = null;
 		_tlTurnEnds = _tlTurn != null ? now + Question.TimeLimitSec * 1000L : null;
 	}
 
@@ -368,30 +382,68 @@ public sealed class Game
 	Result Place(string playerId, int gap)
 	{
 		if (_tlCurrent is not { } item) return Result.Fail("This question is already closed.");
-		if (_tlTurn != playerId) return Result.Fail("It's not your turn.");
+		if (_tlTurn != playerId || _tlPhase != TimelinePhase.Choosing) return Result.Fail("It's not your turn.");
 		if (gap < 0 || gap > _tlPlaced.Count || _tlWrongGaps.Contains(gap)) return Result.Fail("Pick a spot on the timeline.");
-		var now = _hooks.Now();
-		var text = Question.Items[item];
-		if (gap == RightGap(item))
-		{
-			PutDown(item, playerId);
-			_tlPoints[playerId] = _tlPoints.GetValueOrDefault(playerId) + Question.Points;
-			_hooks.Award(playerId, Question.Points);
-			_tlLast = new TimelineEvent { Kind = TimelineEventKind.Right, PlayerId = playerId, Item = text };
-			NextItem(Question.KeepGoing ? playerId : NextPlayer(playerId, false), now);
-			return Result.Success();
-		}
-		_tlWrongGaps.Add(gap);
-		_tlLast = new TimelineEvent { Kind = TimelineEventKind.Wrong, PlayerId = playerId, Item = text };
-		PassOn(playerId, now);
+		// Locked in: the host reveals whether it's right.
+		_tlPending = gap;
+		_tlPhase = TimelinePhase.Locked;
+		_tlTurnEnds = null;
+		_tlLast = new TimelineEvent { Kind = TimelineEventKind.Locked, PlayerId = playerId, Item = Question.Items[item] };
 		return Result.Success();
 	}
 
-	/// <summary>The current player misses (time up, skipped or gone): the next one tries the same item.</summary>
+	/// <summary>Host: reveal whether the locked-in gap is right. The next turn waits for <see cref="NextTurn"/>.</summary>
+	public bool RevealPlacement()
+	{
+		if (Stage != Shared.Stage.Open || _tlPhase != TimelinePhase.Locked || _tlCurrent is not { } item || _tlPending is not { } gap || _tlTurn is not { } player)
+			return false;
+		var text = Question.Items[item];
+		_tlResultRight = gap == RightGap(item);
+		if (_tlResultRight)
+		{
+			PutDown(item, player);
+			_tlPoints[player] = _tlPoints.GetValueOrDefault(player) + Question.Points;
+			_hooks.Award(player, Question.Points);
+			_tlCurrent = null;
+			// (gaps tried for this item no longer mean anything once it's placed)
+			_tlWrongGaps.Clear();
+			_tlLast = new TimelineEvent { Kind = TimelineEventKind.Right, PlayerId = player, Item = text };
+		}
+		else
+		{
+			_tlWrongGaps.Add(gap);
+			_tlLast = new TimelineEvent { Kind = TimelineEventKind.Wrong, PlayerId = player, Item = text };
+		}
+		_tlPending = null;
+		_tlPhase = TimelinePhase.Result;
+		return true;
+	}
+
+	/// <summary>Host: after a result, on to the next turn (the next item, or the next player on the same item).</summary>
+	public bool NextTurn()
+	{
+		if (Stage != Shared.Stage.Open || _tlPhase != TimelinePhase.Result || _tlTurn is not { } player) return false;
+		var now = _hooks.Now();
+		if (_tlResultRight) NextItem(Question.KeepGoing ? player : NextPlayer(player, false), now);
+		else PassOn(player, now);
+		return true;
+	}
+
+	/// <summary>
+	/// The current player misses: the next one tries the same item. Time up waits for the host like a wrong
+	/// answer; a skip (by the host, or because the player left) moves on right away.
+	/// </summary>
 	void MissTurn(string kind)
 	{
 		if (_tlCurrent is not { } item || _tlTurn is not { } player) return;
 		_tlLast = new TimelineEvent { Kind = kind, PlayerId = player, Item = Question.Items[item] };
+		if (kind == TimelineEventKind.TimeUp)
+		{
+			_tlResultRight = false;
+			_tlTurnEnds = null;
+			_tlPhase = TimelinePhase.Result;
+			return;
+		}
 		PassOn(player, _hooks.Now());
 	}
 
@@ -401,7 +453,7 @@ public sealed class Game
 		if (NextPlayer(player, true) is { } next)
 		{
 			_tlTurn = next;
-			_tlTurnEnds = now + Question.TimeLimitSec * 1000L;
+			StartTurn(now);
 			return;
 		}
 		// Everyone missed it: it goes in its place for free, and the next player starts the next item.
@@ -419,7 +471,7 @@ public sealed class Game
 	/// <summary>Host: skip the player whose turn it is.</summary>
 	public bool SkipTurn()
 	{
-		if (Stage != Shared.Stage.Open || _tlTurn == null) return false;
+		if (Stage != Shared.Stage.Open || _tlTurn == null || _tlPhase != TimelinePhase.Choosing) return false;
 		MissTurn(TimelineEventKind.Skipped);
 		return true;
 	}
@@ -427,13 +479,15 @@ public sealed class Game
 	/// <summary>Host: put the current item in its place without points; the next player gets the next item.</summary>
 	public bool PlaceCurrentForFree()
 	{
-		if (Stage != Shared.Stage.Open || _tlCurrent == null) return false;
+		if (Stage != Shared.Stage.Open || _tlCurrent == null || _tlPhase == TimelinePhase.Locked) return false;
 		PlaceForFree(_tlTurn, _hooks.Now());
 		return true;
 	}
 
 	TimelineView TimelineView() => new()
 	{
+		Phase = _tlPhase,
+		PendingGap = _tlPending,
 		Placed = _tlPlaced.Select(i => new TimelineCard
 		{
 			Text = Question.Items[i],

@@ -167,6 +167,10 @@ public sealed class PublicQuestion
 /// <summary>A running timeline (put in order, taking turns): what's placed, what comes next, whose turn it is.</summary>
 public sealed class TimelineView
 {
+	/// <summary>Choosing (the player picks a gap), Locked (waiting for the host to reveal), Result (waiting for the next turn).</summary>
+	public string Phase = TimelinePhase.Choosing;
+	/// <summary>Locked: the gap the player picked.</summary>
+	public int? PendingGap;
 	/// <summary>The items on the timeline so far, left to right.</summary>
 	public List<TimelineCard> Placed = new();
 	/// <summary>The item to place now (null once all are placed).</summary>
@@ -195,6 +199,14 @@ public sealed class TimelineCard
 	public bool Start;
 }
 
+/// <summary>The steps of one turn; the host moves it from Locked and from Result.</summary>
+public static class TimelinePhase
+{
+	public const string Choosing = "choosing";
+	public const string Locked = "locked";
+	public const string Result = "result";
+}
+
 /// <summary>What just happened on the timeline.</summary>
 public sealed class TimelineEvent
 {
@@ -207,6 +219,8 @@ public static class TimelineEventKind
 {
 	public const string Right = "right";
 	public const string Wrong = "wrong";
+	/// <summary>The player locked in a gap; the host hasn't revealed it yet.</summary>
+	public const string Locked = "locked";
 	/// <summary>The turn's time ran out.</summary>
 	public const string TimeUp = "timeUp";
 	/// <summary>The host skipped the player (or they left).</summary>
