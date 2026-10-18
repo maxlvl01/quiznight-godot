@@ -18,7 +18,9 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **Settings screen** (button at the top right of the home screen):
   - Volume for everything, for music in questions (songs and clips in sound/video questions), for game music
     and for sound effects.
-  - Window mode (windowed, fullscreen, borderless) and window size.
+  - Which screen the game opens on, window mode (windowed, fullscreen, borderless) and window size. Sizes come
+    in 16:9, 16:10, 21:9, 32:9 and 4:3, and only the ones that fit your screen are offered (plus its own
+    resolution), so a 1440p screen can't pick 4K.
   - Language: English or Deutsch.
   - Changes only count once you press **Apply** (volumes and language preview right away). **Discard** goes
     back, **Reset to defaults** fills in the standard values, and leaving with unsaved changes asks first.

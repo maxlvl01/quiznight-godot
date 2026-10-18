@@ -38,7 +38,14 @@ public partial class SettingsScreen : Control
 			new HSeparator(),
 			BuzzerSection()).Grow();
 
-		var sizes = Prefs.WindowSizes.Select(s => ($"{s.X}x{s.Y}", $"{s.X} × {s.Y}")).ToArray();
+		// Only sizes that fit on the chosen monitor (a 1440p screen can't pick 4K).
+		var fitting = Prefs.SizesFor(d.Screen);
+		if (!fitting.Contains(d.WindowSize))
+		{
+			_draft = d = d with { WindowSize = fitting.Where(s => s.X <= d.WindowSize.X && s.Y <= d.WindowSize.Y).DefaultIfEmpty(fitting[0]).MaxBy(s => s.X * s.Y) };
+		}
+		var native = Prefs.ScreenSize(d.Screen);
+		var sizes = fitting.Select(s => ($"{s.X}x{s.Y}", $"{s.X} × {s.Y}  ·  {Prefs.AspectName(s)}" + (s == native ? "  " + Lang.T("(this screen)") : ""))).ToArray();
 		var size = U.Select(sizes, $"{d.WindowSize.X}x{d.WindowSize.Y}", id =>
 		{
 			var p = id.Split('x');
@@ -53,6 +60,18 @@ public partial class SettingsScreen : Control
 			sizeHint.Visible = !windowed;
 		}
 		UpdateSize();
+		var screens = Enumerable.Range(0, Prefs.ScreenCount).Select(i =>
+		{
+			var s = Prefs.ScreenSize(i);
+			var main = i == DisplayServer.GetPrimaryScreen() ? "  " + Lang.T("(main screen)") : "";
+			return (i.ToString(), Lang.F("Screen {0}", i + 1) + $"  ·  {s.X} × {s.Y}{main}");
+		}).ToArray();
+		var screen = U.Select(screens, d.Screen.ToString(), id =>
+		{
+			Change(Draft with { Screen = int.Parse(id) });
+			// The sizes depend on the screen.
+			Callable.From(App.I.GoSettings).CallDeferred();
+		});
 		var mode = U.Segmented(new[] { ("windowed", "Windowed"), ("fullscreen", "Fullscreen"), ("borderless", "Borderless") }, d.WindowMode, id =>
 		{
 			Change(Draft with { WindowMode = id });
@@ -60,6 +79,7 @@ public partial class SettingsScreen : Control
 		});
 		var video = U.Card(12,
 			U.Eyebrow("Video"),
+			U.Field("Screen", screen),
 			U.Field("Window mode", mode),
 			U.Field("Window size", size),
 			sizeHint,
@@ -128,7 +148,7 @@ public partial class SettingsScreen : Control
 
 	void Apply()
 	{
-		var windowChanged = Draft.WindowMode != Settings.WindowMode || Draft.WindowSize != Settings.WindowSize;
+		var windowChanged = Draft.WindowMode != Settings.WindowMode || Draft.WindowSize != Settings.WindowSize || Draft.Screen != Settings.Screen;
 		Settings.Save(Draft);
 		Prefs.ApplyAudio();
 		Lang.Use(Settings.Language);

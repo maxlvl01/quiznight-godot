@@ -51,11 +51,11 @@ public static class Settings
 	// ---------- settings screen ----------
 
 	/// <summary>Everything on the settings screen as one value: the screen edits a copy and saves it with Apply.</summary>
-	public sealed record Values(string Language, int Master, int Music, int GameMusic, int Sfx, string Buzzer, string WindowMode, Vector2I WindowSize);
+	public sealed record Values(string Language, int Master, int Music, int GameMusic, int Sfx, string Buzzer, string WindowMode, Vector2I WindowSize, int Screen);
 
-	public static Values Defaults => new(Lang.SystemDefault, 80, 80, 60, 100, Storage.Sfx.DefaultBuzzer, "windowed", new Vector2I(1600, 900));
+	public static Values Defaults => new(Lang.SystemDefault, 80, 80, 60, 100, Storage.Sfx.DefaultBuzzer, "windowed", new Vector2I(1600, 900), DisplayServer.GetPrimaryScreen());
 
-	public static Values Current => new(Language, MasterVolume, MusicVolume, GameMusicVolume, SfxVolume, BuzzerSound, WindowMode, WindowSize);
+	public static Values Current => new(Language, MasterVolume, MusicVolume, GameMusicVolume, SfxVolume, BuzzerSound, WindowMode, WindowSize, Screen);
 
 	public static void Save(Values v)
 	{
@@ -67,6 +67,7 @@ public static class Settings
 		BuzzerSound = v.Buzzer;
 		WindowMode = v.WindowMode;
 		WindowSize = v.WindowSize;
+		Screen = v.Screen;
 	}
 
 	static int GetPercent(string key, int fallback) => int.TryParse(Get(key, ""), out var v) ? Mathf.Clamp(v, 0, 100) : fallback;
@@ -126,5 +127,12 @@ public static class Settings
 				: new Vector2I(1600, 900);
 		}
 		set => Set("window_size", $"{value.X}x{value.Y}");
+	}
+
+	/// <summary>Which monitor the game opens on (0 = first). A missing monitor falls back to the main one.</summary>
+	public static int Screen
+	{
+		get => Prefs.ValidScreen(int.TryParse(Get("screen", ""), out var s) ? s : -1);
+		set => Set("screen", value.ToString());
 	}
 }
