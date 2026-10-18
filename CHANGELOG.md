@@ -29,12 +29,17 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
   Sound effects volume. If the host uses their own sound file, players hear their own default buzzer instead.
 - **Podium jingle:** a short tune plays on the host's screen when the final results appear. It has its own
   "Game music" volume slider in Settings (separate from the music in quiz questions).
+- **Seamless WoW map:** WoW map pin questions now use one big map, like the OpenMap addon. Scroll from the
+  whole world into a continent, then into every zone stitched together, and on into the cities; drag to move,
+  or jump straight to a zone. No more clicking through world → continent → zone. Pins can go anywhere. At
+  the reveal, the map zooms to the answer and everyone's guesses. Zone art: the OpenMap addon (thanks!).
 - **Multiple choice questions:** a third kind of classic question where several answers can be right. Tick every
   correct answer in the editor; players pick all they think are right and then lock in. Only players who pick
   exactly the right ones get the points.
 
 ### Changed
 - The game runs at most at 60 FPS, so it no longer heats up your PC for nothing.
+- Zoomed-in maps (Skyrim, GTA …) are drawn smoothly instead of blocky.
 - **A B C D answers are shuffled every game.** In the editor you just type the answers and tick the right one —
   no letters anymore. When you host, the order is mixed up, so the right answer isn't always B just because
   that's where you typed it. Each new game gets a new order.

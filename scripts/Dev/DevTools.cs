@@ -29,6 +29,10 @@ public sealed class DevTools
 
 	double _time;
 	double? _shotAt;
+	bool _mapZoomed;
+
+	static Ui.WowMapCanvas? FindWowCanvas(Node node) =>
+		node as Ui.WowMapCanvas ?? node.GetChildren().Select(FindWowCanvas).FirstOrDefault(c => c != null);
 	string? _shotPath;
 	string? _shotsDir;
 	string? _lastMoment;
@@ -98,7 +102,7 @@ public sealed class DevTools
 		{
 			TakesOver = true;
 			var quiz = QuizStore.Save(SampleQuiz.Build());
-			var q = quiz.Questions.FirstOrDefault(x => x.Type == type || (type == "choice" && x.Mode == ClassicMode.Choice) || (type == "multi" && x.IsMulti)) ?? quiz.Questions[0];
+			var q = quiz.Questions.FirstOrDefault(x => x.Type == type || (type == "choice" && x.Mode == ClassicMode.Choice) || (type == "multi" && x.IsMulti) || (type == "wow" && x.MapId != null && quiz.MapById(x.MapId)?.PresetId == WowAtlas.PresetId)) ?? quiz.Questions[0];
 			_app.GoQuestion(quiz.Id, q.Id, null);
 		}
 		else if (Has("--video-guide"))
@@ -180,6 +184,17 @@ public sealed class DevTools
 	public void Process(double delta)
 	{
 		_time += delta;
+		// --map-zoom Z [--map-at X,Y]: zoom the WoW map (for screenshots of its layers)
+		if (_time >= 0.5 && !_mapZoomed && float.TryParse(Value("--map-zoom"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var mapZoom))
+		{
+			_mapZoomed = true;
+			if (FindWowCanvas(_app) is { } canvas)
+			{
+				var mapAt = Value("--map-at")?.Split(',');
+				var center = mapAt is { Length: 2 } ? new NormPoint(double.Parse(mapAt[0], System.Globalization.CultureInfo.InvariantCulture), double.Parse(mapAt[1], System.Globalization.CultureInfo.InvariantCulture)) : canvas.Target ?? new NormPoint(0.5, 0.5);
+				canvas.ZoomTo(center, mapZoom);
+			}
+		}
 		if (_shotAt is { } at && _time >= at)
 		{
 			_shotAt = null;

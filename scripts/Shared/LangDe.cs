@@ -208,8 +208,7 @@ public static class LangDe
 		["{0}  (built-in)"] = "{0}  (eingebaut)",
 		["+ Upload a new map"] = "+ Neue Karte hochladen",
 		["Pick a game map or upload your own above."] = "Wähle oben eine Spielkarte oder lade deine eigene hoch.",
-		["Correct spot set. Click again in any zone to move it."] = "Richtiger Ort gesetzt. Klicke in einer beliebigen Zone erneut, um ihn zu verschieben.",
-		["Open the zone and click to set the correct spot."] = "Öffne die Zone und klicke, um den richtigen Ort festzulegen.",
+		["Zoom in and click to set the correct spot."] = "Zoome hinein und klicke, um den richtigen Ort festzulegen.",
 		[" Players see how far off they were in game distance (yards converted to km/m); a guess on the wrong continent always counts as far away."] =
 			" Die Spieler sehen, wie weit sie danebenlagen, in Spieldistanz (Yards in km/m umgerechnet); ein Tipp auf dem falschen Kontinent zählt immer als weit weg.",
 		["Correct spot set. Click again to move it."] = "Richtiger Ort gesetzt. Klicke erneut, um ihn zu verschieben.",
@@ -310,11 +309,8 @@ public static class LangDe
 		["Scroll to zoom, drag to move"] = "Scrollen zum Zoomen, Ziehen zum Verschieben",
 		["Loading map…"] = "Karte wird geladen…",
 		["Jump to zone…"] = "Zu Zone springen…",
-		["Click to place the pin. Right-click or use the path above to go back up."] = "Klicke, um den Pin zu setzen. Rechtsklick oder der Pfad oben bringt dich eine Ebene zurück.",
-		["Right-click or use the path above to go back up."] = "Rechtsklick oder der Pfad oben bringt dich eine Ebene zurück.",
-		["Click a continent to open it, like the in-game map."] = "Klicke auf einen Kontinent, um ihn zu öffnen – wie auf der Karte im Spiel.",
-		["Click a zone to open it, like the in-game map."] = "Klicke auf eine Zone, um sie zu öffnen – wie auf der Karte im Spiel.",
-		["WoW Classic – Azeroth (click into continents and zones)"] = "WoW Classic – Azeroth (in Kontinente und Zonen klicken)",
+		["Zoom in for more detail: first the zones, then the cities. Click to place the pin."] = "Zoome hinein für mehr Details: erst die Zonen, dann die Städte. Klicke, um den Pin zu setzen.",
+		["WoW Classic – Azeroth (one seamless map, zoom into any zone)"] = "WoW Classic – Azeroth (eine nahtlose Karte, in jede Zone zoomen)",
 
 		// ---------- opening / joining ----------
 		["Opening the lobby on Steam…"] = "Lobby wird auf Steam geöffnet…",

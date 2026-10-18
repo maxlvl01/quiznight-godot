@@ -245,6 +245,9 @@ public static class SelfTest
 		Check(Math.Abs(WowAtlas.DistanceKm(a, b) - 100 * 0.9144 / 1000) < 0.001, "same-continent distance in yards");
 		var kalimdor = WowAtlas.LocationToWorld(new WowAtlas.Location(1, 0, 0));
 		Check(WowAtlas.DistanceKm(a, kalimdor) > WowAtlas.DistanceKm(a, b) * 100, "wrong continent is far");
+		Eq(Ui.WowMapArt.Tiles.Count, 207, "seamless map tiles are in the game");
+		var goldshire = WowAtlas.LocationToWorld(new WowAtlas.Location(0, -9465, 64));
+		Check(Ui.WowMapArt.Tiles.Any(t => t.World.HasPoint(new Godot.Vector2((float)goldshire.X, (float)goldshire.Y))), "Goldshire lies on a tile");
 	}
 
 	static void Protocol()

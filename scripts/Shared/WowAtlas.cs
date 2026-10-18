@@ -5,8 +5,8 @@
 // Game coordinates are in yards: X points north, Y points west. Each zone/continent image
 // covers its region exactly; the world map places each continent inside a ui rect.
 //
-// Pins are stored as a point on the world map image (so Question.Target stays a plain
-// NormPoint), but are always placed on a zone map and converted exactly via these regions.
+// Pins are stored as a point on the world map image (so Question.Target stays a plain NormPoint).
+// The map players see is seamless (Ui/WowMap.cs): zones stitched into one zoomable world.
 
 using System;
 using System.Collections.Generic;
@@ -131,6 +131,23 @@ public static class WowAtlas
 		var w = WorldPlacement[l.Continent];
 		var f = FromLocation(w.R, l);
 		return new NormPoint(w.U0 + f.X * (w.U1 - w.U0), w.V0 + f.Y * (w.V1 - w.V0));
+	}
+
+	/// <summary>Where a continent, zone or city image lies on the world map image (0–1): left, top, width, height.</summary>
+	public static (double X, double Y, double W, double H) WorldRect(Map map)
+	{
+		var r = map.Region!.Value;
+		var c = map.Continent!.Value;
+		var topLeft = LocationToWorld(new Location(c, r.XMax, r.YMax));
+		var bottomRight = LocationToWorld(new Location(c, r.XMin, r.YMin));
+		return (topLeft.X, topLeft.Y, bottomRight.X - topLeft.X, bottomRight.Y - topLeft.Y);
+	}
+
+	/// <summary>Where a continent is drawn on the world map image: left, top, right, bottom (0–1).</summary>
+	public static (double U0, double V0, double U1, double V1) WorldPlacementOf(int continent)
+	{
+		var w = WorldPlacement[continent];
+		return (w.U0, w.V0, w.U1, w.V1);
 	}
 
 	/// <summary>Which continent is drawn at this point of the world map, if any.</summary>

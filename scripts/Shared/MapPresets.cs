@@ -39,8 +39,8 @@ public static class MapPresets
 			"Satellite map © Rockstar Games."),
 		new("gta4", "GTA IV – Liberty City", Round(6000 / 32 / 0.0321 / 1000), "res://assets/maps/gta4.webp",
 			"In-game map © Rockstar Games, via GTAvision.com."),
-		new(WowAtlas.PresetId, "WoW Classic – Azeroth (click into continents and zones)", null, WowAtlas.ImagePath(WowAtlas.World),
-			"Maps © Blizzard Entertainment; explored zone maps via Wowhead. Distances in game yards, exact per zone."),
+		new(WowAtlas.PresetId, "WoW Classic – Azeroth (one seamless map, zoom into any zone)", null, WowAtlas.ImagePath(WowAtlas.World),
+			"Maps © Blizzard Entertainment; zones stitched by the OpenMap addon (MIT). Distances in game yards, exact per zone."),
 	};
 
 	public static MapPreset? Get(string? id) => id == null ? null : All.FirstOrDefault(p => p.Id == id);

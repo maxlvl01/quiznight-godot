@@ -319,7 +319,7 @@ public partial class QuestionEditorScreen : Control
 
 		var hint = U.Muted("", 13);
 		void UpdateHint(bool wow) => hint.Text = wow
-			? (_draft.Target != null ? "Correct spot set. Click again in any zone to move it." : "Open the zone and click to set the correct spot.") +
+			? (_draft.Target != null ? "Correct spot set. Click again to move it." : "Zoom in and click to set the correct spot.") +
 			  " Players see how far off they were in game distance (yards converted to km/m); a guess on the wrong continent always counts as far away."
 			: _draft.Target != null ? "Correct spot set. Click again to move it." : "Click the map to set the correct spot. Scroll to zoom, drag to move.";
 

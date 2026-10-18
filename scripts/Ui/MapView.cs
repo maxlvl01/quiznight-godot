@@ -14,7 +14,9 @@ public sealed record MapMarker(NormPoint At, string Label, Action OnClick);
 
 public partial class MapCanvas : Control
 {
-	const float MaxZoom = 8;
+	public float MaxZoom = 8;
+	/// <summary>How much one wheel notch zooms (0.15 = 15 %).</summary>
+	public float WheelStep = 0.15f;
 	/// <summary>Pointer movement (px) below which a press counts as a click, not a drag.</summary>
 	const float ClickSlop = 5;
 
@@ -40,6 +42,8 @@ public partial class MapCanvas : Control
 	public MapCanvas()
 	{
 		ClipContents = true;
+		// Smooth when zoomed in (the project default, nearest, makes map art blocky).
+		TextureFilter = TextureFilterEnum.LinearWithMipmaps;
 		SizeFlagsHorizontal = SizeFlags.ExpandFill;
 		MouseFilter = MouseFilterEnum.Stop;
 		FocusMode = FocusModeEnum.None;
@@ -121,14 +125,14 @@ public partial class MapCanvas : Control
 
 	public void ZoomCenter(float factor) => ZoomAt(factor, Origin + BaseSize / 2);
 
-	NormPoint ToNorm(Vector2 at)
+	protected NormPoint ToNorm(Vector2 at)
 	{
 		var b = BaseSize * _scale;
 		var p = at - Origin - _offset;
 		return new NormPoint(Math.Clamp(p.X / b.X, 0, 1), Math.Clamp(p.Y / b.Y, 0, 1));
 	}
 
-	Vector2 FromNorm(NormPoint n) => Origin + _offset + new Vector2((float)n.X, (float)n.Y) * BaseSize * _scale;
+	protected Vector2 FromNorm(NormPoint n) => Origin + _offset + new Vector2((float)n.X, (float)n.Y) * BaseSize * _scale;
 
 	bool InsideImage(Vector2 at)
 	{
@@ -153,7 +157,7 @@ public partial class MapCanvas : Control
 			case InputEventMouseButton { ButtonIndex: MouseButton.WheelUp or MouseButton.WheelDown } wheel when wheel.Pressed:
 			{
 				var f = wheel.Factor > 0 ? wheel.Factor : 1;
-				ZoomAt(wheel.ButtonIndex == MouseButton.WheelUp ? 1 + 0.15f * f : 1 / (1 + 0.15f * f), wheel.Position);
+				ZoomAt(wheel.ButtonIndex == MouseButton.WheelUp ? 1 + WheelStep * f : 1 / (1 + WheelStep * f), wheel.Position);
 				AcceptEvent();
 				break;
 			}
@@ -220,13 +224,36 @@ public partial class MapCanvas : Control
 		if (OnPick != null && InsideImage(at)) OnPick(ToNorm(at));
 	}
 
+	/// <summary>Draws the map itself; <paramref name="rect"/> is the whole image on screen at the current zoom.</summary>
+	protected virtual void DrawMap(Rect2 rect)
+	{
+		if (_texture != null) DrawTextureRect(_texture, rect, false);
+		else DrawString(Fonts.Regular, new Vector2(0, BaseSize.Y / 2), "Loading map…", HorizontalAlignment.Center, Size.X, 15, C.Muted);
+	}
+
+	/// <summary>Zooms so <paramref name="center"/> is in the middle of the view (as far as the edges allow).</summary>
+	public void ZoomTo(NormPoint center, float zoom)
+	{
+		_scale = Mathf.Clamp(zoom, 1, MaxZoom);
+		_offset = BaseSize / 2 - new Vector2((float)center.X, (float)center.Y) * BaseSize * _scale;
+		Clamp();
+		QueueRedraw();
+		ZoomChanged?.Invoke();
+	}
+
+	/// <summary>The part of the image in view, in 0–1 image coordinates.</summary>
+	protected Rect2 VisibleNorm()
+	{
+		var b = BaseSize * _scale;
+		var from = (-Origin - _offset) / b;
+		return new Rect2(from, Size / b);
+	}
+
 	public override void _Draw()
 	{
 		var b = BaseSize;
-		var rect = new Rect2(Origin + _offset, b * _scale);
 		DrawRect(new Rect2(Origin, b), C.Bg);
-		if (_texture != null) DrawTextureRect(_texture, rect, false);
-		else DrawString(Fonts.Regular, new Vector2(0, b.Y / 2), "Loading map…", HorizontalAlignment.Center, Size.X, 15, C.Muted);
+		DrawMap(new Rect2(Origin + _offset, b * _scale));
 
 		foreach (var pin in Pins)
 		{
@@ -272,7 +299,7 @@ public partial class MapCanvas : Control
 /// <summary>Map canvas with its name above and zoom buttons below.</summary>
 public partial class MapView : VBoxContainer
 {
-	public readonly MapCanvas Canvas = new();
+	public readonly MapCanvas Canvas;
 	readonly Label _zoom = U.Mono("1.0×", 13, C.Muted);
 	readonly Button _in;
 	readonly Button _out;
@@ -280,8 +307,9 @@ public partial class MapView : VBoxContainer
 
 	public MapView() : this("", null, 0, 0) { }
 
-	public MapView(string name, Texture2D? texture, int width, int height, float maxHeight = 560)
+	public MapView(string name, Texture2D? texture, int width, int height, float maxHeight = 560, MapCanvas? canvas = null)
 	{
+		Canvas = canvas ?? new MapCanvas();
 		AddThemeConstantOverride("separation", 6);
 		SizeFlagsHorizontal = SizeFlags.ExpandFill;
 		if (name != "") AddChild(U.Muted(Lang.F("Map: {0}", name), 13, false));
@@ -298,113 +326,13 @@ public partial class MapView : VBoxContainer
 	void UpdateZoom()
 	{
 		_zoom.Text = $"{Canvas.Zoom:0.0}×";
-		_in.Disabled = Canvas.Zoom >= 7.99f;
+		_in.Disabled = Canvas.Zoom >= Canvas.MaxZoom - 0.01f;
 		_out.Disabled = Canvas.Zoom <= 1.001f;
 		_fit.Disabled = Canvas.Zoom <= 1.001f;
 	}
 }
 
-/// <summary>
-/// The WoW Classic map like in the game: world → click a continent → click a zone → click to pin.
-/// Right-click (or the path above) goes back up. Pins are only placed on zone maps and stored as a
-/// point on the world map (see WowAtlas).
-/// </summary>
-public partial class WowAtlasView : VBoxContainer
-{
-	NormPoint? _target;
-	readonly Action<NormPoint>? _onPick;
-	readonly List<MapPin> _pins;
-	readonly float _maxHeight;
-	WowAtlas.Map _current;
-
-	public WowAtlasView() : this(null, null) { }
-
-	public WowAtlasView(NormPoint? target, Action<NormPoint>? onPick, List<MapPin>? pins = null, float maxHeight = 560)
-	{
-		_target = target;
-		_onPick = onPick;
-		_pins = pins ?? new List<MapPin>();
-		_maxHeight = maxHeight;
-		AddThemeConstantOverride("separation", 8);
-		SizeFlagsHorizontal = SizeFlags.ExpandFill;
-		// Start in the zone of an existing pin, otherwise on the world map.
-		var loc = target is { } t ? WowAtlas.WorldToLocation(t) : null;
-		_current = (loc is { } l ? WowAtlas.ZoneAt(l) : null) ?? WowAtlas.Get(WowAtlas.World);
-		Build();
-	}
-
-	public void SetTarget(NormPoint? target)
-	{
-		_target = target;
-		Build();
-	}
-
-	void Go(WowAtlas.Map map)
-	{
-		_current = map;
-		Build();
-	}
-
-	void Build()
-	{
-		this.Clear();
-		var nav = U.H(4);
-		var ancestors = new List<WowAtlas.Map>();
-		for (var m = _current.Parent is { } p ? WowAtlas.Get(p) : null; m != null; m = m.Parent is { } pp ? WowAtlas.Get(pp) : null) ancestors.Insert(0, m);
-		foreach (var a in ancestors)
-		{
-			var target = a;
-			nav.AddChild(U.Link(a.Name, () => Go(target), 14));
-			nav.AddChild(U.Muted("›", 14, false).With(l => l.SizeFlagsVertical = SizeFlags.ShrinkCenter));
-		}
-		nav.AddChild(U.Bold(_current.Name, 15).With(l => l.SizeFlagsVertical = SizeFlags.ShrinkCenter));
-		if (_current.Continent is { } continent)
-		{
-			nav.AddChild(U.Fill());
-			var zones = WowAtlas.Maps.Where(m => m.Kind == WowAtlas.Kind.Zone && m.Continent == continent).ToList();
-			var items = new List<(string, string)> { ("", "Jump to zone…") };
-			items.AddRange(zones.Select(z => (z.Id.ToString(), z.Name)));
-			var jump = U.Select(items.ToArray(), _current.Kind == WowAtlas.Kind.Zone ? _current.Id.ToString() : "", id =>
-			{
-				if (int.TryParse(id, out var zoneId)) Go(WowAtlas.Get(zoneId));
-			});
-			jump.SizeFlagsHorizontal = SizeFlags.ShrinkEnd;
-			jump.CustomMinimumSize = new Vector2(220, 0);
-			nav.AddChild(jump);
-		}
-		AddChild(nav);
-
-		var view = new MapView("", Storage.Images.BuiltinTexture(WowAtlas.ImagePath(_current.Id)), WowAtlas.ImageWidth, WowAtlas.ImageHeight, _maxHeight);
-		var canvas = view.Canvas;
-		canvas.Target = _target is { } t ? WowAtlas.OnMap(_current, t) : null;
-		canvas.Pins = _pins.Select(p => WowAtlas.OnMap(_current, p.At) is { } at ? p with { At = at } : null).OfType<MapPin>().ToList();
-		canvas.Markers = WowAtlas.CitiesOn(_current).Select(c => new MapMarker(c.At, c.City.Name, () => Go(c.City))).ToList();
-		var current = _current;
-		canvas.OnPick = p =>
-		{
-			if (current.Kind == WowAtlas.Kind.Zone)
-			{
-				if (_onPick == null) return;
-				var world = WowAtlas.LocationToWorld(WowAtlas.ToLocation(current, p));
-				_target = world;
-				canvas.Target = p;
-				canvas.QueueRedraw();
-				_onPick(world);
-				return;
-			}
-			if (WowAtlas.ChildAt(current, p) is { } next) Go(next);
-		};
-		if (_current.Kind != WowAtlas.Kind.Zone) canvas.HoverLabel = p => WowAtlas.ChildAt(current, p)?.Name;
-		if (_current.Parent is { } parent) canvas.OnBack = () => Go(WowAtlas.Get(parent));
-		AddChild(view);
-
-		AddChild(U.Muted(_current.Kind == WowAtlas.Kind.Zone
-			? (_onPick != null ? "Click to place the pin. Right-click or use the path above to go back up." : "Right-click or use the path above to go back up.")
-			: _current.Kind == WowAtlas.Kind.World ? "Click a continent to open it, like the in-game map." : "Click a zone to open it, like the in-game map.", 12));
-	}
-}
-
-/// <summary>The question's map: the WoW drill-down atlas for the WoW preset, a zoomable image otherwise.</summary>
+/// <summary>The question's map: the seamless WoW map for the WoW preset, a zoomable image otherwise.</summary>
 public static class GameMap
 {
 	public static Control Make(PublicMap map, Texture2D? texture, NormPoint? target, Action<NormPoint>? onPick, List<MapPin>? pins = null, float maxHeight = 560)
