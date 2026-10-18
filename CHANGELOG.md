@@ -10,6 +10,13 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `0.x.y` means the game is still in development. `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
+## [0.5.1a] — lobby fix
+
+### Fixed
+- **The lobby now has the two host-control checkboxes** ("I show each question myself" and "I unlock the buzzers
+  myself"). Both were always on before and couldn't be switched off. Untick them for a faster game where questions
+  appear right away and the buzzers are open from the start.
+
 ## [0.5.0a] — more question types, host control, seamless WoW map
 
 ### Added
