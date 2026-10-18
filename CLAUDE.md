@@ -101,7 +101,7 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
   next to the csproj. The build lands in `build/Quiznight/`; `steam_api64.dll` ends up in the
   `data_QuizNight!_windows_x86_64` folder and Steam works from there (checked with `--steam-check`).
 - **Releases & updates:** `tools/release.sh` exports, zips and publishes a GitHub release on the public
-  `maxlvl01/quiznight-releases` repo (code lives in the private `maxlvl01/quiznight`). Exported games check
+  `maxlvl01/quiznight-releases` repo (code lives in the private `maxlvl01/quiznight-godot`; `maxlvl01/quiznight` is the web version). Exported games check
   it at startup (`Storage/Updater.cs`) and update themselves; "What's new" is read from the shipped
   CHANGELOG.md, so its `## [version]` / `### Added|Changed|Fixed|Removed` layout matters.
 

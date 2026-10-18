@@ -3,7 +3,7 @@
 #   tools/release.sh            build + self-test + zip + publish the version in project.godot
 #   tools/release.sh --dry-run  everything except publishing
 # The release notes are this version's section of CHANGELOG.md. The release goes to the public
-# builds-only repo (the code repo stays private). Needs `gh` logged in and the export templates.
+# builds-only repo (the code repo, maxlvl01/quiznight-godot, stays private). Needs `gh` logged in and the export templates.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
