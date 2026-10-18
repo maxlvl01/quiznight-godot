@@ -10,7 +10,7 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `0.x.y` means the game is still in development. `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
-## [Unreleased]
+## [0.6.0a] — Timeline: take turns putting things in order
 
 ### Added
 - **Put in order: new "Timeline" way to play.** In the editor, switch "How it's played" to **Timeline — take turns**.
