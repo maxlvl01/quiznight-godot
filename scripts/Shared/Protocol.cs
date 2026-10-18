@@ -64,7 +64,9 @@ public sealed class RoomSettings
 {
 	public int MaxPlayers = Limits.MaxPlayersDefault;
 	public int AnswerTimeSec = Limits.AnswerTimeDefault;
-	public RoomSettings Clone() => new() { MaxPlayers = MaxPlayers, AnswerTimeSec = AnswerTimeSec };
+	/// <summary>Buzzer sound (an Sfx id) — played on the host and on every player's screen when someone buzzes.</summary>
+	public string BuzzerSound = "soft-beep";
+	public RoomSettings Clone() => new() { MaxPlayers = MaxPlayers, AnswerTimeSec = AnswerTimeSec, BuzzerSound = BuzzerSound };
 }
 
 public sealed class PublicPlayer

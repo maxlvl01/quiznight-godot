@@ -1,5 +1,5 @@
 // Sound effects: the buzzer sounds (built-in ones from assets/soundeffects, or the player's own file)
-// and playing them on the SFX bus. Like question media, they only play on the host's PC.
+// and playing them on the SFX bus. Like question media, they play on the host's PC — the buzzer also on players' PCs.
 
 using System.Collections.Generic;
 using System.IO;
@@ -99,6 +99,13 @@ public static class Sfx
 		if (id == Off || Load(Valid(id)) is not { } stream) return;
 		Play(stream);
 	}
+
+	/// <summary>
+	/// A player hears the host's buzzer. The host's own sound file only exists on the host's PC,
+	/// so for "My sound" players hear their own default buzzer instead.
+	/// </summary>
+	public static void PlayRoomBuzzer(string hostChoice) =>
+		PlayBuzzer(hostChoice == Custom ? Settings.BuzzerSound : hostChoice);
 
 	/// <summary>Plays the jingle when the final results show (host only).</summary>
 	public static void PlayPodium()

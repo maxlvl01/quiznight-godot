@@ -24,12 +24,11 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
   3-step guide opens. It shows exactly what to paste to turn it into the .ogv format the game can play
   (with the free tool ffmpeg), then adds the converted video with one click. Also there as a link
   under "Choose file…".
-- **Buzzer sounds:** the host's screen now plays a sound when someone buzzes in. Pick "Soft beep", "Metal pipe",
+- **Buzzer sounds:** a sound plays when someone buzzes in — on the host's screen and for every player. Pick "Soft beep", "Metal pipe",
   your own sound file or no sound under Settings (the default), or in the lobby for one night. Follows the
-  Sound effects volume.
+  Sound effects volume. If the host uses their own sound file, players hear their own default buzzer instead.
 - **Podium jingle:** a short tune plays on the host's screen when the final results appear. It has its own
   "Game music" volume slider in Settings (separate from the music in quiz questions).
-
 - **Multiple choice questions:** a third kind of classic question where several answers can be right. Tick every
   correct answer in the editor; players pick all they think are right and then lock in. Only players who pick
   exactly the right ones get the points.

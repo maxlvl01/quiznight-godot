@@ -90,7 +90,7 @@ public partial class SettingsScreen : Control
 		return U.V(6,
 			U.Text("Buzzer sound", 15),
 			BuzzerPicker.Make(Settings.BuzzerSound, id => Settings.BuzzerSound = id, true),
-			U.Muted("Plays on the host's screen when someone buzzes in. This is the default for new lobbies; the host can still change it in the lobby for one night.", 12),
+			U.Muted("Plays for the host and all players when someone buzzes in. This is the default for new lobbies; the host can still change it in the lobby for one night. If you host with your own sound, players hear their own default buzzer instead.", 12),
 			U.H(10, own, U.Muted(Lang.F("MP3, OGG or WAV, up to {0} MB.", Sfx.CustomMaxMb), 12, false).With(l => l.SizeFlagsVertical = SizeFlags.ShrinkCenter)),
 			error);
 	}

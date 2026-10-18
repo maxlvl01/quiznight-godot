@@ -79,6 +79,8 @@ public static class SelfTest
 		// Buzzer question: wrong, then the next in line is right.
 		var (room, clock) = NewRoom(quiz, "ann", "bob", "cat");
 		Check(room.Start().Ok, "start");
+		room.Settings.BuzzerSound = "metal-pipe";
+		Eq(room.ToState("ann").Settings.BuzzerSound, "metal-pipe", "players are told the buzzer sound");
 		var g = room.Game!;
 		clock.Now += 1500;
 		Check(g.BuzzIn("bob"), "bob buzzes");

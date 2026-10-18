@@ -4,6 +4,7 @@ using System.Linq;
 using Godot;
 using QuizNight.Net;
 using QuizNight.Shared;
+using QuizNight.Storage;
 
 namespace QuizNight.Ui.Screens;
 
@@ -28,12 +29,21 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 
 	string MyId => _client.MyId ?? "";
 
+	int _heardIndex = -1;
+	int _heardBuzzes;
+
 	public void Refresh(RoomState room)
 	{
 		_room = room;
 		var game = room.Game!;
 		var q = game.Question;
 		var me = room.Player(MyId);
+		// A new buzz in this question plays the host's buzzer sound, so everyone hears that someone buzzed.
+		// Not on the first state after (re)joining, which may already contain old buzzes.
+		var heard = game.Index == _heardIndex ? _heardBuzzes : 0;
+		if (_heardIndex >= 0 && game.Buzzes.Count > heard) Sfx.PlayRoomBuzzer(room.Settings.BuzzerSound);
+		_heardIndex = game.Index;
+		_heardBuzzes = game.Buzzes.Count;
 		_bar.Set($"{me.Name}|{room.Score(MyId)}", () => GameParts.Row(10,
 			new Avatar(me, 30), U.Bold(me.Name, 17).Raw(), U.Fill(), U.Pill(Lang.F("{0} pts", room.Score(MyId)), C.Accent)));
 

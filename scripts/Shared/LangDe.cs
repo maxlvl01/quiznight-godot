@@ -60,8 +60,8 @@ public static class LangDe
 		["Use my own sound…"] = "Eigenen Sound wählen…",
 		["MP3, OGG or WAV, up to {0} MB."] = "MP3, OGG oder WAV, bis zu {0} MB.",
 		["A buzzer sound can be at most {0} MB. Pick a short sound."] = "Ein Buzzer-Sound darf höchstens {0} MB groß sein. Wähle einen kurzen Sound.",
-		["Plays on the host's screen when someone buzzes in. This is the default for new lobbies; the host can still change it in the lobby for one night."] =
-			"Ertönt auf dem Bildschirm des Hosts, wenn jemand buzzert. Das ist der Standard für neue Lobbys – der Host kann ihn in der Lobby trotzdem für einen Abend ändern.",
+		["Plays for the host and all players when someone buzzes in. This is the default for new lobbies; the host can still change it in the lobby for one night. If you host with your own sound, players hear their own default buzzer instead."] =
+			"Ertönt beim Host und bei allen Spielern, wenn jemand buzzert. Das ist der Standard für neue Lobbys – der Host kann ihn in der Lobby trotzdem für einen Abend ändern. Hostest du mit deinem eigenen Sound, hören die Spieler stattdessen ihren eigenen Standard-Buzzer.",
 		["Changes all menus and game screens. Quiz questions stay in the language they were written in."] =
 			"Ändert alle Menüs und Spielbildschirme. Quizfragen bleiben in der Sprache, in der sie geschrieben wurden.",
 
