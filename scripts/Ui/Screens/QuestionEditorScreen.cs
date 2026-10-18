@@ -76,6 +76,7 @@ public partial class QuestionEditorScreen : Control
 			QuestionType.Classic => ClassicForm(),
 			QuestionType.Estimation => EstimationForm(),
 			QuestionType.MapPin => MapPinForm(),
+			QuestionType.Image => ImageRevealForm(),
 			_ => MediaForm(),
 		});
 		UpdateIssues();
@@ -239,6 +240,56 @@ public partial class QuestionEditorScreen : Control
 				? "The sound plays on your screen. Players buzz in on their own PC; playback pauses while someone answers and you mark it Correct or Wrong. Once it's guessed, everyone sees how many seconds of listening it took. Answer time per buzz is set in the lobby."
 				: "The video plays on your screen. Players buzz in on their own PC; playback pauses while someone answers and you mark it Correct or Wrong. Once it's guessed, everyone sees how many seconds of watching it took. Answer time per buzz is set in the lobby.", 13));
 		return Columns((left, 1.6f), (settings, 1));
+	}
+
+	// ---------- image reveal ----------
+
+	Control ImageRevealForm()
+	{
+		_primaryImage = new ImageField(_draft.Image, img =>
+		{
+			_draft.Image = img;
+			Changed(true);
+		}, Images.ScreenshotMax, "The picture players have to recognise.", false);
+		var left = U.V(14, PromptLine(),
+			U.Field("Picture", _primaryImage),
+			U.Field("Correct answer (only you see this)", U.Input(_draft.AnswerText, "e.g. The Eiffel Tower", t =>
+			{
+				_draft.AnswerText = t;
+				Changed();
+			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold))));
+		var right = U.V(14);
+		if (_draft.Image != null)
+		{
+			var zoom = _draft.RevealStyle == RevealStyle.Zoom;
+			var preview = new HostImageReveal(null, _draft, 320);
+			preview.View.ShowFocus = zoom;
+			if (zoom)
+				preview.View.OnPick = p =>
+				{
+					_draft.Focus = p;
+					Changed(true);
+				};
+			right.AddChild(U.Field("Preview", preview, zoom
+				? "Click the picture to choose the spot it starts zoomed in on (the yellow ring)."
+				: "This is what your screen shows; it gets sharper until the time is up."));
+		}
+
+		var settings = RoundSettings.Panel(
+			U.Field("How it's hidden", U.Segmented(RevealStyle.All, _draft.RevealStyle, style =>
+			{
+				_draft.RevealStyle = style;
+				Changed(true);
+			})),
+			U.Field("Seconds until it's fully clear", new NumberField(_draft.RevealSec, v =>
+			{
+				_draft.RevealSec = (int)Math.Clamp(v ?? QuestionLimits.RevealSecDefault, QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax);
+				Changed();
+			}, QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax, true), Lang.F("{0}–{1} seconds.", QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax)),
+			RoundSettings.Points(_draft, () => Changed()),
+			U.Muted("The picture is shown on your screen only and gets clearer over time. Players buzz in on their own PC; it pauses while someone answers and you mark it Correct or Wrong. Once it's guessed, everyone sees the whole picture and how many seconds it took. Answer time per buzz is set in the lobby.", 13));
+		right.AddChild(settings);
+		return Columns((left, 1.6f), (right, 1));
 	}
 
 	// ---------- map pin ----------

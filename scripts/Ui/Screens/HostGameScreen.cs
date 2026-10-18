@@ -19,6 +19,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 	readonly Keyed _controls = new();
 	readonly VBoxContainer _side = U.V(10);
 	HostMedia? _player;
+	HostImageReveal? _imageReveal;
 
 	public HostGameScreen() : this(null!, null!) { }
 
@@ -77,17 +78,21 @@ public partial class HostGameScreen : Control, IRoomScreen
 		_media.Set($"{game.Index}", () =>
 		{
 			_player = null;
+			_imageReveal = null;
+			if (q.Type == QuestionType.Image)
+				return _imageReveal = new HostImageReveal(_host, _host.Room.Quiz.Questions[game.Index]);
 			if (!q.IsMedia) return null;
 			var media = _host.Room.Quiz.Questions[game.Index].Media;
 			_player = new HostMedia(_host, q, media, game.Index);
 			return _player;
 		});
 		_player?.Update(game);
+		_imageReveal?.Update(game);
 
 		_content.Set(key, () =>
 		{
 			var box = U.V(14);
-			if (q.ImageKey != null && !(q.Type == QuestionType.MapPin && reveal != null))
+			if (q.ImageKey != null && q.Type != QuestionType.Image && !(q.Type == QuestionType.MapPin && reveal != null))
 				box.AddChild(new AssetImage(_assets, q.ImageKey, 440));
 			if (q.Choices != null) box.AddChild(GameParts.ChoiceGrid(game));
 			if (reveal == null && q.Mode == ClassicMode.Multi) box.AddChild(U.Muted("Several answers can be right — players pick all they think are.", 16));
@@ -167,7 +172,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 			};
 			var row = GameParts.Row(8, GameParts.RankBadge(i + 1), new Avatar(p, 26),
 				U.V(0, U.Text(p.Name, 15).Raw(), U.Muted(status, 12, false)).Grow(),
-				U.Mono(game.Question.IsMedia ? U.FormatSeconds(b.AtSec) : $"{b.AtSec:0.00} s", 13, C.Muted));
+				U.Mono(game.Question.HasPlayClock ? U.FormatSeconds(b.AtSec) : $"{b.AtSec:0.00} s", 13, C.Muted));
 			var border = b.Status switch { BuzzStatus.Answering => C.Accent, BuzzStatus.Correct => C.Teal, _ => C.Border };
 			var bg = b.Status == BuzzStatus.Answering ? new Color(C.Accent, 0.1f) : C.Panel2;
 			var panel = U.Panel(row, "Clear");

@@ -49,7 +49,7 @@ public static class GameParts
 			if (reveal.WinnerIds.FirstOrDefault() is { } winnerId)
 			{
 				var w = room.Player(winnerId);
-				var gotIt = q.IsMedia && reveal.GuessTimeSec is { } t
+				var gotIt = q.HasPlayClock && reveal.GuessTimeSec is { } t
 					? Lang.F(q.Type == QuestionType.Sound ? "got it after {0} of listening" : "got it after {0} of watching", U.FormatSeconds(t))
 					: Lang.T("got it");
 				var row = Row(6, new Avatar(w, 26), U.Bold(w.Name, 17).Raw(), U.Text(gotIt, 17));

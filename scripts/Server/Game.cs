@@ -122,7 +122,7 @@ public sealed class Game
 		{
 			PlayerId = playerId,
 			Status = someoneAnswering ? BuzzStatus.Waiting : BuzzStatus.Answering,
-			AtMs = q.IsMedia ? PlayTimeMs(now) : now - _openedAt,
+			AtMs = q.HasPlayClock ? PlayTimeMs(now) : now - _openedAt,
 		});
 		if (!someoneAnswering) _answeringSince = now;
 		return true;
@@ -254,7 +254,7 @@ public sealed class Game
 			{
 				AnswerText = q.AnswerText,
 				WinnerIds = winner != null ? new List<string> { winner.PlayerId } : new List<string>(),
-				GuessTimeSec = q.IsMedia && winner != null ? winner.AtMs / 1000.0 : null,
+				GuessTimeSec = q.HasPlayClock && winner != null ? winner.AtMs / 1000.0 : null,
 				Entries = _buzzes.Select(b => new RevealEntry
 				{
 					PlayerId = b.PlayerId,
@@ -354,6 +354,9 @@ public sealed class Game
 	static string ChoiceText(Question q, IEnumerable<int> picks) =>
 		string.Join(" · ", picks.Select(i => $"{QuizRules.ChoiceLetters[i]}: {q.Choices[i]}"));
 
+	/// <summary>An image reveal's picture while its question is still open.</summary>
+	bool HiddenPicture(int index) => index == Index && Stage == Shared.Stage.Open && _quiz.Questions[index].Type == QuestionType.Image;
+
 	public static string ImageKey(int index) => $"q{index}/image";
 	public static string MapKey(int index) => $"q{index}/map";
 
@@ -366,7 +369,8 @@ public sealed class Game
 			Prompt = q.Prompt,
 			Points = q.Points,
 			Buzzer = q.IsBuzzer,
-			ImageKey = q.HasImageField && q.Image != null ? ImageKey(Index) : null,
+			// (an image reveal's picture only plays on the host's screen; players get it at the reveal)
+			ImageKey = q.HasImageField && q.Image != null && !HiddenPicture(Index) ? ImageKey(Index) : null,
 		};
 		if (q.Type == QuestionType.Classic)
 		{
@@ -438,6 +442,7 @@ public sealed class Game
 		var parts = key.Split('/');
 		if (parts.Length != 2 || !parts[0].StartsWith('q') || !int.TryParse(parts[0].AsSpan(1), out var index)) return null;
 		if (index < 0 || index > Index || index >= _quiz.Questions.Count) return null;
+		if (HiddenPicture(index)) return null;
 		var q = _quiz.Questions[index];
 		if (parts[1] == "image" && q.HasImageField && q.Image != null) return q.Image.DataUrl;
 		if (parts[1] == "map" && q.Type == QuestionType.MapPin) return _quiz.MapById(q.MapId)?.Image.DataUrl;

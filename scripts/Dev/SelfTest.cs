@@ -175,6 +175,20 @@ public static class SelfTest
 		Eq(room.Scores["cat"] - before.Cat, 0, "picking everything doesn't");
 		Eq(string.Join(",", g.View("host").Reveal!.CorrectIndices!), string.Join(",", rightSet), "reveal marks both");
 		Eq(g.View("host").Reveal!.Counts![rightSet[0]], 3, "multi counts");
+
+		// Image reveal: the picture stays on the host's screen until the reveal; buzz times use its clock.
+		room.Next();
+		Eq(g.Question.Type, QuestionType.Image, "image reveal question");
+		Check(g.View("ann").Question.ImageKey == null, "players don't get the picture while it's open");
+		Check(g.AssetDataUrl(Game.ImageKey(8)) == null, "nor can they fetch it");
+		g.SetMedia(true);
+		clock.Now += 4000;
+		g.BuzzIn("bob");
+		g.SetMedia(false);
+		Eq(g.View("host").Buzzes[0].AtSec, 4.0, "buzz time on the reveal clock");
+		g.Judge(true);
+		Eq(g.View("host").Reveal!.GuessTimeSec, 4.0, "guessed after 4 s");
+		Check(g.View("ann").Question.ImageKey != null && g.AssetDataUrl(Game.ImageKey(8)) != null, "everyone gets the picture at the reveal");
 		room.Next();
 		Eq(room.Phase, Phase.Finished, "podium after the last question");
 
@@ -218,6 +232,8 @@ public static class SelfTest
 		var multi = Dev.SampleQuiz.Build().Questions.First(x => x.IsMulti).Clone();
 		Eq(multi.Mode, ClassicMode.Multi, "multi mode is saved");
 		Eq(string.Join(",", multi.CorrectChoices), "0,1", "multi correct answers are saved");
+		var image = Dev.SampleQuiz.Build().Questions.First(x => x.Type == QuestionType.Image).Clone();
+		Check(image.RevealStyle == RevealStyle.Pixelate && image.RevealSec == 20 && Math.Abs(image.Focus.Y - 0.45) < 1e-9, "image reveal settings are saved");
 		// Shuffling moves the right answer around (over many games it can't always stay first).
 		var choiceQ = new Question { Type = QuestionType.Classic, Mode = ClassicMode.Choice, Choices = new() { "a", "", "c", "d" }, CorrectChoice = 0 };
 		var rng = new Random(1);

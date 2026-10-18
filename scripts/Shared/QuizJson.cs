@@ -1,6 +1,7 @@
 // Reads and writes .quiznight.json files. Reading is forgiving: missing fields get their
 // defaults (that is also how files from older versions are migrated), wrong types are ignored.
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -93,6 +94,13 @@ public static class QuizJson
 				o["startSec"] = q.StartSec;
 				o["answer"] = q.AnswerText;
 				break;
+			case QuestionType.Image:
+				o["image"] = WriteImage(q.Image);
+				o["answer"] = q.AnswerText;
+				o["revealStyle"] = q.RevealStyle;
+				o["revealSec"] = q.RevealSec;
+				o["focus"] = new JsonObject { ["x"] = q.Focus.X, ["y"] = q.Focus.Y };
+				break;
 			case QuestionType.Estimation:
 				o["image"] = WriteImage(q.Image);
 				o["answer"] = q.AnswerNumber;
@@ -134,6 +142,9 @@ public static class QuizJson
 		if (o["correctChoices"] is JsonArray correct)
 			q.CorrectChoices = correct.Select(c => c is JsonValue v && v.TryGetValue<double>(out var n) ? (int)n : -1).Where(i => i is >= 0 and < 4).Distinct().ToList();
 		q.TimeLimitSec = (int)Num(o, "timeLimitSec", q.TimeLimitSec);
+		q.RevealStyle = Str(o, "revealStyle", RevealStyle.Zoom) == RevealStyle.Pixelate ? RevealStyle.Pixelate : RevealStyle.Zoom;
+		q.RevealSec = Math.Clamp((int)Num(o, "revealSec", q.RevealSec), QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax);
+		if (o["focus"] is JsonObject focus) q.Focus = new NormPoint(Math.Clamp(Num(focus, "x", 0.5), 0, 1), Math.Clamp(Num(focus, "y", 0.5), 0, 1));
 		if (o["media"] is JsonObject m)
 		{
 			q.Media = new MediaAsset

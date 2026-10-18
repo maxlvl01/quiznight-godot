@@ -120,7 +120,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		}
 		var area = U.V(14);
 		area.Alignment = BoxContainer.AlignmentMode.Center;
-		var watch = game.Question.Type == QuestionType.Sound ? "Listen to the host's screen" : game.Question.Type == QuestionType.Video ? "Watch the host's screen" : null;
+		var watch = game.Question.Type == QuestionType.Sound ? "Listen to the host's screen" : game.Question.Type is QuestionType.Video or QuestionType.Image ? "Watch the host's screen" : null;
 		if (watch != null) area.AddChild(U.Muted(watch, 16, false, HorizontalAlignment.Center).Center());
 		if (answering != null) area.AddChild(U.Muted(Lang.F("{0} is answering — buzz to get in line.", room.Player(answering.PlayerId).Name), 14, false, HorizontalAlignment.Center).Center());
 		area.AddChild(new BuzzButton(_client.Buzz).Center());
@@ -273,7 +273,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			{
 				var me = wid == MyId;
 				var name = room.Player(wid).Name;
-				var text = q.IsMedia && reveal.GuessTimeSec is { } t
+				var text = q.HasPlayClock && reveal.GuessTimeSec is { } t
 					? me ? Lang.F("You got it after {0}.", U.FormatSeconds(t)) : Lang.F("{0} got it after {1}.", name, U.FormatSeconds(t))
 					: me ? Lang.T("You got it.") : Lang.F("{0} got it.", name);
 				kids.Add(U.Text(text, 17));
@@ -286,6 +286,8 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		var panel = Status(kids.ToArray());
 		if (mine is { Points: > 0 }) panel.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(C.Teal, 0.08f), 14, C.Teal, 1, 24, 22));
 		var box = U.V(14, panel);
+		// Image reveal: everyone gets the whole picture now.
+		if (q.Type == QuestionType.Image && q.ImageKey != null) box.AddChild(new AssetImage(_client.Assets, q.ImageKey, 360));
 		if (q.Type == QuestionType.MapPin && q.Map != null)
 			box.AddChild(GameMap.Make(q.Map, _client.Assets.Map(q.Map), reveal.Target, null, GameParts.RevealPins(room), 520));
 		box.AddChild(U.Eyebrow("Scores"));

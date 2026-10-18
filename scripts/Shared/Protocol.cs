@@ -147,6 +147,7 @@ public sealed class PublicQuestion
 	public double? StartSec;
 
 	public bool IsMedia => Type is QuestionType.Sound or QuestionType.Video;
+	public bool HasPlayClock => IsMedia || Type == QuestionType.Image;
 }
 
 public sealed class BuzzEntry

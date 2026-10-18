@@ -37,6 +37,11 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
   whole world into a continent, then into every zone stitched together, and on into the cities; drag to move,
   or jump straight to a zone. No more clicking through world → continent → zone. Pins can go anywhere. At
   the reveal, the map zooms to the answer and everyone's guesses. Zone art: the OpenMap addon (thanks!).
+- **New question type: Image reveal.** Upload a picture and choose how it's hidden: **zoomed right in** (click
+  the spot it starts on) and slowly zooming out, or **pixelated** and slowly getting sharper, over as many
+  seconds as you like (5–120). It shows on the host's screen only; players buzz in, it pauses while someone
+  answers, and at the reveal everyone sees the whole picture and how many seconds it took. The editor has a
+  live preview.
 - **Multiple choice questions:** a third kind of classic question where several answers can be right. Tick every
   correct answer in the editor; players pick all they think are right and then lock in. Only players who pick
   exactly the right ones get the points.

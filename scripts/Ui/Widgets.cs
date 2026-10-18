@@ -95,6 +95,11 @@ public partial class TypeIcon : Control
 				DrawRect(new Rect2(P(3, 5), P(18, 14)), color, false, w, true);
 				DrawPolyline(new[] { P(10, 9.5f), P(10, 14.5f), P(14.5f, 12), P(10, 9.5f) }, color, w, true);
 				break;
+			case QuestionType.Image:
+				DrawRect(new Rect2(P(3, 4), P(18, 16)), color, false, w, true);
+				DrawPolyline(new[] { P(4, 18), P(10, 11), P(14, 15), P(16, 13), P(20, 17) }, color, w, true);
+				DrawArc(P(16, 8), 1.8f * k, 0, Mathf.Tau, 16, color, w, true);
+				break;
 		}
 	}
 }

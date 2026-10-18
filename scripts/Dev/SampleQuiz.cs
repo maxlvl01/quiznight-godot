@@ -63,6 +63,12 @@ public static class SampleQuiz
 				Id = "q8", Type = QuestionType.Classic, Mode = ClassicMode.Multi, Prompt = "Which of these are planets?",
 				Choices = new() { "Mars", "Venus", "Pluto", "The Moon" }, CorrectChoices = new() { 0, 1 }, TimeLimitSec = 20, Points = 2,
 			},
+			new()
+			{
+				Id = "q9", Type = QuestionType.Image, Prompt = "Which game's map is this?", AnswerText = "Skyrim", Points = 1,
+				Image = tex?.GetImage() is { } map ? Images.Encode((Image)map.Duplicate(), 1024) : Picture(1280, 720, new Color("#456"), new Color("#123"), "?"),
+				RevealStyle = RevealStyle.Pixelate, RevealSec = 20, Focus = new NormPoint(0.5, 0.45),
+			},
 		};
 		return new Quiz
 		{

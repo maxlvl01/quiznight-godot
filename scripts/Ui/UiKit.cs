@@ -23,6 +23,9 @@ public static class C
 	public static readonly Color Coral = new("#ff6b7a");
 	public static readonly Color Purple = new("#9d8cff");
 	public static readonly Color Sky = new("#5cc8ff");
+	public static readonly Color Pink = new("#ff8ad8");
+	public static readonly Color Lime = new("#a8e05f");
+	public static readonly Color Orange = new("#ff9f43");
 
 	/// <summary>A–D tiles: coral, sky, yellow, teal.</summary>
 	public static readonly Color[] Choice = { Coral, Sky, Accent, Teal };
@@ -34,6 +37,7 @@ public static class C
 		QuestionType.Classic => Purple,
 		QuestionType.Sound => Coral,
 		QuestionType.Video => Sky,
+		QuestionType.Image => Pink,
 		_ => Muted,
 	};
 }

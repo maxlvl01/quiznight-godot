@@ -14,9 +14,10 @@ public static class QuestionType
 	public const string MapPin = "mapPin";
 	public const string Sound = "sound";
 	public const string Video = "video";
+	public const string Image = "image";
 
 	/// <summary>Order the editor shows them in.</summary>
-	public static readonly string[] All = { MapPin, Estimation, Classic, Sound, Video };
+	public static readonly string[] All = { MapPin, Estimation, Classic, Sound, Video, Image };
 
 	public record Info(string Label, string Short, string Blurb);
 
@@ -27,6 +28,7 @@ public static class QuestionType
 		[Classic] = new("Classic question", "classic", "Buzz in and say the answer, or everyone picks from up to 4 answers (one or several right)."),
 		[Sound] = new("Sound", "sound", "Play a song or sound effect. Players buzz in; shows how fast it was guessed."),
 		[Video] = new("Video", "video", "Play a trailer or clip. Players buzz in; shows how fast it was guessed."),
+		[Image] = new("Image reveal", "image reveal", "A picture starts zoomed right in or pixelated and slowly gets clearer. Players buzz in; shows how fast it was guessed."),
 	};
 
 	public static bool IsKnown(string type) => Infos.ContainsKey(type);
@@ -39,6 +41,19 @@ public static class ClassicMode
 	public const string Choice = "choice";
 	/// <summary>Like choice, but several answers can be right; players pick all they think are.</summary>
 	public const string Multi = "multi";
+}
+
+/// <summary>How an image reveal question uncovers its picture.</summary>
+public static class RevealStyle
+{
+	public const string Zoom = "zoom";
+	public const string Pixelate = "pixelate";
+
+	public static readonly (string Id, string Label)[] All =
+	{
+		(Zoom, "Zoomed in, zooms out"),
+		(Pixelate, "Pixelated, gets sharper"),
+	};
 }
 
 /// <summary>What happens when several players are equally close.</summary>
@@ -149,6 +164,13 @@ public sealed class Question
 	/// <summary>Start playing this many seconds into the file (skip intros).</summary>
 	public double StartSec;
 
+	// image reveal
+	public string RevealStyle = Shared.RevealStyle.Zoom;
+	/// <summary>How long the picture takes to become fully clear.</summary>
+	public int RevealSec = QuestionLimits.RevealSecDefault;
+	/// <summary>Zoom: the spot it starts zoomed in on (0–1 on the picture).</summary>
+	public NormPoint Focus = new(0.5, 0.5);
+
 	// estimation
 	public double? AnswerNumber;
 	public string Unit = "";
@@ -164,6 +186,8 @@ public sealed class Question
 	public bool BuzzFirst;
 
 	public bool IsMedia => Type is QuestionType.Sound or QuestionType.Video;
+	/// <summary>Sound, video and image reveal: buzz times count on a clock that only runs while it plays.</summary>
+	public bool HasPlayClock => IsMedia || Type == QuestionType.Image;
 	public bool IsCloseness => Type is QuestionType.Estimation or QuestionType.MapPin;
 	/// <summary>Everyone picks from the answers (one correct, or several in multi mode).</summary>
 	public bool IsChoice => Type == QuestionType.Classic && Mode is ClassicMode.Choice or ClassicMode.Multi;
@@ -172,8 +196,8 @@ public sealed class Question
 	/// <summary>Indexes of the right answers, in either choice mode.</summary>
 	public List<int> CorrectSet => IsMulti ? CorrectChoices.Distinct().OrderBy(i => i).ToList() : new List<int> { CorrectChoice };
 	/// <summary>Players buzz in (classic buzzer, sound, video) instead of everyone answering.</summary>
-	public bool IsBuzzer => IsMedia || (Type == QuestionType.Classic && !IsChoice);
-	public bool HasImageField => Type is QuestionType.Classic or QuestionType.Estimation or QuestionType.MapPin;
+	public bool IsBuzzer => HasPlayClock || (Type == QuestionType.Classic && !IsChoice);
+	public bool HasImageField => Type is QuestionType.Classic or QuestionType.Estimation or QuestionType.MapPin or QuestionType.Image;
 
 	// Through text: in-memory JsonValues don't convert between number types when read back.
 	public Question Clone() =>
@@ -204,13 +228,16 @@ public static class QuestionLimits
 	public const int PointsMax = 10;
 	public const int TitleMaxLength = 60;
 	public const int PromptMaxLength = 300;
+	public const int RevealSecMin = 5;
+	public const int RevealSecMax = 120;
+	public const int RevealSecDefault = 20;
 }
 
 public static class QuizRules
 {
 	/// <summary>
 	/// 2: classic questions got an A–D mode, new sound and video types (old files are migrated).
-	/// 3: classic "multi" mode with several correct answers (correctChoices).
+	/// 3: classic "multi" mode with several correct answers (correctChoices); image reveal, order and write questions.
 	/// </summary>
 	public const int FormatVersion = 3;
 
@@ -248,6 +275,9 @@ public static class QuizRules
 				break;
 			case QuestionType.Video:
 				q.Prompt = "Which game is this trailer from?";
+				break;
+			case QuestionType.Image:
+				q.Prompt = "What is this?";
 				break;
 			case QuestionType.MapPin:
 				q.Prompt = "Where is this?";
@@ -288,6 +318,11 @@ public static class QuizRules
 		if (q.IsMedia)
 		{
 			if (q.Media == null || q.Media.DataUrl == "") issues.Add(Lang.T(q.Type == QuestionType.Sound ? "Upload a sound file." : "Upload a video."));
+			if (string.IsNullOrWhiteSpace(q.AnswerText)) issues.Add(Lang.T("The correct answer is missing."));
+		}
+		if (q.Type == QuestionType.Image)
+		{
+			if (q.Image == null) issues.Add(Lang.T("Upload a picture."));
 			if (string.IsNullOrWhiteSpace(q.AnswerText)) issues.Add(Lang.T("The correct answer is missing."));
 		}
 		if (q.Type == QuestionType.Estimation && (q.AnswerNumber is not { } n || !double.IsFinite(n)))
