@@ -35,7 +35,7 @@ public sealed class ClientSession : IDisposable
 	public bool Reconnecting => _lostAt != null;
 	public readonly ClientAssets Assets;
 	/// <summary>The game's videos, for playing them on this screen too.</summary>
-	public readonly ClientVideos Videos = new();
+	public readonly ClientMedia Media = new();
 
 	public event Action? Changed;
 	/// <summary>The session is over (left, kicked, room closed, couldn't join). Carries the reason to show.</summary>
@@ -50,6 +50,7 @@ public sealed class ClientSession : IDisposable
 		_clientId = clientId;
 		_connect = connect;
 		Assets = new ClientAssets(key => _net?.Send(Msg.Encode(Msg.AssetRequest, new AssetRequest { Key = key })));
+		Media.ProgressChanged += (id, percent) => _net?.Send(Msg.Encode(Msg.MediaProgress, new MediaProgress { Id = id, Percent = percent }));
 	}
 
 	public static ClientSession Lan(string address, int port, string name, string clientId) =>
@@ -119,9 +120,9 @@ public sealed class ClientSession : IDisposable
 
 	void OnReceived(byte[] bytes)
 	{
-		if (bytes.Length > 0 && bytes[0] == VideoChunk.Marker)
+		if (bytes.Length > 0 && bytes[0] == MediaChunk.Marker)
 		{
-			Videos.Receive(bytes);
+			Media.Receive(bytes);
 			return;
 		}
 		if (Msg.Decode(bytes) is not { } msg) return;
@@ -139,6 +140,8 @@ public sealed class ClientSession : IDisposable
 				MyId = reply.PlayerId;
 				_lostAt = null;
 				if (cameBack) Assets.RetryMissing();
+				// (the host forgets a connection's downloads when it drops)
+				foreach (var (id, percent) in Media.AllProgress()) _net?.Send(Msg.Encode(Msg.MediaProgress, new MediaProgress { Id = id, Percent = percent }));
 				Changed?.Invoke();
 				break;
 			case Msg.State:
@@ -196,7 +199,7 @@ public sealed class ClientSession : IDisposable
 		FailPendingAnswers("You left the room.");
 		_net?.Dispose();
 		_net = null;
-		Videos.Dispose();
+		Media.Dispose();
 		Ended?.Invoke(reason);
 	}
 

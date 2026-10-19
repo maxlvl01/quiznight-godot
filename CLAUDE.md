@@ -32,13 +32,19 @@ the original design decisions; most still apply.
   (`Images.BuiltinFile` finds them there). New map images need the same 3-line `importer="keep"` .import file.
 - **The host runs the pace.** Questions open hidden (`Game.Shown`) until the host shows them; buzzers stay
   locked (`BuzzersOpen`) until unlocked — both lobby rules. Players get no content of a hidden question, and
-  an image reveal's picture only at the reveal. Choice answers and order items are shuffled per game
+  an image reveal's picture revealed in step with the host's. Choice answers and order items are shuffled per game
   (`QuizRules.ShuffleChoices`/`ShuffleOrder`); the stored quiz is never changed.
 - **Game state is per viewer** (`Room.ToState(viewer)`): players never get answers before the
   reveal. Question images/custom maps are fetched by asset key (`q3/image`, `q3/map`) only for
   questions already shown, split into ≤300 KB parts (Steam's message limit is 512 KB).
-- **Media plays only on the host** and is never sent. Godot plays MP3/OGG/WAV and `.ogv` video
-  only (no MP4/WebM) — the editor rejects others with a conversion hint.
+- **Players see and hear what the host's screen shows** (no Discord stream needed), except answers. Sound and
+  video files go to every player in the background from the game's start (`Game.SharedFiles`, `HostSession.SendMedia`:
+  binary `MediaChunk` messages, AES-encrypted, paced with `TrySend`); the id and key come with the question once
+  it's shown. Players report download progress (`Msg.MediaProgress`); the host starts sound/video by hand
+  (`HostMedia`, "Everyone has it"), players' copies follow the play clock (`PlayerVideo`, `PlayerSound`,
+  `PlayerImageReveal` via `PlayClock`) and the video is blurred until it first starts. After a wrong answer
+  media stays paused until the host resumes it. Godot plays MP3/OGG/WAV and `.ogv` video only (no MP4/WebM) —
+  the editor rejects others with a conversion hint.
 - **Timers run on `Room.Tick()`** from `_Process` (no threads); all networking is polled on the
   main thread. Steam callbacks run inside `SteamClient.RunCallbacks()`, so awaited Steam calls
   continue *inside* a callback — never shut Steam down there (`App.Quit` defers for that reason).

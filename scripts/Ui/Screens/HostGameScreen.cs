@@ -263,6 +263,10 @@ public partial class HostMedia : VBoxContainer
 	bool _autoPaused;
 	bool _answering;
 	bool _open = true;
+	bool _started;
+	double _readyCheck;
+	/// <summary>Before the start: who still downloads the file (it plays on the players' screens too).</summary>
+	readonly Label _ready = U.Muted("", 14);
 	readonly Label _hint = U.Muted("Nobody's answering now: resume it, or reveal the answer if nobody knows it.", 14).With(l => l.Visible = false);
 
 	public HostMedia() : this(null!, new PublicQuestion(), null, 0) { }
@@ -293,6 +297,7 @@ public partial class HostMedia : VBoxContainer
 			_time = U.Mono("0:00", 18, C.Muted);
 			AddChild(U.Panel(GameParts.Row(18, _toggle, _bars.Grow(), _time), "Inset"));
 			AddChild(_hint);
+			AddChild(_ready);
 		}
 		else
 		{
@@ -305,16 +310,22 @@ public partial class HostMedia : VBoxContainer
 			_video = new VideoStreamPlayer { Stream = stream, Bus = Prefs.MusicBus };
 			var frame = new VideoFrame(_video) { CustomMinimumSize = new Vector2(0, 200) }.MarkFlexible();
 			AddChild(U.Panel(frame, "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(Colors.Black, 12, null, 0, 0, 0))));
-			_toggle = U.Small("Pause", Toggle);
+			_toggle = U.Btn("▶ Start video", "AccentButton", Toggle, 17);
 			_time = U.Mono("0:00", 15, C.Muted);
-			AddChild(GameParts.Row(10, _toggle, _time, _hint));
+			AddChild(GameParts.Row(10, _toggle, _time, _hint, _ready));
 		}
-		// Autoplay from the start point.
-		CallDeferred(MethodName.Start);
+		// (no autoplay: the host starts it once everyone has the file; until then players see it blurred)
+	}
+
+	/// <summary>Like pressing Start (the autopilot uses it).</summary>
+	public void StartNow()
+	{
+		if (!_started) Toggle();
 	}
 
 	void Start()
 	{
+		_started = true;
 		var from = (float)(_q.StartSec ?? 0);
 		if (_audio != null) _audio.Play(from);
 		if (_video != null)
@@ -328,6 +339,11 @@ public partial class HostMedia : VBoxContainer
 
 	void SetPaused(bool paused)
 	{
+		if (!_started)
+		{
+			if (!paused) Start();
+			return;
+		}
 		if (_audio != null)
 		{
 			if (!_audio.Playing && !paused) _audio.Play((float)(_q.StartSec ?? 0));
@@ -371,10 +387,34 @@ public partial class HostMedia : VBoxContainer
 		}
 		var waiting = _autoPaused && !playing && !_answering && _open;
 		_hint.Visible = waiting;
-		if (_toggle != null) _toggle.Text = _audio != null ? (playing ? "❚❚" : "▶") : playing ? "Pause" : waiting ? "▶ Resume" : "Play";
+		if (_toggle != null)
+		{
+			_toggle.Text = _audio != null ? (playing ? "❚❚" : "▶") : playing ? Lang.T("Pause") : !_started ? Lang.T("▶ Start video") : waiting ? Lang.T("▶ Resume") : Lang.T("Play");
+			_toggle.ThemeTypeVariation = _started && _video != null ? "SmallButton" : "AccentButton";
+		}
+		_readyCheck -= delta;
+		if (_readyCheck <= 0)
+		{
+			_readyCheck = 0.25;
+			UpdateReady();
+		}
 		if (_bars != null) _bars.Active = playing;
 		var pos = _audio != null ? _audio.GetPlaybackPosition() : _video?.StreamPosition ?? 0;
 		if (_time != null) _time.Text = U.Clock(pos) + (_duration is { } d ? $" / {U.Clock(d)}" : "");
+	}
+
+	/// <summary>Before the start: "Everyone has it" or who is still downloading, and how far.</summary>
+	void UpdateReady()
+	{
+		_ready.Visible = !_started && _open && _q.MediaId != null;
+		if (!_ready.Visible) return;
+		var missing = _host.Room.Players.Where(p => p.Connected)
+			.Select(p => (p.Name, Percent: _host.MediaPercent(p.Id, _q.MediaId!)))
+			.Where(p => p.Percent < 100).ToList();
+		_ready.Text = missing.Count == 0
+			? Lang.T("Everyone has it: start it when you're ready.")
+			: Lang.F("Still downloading: {0}", string.Join(", ", missing.Select(m => $"{m.Name} {m.Percent}%")));
+		_ready.AddThemeColorOverride("font_color", missing.Count == 0 ? C.Teal : C.Muted);
 	}
 
 	public override void _ExitTree()

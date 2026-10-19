@@ -14,12 +14,20 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 ## [Unreleased]
 
 ### Added
-- **Videos play on the players' screens too**, in step with the host's: they play, pause and jump along with it.
-  The video is blurred until the host starts it, and players can turn its sound off. The game sends every video to
-  the players in the background from the start of the quiz (locked, so nobody can watch it before its question).
+- **Players see and hear everything the host's screen shows** (except the answers), so nobody needs to watch a
+  Discord stream:
+  - **Videos and sounds play on the players' PCs too**, in step with the host's: they play, pause and jump along
+    with it. Players can turn the sound off. The game sends them to everyone in the background from the start of
+    the quiz (locked, so nobody can watch or listen before its question).
+  - **The host starts them**: next to the Start button you see who's still downloading, or "Everyone has it".
+    Until then, players see the video blurred, so nobody can sit on the buzzer.
+  - **Image reveal**: players see the picture getting clearer on their own screen, in step with the host's.
+  - **At the reveal** players see everyone's answers, like on the host's screen.
+- **Space background on wide monitors**: the Cosmic Cliffs (James Webb Space Telescope) fill the space beside the
+  screens, slightly out of focus, sharp where the mouse is.
 
 ### Changed
-- **Sound and video questions stay paused after a wrong answer** (when nobody else is in line): the host decides
+- **Sound, video and image reveal questions stay paused after a wrong answer** (when nobody else is in line): the host decides
   whether to resume it or to reveal the answer if nobody knows it.
 - **Much faster updates.** The game now downloads only the files that changed (usually a few MB instead of the whole
   game), several at once, and no longer slows the download down while it shows the progress bar. The update to this

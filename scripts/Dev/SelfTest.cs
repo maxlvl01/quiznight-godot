@@ -285,11 +285,13 @@ public static class SelfTest
 		Eq(string.Join(",", g.View("host").Reveal!.CorrectIndices!), string.Join(",", rightSet), "reveal marks both");
 		Eq(g.View("host").Reveal!.Counts![rightSet[0]], 3, "multi counts");
 
-		// Image reveal: the picture stays on the host's screen until the reveal; buzz times use its clock.
+		// Image reveal: players get the picture once it's shown and reveal it in step with the host; buzz times use its clock.
 		room.Next();
 		Eq(g.Question.Type, QuestionType.Image, "image reveal question");
-		Check(g.View("ann").Question.ImageKey == null, "players don't get the picture while it's open");
-		Check(g.AssetDataUrl(Game.ImageKey(8)) == null, "nor can they fetch it");
+		g.ShowQuestion();
+		var revealQ = g.View("ann").Question;
+		Check(revealQ.ImageKey != null && g.AssetDataUrl(Game.ImageKey(8)) != null, "players get the picture once it's shown");
+		Check(revealQ.RevealStyle != null && revealQ.RevealSec > 0 && revealQ.Focus != null, "with how it's revealed");
 		g.SetMedia(true);
 		clock.Now += 4000;
 		g.BuzzIn("bob");
@@ -473,9 +475,9 @@ public static class SelfTest
 		Eq(back.Game!.Reveal!.Target!.Value.Y, 0.2, "state target");
 		Eq(back.Game.Reveal.Entries[0].Value!.Point!.Value.X, 0.3, "answer point");
 		Check(Msg.Decode(new byte[] { 1, 2, 3 }) == null, "garbage message ignored");
-		var chunk = VideoChunk.Encode("ab12", 1000, 300, new byte[] { 7, 8, 9 });
-		Check(VideoChunk.TryDecode(chunk, out var cid, out var ctotal, out var coffset, out var cdata) && cid == "ab12" && ctotal == 1000 && coffset == 300 && cdata.Span.SequenceEqual(new byte[] { 7, 8, 9 }), "video piece round trip");
-		Check(!VideoChunk.TryDecode(VideoChunk.Encode("x", 10, 9, new byte[] { 1, 2 }), out _, out _, out _, out _), "video piece past the end is refused");
+		var chunk = MediaChunk.Encode("ab12", 1000, 300, new byte[] { 7, 8, 9 });
+		Check(MediaChunk.TryDecode(chunk, out var cid, out var ctotal, out var coffset, out var cdata) && cid == "ab12" && ctotal == 1000 && coffset == 300 && cdata.Span.SequenceEqual(new byte[] { 7, 8, 9 }), "video piece round trip");
+		Check(!MediaChunk.TryDecode(MediaChunk.Encode("x", 10, 9, new byte[] { 1, 2 }), out _, out _, out _, out _), "video piece past the end is refused");
 
 		var reader = new FrameReader();
 		var frames = FrameReader.Frame(new byte[] { 1, 2, 3 }).Concat(FrameReader.Frame(new byte[] { 4 })).ToArray();

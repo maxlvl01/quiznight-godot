@@ -1,7 +1,8 @@
 // Image reveal questions: a picture that starts zoomed right in or pixelated and gets clearer over the
 // question's reveal time. ImageRevealView draws it at any progress (0 = hardest, 1 = the whole picture);
-// HostImageReveal runs the clock on the host screen like HostMedia does for sound: it pauses while
-// someone answers and tells the host session when it runs (buzz times are measured on that clock).
+// HostImageReveal runs the clock on the host screen like HostMedia does for sound: it pauses when someone
+// buzzes and tells the host session when it runs (buzz times are measured on that clock; players' screens
+// reveal the picture in step with it, PlayerImageReveal).
 
 using System;
 using System.Linq;
@@ -221,7 +222,10 @@ public partial class HostImageReveal : VBoxContainer
 
 	bool Running => _open && !_paused && _played < _duration;
 
-	/// <summary>Follows the game: pause while someone answers, show it all at the reveal.</summary>
+	/// <summary>
+	/// Follows the game: pauses when someone buzzes and stays paused after a wrong answer until the host
+	/// resumes it (or reveals the answer); shows it all at the reveal.
+	/// </summary>
 	public void Update(GameView game)
 	{
 		_open = game.Stage == Stage.Open;
@@ -232,11 +236,6 @@ public partial class HostImageReveal : VBoxContainer
 		{
 			_autoPaused = true;
 			_paused = true;
-		}
-		else if (!answering && _autoPaused && _open)
-		{
-			_autoPaused = false;
-			_paused = false;
 		}
 	}
 
@@ -252,7 +251,7 @@ public partial class HostImageReveal : VBoxContainer
 		var progress = _open ? (float)(_played / _duration) : 1;
 		_view.Progress = progress;
 		_bar.Value = progress;
-		_toggle.Text = Lang.T(_played >= _duration ? "Again" : _paused ? "Play" : "Pause");
+		_toggle.Text = Lang.T(_played >= _duration ? "Again" : _paused && _autoPaused ? "▶ Resume" : _paused ? "Play" : "Pause");
 		_toggle.Visible = _host == null || _open && _played < _duration;
 		_time.Text = $"{Math.Floor(_played)} / {_duration} s";
 	}

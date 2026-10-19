@@ -80,22 +80,23 @@ public sealed class Game
 			Questions = quiz.Questions.Select(q => q.IsChoice ? QuizRules.ShuffleChoices(q, rng) : q.Type == QuestionType.Order ? QuizRules.ShuffleOrder(q, rng) : q).ToList(),
 		};
 		_hooks = hooks;
-		// Every playable video also plays on the players' screens: a random id and key per game (see SharedVideo).
-		Videos = _quiz.Questions
+		// Every sound and playable video also plays on the players' screens: a random id and key per game (see SharedMedia).
+		SharedFiles = _quiz.Questions
 			.Select((q, i) => (q, i))
-			.Where(x => x.q.Type == QuestionType.Video && x.q.Media is { } m && Storage.Media.CanPlayVideo(m))
-			.Select(x => new SharedVideo(x.i, Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(8)),
-				System.Security.Cryptography.RandomNumberGenerator.GetBytes(32), x.q.Media!.DataUrl))
+			.Where(x => x.q.Media is { DataUrl: not "" } m && (x.q.Type == QuestionType.Sound || x.q.Type == QuestionType.Video && Storage.Media.CanPlayVideo(m)))
+			.Select(x => new SharedMedia(x.i, Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(8)),
+				System.Security.Cryptography.RandomNumberGenerator.GetBytes(32), x.q.Media!.DataUrl,
+				DataUrl.TryParse(x.q.Media.DataUrl, out var mime, out _) && mime != "" ? mime : x.q.Media.Mime))
 			.ToList();
 		Open(0);
 	}
 
 	/// <summary>
-	/// A video question's video, for the players' screens. HostSession sends it to everyone ahead of time,
+	/// A sound or video question's file, for the players' screens. HostSession sends it to everyone ahead of time,
 	/// encrypted with Key; the id and key only reach players with the question, once it's shown.
 	/// </summary>
-	public sealed record SharedVideo(int Index, string Id, byte[] Key, string DataUrl);
-	public readonly IReadOnlyList<SharedVideo> Videos;
+	public sealed record SharedMedia(int Index, string Id, byte[] Key, string DataUrl, string Mime);
+	public readonly IReadOnlyList<SharedMedia> SharedFiles;
 
 	public Question Question => _quiz.Questions[Index];
 
@@ -755,8 +756,6 @@ public sealed class Game
 		string.Join(" · ", picks.Select(i => $"{QuizRules.ChoiceLetters[i]}: {q.Choices[i]}"));
 
 	/// <summary>An image reveal's picture while its question is still open.</summary>
-	bool HiddenPicture(int index) => index == Index && Stage == Shared.Stage.Open && _quiz.Questions[index].Type == QuestionType.Image;
-
 	public static string ImageKey(int index) => $"q{index}/image";
 	public static string MapKey(int index) => $"q{index}/map";
 
@@ -772,8 +771,8 @@ public sealed class Game
 			Written = q.IsWritten,
 			BonusPoints = q.BonusPoints,
 			BonusText = q.HasBonus ? q.BonusText : null,
-			// (an image reveal's picture only plays on the host's screen; players get it at the reveal)
-			ImageKey = q.HasImageField && q.Image != null && !HiddenPicture(Index) ? ImageKey(Index) : null,
+			// (players see only what's shown: an image reveal's picture is revealed on their screen in step with the host's)
+			ImageKey = q.HasImageField && q.Image != null ? ImageKey(Index) : null,
 		};
 		if (q.Type == QuestionType.Classic)
 		{
@@ -814,10 +813,18 @@ public sealed class Game
 			pq.TimeLimitSec = q.TimeLimitSec;
 		}
 		if (q.IsMedia) pq.StartSec = q.StartSec;
-		if (Videos.FirstOrDefault(v => v.Index == Index) is { } video)
+		if (q.Type == QuestionType.Image)
 		{
-			pq.VideoId = video.Id;
-			pq.VideoKey = Convert.ToBase64String(video.Key);
+			// Players reveal the picture on their own screen, in step with the host's (the play clock).
+			pq.RevealStyle = q.RevealStyle;
+			pq.RevealSec = q.RevealSec;
+			pq.Focus = q.Focus;
+		}
+		if (SharedFiles.FirstOrDefault(v => v.Index == Index) is { } video)
+		{
+			pq.MediaId = video.Id;
+			pq.MediaKey = Convert.ToBase64String(video.Key);
+			pq.MediaMime = video.Mime;
 		}
 		return pq;
 	}
@@ -869,7 +876,6 @@ public sealed class Game
 		if (parts.Length != 2 || !parts[0].StartsWith('q') || !int.TryParse(parts[0].AsSpan(1), out var index)) return null;
 		if (index < 0 || index > Index || index >= _quiz.Questions.Count) return null;
 		if (!host && index == Index && !Shown && Stage == Shared.Stage.Open) return null;
-		if (!host && HiddenPicture(index)) return null;
 		var q = _quiz.Questions[index];
 		if (parts[1] == "image" && q.HasImageField && q.Image != null) return q.Image.DataUrl;
 		if (parts[1] == "map" && q.Type == QuestionType.MapPin) return _quiz.MapById(q.MapId)?.Image.DataUrl;

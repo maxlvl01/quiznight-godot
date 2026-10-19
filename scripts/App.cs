@@ -35,6 +35,7 @@ public partial class App : Control
 		Theme = UiTheme.Build();
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		AddChild(new ColorRect { Color = C.Bg }.With(r => r.SetAnchorsPreset(LayoutPreset.FullRect)));
+		AddChild(new SpaceBackdrop().With(b => b.SetAnchorsPreset(LayoutPreset.FullRect)));
 		_screens.SetAnchorsPreset(LayoutPreset.FullRect);
 		AddChild(_screens);
 		_banners.SetAnchorsPreset(LayoutPreset.TopWide);

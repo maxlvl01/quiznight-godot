@@ -33,8 +33,8 @@ public partial class PlayerVideo : VBoxContainer
 			""",
 	};
 
-	/// <summary>The player's choice, for the rest of this session.</summary>
-	static bool _soundOn = true;
+	/// <summary>The player's choice for sound and video, for the rest of this session.</summary>
+	public static bool SoundOn = true;
 
 	readonly ClientSession _client;
 	readonly Func<RoomState> _room;
@@ -68,7 +68,7 @@ public partial class PlayerVideo : VBoxContainer
 		AddChild(stage);
 		_sound = U.Small("", () =>
 		{
-			_soundOn = !_soundOn;
+			SoundOn = !SoundOn;
 			ApplySound();
 		});
 		AddChild(GameParts.Row(10, _sound, U.Muted("The video plays along with the host's.", 13)));
@@ -77,8 +77,8 @@ public partial class PlayerVideo : VBoxContainer
 
 	void ApplySound()
 	{
-		_video.VolumeDb = _soundOn ? 0 : -80;
-		_sound.Text = _soundOn ? Lang.T("Sound: on") : Lang.T("Sound: off");
+		_video.VolumeDb = SoundOn ? 0 : -80;
+		_sound.Text = SoundOn ? Lang.T("Sound: on") : Lang.T("Sound: off");
 	}
 
 	public override void _Process(double delta)
@@ -87,14 +87,14 @@ public partial class PlayerVideo : VBoxContainer
 		if (room.Game is not { } game) return;
 		if (_video.Stream == null)
 		{
-			if (_client.Videos.Get(_id, _key) is { } stream)
+			if (_client.Media.GetVideo(_id, _key) is { } stream)
 			{
 				_video.Stream = stream;
 				_status.Text = "";
 			}
 			else
 			{
-				var p = _client.Videos.Progress(_id);
+				var p = _client.Media.Progress(_id);
 				_status.Text = p >= 1 ? Lang.T("Getting the video ready…") : Lang.F("The video is still on its way: {0}%", (int)(p * 100));
 				return;
 			}

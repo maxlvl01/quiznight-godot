@@ -67,10 +67,15 @@ public static class Media
 	public static AudioStream? LoadSound(MediaAsset media)
 	{
 		var bytes = DataUrl.Bytes(media.DataUrl, out var mime);
-		if (bytes == null) return null;
+		return bytes == null ? null : LoadSound(bytes, mime == "" ? media.Mime : mime);
+	}
+
+	/// <summary>A sound file's bytes as a playable stream (null for formats Godot can't play).</summary>
+	public static AudioStream? LoadSound(byte[] bytes, string mime)
+	{
 		try
 		{
-			return (mime == "" ? media.Mime : mime) switch
+			return mime switch
 			{
 				"audio/mpeg" or "audio/mp3" => new AudioStreamMP3 { Data = bytes },
 				"audio/ogg" or "audio/vorbis" => AudioStreamOggVorbis.LoadFromBuffer(bytes),

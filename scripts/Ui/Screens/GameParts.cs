@@ -137,12 +137,13 @@ public static class GameParts
 	/// <summary>The answer and everyone's result, shown on the host screen after the reveal.</summary>
 	/// <param name="toggle">Host, write-the-answer: tick or untick a player's answer.</param>
 	/// <param name="bonus">Host, on a question with a bonus: give it to a player or take it back.</param>
-	public static Control RevealPanel(RoomState room, Action<string>? toggle = null, Action<string>? bonus = null)
+	/// <param name="heading">False on players' screens, which show the answer above it already.</param>
+	public static Control RevealPanel(RoomState room, Action<string>? toggle = null, Action<string>? bonus = null, bool heading = true)
 	{
 		var game = room.Game!;
 		var reveal = game.Reveal!;
 		var q = game.Question;
-		var box = U.V(10, new HSeparator(), U.Eyebrow("The answer"), U.Text(reveal.AnswerText, 34, C.Accent, Fonts.Black, true).Raw());
+		var box = heading ? U.V(10, new HSeparator(), U.Eyebrow("The answer"), U.Text(reveal.AnswerText, 34, C.Accent, Fonts.Black, true).Raw()) : U.V(10, U.Eyebrow("Everyone's answers"));
 		if (q.BonusPoints <= 0) bonus = null;
 		if (q.Buzzer)
 		{

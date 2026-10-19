@@ -39,20 +39,27 @@ public sealed class HostSession : IDisposable
 	{
 		_net.Poll();
 		if (Room.Tick()) Broadcast();
-		SendVideos();
+		SendMedia();
 	}
 
 	// ---------- videos for the players' screens ----------
-	// From the start of a game, every player gets the game's videos (Game.Videos), encrypted, in question
+	// From the start of a game, every player gets the game's sound and video files (Game.SharedFiles), encrypted, in question
 	// order, from the current question on: as fast as their connection takes them (TrySend), in the
 	// background. The key comes with the question once it's shown, so nobody can watch ahead.
+
+	/// <summary>What players said they have: player id → file id → percent.</summary>
+	readonly Dictionary<string, Dictionary<string, int>> _mediaProgress = new();
+
+	/// <summary>How much of a sound/video file a player has, 0–100.</summary>
+	public int MediaPercent(string playerId, string mediaId) =>
+		_mediaProgress.TryGetValue(playerId, out var got) && got.TryGetValue(mediaId, out var p) ? p : 0;
 
 	Game? _videoGame;
 	readonly Dictionary<string, Task<byte[]>> _encrypted = new();
 	/// <summary>Per connection: how far each video has been sent.</summary>
 	readonly Dictionary<string, Dictionary<string, long>> _videoSent = new();
 
-	void SendVideos()
+	void SendMedia()
 	{
 		var game = Playing() ? Room.Game : null;
 		if (game != _videoGame)
@@ -60,29 +67,30 @@ public sealed class HostSession : IDisposable
 			_videoGame = game;
 			_encrypted.Clear();
 			_videoSent.Clear();
-			foreach (var v in game?.Videos ?? Array.Empty<Game.SharedVideo>()) _encrypted[v.Id] = Task.Run(() => Encrypt(v));
+			_mediaProgress.Clear();
+			foreach (var v in game?.SharedFiles ?? Array.Empty<Game.SharedMedia>()) _encrypted[v.Id] = Task.Run(() => Encrypt(v));
 		}
-		if (game == null || game.Videos.Count == 0) return;
+		if (game == null || game.SharedFiles.Count == 0) return;
 		foreach (var peer in _peerPlayer.Keys)
 		{
 			if (!_videoSent.TryGetValue(peer, out var sent)) _videoSent[peer] = sent = new();
 			// (at most 8 MB per frame and connection; usually the connection says "full" much sooner)
 			for (var n = 0; n < 32; n++)
 			{
-				var next = game.Videos.Where(v => v.Index >= game.Index)
+				var next = game.SharedFiles.Where(v => v.Index >= game.Index)
 					.Select(v => (v.Id, Data: _encrypted[v.Id] is { IsCompletedSuccessfully: true } t ? t.Result : null))
 					.FirstOrDefault(v => v.Data != null && sent.GetValueOrDefault(v.Id) < v.Data.Length);
 				if (next.Data == null) break;
 				var offset = sent.GetValueOrDefault(next.Id);
-				var size = (int)Math.Min(VideoChunk.MaxData, next.Data.Length - offset);
-				if (!_net.TrySend(peer, VideoChunk.Encode(next.Id, next.Data.Length, offset, next.Data.AsSpan((int)offset, size)))) break;
+				var size = (int)Math.Min(MediaChunk.MaxData, next.Data.Length - offset);
+				if (!_net.TrySend(peer, MediaChunk.Encode(next.Id, next.Data.Length, offset, next.Data.AsSpan((int)offset, size)))) break;
 				sent[next.Id] = offset + size;
 			}
 		}
 	}
 
 	/// <summary>The video encrypted with AES-CBC, the 16-byte IV first.</summary>
-	static byte[] Encrypt(Game.SharedVideo video)
+	static byte[] Encrypt(Game.SharedMedia video)
 	{
 		var plain = DataUrl.Bytes(video.DataUrl, out _) ?? Array.Empty<byte>();
 		using var aes = System.Security.Cryptography.Aes.Create();
@@ -142,6 +150,14 @@ public sealed class HostSession : IDisposable
 				if (result.Ok) Broadcast();
 				break;
 			}
+			case Msg.MediaProgress when playerId != null:
+				if (Msg.Read<MediaProgress>(msg.Data) is { } mp)
+				{
+					if (!_mediaProgress.TryGetValue(playerId, out var got)) _mediaProgress[playerId] = got = new();
+					got[mp.Id] = Math.Clamp(mp.Percent, 0, 100);
+					Changed?.Invoke();
+				}
+				break;
 			case Msg.AssetRequest when playerId != null:
 				if (Msg.Read<AssetRequest>(msg.Data) is { } ar) SendAsset(peer, ar.Key);
 				break;

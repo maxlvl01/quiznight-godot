@@ -1,6 +1,6 @@
-// A player's copy of the game's videos: the host sends each one in pieces (VideoChunk), encrypted, from the
-// start of the game. They're written to this game's own cache folder as they arrive and decrypted once the
-// question is shown (its VideoKey), into an .ogv file Godot can play.
+// A player's copy of the game's sound and video files: the host sends each one in pieces (MediaChunk),
+// encrypted, from the start of the game. They're written to this game's own cache folder as they arrive and
+// decrypted once the question is shown (its MediaKey). The host hears how far each download is (Reported).
 
 using System;
 using System.Collections.Generic;
@@ -11,7 +11,7 @@ using QuizNight.Shared;
 
 namespace QuizNight.Net;
 
-public sealed class ClientVideos : IDisposable
+public sealed class ClientMedia : IDisposable
 {
 	sealed class Incoming
 	{
@@ -19,15 +19,20 @@ public sealed class ClientVideos : IDisposable
 		public long Total;
 		public long Received;
 		public readonly HashSet<long> Offsets = new();
+		public int Reported = -1;
 	}
 
-	// Each running copy of the game gets its own folder (several can run on one PC while testing).
-	readonly string _dir = Path.Combine(OS.GetUserDataDir(), "cache", "videos", OS.GetProcessId().ToString());
+	/// <summary>A download got further (id, percent in steps of 5): the host shows it before starting the media.</summary>
+	public event Action<string, int>? ProgressChanged;
+
+	// Each player in each running copy of the game gets its own folder (several can run on one PC while testing).
+	static int _count;
+	readonly string _dir = Path.Combine(OS.GetUserDataDir(), "cache", "media", $"{OS.GetProcessId()}-{System.Threading.Interlocked.Increment(ref _count)}");
 	readonly Dictionary<string, Incoming> _incoming = new();
 	readonly Dictionary<string, Task<string?>> _unlocking = new();
-	readonly Dictionary<string, VideoStream?> _ready = new();
+	readonly Dictionary<string, Resource?> _ready = new();
 
-	public ClientVideos()
+	public ClientMedia()
 	{
 		CleanUp(Path.GetDirectoryName(_dir)!);
 		Directory.CreateDirectory(_dir);
@@ -44,13 +49,13 @@ public sealed class ClientVideos : IDisposable
 		}
 		catch (Exception e)
 		{
-			GD.Print($"Couldn't clean up old videos: {e.Message}");
+			GD.Print($"Couldn't clean up old media files: {e.Message}");
 		}
 	}
 
 	public void Receive(byte[] msg)
 	{
-		if (!VideoChunk.TryDecode(msg, out var id, out var total, out var offset, out var data)) return;
+		if (!MediaChunk.TryDecode(msg, out var id, out var total, out var offset, out var data)) return;
 		if (id.Length == 0 || id.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || id.Contains("..")) return;
 		if (!_incoming.TryGetValue(id, out var file))
 		{
@@ -64,6 +69,18 @@ public sealed class ClientVideos : IDisposable
 		file.File.Write(data.Span);
 		file.Received += data.Length;
 		if (file.Received >= file.Total) file.File.Flush();
+		var percent = (int)(file.Received * 100 / file.Total) / 5 * 5;
+		if (percent != file.Reported)
+		{
+			file.Reported = percent;
+			ProgressChanged?.Invoke(id, percent);
+		}
+	}
+
+	/// <summary>Every download's progress, to tell the host again after a reconnect.</summary>
+	public IEnumerable<(string Id, int Percent)> AllProgress()
+	{
+		foreach (var (id, f) in _incoming) yield return (id, Math.Max(0, f.Reported));
 	}
 
 	/// <summary>How much of a video is here, 0–1 (0 when nothing arrived yet).</summary>
@@ -71,24 +88,31 @@ public sealed class ClientVideos : IDisposable
 		_incoming.TryGetValue(id, out var f) && f.Total > 0 ? Math.Min(1f, (float)f.Received / f.Total) : 0;
 
 	/// <summary>The playable video once it's all here and unlocked; null until then (call again next frame).</summary>
-	public VideoStream? Get(string id, string key)
+	public VideoStream? GetVideo(string id, string key) =>
+		Get(id, key, ".ogv", path => new VideoStreamTheora { File = path }) as VideoStream;
+
+	/// <summary>The sound, the same way (mime: its file type, from the question).</summary>
+	public AudioStream? GetSound(string id, string key, string mime) =>
+		Get(id, key, ".sound", path => Storage.Media.LoadSound(System.IO.File.ReadAllBytes(path), mime)) as AudioStream;
+
+	Resource? Get(string id, string key, string ext, Func<string, Resource?> load)
 	{
-		if (_ready.TryGetValue(id, out var stream)) return stream;
+		if (_ready.TryGetValue(id, out var res)) return res;
 		if (!_incoming.TryGetValue(id, out var file) || file.Received < file.Total) return null;
 		if (!_unlocking.TryGetValue(id, out var task))
 		{
 			file.File.Flush();
 			var enc = Path.Combine(_dir, id + ".enc");
-			_unlocking[id] = Task.Run(() => Unlock(enc, Path.Combine(_dir, id + ".ogv"), key));
+			_unlocking[id] = Task.Run(() => Unlock(enc, Path.Combine(_dir, id + ext), key));
 			return null;
 		}
 		if (!task.IsCompleted) return null;
 		_unlocking.Remove(id);
 		var path = task.IsCompletedSuccessfully ? task.Result : null;
-		return _ready[id] = path != null ? new VideoStreamTheora { File = path } : null;
+		return _ready[id] = path != null ? load(path) : null;
 	}
 
-	static string? Unlock(string encrypted, string ogv, string key)
+	static string? Unlock(string encrypted, string target, string key)
 	{
 		try
 		{
@@ -100,12 +124,12 @@ public sealed class ClientVideos : IDisposable
 			}
 			using var aes = System.Security.Cryptography.Aes.Create();
 			aes.Key = Convert.FromBase64String(key);
-			File.WriteAllBytes(ogv, aes.DecryptCbc(data.AsSpan(16), data.AsSpan(0, 16)));
-			return ogv;
+			File.WriteAllBytes(target, aes.DecryptCbc(data.AsSpan(16), data.AsSpan(0, 16)));
+			return target;
 		}
 		catch (Exception e)
 		{
-			GD.Print($"Couldn't unlock the video: {e.Message}");
+			GD.Print($"Couldn't unlock the file: {e.Message}");
 			return null;
 		}
 	}
@@ -120,7 +144,7 @@ public sealed class ClientVideos : IDisposable
 		}
 		catch (Exception e)
 		{
-			GD.Print($"Couldn't remove the game's videos: {e.Message}");
+			GD.Print($"Couldn't remove the game's media files: {e.Message}");
 		}
 	}
 }

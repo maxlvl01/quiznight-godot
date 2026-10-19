@@ -67,6 +67,14 @@ public sealed class DevTools
 
 	bool Has(string name) => _args.Contains(name);
 
+	/// <summary>The first node of that type under root (C# classes aren't found by Godot's FindChildren).</summary>
+	static T? Find<T>(Node root) where T : Node
+	{
+		foreach (var child in root.GetChildren())
+			if ((child as T ?? Find<T>(child)) is { } found) return found;
+		return null;
+	}
+
 	/// <summary>
 	/// --sound FILE: the sample quiz's sound question plays that file. --video FILE: a video question with that
 	/// file comes right after it. Both are read like the editor reads them.
@@ -320,6 +328,13 @@ public sealed class DevTools
 				if (!g.Shown)
 				{
 					if (waited > 1.2) host.ShowQuestion();
+					break;
+				}
+				// Sound and video: start it once every player has the file (or after a while), like a host would.
+				if (g.Question.IsMedia && !g.MediaStarted && Find<Ui.Screens.HostMedia>(_app) is { } media)
+				{
+					var everyone = g.Question.MediaId is not { } mid || host.Room.Players.Where(p => p.Connected).All(p => host.MediaPercent(p.Id, mid) >= 100);
+					if (waited > 1.5 && (everyone || waited > 30)) media.StartNow();
 					break;
 				}
 				if (g.Question.Buzzer && !g.BuzzersOpen && answering == null)

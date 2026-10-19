@@ -164,11 +164,16 @@ public sealed class PublicQuestion
 	public int? TimeLimitSec;
 	public double? StartSec;
 	/// <summary>
-	/// Video questions: the video the players' screens play too. It's sent to them ahead of time, encrypted
-	/// (VideoChunk); this id and the key to unlock it only come once the question is shown.
+	/// Sound and video questions: the file the players' screens play too. It's sent to them ahead of time, encrypted
+	/// (MediaChunk); this id and the key to unlock it only come once the question is shown.
 	/// </summary>
-	public string? VideoId;
-	public string? VideoKey;
+	public string? MediaId;
+	public string? MediaKey;
+	public string? MediaMime;
+	/// <summary>Image reveal: how the picture is revealed (players reveal it in step with the host).</summary>
+	public string? RevealStyle;
+	public int? RevealSec;
+	public NormPoint? Focus;
 
 	public bool IsMedia => Type is QuestionType.Sound or QuestionType.Video;
 	public bool HasPlayClock => IsMedia || Type == QuestionType.Image;
@@ -323,6 +328,7 @@ public static class Msg
 	public const string Buzz = "buzz";
 	public const string Answer = "answer";
 	public const string AssetRequest = "assetReq";
+	public const string MediaProgress = "mediaProgress";
 
 	// host → player
 	public const string Joined = "joined";
@@ -394,6 +400,13 @@ public sealed class AnswerRequest
 	public AnswerValue? Value;
 }
 
+/// <summary>How much of a sound/video file a player has (the host waits for everyone before starting it).</summary>
+public sealed class MediaProgress
+{
+	public string Id = "";
+	public int Percent;
+}
+
 public sealed class AssetRequest
 {
 	public string Key = "";
@@ -419,7 +432,7 @@ public sealed class ClosedNotice
 /// [Marker][id length][id, UTF-8][total size, int64][offset, int64][data]. The file is the video encrypted
 /// with AES-CBC (16-byte IV first), so players can't watch it before the host shows its question.
 /// </summary>
-public static class VideoChunk
+public static class MediaChunk
 {
 	public const byte Marker = 1;
 	public const int MaxData = 256 * 1024;

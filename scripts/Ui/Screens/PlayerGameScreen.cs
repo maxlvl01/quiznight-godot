@@ -75,11 +75,17 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 				U.Text(game.Shown || game.Stage == Stage.Reveal ? q.Prompt : "", 30, C.Text, Fonts.Black, true).Raw(),
 				game.Stage == Stage.Open && game.Shown ? new Countdown(game.EndsAt, null, 30) : U.Gap(0)));
 			if (game.Stage == Stage.Open && game.Shown && GameParts.BonusLine(q) is { } bonusLine) box.AddChild(bonusLine);
-			if (q.ImageKey != null && q.Type != QuestionType.MapPin && game.Stage == Stage.Open)
+			// What the host's screen shows plays here too, in step with it (bots without a window skip it).
+			var open = game.Stage == Stage.Open && game.Shown;
+			var window = DisplayServer.GetName() != "headless";
+			if (q.ImageKey != null && q.Type == QuestionType.Image && open)
+				box.AddChild(new PlayerImageReveal(_client.Assets, () => _room, q.ImageKey));
+			else if (q.ImageKey != null && q.Type != QuestionType.MapPin && game.Stage == Stage.Open)
 				box.AddChild(new AssetImage(_client.Assets, q.ImageKey, U.Flexible));
-			// (bots without a window have no renderer to play it)
-			if (q.VideoId != null && q.VideoKey != null && game.Stage == Stage.Open && game.Shown && DisplayServer.GetName() != "headless")
-				box.AddChild(new PlayerVideo(_client, () => _room, q.VideoId, q.VideoKey).MarkFlexible());
+			if (q.MediaId != null && q.MediaKey != null && open && window)
+				box.AddChild(q.Type == QuestionType.Video
+					? new PlayerVideo(_client, () => _room, q.MediaId, q.MediaKey).MarkFlexible()
+					: new PlayerSound(_client, () => _room, q.MediaId, q.MediaKey, q.MediaMime ?? ""));
 			return box;
 		});
 
@@ -154,12 +160,12 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		}
 		var area = U.V(14);
 		area.Alignment = BoxContainer.AlignmentMode.Center;
-		// (a video plays on this screen too, above: then the buzzer is smaller to leave it room)
-		var video = game.Question.VideoId != null;
-		var watch = game.Question.Type == QuestionType.Sound ? "Listen to the host's screen" : game.Question.Type == QuestionType.Image || game.Question.Type == QuestionType.Video && !video ? "Watch the host's screen" : null;
+		// (a video or picture plays on this screen too, above: then the buzzer is smaller to leave it room)
+		var big = game.Question.Type is QuestionType.Video or QuestionType.Image;
+		var watch = WatchHint(game.Question);
 		if (watch != null) area.AddChild(U.Muted(watch, 16, false, HorizontalAlignment.Center).Center());
 		if (answering != null) area.AddChild(U.Muted(Lang.F("{0} is answering — buzz to get in line.", room.Player(answering.PlayerId).Name), 14, false, HorizontalAlignment.Center).Center());
-		var buzz = new BuzzButton(_client.Buzz, video ? 130 : 240) { Disabled = !game.BuzzersOpen };
+		var buzz = new BuzzButton(_client.Buzz, big ? 130 : 240) { Disabled = !game.BuzzersOpen };
 		area.AddChild(buzz.Center());
 		if (!game.BuzzersOpen) area.AddChild(U.Muted("Buzzers are locked — the host unlocks them in a moment.", 15, false, HorizontalAlignment.Center).Center());
 		area.AddChild(U.Muted("or press Space", 13, false, HorizontalAlignment.Center).Center());
@@ -382,14 +388,20 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 	}
 
 	/// <summary>Write the answer: type it and lock it in.</summary>
+	/// <summary>Only when the sound or video couldn't come to this screen (e.g. a format only the host can play).</summary>
+	static string? WatchHint(PublicQuestion q) =>
+		q.MediaId != null ? null
+		: q.Type == QuestionType.Sound ? "Listen to the host's screen"
+		: q.Type == QuestionType.Video ? "Watch the host's screen"
+		: null;
+
 	Control Write(RoomState room)
 	{
 		var game = room.Game!;
 		if (game.MyAnswer?.Text is { } mine)
 			return Status(U.Muted("Locked in", 15), U.Text(mine, 32, C.Text, Fonts.Bold, true).Raw(), U.Muted("Waiting for the others…", 14));
 		var error = U.Error();
-		// Typed sound, video and image reveal questions play on the host's screen.
-		var watch = game.Question.Type == QuestionType.Sound ? "Listen to the host's screen" : game.Question.Type == QuestionType.Image || game.Question.Type == QuestionType.Video && game.Question.VideoId == null ? "Watch the host's screen" : null;
+		var watch = WatchHint(game.Question);
 		var lockIn = U.Btn("Lock in answer", "TealButton", null, 20);
 		lockIn.Disabled = true;
 		var field = U.Input("", "Type your answer", t => lockIn.Disabled = t.Trim() == "", QuestionLimits.WrittenMaxLength).With(e => e.ThemeTypeVariation = "BigInput");
@@ -482,6 +494,8 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		var panel = Status(kids.ToArray());
 		if (mine is { Points: > 0 }) panel.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(C.Teal, 0.08f), 14, C.Teal, 1, 24, 22));
 		var box = U.V(14, panel);
+		// Everyone's answers, like on the host's screen (buzzer questions: who got it is said above).
+		if (!q.Buzzer && q.Type != QuestionType.MapPin && reveal.Entries.Count > 0) box.AddChild(GameParts.RevealPanel(room, heading: false));
 		// Image reveal: everyone gets the whole picture now.
 		if (q.Type == QuestionType.Image && q.ImageKey != null) box.AddChild(new AssetImage(_client.Assets, q.ImageKey, U.Flexible));
 		if (q.Type == QuestionType.MapPin && q.Map != null)

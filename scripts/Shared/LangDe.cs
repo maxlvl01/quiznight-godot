@@ -664,5 +664,13 @@ public static class LangDe
 		["The host starts the video in a moment…"] = "Der Host startet das Video gleich…",
 		["Nobody's answering now: resume it, or reveal the answer if nobody knows it."] = "Gerade antwortet niemand: setz es fort oder deck die Antwort auf, wenn sie niemand weiß.",
 		["▶ Resume"] = "▶ Fortsetzen",
+		["▶ Start video"] = "▶ Video starten",
+		["Everyone has it: start it when you're ready."] = "Alle haben es: starte es, wenn du so weit bist.",
+		["Still downloading: {0}"] = "Lädt noch: {0}",
+		["Everyone's answers"] = "Die Antworten aller",
+		["Getting the sound ready…"] = "Der Sound wird vorbereitet…",
+		["The sound is still on its way: {0}%"] = "Der Sound ist noch unterwegs: {0}%",
+		["The host starts the sound in a moment…"] = "Der Host startet den Sound gleich…",
+		["The sound plays along with the host's."] = "Der Sound läuft mit dem des Hosts mit.",
 	};
 }
