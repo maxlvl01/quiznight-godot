@@ -22,6 +22,8 @@ DRY=${1:-}
 echo "== Quiznight $VERSION"
 grep -q "^## \[$VERSION\]" CHANGELOG.md || { echo "CHANGELOG.md has no section '## [$VERSION]'"; exit 1; }
 
+# (keeps Godot from importing what's in build/, e.g. the maps copied next to the Windows build)
+mkdir -p build && touch build/.gdignore
 dotnet build "QuizNight!.csproj" -nologo -v q
 rm -rf "$OUT" && mkdir -p "$OUT"
 "$G" --headless --path . --export-release "Windows Desktop" "$OUT/Quiznight.exe" > build/export.log 2>&1 || true
@@ -30,6 +32,10 @@ rm -rf "$OUT" && mkdir -p "$OUT"
 # FFmpeg isn't bundled: AnyConverter helps players install it the first time.
 [ -f "$ANYCONVERTER" ] || { echo "AnyConverter.exe not found at $ANYCONVERTER (build it with PyInstaller, or set ANYCONVERTER)"; exit 1; }
 mkdir -p "$OUT/AnyConverter" && cp "$ANYCONVERTER" "$OUT/AnyConverter/AnyConverter.exe"
+# The built-in maps aren't in the .pck (export_presets excludes them): they go next to the game as plain
+# files, so updates only download the maps that changed (Images.BuiltinFile).
+copy_maps() { mkdir -p "$1/maps" && (cd assets/maps && find . -name '*.webp' -exec cp --parents {} "../../$1/maps/" \;); }
+copy_maps "$OUT"
 
 echo "== Linux build"
 rm -rf "$OUT_LINUX" && mkdir -p "$OUT_LINUX"
@@ -40,6 +46,7 @@ rm -rf "$OUT_LINUX" && mkdir -p "$OUT_LINUX"
 rm -rf build/anyconverter-linux && mkdir -p build/anyconverter-linux "$OUT_LINUX/AnyConverter"
 /c/Windows/System32/tar.exe -x -f "$ANYCONVERTER_LINUX" -C build/anyconverter-linux
 cp build/anyconverter-linux/AnyConverter-linux/AnyConverter "$OUT_LINUX/AnyConverter/AnyConverter"
+copy_maps "$OUT_LINUX"
 # (the export builds the C# for Linux; build it for Windows again for the editor and the self-test)
 dotnet build "QuizNight!.csproj" -nologo -v q
 
@@ -56,6 +63,16 @@ rm -f "$ZIP_LINUX"
 (cd "$OUT_LINUX" && /c/Windows/System32/tar.exe -a -c -f "../../$ZIP_LINUX" *)
 ls -la "$ZIP_LINUX"
 
+echo "== Update manifests"
+# Every file with its hash; files that changed since the last release are gzipped into $BLOBS for upload,
+# the rest point to the older release that has them (tools/manifest.py). The game downloads only those.
+BLOBS="build/blobs-$VERSION"; PREV="build/prev-manifests"
+rm -rf "$BLOBS" "$PREV" && mkdir -p "$PREV"
+gh release download --repo "$REPO" --pattern 'manifest-*.json' -D "$PREV" 2>/dev/null || echo "(no earlier manifests: every file is new)"
+BASE="https://github.com/$REPO/releases/download/v$VERSION/"
+py -I tools/manifest.py "$VERSION" "$OUT" build/manifest-windows.json "$BLOBS" "$BASE" "$PREV"/manifest-*.json
+py -I tools/manifest.py "$VERSION" "$OUT_LINUX" build/manifest-linux.json "$BLOBS" "$BASE" "$PREV"/manifest-*.json build/manifest-windows.json
+
 # This version's notes: from its "## [version]" line up to the next "## [".
 awk -v v="## [$VERSION]" 'index($0, v) == 1 { on = 1; next } /^## \[/ { on = 0 } on' CHANGELOG.md > "$NOTES"
 
@@ -65,11 +82,16 @@ if [ "$DRY" = "--dry-run" ]; then
 fi
 
 echo "== Publishing v$VERSION to $REPO"
+# As a draft first, so no game sees the release before all its files are there; the manifests go up last.
 if gh release view "v$VERSION" --repo "$REPO" >/dev/null 2>&1; then
 	# Same version again (e.g. a rebuilt build): replace the files and notes.
-	gh release upload "v$VERSION" "$ZIP" "$ZIP_LINUX" --repo "$REPO" --clobber
 	gh release edit "v$VERSION" --repo "$REPO" --notes-file "$NOTES"
 else
-	gh release create "v$VERSION" "$ZIP" "$ZIP_LINUX" --repo "$REPO" --title "Quiznight $VERSION" --notes-file "$NOTES" --latest
+	gh release create "v$VERSION" --repo "$REPO" --title "Quiznight $VERSION" --notes-file "$NOTES" --draft
 fi
+gh release upload "v$VERSION" "$ZIP" "$ZIP_LINUX" --repo "$REPO" --clobber
+# (in batches: Windows limits how long a command line can be)
+find "$BLOBS" -name '*.gz' -print0 | xargs -0 -r -n 80 gh release upload "v$VERSION" --repo "$REPO" --clobber
+gh release upload "v$VERSION" build/manifest-windows.json build/manifest-linux.json --repo "$REPO" --clobber
+gh release edit "v$VERSION" --repo "$REPO" --draft=false --latest
 echo "Done: https://github.com/$REPO/releases/tag/v$VERSION"

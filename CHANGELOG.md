@@ -11,6 +11,19 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
+## [Unreleased]
+
+### Changed
+- **Much faster updates.** The game now downloads only the files that changed (usually a few MB instead of the whole
+  game), several at once, and no longer slows the download down while it shows the progress bar. The update to this
+  version still comes the old way (the whole zip), after that it's quick.
+- **Smaller download: about 160 MB instead of 240 MB.** The built-in maps now ship as their original image files
+  (they're also next to the game in a `maps` folder) instead of being stored again bigger inside the game file.
+  They look the same or slightly sharper, nothing was made smaller or blurrier.
+
+### Removed
+- Leftovers of an old sound pack that was never used in the game.
+
 ## [0.7.2b] — everyone types, bonus points, change scores
 
 ### Added

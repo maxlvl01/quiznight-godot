@@ -397,7 +397,9 @@ public static class SelfTest
 		Eq(QuizRules.QuizIssues(quiz).Count, 0, "old quiz is playable: " + string.Join(" ", QuizRules.QuizIssues(quiz)));
 
 		// Built-in maps: every image ships, ids are unique, and all but the WoW atlas have a real width.
-		Check(MapPresets.All.All(p => ResourceLoader.Exists(p.ImagePath)), "every built-in map image exists: " + string.Join(", ", MapPresets.All.Where(p => !ResourceLoader.Exists(p.ImagePath)).Select(p => p.Id)));
+		// (decoded like in the game: the maps ship as plain WebP files, so this also catches a map the export left out)
+		var broken = MapPresets.All.Where(p => Storage.Images.LoadBuiltinImage(p.ImagePath) == null).Select(p => p.Id).ToList();
+		Check(broken.Count == 0, "every built-in map image loads: " + string.Join(", ", broken));
 		Eq(MapPresets.All.Select(p => p.Id).Distinct().Count(), MapPresets.All.Count, "built-in map ids are unique");
 		Check(MapPresets.All.All(p => p.Id == WowAtlas.PresetId || p.WidthKm > 0), "built-in maps have a scale");
 		Eq(MapPresets.Get("botw")!.WidthKm, 12.0, "Hyrule is 12 km wide");
@@ -454,6 +456,7 @@ public static class SelfTest
 		var kalimdor = WowAtlas.LocationToWorld(new WowAtlas.Location(1, 0, 0));
 		Check(WowAtlas.DistanceKm(a, kalimdor) > WowAtlas.DistanceKm(a, b) * 100, "wrong continent is far");
 		Eq(Ui.WowMapArt.Tiles.Count, 207, "seamless map tiles are in the game");
+		Check(Storage.Images.LoadBuiltinImage(WowAtlas.ImagePath(WowAtlas.World)) != null && Storage.Images.LoadBuiltinImage(Ui.WowMapArt.Tiles[0].Path) != null, "WoW world map and a zone tile load");
 		var goldshire = WowAtlas.LocationToWorld(new WowAtlas.Location(0, -9465, 64));
 		Check(Ui.WowMapArt.Tiles.Any(t => t.World.HasPoint(new Godot.Vector2((float)goldshire.X, (float)goldshire.Y))), "Goldshire lies on a tile");
 	}

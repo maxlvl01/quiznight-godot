@@ -26,8 +26,10 @@ the original design decisions; most still apply.
   `QuizJson` reads forgivingly (= migration) and writes only each type's fields.
   Built-in map images are not stored in files (they ship with the game, `assets/maps/`). Each one's source and
   scale is noted in `MapPresets.cs`; `tools/stitch_map.gd` builds them from downloaded tiles (run one Godot at a
-  time: two at once hang). They import as lossy WebP (`compress/mode=1`), otherwise every 4096 px map adds ~15 MB
-  to the download.
+  time: two at once hang). All map images (also WoW's) are imported as **"keep"** and decoded by
+  `Images.LoadBuiltinImage` (WebP + mipmaps): Godot's texture import stored them 2–7× bigger. Exports leave
+  `assets/maps/` out of the .pck; `release.sh` copies the WebPs into a `maps/` folder next to the game
+  (`Images.BuiltinFile` finds them there). New map images need the same 3-line `importer="keep"` .import file.
 - **The host runs the pace.** Questions open hidden (`Game.Shown`) until the host shows them; buzzers stay
   locked (`BuzzersOpen`) until unlocked — both lobby rules. Players get no content of a hidden question, and
   an image reveal's picture only at the reveal. Choice answers and order items are shuffled per game
@@ -109,6 +111,12 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
   `maxlvl01/quiznight-releases` repo (code lives in the private `maxlvl01/quiznight-godot`; `maxlvl01/quiznight` is the web version). Exported games check
   it at startup (`Storage/Updater.cs`) and update themselves; "What's new" is read from the shipped
   CHANGELOG.md, so its `## [version]` / `### Added|Changed|Fixed|Removed` layout matters.
+  Updates go file by file: each release has `manifest-windows.json` / `manifest-linux.json` (every file's SHA-256 and
+  the URL of its gzipped copy, made by `tools/manifest.py`); only files whose hash is new are uploaded, the rest point
+  into older releases — so **never delete old releases**. The game downloads only what differs (off the main
+  thread: awaiting there throttles reads to one per frame), falling back to the zip. Test against a local server
+  with `QUIZNIGHT_UPDATE_FEED=<url of a fake releases/latest JSON>`. `build/` has a `.gdignore` (else the editor
+  imports the copied maps).
 - **AnyConverter** (the user's separate Python/tkinter converter, `C:\Users\Xbox3\Desktop\AnyConverter`, not in git)
   ships in the Windows zip as `AnyConverter/AnyConverter.exe` and in the Linux zip as `AnyConverter/AnyConverter`;
   `release.sh` copies them from its `dist/` (`AnyConverter.exe`, and `linux/AnyConverter-linux-x86_64.tar.gz` from its

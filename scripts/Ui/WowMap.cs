@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Godot;
 using QuizNight.Shared;
 using QuizNight.Storage;
@@ -40,7 +41,7 @@ public static class WowMapArt
 		for (var j = 0; j < 30; j++)
 		{
 			var path = $"{TileDir}{i}_{j}.webp";
-			if (!ResourceLoader.Exists(path)) continue;
+			if (!FileAccess.FileExists(Images.BuiltinFile(path))) continue;
 			list.Add(new Tile(path, new Rect2(
 				(float)(i * size / WowAtlas.ImageWidth), (float)(j * size / WowAtlas.ImageHeight),
 				(float)(size / WowAtlas.ImageWidth), (float)(size / WowAtlas.ImageHeight))));
@@ -48,23 +49,37 @@ public static class WowMapArt
 		return list;
 	}
 
+	// Decoded tiles, most recently drawn last. Only the newest MaxTiles are kept (each is ~1.4 MB of video
+	// memory; a full view at the zoom where zones appear needs about 45).
+	const int MaxTiles = 120;
 	static readonly Dictionary<string, Texture2D?> Loaded = new();
-	static readonly HashSet<string> Loading = new();
+	static readonly LinkedList<string> Recent = new();
+	static readonly Dictionary<string, Task<Image?>> Loading = new();
 
 	/// <summary>A tile's texture, or null while it loads in the background (call again next frame).</summary>
 	public static Texture2D? TileTexture(string path)
 	{
-		if (Loaded.TryGetValue(path, out var tex)) return tex;
-		if (Loading.Add(path))
+		if (Loaded.TryGetValue(path, out var tex))
 		{
-			ResourceLoader.LoadThreadedRequest(path);
+			Recent.Remove(path);
+			Recent.AddLast(path);
+			return tex;
+		}
+		if (!Loading.TryGetValue(path, out var task))
+		{
+			Loading[path] = Task.Run(() => Images.LoadBuiltinImage(path));
 			return null;
 		}
-		var status = ResourceLoader.LoadThreadedGetStatus(path);
-		if (status == ResourceLoader.ThreadLoadStatus.InProgress) return null;
+		if (!task.IsCompleted) return null;
 		Loading.Remove(path);
-		Loaded[path] = status == ResourceLoader.ThreadLoadStatus.Loaded ? ResourceLoader.LoadThreadedGet(path) as Texture2D : null;
-		return Loaded[path];
+		Loaded[path] = tex = task.IsCompletedSuccessfully && task.Result is { } img ? ImageTexture.CreateFromImage(img) : null;
+		Recent.AddLast(path);
+		while (Recent.Count > MaxTiles)
+		{
+			Loaded.Remove(Recent.First!.Value);
+			Recent.RemoveFirst();
+		}
+		return tex;
 	}
 
 	static readonly Dictionary<int, Texture2D?> Cut = new();

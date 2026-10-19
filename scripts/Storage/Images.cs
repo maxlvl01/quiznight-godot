@@ -85,10 +85,37 @@ public static class Images
 	{
 		if (!Builtin.TryGetValue(path, out var tex))
 		{
-			tex = ResourceLoader.Exists(path) ? GD.Load<Texture2D>(path) : null;
+			tex = LoadBuiltinImage(path) is { } img ? ImageTexture.CreateFromImage(img) : null;
 			Builtin[path] = tex;
 		}
 		return tex;
+	}
+
+	const string MapsRes = "res://assets/maps/";
+
+	/// <summary>
+	/// Where a built-in map file really is: res://assets/maps/… when running from the project; in exported
+	/// builds the maps sit next to the game in a "maps" folder (release.sh copies them there and leaves them
+	/// out of the .pck), so an update only downloads the maps that changed, not all of them inside the .pck.
+	/// </summary>
+	public static string BuiltinFile(string path) =>
+		OS.HasFeature("template") && path.StartsWith(MapsRes)
+			? OS.GetExecutablePath().GetBaseDir() + "/maps/" + path[MapsRes.Length..]
+			: path;
+
+	/// <summary>
+	/// A built-in map image, with mipmaps. The maps ship as their original WebP files (imported as "keep")
+	/// and are decoded here: Godot's own import would store each one again two to seven times bigger, or
+	/// re-compress it. Safe to call from a background thread.
+	/// </summary>
+	public static Image? LoadBuiltinImage(string path)
+	{
+		path = BuiltinFile(path);
+		if (!Godot.FileAccess.FileExists(path)) return null;
+		var img = new Image();
+		if (img.LoadWebpFromBuffer(Godot.FileAccess.GetFileAsBytes(path)) != Error.Ok || img.IsEmpty()) return null;
+		img.GenerateMipmaps();
+		return img;
 	}
 
 	public static bool IsImagePath(string path) =>
