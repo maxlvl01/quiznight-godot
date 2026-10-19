@@ -1,6 +1,7 @@
 // Command-line helpers for testing on one PC (arguments after "--"):
 //   --selftest                     run the checks and quit (exit code 0 = all passed)
 //   --host-sample | --host FILE    host the sample quiz / a quiz file in LAN mode
+//   --sound FILE                   with --host-sample: the sound question plays that file
 //   --autopilot [--players N]      as host: start with N players, judge buzzes, go to the next question
 //   --start-at N                   with --autopilot: skip straight to question N (1 = first)
 //   --quit-at-end                  quit a few seconds after the podium
@@ -101,7 +102,16 @@ public sealed class DevTools
 		else if (Has("--host-sample") || Value("--host") != null)
 		{
 			TakesOver = true;
-			var quiz = Value("--host") is { } file ? QuizStore.Import(file) : QuizStore.Save(SampleQuiz.Build());
+			var sample = SampleQuiz.Build();
+			// --sound FILE (with --host-sample): the sound question plays that file, read like the editor does
+			if (Value("--sound") is { } sound && sample.Questions.FirstOrDefault(q => q.Type == QuestionType.Sound) is { } sq)
+			{
+				sq.Media = Media.ReadFile(sound, QuestionType.Sound);
+				sq.Prompt = "Name this song!";
+				sq.AnswerText = System.IO.Path.GetFileNameWithoutExtension(sound);
+				sq.BonusText = "Also name the game";
+			}
+			var quiz = Value("--host") is { } file ? QuizStore.Import(file) : QuizStore.Save(sample);
 			_app.HostQuiz(quiz, NetMode.Lan);
 		}
 		else if (Value("--open") is { } type)
@@ -378,7 +388,7 @@ public sealed class DevTools
 				var index = g.Index;
 				_action = q.Buzzer ? client.Buzz
 					: q.Type == QuestionType.Order ? () => client.Answer(index, AnswerValue.Picked(Enumerable.Range(0, q.Items!.Count).OrderBy(_ => _rng.Next())), _ => { })
-					: q.Written ? () => client.Answer(index, AnswerValue.Written(new[] { "Canberra", "canbera!", "Sydney", "a beep", "Mars" }[_rng.Next(5)]), _ => { })
+					: q.Written ? () => client.Answer(index, AnswerValue.Written(new[] { "Canberra", "canbera!", "Sydney", "a beep", "Mars", "Dragonborn", "dragon born" }[_rng.Next(7)]), _ => { })
 					: q.Mode == ClassicMode.Multi ? () => client.Answer(index, AnswerValue.Picked(new[] { RandomChoice(q), RandomChoice(q) }), _ => { })
 					: q.Choices != null ? () => client.Answer(index, AnswerValue.Number(RandomChoice(q)), _ => { })
 					: q.Type == QuestionType.Estimation ? () => client.Answer(index, AnswerValue.Number(_rng.Next(60, 120)), _ => { })

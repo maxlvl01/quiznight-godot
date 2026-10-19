@@ -80,7 +80,7 @@ dotnet build "QuizNight!.csproj"                              # compile — run 
 "$G" --path . --resolution 1600x900 -- --no-steam --open mapPin --shot out.png    # screenshot a screen
 ```
 
-`--screen home|quizzes|quiz|settings`, `--open classic|choice|multi|estimation|mapPin|wow|sound|image|order|timeline|write` (`--map-preset ID` with mapPin), `--start-at N` (with `--autopilot`), `--bot-drag` (a windowed bot drags the timeline item with real mouse events), `--map-zoom Z [--map-at X,Y]` (WoW map), `--lang en|de` (this run only), `--shot FILE --after SEC`
+`--sound FILE` (with `--host-sample`: the sound question plays that file), `--screen home|quizzes|quiz|settings`, `--open classic|choice|multi|estimation|mapPin|wow|sound|image|order|timeline|write` (`--map-preset ID` with mapPin), `--start-at N` (with `--autopilot`), `--bot-drag` (a windowed bot drags the timeline item with real mouse events), `--map-zoom Z [--map-at X,Y]` (WoW map), `--lang en|de` (this run only), `--shot FILE --after SEC`
 (see `DevTools.cs`). Full solo test: host with `--autopilot --players 2` plus two `--bot` instances.
 Screenshots need a window (no `--headless`); the window opens briefly on the user's screen.
 
