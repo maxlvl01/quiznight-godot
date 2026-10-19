@@ -11,12 +11,6 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
-## [Unreleased]
-
-### Changed
-- Updates are downloaded as a few packs instead of hundreds of single files, so the release page stays tidy.
-  Still only what changed: usually about 1 MB.
-
 ## [0.7.3b] — everyone sees and hears it all, faster updates, smaller download
 
 ### Added
@@ -37,8 +31,8 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **Everyone needs this version:** the host and all players should update to 0.7.3b before playing together.
 - **Sound, video and image reveal questions stay paused after a wrong answer** (when nobody else is in line): the host decides
   whether to resume it or to reveal the answer if nobody knows it.
-- **Much faster updates.** The game now downloads only the files that changed (usually a few MB instead of the whole
-  game), several at once, and no longer slows the download down while it shows the progress bar. The update to this
+- **Much faster updates.** The game now downloads only the parts that changed (usually about 1 MB instead of the
+  whole game), several at once, and no longer slows the download down while it shows the progress bar. The update to this
   version still comes the old way (the whole zip), after that it's quick.
 - **Smaller download: about 160 MB instead of 240 MB.** The built-in maps now ship as their original image files
   (they're also next to the game in a `maps` folder) instead of being stored again bigger inside the game file.
