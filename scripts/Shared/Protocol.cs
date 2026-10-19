@@ -143,6 +143,11 @@ public sealed class PublicQuestion
 	public int Points;
 	/// <summary>Players buzz in (classic buzzer, sound, video) instead of everyone answering.</summary>
 	public bool Buzzer;
+	/// <summary>Everyone types an answer (write the answer, or a buzzer question played as "everyone types").</summary>
+	public bool Written;
+	/// <summary>The bonus the host can give at the reveal (0 = none) and what it's for.</summary>
+	public int BonusPoints;
+	public string? BonusText;
 	/// <summary>Asset key of the question image, if it has one.</summary>
 	public string? ImageKey;
 	public string? Mode;
@@ -246,6 +251,8 @@ public sealed class RevealEntry
 	public bool Correct;
 	public int Points;
 	public int? Rank;
+	/// <summary>The host gave this player the question's bonus (its points are in Points).</summary>
+	public bool Bonus;
 }
 
 public sealed class RevealView

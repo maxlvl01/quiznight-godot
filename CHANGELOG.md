@@ -11,6 +11,26 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
+## [Unreleased]
+
+### Added
+- **"Everyone types" instead of buzzers.** Classic buzzer, sound, video and image reveal questions can now be played
+  with everyone typing their answer instead of buzzing in: pick **How players answer → Everyone types** in the editor
+  (for classic questions it's **Everyone types the answer** next to Buzzer). Answers that match yours are ticked
+  automatically like in "Write the answer", everyone who's right gets the points, and at the reveal you can tick or
+  untick any answer. These questions have a time limit.
+- **Bonus points.** Every question can have an optional bonus, e.g. "+2: Also name the game". Players see it under the
+  question. At the reveal you press **Give bonus** next to anyone who earned it (press again to take it back).
+- **Change scores at will.** The scoreboard on your screen has **−** and **+** next to every player, so you can add or
+  take away points any time during the game.
+
+### Changed
+- Quiz files are now format 5 (for typed questions and bonuses). Older files still load.
+- The sample quiz's sound question is played with everyone typing and has a bonus; question 1 has a bonus too.
+
+### Fixed
+- When you tick or untick a typed answer at the reveal, the player's own screen now updates too.
+
 ## [0.7.1b] — beta, with 15 new game maps
 
 ### Added

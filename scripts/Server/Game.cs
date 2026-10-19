@@ -244,7 +244,7 @@ public sealed class Game
 				return Result.Fail("Put all the items in order.");
 			value = AnswerValue.Picked(order);
 		}
-		else if (q.Type == QuestionType.Write)
+		else if (q.IsWritten)
 		{
 			var text = (raw?.Text ?? "").Trim();
 			if (text == "") return Result.Fail("Type your answer.");
@@ -605,7 +605,7 @@ public sealed class Game
 			};
 		}
 
-		if (q.Type == QuestionType.Write)
+		if (q.IsWritten)
 		{
 			var entries = _answers.Select(a =>
 			{
@@ -703,17 +703,31 @@ public sealed class Game
 		};
 	}
 
-	/// <summary>Write the answer, at the reveal: the host ticks or unticks a player's answer (points follow).</summary>
+	/// <summary>Typed answers, at the reveal: the host ticks or unticks a player's answer (points follow).</summary>
 	public bool ToggleWritten(string playerId)
 	{
-		if (Stage != Shared.Stage.Reveal || Question.Type != QuestionType.Write || _reveal?.Entries.FirstOrDefault(e => e.PlayerId == playerId) is not { } entry)
+		if (Stage != Shared.Stage.Reveal || !Question.IsWritten || _reveal?.Entries.FirstOrDefault(e => e.PlayerId == playerId) is not { } entry)
 			return false;
 		entry.Correct = !entry.Correct;
-		var points = entry.Correct ? Question.Points : 0;
-		_hooks.Award(playerId, points - entry.Points);
-		entry.Points = points;
+		SetPoints(entry, (entry.Correct ? Question.Points : 0) + (entry.Bonus ? Question.BonusPoints : 0));
 		_reveal.WinnerIds = _reveal.Entries.Where(e => e.Correct).Select(e => e.PlayerId).ToList();
 		return true;
+	}
+
+	/// <summary>At the reveal: the host gives a player the question's bonus, or takes it back.</summary>
+	public bool ToggleBonus(string playerId)
+	{
+		if (Stage != Shared.Stage.Reveal || !Question.HasBonus || _reveal?.Entries.FirstOrDefault(e => e.PlayerId == playerId) is not { } entry)
+			return false;
+		entry.Bonus = !entry.Bonus;
+		SetPoints(entry, entry.Points + (entry.Bonus ? Question.BonusPoints : -Question.BonusPoints));
+		return true;
+	}
+
+	void SetPoints(RevealEntry entry, int points)
+	{
+		_hooks.Award(entry.PlayerId, points - entry.Points);
+		entry.Points = points;
 	}
 
 	/// <summary>"Doom → Half-Life → Portal" (a timeline with its labels: "Doom (1993) → …").</summary>
@@ -741,6 +755,9 @@ public sealed class Game
 			Prompt = q.Prompt,
 			Points = q.Points,
 			Buzzer = q.IsBuzzer,
+			Written = q.IsWritten,
+			BonusPoints = q.BonusPoints,
+			BonusText = q.HasBonus ? q.BonusText : null,
 			// (an image reveal's picture only plays on the host's screen; players get it at the reveal)
 			ImageKey = q.HasImageField && q.Image != null && !HiddenPicture(Index) ? ImageKey(Index) : null,
 		};
@@ -761,7 +778,7 @@ public sealed class Game
 			pq.OrderMode = q.OrderMode;
 			pq.TimeLimitSec = q.TimeLimitSec;
 		}
-		if (q.Type == QuestionType.Write) pq.TimeLimitSec = q.TimeLimitSec;
+		if (q.IsWritten) pq.TimeLimitSec = q.TimeLimitSec;
 		if (q.Type == QuestionType.Estimation)
 		{
 			pq.Unit = q.Unit;
@@ -806,7 +823,7 @@ public sealed class Game
 			Total = _quiz.Questions.Count,
 			Stage = Stage,
 			// A hidden question: players only learn its number, type and points.
-			Question = Shown || viewer == "host" || !open ? PublicQuestion() : new PublicQuestion { Type = Question.Type, Points = Question.Points, Buzzer = Question.IsBuzzer, Mode = Question.Type == QuestionType.Classic ? Question.Mode : null, OrderMode = Question.Type == QuestionType.Order ? Question.OrderMode : null },
+			Question = Shown || viewer == "host" || !open ? PublicQuestion() : new PublicQuestion { Type = Question.Type, Points = Question.Points, Buzzer = Question.IsBuzzer, Written = Question.IsWritten, Mode = Question.Type == QuestionType.Classic ? Question.Mode : null, OrderMode = Question.Type == QuestionType.Order ? Question.OrderMode : null },
 			Shown = Shown || !open,
 			BuzzersOpen = BuzzersOpen,
 			EndsAt = open ? _endsAt : null,

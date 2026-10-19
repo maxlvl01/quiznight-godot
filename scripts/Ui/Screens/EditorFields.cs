@@ -250,6 +250,30 @@ public static class RoundSettings
 			changed();
 		}, QuestionLimits.TimeLimitMin, QuestionLimits.TimeLimitMax, true));
 
+	/// <summary>An optional bonus the host gives at the reveal: points and what it's for, in one row.</summary>
+	public static VBoxContainer Bonus(Question q, Action changed)
+	{
+		var what = U.Input(q.BonusText, "What for? e.g. Also name the game", t =>
+		{
+			q.BonusText = t;
+			changed();
+		}, QuestionLimits.BonusTextMaxLength).Grow();
+		var points = new NumberField(q.BonusPoints, v =>
+		{
+			q.BonusPoints = (int)Math.Clamp(Math.Round(v ?? 0), 0, QuestionLimits.BonusPointsMax);
+			changed();
+		}, 0, QuestionLimits.BonusPointsMax, true).MinSize(84).With(n => n.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin);
+		return U.Field("Bonus points (optional)", U.H(8, points, what), "You give the bonus to players at the reveal. 0 = no bonus.");
+	}
+
+	/// <summary>Buzzer questions (sound, video, image reveal): buzz in, or everyone types an answer.</summary>
+	public static VBoxContainer AnswerMode(Question q, Action rebuild) =>
+		U.Field("How players answer", U.Segmented(new[] { ("buzz", "Buzz in"), ("typed", "Everyone types") }, q.Typed ? "typed" : "buzz", id =>
+		{
+			q.Typed = id == "typed";
+			rebuild();
+		}));
+
 	public static PanelContainer Panel(params Control[] kids)
 	{
 		var all = new List<Control> { U.Bold("Round settings", 17) };
@@ -273,6 +297,7 @@ public static class RoundSettings
 			changed();
 		})));
 		kids.Add(Points(q, changed));
+		kids.Add(Bonus(q, changed));
 		return Panel(kids.ToArray());
 	}
 }

@@ -70,6 +70,14 @@ public static class QuizJson
 			["prompt"] = q.Prompt,
 			["points"] = q.Points,
 		};
+		if (q.HasBonus)
+		{
+			o["bonusPoints"] = q.BonusPoints;
+			o["bonusText"] = q.BonusText;
+		}
+		if (q.CanBeTyped) o["typed"] = q.Typed;
+		// (typed questions have a time limit; classic writes it anyway)
+		if (q.IsTyped && q.Type != QuestionType.Classic) o["timeLimitSec"] = q.TimeLimitSec;
 		switch (q.Type)
 		{
 			case QuestionType.Classic:
@@ -191,6 +199,10 @@ public static class QuizJson
 		q.MapId = o["mapId"] is JsonValue mid && mid.TryGetValue<string>(out var mapId) ? mapId : null;
 		q.Target = ReadPoint(o["target"]);
 		q.BuzzFirst = o["buzzFirst"] is JsonValue bf && bf.TryGetValue<bool>(out var b) && b;
+		q.Typed = o["typed"] is JsonValue ty && ty.TryGetValue<bool>(out var typed) && typed;
+		q.BonusPoints = Math.Clamp((int)Num(o, "bonusPoints", 0), 0, QuestionLimits.BonusPointsMax);
+		q.BonusText = Str(o, "bonusText");
+		if (q.BonusText.Length > QuestionLimits.BonusTextMaxLength) q.BonusText = q.BonusText[..QuestionLimits.BonusTextMaxLength];
 		return q;
 	}
 

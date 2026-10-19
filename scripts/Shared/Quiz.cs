@@ -161,6 +161,11 @@ public sealed class Question
 	public string Prompt = "";
 	/// <summary>Points for winning this question (top3: 1st gets 3×, 2nd 2×, 3rd 1×).</summary>
 	public int Points = 1;
+	/// <summary>Optional bonus the host can give at the reveal, e.g. "Also name the game" (0 = no bonus).</summary>
+	public int BonusPoints;
+	public string BonusText = "";
+	/// <summary>Classic buzzer, sound, video, image reveal: everyone types their answer instead of buzzing in.</summary>
+	public bool Typed;
 
 	/// <summary>Classic and estimation: optional image. Map pin: the screenshot players have to locate.</summary>
 	public ImageAsset? Image;
@@ -232,10 +237,17 @@ public sealed class Question
 
 	/// <summary>Indexes of the right answers, in either choice mode.</summary>
 	public List<int> CorrectSet => IsMulti ? CorrectChoices.Distinct().OrderBy(i => i).ToList() : new List<int> { CorrectChoice };
-	/// <summary>Players buzz in (classic buzzer, sound, video) instead of everyone answering.</summary>
-	public bool IsBuzzer => HasPlayClock || (Type == QuestionType.Classic && !IsChoice);
+	/// <summary>Played with buzzers unless the quiz maker chose "everyone types" (classic buzzer, sound, video, image reveal).</summary>
+	public bool CanBeTyped => HasPlayClock || (Type == QuestionType.Classic && !IsChoice);
+	public bool IsTyped => Typed && CanBeTyped;
+	/// <summary>Players buzz in (classic buzzer, sound, video, image reveal) instead of everyone answering.</summary>
+	public bool IsBuzzer => CanBeTyped && !Typed;
+	/// <summary>Everyone types an answer that is checked against AnswerText (write the answer, or a typed question).</summary>
+	public bool IsWritten => Type == QuestionType.Write || IsTyped;
+	/// <summary>Has a bonus the host can give at the reveal.</summary>
+	public bool HasBonus => BonusPoints > 0;
 	/// <summary>Everyone answers within a time limit (instead of buzzing in).</summary>
-	public bool HasTimeLimit => IsCloseness || IsChoice || Type is QuestionType.Write || (Type == QuestionType.Order && !IsTimeline);
+	public bool HasTimeLimit => IsCloseness || IsChoice || IsWritten || (Type == QuestionType.Order && !IsTimeline);
 	public bool HasImageField => Type is QuestionType.Classic or QuestionType.Estimation or QuestionType.MapPin or QuestionType.Image or QuestionType.Write;
 
 	// Through text: in-memory JsonValues don't convert between number types when read back.
@@ -275,6 +287,8 @@ public static class QuestionLimits
 	public const int TimelineItemsMax = 10;
 	public const int TimelineLabelMaxLength = 20;
 	public const int WrittenMaxLength = 80;
+	public const int BonusPointsMax = 10;
+	public const int BonusTextMaxLength = 60;
 }
 
 public static class QuizRules
@@ -283,8 +297,9 @@ public static class QuizRules
 	/// 2: classic questions got an A–D mode, new sound and video types (old files are migrated).
 	/// 3: classic "multi" mode with several correct answers (correctChoices); image reveal, order and write questions.
 	/// 4: put in order can be played as a timeline (orderMode, itemLabels, timelineStart, keepGoing).
+	/// 5: buzzer questions can be typed by everyone (typed); every question can have a bonus (bonusPoints, bonusText).
 	/// </summary>
-	public const int FormatVersion = 4;
+	public const int FormatVersion = 5;
 
 	public static readonly string[] ChoiceLetters = { "A", "B", "C", "D" };
 
@@ -406,9 +421,10 @@ public static class QuizRules
 		var kind = Lang.T(QuestionType.Infos[q.Type].Short);
 		if (q.Type == QuestionType.Classic)
 			return q.IsMulti ? $"{kind} · {Lang.T("several correct")} · {q.TimeLimitSec} s"
-				: q.IsChoice ? $"{kind} · A–D · {q.TimeLimitSec} s" : $"{kind} · {Lang.T("buzzer")}";
+				: q.IsChoice ? $"{kind} · A–D · {q.TimeLimitSec} s" : q.IsTyped ? $"{kind} · {Lang.T("everyone types")} · {q.TimeLimitSec} s" : $"{kind} · {Lang.T("buzzer")}";
 		if (q.Type == QuestionType.Order)
 			return $"{kind} · {(q.IsTimeline ? Lang.T("timeline") + " · " : "")}{Lang.F("{0} items", q.Items.Count(i => !string.IsNullOrWhiteSpace(i)))} · {q.TimeLimitSec} s";
+		if (q.IsTyped) return $"{kind} · {Lang.T("everyone types")} · {q.TimeLimitSec} s";
 		if (q.HasTimeLimit) return $"{kind} · {q.TimeLimitSec} s";
 		return $"{kind} · {Lang.T("buzzer")}";
 	}
@@ -451,6 +467,7 @@ public static class QuizRules
 			if (q.MapId == null || maps.All(m => m.Id != q.MapId)) issues.Add(Lang.T("Pick a map."));
 			else if (q.Target == null) issues.Add(Lang.T("Click the map to set the correct spot."));
 		}
+		if (q.HasBonus && string.IsNullOrWhiteSpace(q.BonusText)) issues.Add(Lang.T("Say what the bonus is for."));
 		return issues;
 	}
 

@@ -254,7 +254,7 @@ public sealed class DevTools
 		var g = state?.Game;
 		var moment = state == null
 			? _app.CurrentScreen?.GetType().Name ?? ""
-			: $"{state.Phase}-{g?.Index}-{g?.Stage}{(g is { Shown: false } ? "-hidden" : g is { Question.Buzzer: true, BuzzersOpen: false } ? "-locked" : "")}-{g?.Buzzes.Count}-{g?.Buzzes.Count(b => b.Status == BuzzStatus.Wrong)}-{g?.AnsweredIds.Count}-{state.Players.Count}{(g?.Timeline is { } tl ? $"-tl{tl.Placed.Count}{tl.TurnOrder.IndexOf(tl.TurnPlayerId ?? "")}{tl.WrongGaps.Count}{tl.Phase[0]}" : "")}";
+			: $"{state.Phase}-{g?.Index}-{g?.Stage}{(g is { Shown: false } ? "-hidden" : g is { Question.Buzzer: true, BuzzersOpen: false } ? "-locked" : "")}-{g?.Buzzes.Count}-{g?.Buzzes.Count(b => b.Status == BuzzStatus.Wrong)}-{g?.AnsweredIds.Count}-{state.Players.Count}{(g?.Timeline is { } tl ? $"-tl{tl.Placed.Count}{tl.TurnOrder.IndexOf(tl.TurnPlayerId ?? "")}{tl.WrongGaps.Count}{tl.Phase[0]}" : "")}{(g?.Reveal?.Entries.Count(e => e.Bonus) is > 0 and var bonuses ? $"-bonus{bonuses}" : "")}";
 		if (moment != _lastMoment)
 		{
 			_lastMoment = moment;
@@ -319,6 +319,10 @@ public sealed class DevTools
 				}
 				else if (answering == null && waited > 9) host.Reveal();
 				break;
+			// A question with a bonus: give it to the winner (or the first answer), to show it.
+			case Phase.Playing when g!.Stage == Stage.Reveal && g.Question.BonusPoints > 0 && g.Reveal is { Entries.Count: > 0 } rv && !rv.Entries.Any(e => e.Bonus):
+				if (waited > 1) host.ToggleBonus(rv.WinnerIds.FirstOrDefault() ?? rv.Entries[0].PlayerId);
+				break;
 			case Phase.Playing when waited > 3:
 				host.Next();
 				break;
@@ -374,7 +378,7 @@ public sealed class DevTools
 				var index = g.Index;
 				_action = q.Buzzer ? client.Buzz
 					: q.Type == QuestionType.Order ? () => client.Answer(index, AnswerValue.Picked(Enumerable.Range(0, q.Items!.Count).OrderBy(_ => _rng.Next())), _ => { })
-					: q.Type == QuestionType.Write ? () => client.Answer(index, AnswerValue.Written(new[] { "Canberra", "canbera!", "Sydney" }[_rng.Next(3)]), _ => { })
+					: q.Written ? () => client.Answer(index, AnswerValue.Written(new[] { "Canberra", "canbera!", "Sydney", "a beep", "Mars" }[_rng.Next(5)]), _ => { })
 					: q.Mode == ClassicMode.Multi ? () => client.Answer(index, AnswerValue.Picked(new[] { RandomChoice(q), RandomChoice(q) }), _ => { })
 					: q.Choices != null ? () => client.Answer(index, AnswerValue.Number(RandomChoice(q)), _ => { })
 					: q.Type == QuestionType.Estimation ? () => client.Answer(index, AnswerValue.Number(_rng.Next(60, 120)), _ => { })

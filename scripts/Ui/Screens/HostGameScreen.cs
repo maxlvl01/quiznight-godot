@@ -104,10 +104,11 @@ public partial class HostGameScreen : Control, IRoomScreen
 		_player?.Update(game);
 		_imageReveal?.Update(game);
 
-		// (rebuilt when the host ticks a written answer)
-		_content.Set(reveal != null ? $"{key}|{string.Join(",", reveal.WinnerIds)}" : key + tlKey, () =>
+		// (rebuilt when the host ticks an answer or gives a bonus)
+		_content.Set(reveal != null ? $"{key}|{string.Join(",", reveal.Entries.Select(e => $"{e.PlayerId}:{e.Points}:{e.Bonus}"))}" : key + tlKey, () =>
 		{
 			var box = U.V(14);
+			if (reveal == null && GameParts.BonusLine(q, 18) is { } bonusLine) box.AddChild(bonusLine);
 			if (q.ImageKey != null && q.Type != QuestionType.Image && !(q.Type == QuestionType.MapPin && reveal != null))
 				box.AddChild(new AssetImage(_assets, q.ImageKey, U.Flexible));
 			if (q.Choices != null) box.AddChild(GameParts.ChoiceGrid(game));
@@ -145,14 +146,14 @@ public partial class HostGameScreen : Control, IRoomScreen
 				box.AddChild(GameParts.OrderList(q));
 				box.AddChild(U.Muted("Everyone puts these in order on their own screen.", 16));
 			}
-			if (reveal == null && q.Type == QuestionType.Write) box.AddChild(U.Muted("Everyone types their answer on their own screen.", 16));
+			if (reveal == null && q.Written) box.AddChild(U.Muted("Everyone types their answer on their own screen.", 16));
 			if (q.Type == QuestionType.MapPin && reveal != null && q.Map != null)
 			{
 				// Map and results side by side, so everything fits on the TV.
 				var map = GameMap.Make(q.Map, _assets.Map(q.Map), reveal.Target, null, GameParts.RevealPins(room), U.Flexible).Grow(1.6f);
-				box.AddChild(U.H(20, map, GameParts.RevealPanel(room).Grow()));
+				box.AddChild(U.H(20, map, GameParts.RevealPanel(room, null, _host.ToggleBonus).Grow()));
 			}
-			else if (reveal != null) box.AddChild(GameParts.RevealPanel(room, q.Type == QuestionType.Write ? _host.ToggleWritten : null));
+			else if (reveal != null) box.AddChild(GameParts.RevealPanel(room, q.Written ? _host.ToggleWritten : null, _host.ToggleBonus));
 			return box;
 		});
 
@@ -199,7 +200,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 		});
 
 		_side.Clear();
-		GameParts.SideInfo(_side, room);
+		GameParts.SideInfo(_side, room, null, _host.AdjustScore);
 		_side.AddChild(U.Gap(6));
 		_side.AddChild(U.Link("End quiz early", () => Dialogs.Confirm(this, "End the quiz now and show the final results?", "End quiz", _host.Finish), 14)
 			.With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin));

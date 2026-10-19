@@ -21,7 +21,8 @@ public static class GameParts
 		U.Mono($"{rank}", 14, C.Muted).MinSize(22).With(l => l.HorizontalAlignment = HorizontalAlignment.Center);
 
 	/// <summary>Players by score; at the reveal it shows what each one just won.</summary>
-	public static Control Scoreboard(RoomState room, string? highlight = null)
+	/// <param name="adjust">Host: − and + buttons to take away or add a point at will.</param>
+	public static Control Scoreboard(RoomState room, string? highlight = null, Action<string, int>? adjust = null)
 	{
 		var gained = (room.Game?.Reveal?.Entries ?? new List<RevealEntry>()).ToDictionary(e => e.PlayerId, e => e.Points);
 		var list = U.V(6);
@@ -32,6 +33,12 @@ public static class GameParts
 			var row = Row(8, RankBadge(i + 1), new Avatar(p, 26), U.Text(p.Name, 15).Raw().Grow());
 			if (gained.TryGetValue(p.Id, out var g) && g != 0) row.AddChild(U.Text($"+{g}", 14, C.Teal, Fonts.Bold));
 			row.AddChild(U.Mono($"{room.Score(p.Id)}", 16));
+			if (adjust != null)
+			{
+				var id = p.Id;
+				row.AddChild(U.Small("−", () => adjust(id, -1)).Tip(Lang.F("Take a point from {0}", p.Name)));
+				row.AddChild(U.Small("+", () => adjust(id, 1)).Tip(Lang.F("Give {0} a point", p.Name)));
+			}
 			list.AddChild(U.Panel(row, p.Id == highlight ? "ChipMe" : "Card2").With(c => c.AddThemeStyleboxOverride("panel",
 				UiTheme.Box(C.Panel2, 10, p.Id == highlight ? C.Teal : C.Border, 1, 10, 6))));
 		}
@@ -42,7 +49,7 @@ public static class GameParts
 	/// The side column on the host's and the players' screens: the buzz order, the timeline's turn order or who has
 	/// answered, then the scores. <paramref name="me"/> (a player) is highlighted.
 	/// </summary>
-	public static void SideInfo(VBoxContainer side, RoomState room, string? me = null)
+	public static void SideInfo(VBoxContainer side, RoomState room, string? me = null, Action<string, int>? adjust = null)
 	{
 		var game = room.Game!;
 		var q = game.Question;
@@ -79,8 +86,23 @@ public static class GameParts
 		}
 		if (side.GetChildCount() > 0) side.AddChild(U.Gap(4));
 		side.AddChild(U.Eyebrow("Scores"));
-		side.AddChild(Scoreboard(room, me));
+		side.AddChild(Scoreboard(room, me, adjust));
 	}
+
+	/// <summary>"★ Bonus +2 · Also name the game" under the question, if it has a bonus.</summary>
+	public static Control? BonusLine(PublicQuestion q, int size = 16)
+	{
+		if (q.BonusPoints <= 0 || string.IsNullOrWhiteSpace(q.BonusText)) return null;
+		var row = Row(8, U.Text(Lang.F("★ Bonus +{0}", q.BonusPoints), size, C.Accent, Fonts.Black), U.Text(q.BonusText, size, C.Text, null, true).Raw().Grow());
+		var panel = U.Panel(row, "Clear");
+		panel.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(C.Accent, 0.1f), 10, C.Accent, 1, 12, 6));
+		return panel;
+	}
+
+	/// <summary>Host, at the reveal: give a player the bonus or take it back.</summary>
+	static Button BonusButton(PublicQuestion q, RevealEntry e, Action<string> bonus) =>
+		U.Btn(e.Bonus ? Lang.F("★ Bonus +{0}", q.BonusPoints) : Lang.T("Give bonus"), e.Bonus ? "AccentButton" : "SmallButton", () => bonus(e.PlayerId), 14)
+			.Tip(q.BonusText ?? "");
 
 	/// <summary>Who buzzed, in order, with their status and time.</summary>
 	public static Control BuzzQueue(RoomState room)
@@ -114,12 +136,14 @@ public static class GameParts
 
 	/// <summary>The answer and everyone's result, shown on the host screen after the reveal.</summary>
 	/// <param name="toggle">Host, write-the-answer: tick or untick a player's answer.</param>
-	public static Control RevealPanel(RoomState room, Action<string>? toggle = null)
+	/// <param name="bonus">Host, on a question with a bonus: give it to a player or take it back.</param>
+	public static Control RevealPanel(RoomState room, Action<string>? toggle = null, Action<string>? bonus = null)
 	{
 		var game = room.Game!;
 		var reveal = game.Reveal!;
 		var q = game.Question;
 		var box = U.V(10, new HSeparator(), U.Eyebrow("The answer"), U.Text(reveal.AnswerText, 34, C.Accent, Fonts.Black, true).Raw());
+		if (q.BonusPoints <= 0) bonus = null;
 		if (q.Buzzer)
 		{
 			if (reveal.WinnerIds.FirstOrDefault() is { } winnerId)
@@ -129,7 +153,13 @@ public static class GameParts
 					? Lang.F(q.Type == QuestionType.Sound ? "got it after {0} of listening" : "got it after {0} of watching", U.FormatSeconds(t))
 					: Lang.T("got it");
 				var row = Row(6, new Avatar(w, 26), U.Bold(w.Name, 17).Raw(), U.Text(gotIt, 17));
-				row.AddChild(U.Text($"· +{q.Points}", 17, C.Teal, Fonts.Bold));
+				var entry = reveal.Entries.FirstOrDefault(e => e.PlayerId == winnerId);
+				row.AddChild(U.Text($"· +{entry?.Points ?? q.Points}", 17, C.Teal, Fonts.Bold));
+				if (bonus != null && entry != null)
+				{
+					row.AddChild(U.Fill());
+					row.AddChild(BonusButton(q, entry, bonus));
+				}
 				box.AddChild(row);
 			}
 			else box.AddChild(U.Muted("Nobody got it this time.", 16));
@@ -155,6 +185,7 @@ public static class GameParts
 				var id = e.PlayerId;
 				row.AddChild(U.Btn(e.Correct ? "✓ Counts" : "Doesn't count", e.Correct ? "TealButton" : "SmallButton", () => toggle(id), 14).Tip("Click to change"));
 			}
+			if (bonus != null) row.AddChild(BonusButton(q, e, bonus));
 			list.AddChild(U.Panel(row, e.Points > 0 ? "Scored" : "Card2").With(c => c.AddThemeStyleboxOverride("panel",
 				UiTheme.Box(e.Points > 0 ? new Color(C.Teal, 0.1f) : C.Panel2, 10, e.Points > 0 ? C.Teal : C.Border, 1, 10, 6))));
 		}

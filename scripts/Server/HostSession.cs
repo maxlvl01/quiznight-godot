@@ -187,6 +187,15 @@ public sealed class HostSession : IDisposable
 	public void Judge(bool correct) => GameAction(g => g.Judge(correct));
 	public void Reveal() => GameAction(g => g.HostReveal());
 	public void ToggleWritten(string playerId) => GameAction(g => g.ToggleWritten(playerId));
+	public void ToggleBonus(string playerId) => GameAction(g => g.ToggleBonus(playerId));
+
+	/// <summary>The host adds or takes away points at will (any time during the game).</summary>
+	public void AdjustScore(string playerId, int delta)
+	{
+		if (!Playing() || delta == 0 || Room.Players.All(p => p.Id != playerId)) return;
+		Room.Award(playerId, delta);
+		Broadcast();
+	}
 	public void ShowQuestion() => GameAction(g => g.ShowQuestion());
 	public void SetBuzzers(bool open) => GameAction(g => g.SetBuzzers(open));
 	public void SkipTurn() => GameAction(g => g.SkipTurn());

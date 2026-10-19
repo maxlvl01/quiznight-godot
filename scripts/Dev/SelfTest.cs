@@ -108,9 +108,47 @@ public static class SelfTest
 		Eq(room.Scores[order[0]] - start[order[0]], 0, "no points for misses");
 	}
 
+	/// <summary>A buzzer question played as "everyone types", the host's bonus and score changes, and the file format.</summary>
+	static void TypedAndBonus()
+	{
+		var typed = new Question { Id = "t1", Type = QuestionType.Sound, Prompt = "Name this song!", AnswerText = "Dragonborn", Typed = true, TimeLimitSec = 30, Points = 1,
+			BonusPoints = 2, BonusText = "Also name the game", Media = new MediaAsset { DataUrl = "data:audio/ogg;base64,AA==", Mime = "audio/ogg", Name = "x.ogg" } };
+		Check(!typed.IsBuzzer && typed.IsWritten && typed.HasTimeLimit, "a typed sound question has no buzzers and a time limit");
+		Check(new Question { Type = QuestionType.Classic, Mode = ClassicMode.Choice, Typed = true }.IsBuzzer == false
+			&& !new Question { Type = QuestionType.Classic, Mode = ClassicMode.Choice, Typed = true }.IsTyped, "A–D questions can't be typed");
+		var quiz = new Quiz { Id = "tq", Title = "Typed", Questions = { typed, new Question { Id = "t2", Type = QuestionType.Classic, Prompt = "Red planet?", AnswerText = "Mars", Points = 1 } } };
+		Eq(QuizRules.QuestionIssues(typed, quiz.Maps).Count, 0, "typed question with a bonus is playable");
+		var back = QuizJson.Parse(QuizJson.Write(quiz), out _)!.Questions[0];
+		Check(back.Typed && back.BonusPoints == 2 && back.BonusText == "Also name the game" && back.TimeLimitSec == 30, "typed, bonus and time limit are saved");
+		Check(QuizRules.QuestionIssues(new Question { Type = QuestionType.Write, Prompt = "x", AnswerText = "y", BonusPoints = 1 }, quiz.Maps)
+			.Contains("Say what the bonus is for."), "a bonus needs to say what it's for");
+
+		var (room, clock) = NewRoom(quiz, "ann", "bob");
+		Check(room.Start().Ok, "start typed quiz");
+		var g = room.Game!;
+		Check(!g.BuzzIn("ann"), "no buzzing on a typed question");
+		Eq(g.View("ann").Question.Written, true, "players get a text field");
+		Eq(g.View("ann").Question.BonusText, "Also name the game", "players see the bonus");
+		Check(g.View("host").EndsAt == clock.Now + 30_000, "typed question runs on its time limit");
+		g.Answer("ann", 0, AnswerValue.Written("dragon born"));
+		g.Answer("bob", 0, AnswerValue.Written("Skyrim"));
+		Eq(g.Stage, Stage.Reveal, "reveal once both typed");
+		Eq(room.Scores["ann"], 1, "the right song scores");
+		Eq(room.Scores["bob"], 0, "a wrong one doesn't");
+		Check(g.ToggleBonus("ann") && room.Scores["ann"] == 3, "host gives the bonus (+2)");
+		Check(g.ToggleWritten("bob") && room.Scores["bob"] == 1, "host ticks bob");
+		Check(g.ToggleBonus("ann") && room.Scores["ann"] == 1, "and takes the bonus back");
+		Check(g.ToggleBonus("ann") && g.ToggleWritten("ann") && room.Scores["ann"] == 2, "unticking keeps the bonus");
+		Check(g.View("host").Reveal!.Entries.First(e => e.PlayerId == "ann").Bonus, "the reveal shows who got the bonus");
+		room.Next();
+		Check(!g.ToggleBonus("ann"), "no bonus on a question without one");
+		Check(g.BuzzIn("ann"), "the next (buzzer) question still buzzes");
+	}
+
 	public static async Task<int> Run(Node node)
 	{
 		Rules();
+		TypedAndBonus();
 		Files();
 		// Load, not just Exists: an Opus .ogg exists but Godot can't import it.
 		foreach (var b in Storage.Sfx.Buzzers) Check(ResourceLoader.Load<AudioStream>(b.Path) != null, $"buzzer sound {b.Id} plays");
@@ -143,6 +181,8 @@ public static class SelfTest
 		Eq(Game.Fmt(1234.5), "1,234.5", "number format");
 
 		var quiz = Dev.SampleQuiz.Build();
+		// (the sample plays its sound question as "everyone types"; here it buzzes, to test the play clock)
+		quiz.Questions.First(x => x.Type == QuestionType.Sound).Typed = false;
 		Eq(QuizRules.QuizIssues(quiz).Count, 0, "sample quiz is ready: " + string.Join(" ", QuizRules.QuizIssues(quiz)));
 
 		// Buzzer question: wrong, then the next in line is right.

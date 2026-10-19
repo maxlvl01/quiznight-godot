@@ -27,6 +27,7 @@ public static class SampleQuiz
 			{
 				Id = "q1", Type = QuestionType.Classic, Mode = ClassicMode.Buzzer, Prompt = "Which planet is known as the Red Planet?",
 				AnswerText = "Mars", Points = 1, Image = Picture(1280, 720, new Color("#c1440e"), new Color("#2a0a05"), "?"),
+				BonusPoints = 1, BonusText = "Also say which planet from the Sun it is (4th)",
 			},
 			new()
 			{
@@ -55,7 +56,8 @@ public static class SampleQuiz
 			},
 			new()
 			{
-				Id = "q7", Type = QuestionType.Sound, Prompt = "Name this sound!", AnswerText = "A beep", Points = 1,
+				Id = "q7", Type = QuestionType.Sound, Prompt = "Name this sound!", AnswerText = "A beep / beep", Points = 1,
+				Typed = true, TimeLimitSec = 30, BonusPoints = 2, BonusText = "Also say how many beeps",
 				Media = new MediaAsset { Mime = "audio/wav", Name = "beep.wav", DataUrl = DataUrl.Make("audio/wav", Beep(4)), DurationSec = 4 },
 			},
 			new()

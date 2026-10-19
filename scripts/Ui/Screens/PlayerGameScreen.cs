@@ -74,6 +74,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			var box = U.V(14, GameParts.Row(16,
 				U.Text(game.Shown || game.Stage == Stage.Reveal ? q.Prompt : "", 30, C.Text, Fonts.Black, true).Raw(),
 				game.Stage == Stage.Open && game.Shown ? new Countdown(game.EndsAt, null, 30) : U.Gap(0)));
+			if (game.Stage == Stage.Open && game.Shown && GameParts.BonusLine(q) is { } bonusLine) box.AddChild(bonusLine);
 			if (q.ImageKey != null && q.Type != QuestionType.MapPin && game.Stage == Stage.Open)
 				box.AddChild(new AssetImage(_client.Assets, q.ImageKey, U.Flexible));
 			return box;
@@ -81,7 +82,8 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 
 		if (game.Stage == Stage.Reveal)
 		{
-			_panel.Set($"{key}|reveal", () => Reveal(room));
+			// (rebuilt when the host ticks an answer or gives a bonus)
+			_panel.Set($"{key}|reveal|{string.Join(",", game.Reveal!.Entries.Select(e => $"{e.PlayerId}:{e.Points}:{e.Bonus}"))}", () => Reveal(room));
 			return;
 		}
 		if (!game.Shown)
@@ -100,7 +102,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		else if (game.Timeline is { } tl)
 			_panel.Set($"{key}|tl|{tl.Phase}|{tl.PendingGap}|{tl.Placed.Count}|{tl.TurnPlayerId}|{string.Join(",", tl.WrongGaps)}|{tl.Last?.Kind}{tl.Last?.PlayerId}{tl.Last?.Item}", () => Timeline(room));
 		else if (q.Type == QuestionType.Order) _panel.Set($"{key}|{game.MyAnswer?.Picks != null}", () => Order(room));
-		else if (q.Type == QuestionType.Write) _panel.Set($"{key}|{game.MyAnswer?.Text}", () => Write(room));
+		else if (q.Written) _panel.Set($"{key}|{game.MyAnswer?.Text}", () => Write(room));
 		else if (q.Type == QuestionType.Estimation) _panel.Set($"{key}|{game.MyAnswer?.Num}", () => Estimate(room));
 		else _panel.Set($"{key}|{game.MyAnswer?.Point != null}", () => MapPin(room));
 	}
@@ -156,7 +158,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		area.AddChild(buzz.Center());
 		if (!game.BuzzersOpen) area.AddChild(U.Muted("Buzzers are locked — the host unlocks them in a moment.", 15, false, HorizontalAlignment.Center).Center());
 		area.AddChild(U.Muted("or press Space", 13, false, HorizontalAlignment.Center).Center());
-		return U.Pad(area, 0, 10, 0, 10);
+		return U.Pad(area, 0, 2, 0, 2);
 	}
 
 	Control Choices(RoomState room)
@@ -381,6 +383,8 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		if (game.MyAnswer?.Text is { } mine)
 			return Status(U.Muted("Locked in", 15), U.Text(mine, 32, C.Text, Fonts.Bold, true).Raw(), U.Muted("Waiting for the others…", 14));
 		var error = U.Error();
+		// Typed sound, video and image reveal questions play on the host's screen.
+		var watch = game.Question.Type == QuestionType.Sound ? "Listen to the host's screen" : game.Question.Type is QuestionType.Video or QuestionType.Image ? "Watch the host's screen" : null;
 		var lockIn = U.Btn("Lock in answer", "TealButton", null, 20);
 		lockIn.Disabled = true;
 		var field = U.Input("", "Type your answer", t => lockIn.Disabled = t.Trim() == "", QuestionLimits.WrittenMaxLength).With(e => e.ThemeTypeVariation = "BigInput");
@@ -391,7 +395,9 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		lockIn.Pressed += Send;
 		field.TextSubmitted += _ => Send();
 		field.CallDeferred(Control.MethodName.GrabFocus);
-		return U.V(12, U.Field("Your answer", field), lockIn, error);
+		var form = U.V(12, U.Field("Your answer", field), lockIn, error);
+		if (watch != null) form.AddChild(U.Muted(watch, 14, false, HorizontalAlignment.Center).Center());
+		return form;
 	}
 
 	Control MapPin(RoomState room)
@@ -466,6 +472,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		}
 		if (mine != null && !q.Buzzer) kids.Add(U.Text(Lang.F("You: {0}", mine.Text), 17));
 		kids.Add(mine is { Points: > 0 } ? U.Text($"+{mine.Points}", 48, C.Accent, Fonts.Black) : U.Muted("No points this time.", 15));
+		if (mine is { Bonus: true }) kids.Add(U.Text(Lang.F("★ Including the bonus: {0}", q.BonusText ?? ""), 16, C.Accent, Fonts.Bold, true, HorizontalAlignment.Center).Raw());
 		kids.Add(U.Muted("Waiting for the host to continue…", 13));
 		var panel = Status(kids.ToArray());
 		if (mine is { Points: > 0 }) panel.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(C.Teal, 0.08f), 14, C.Teal, 1, 24, 22));

@@ -132,11 +132,14 @@ public partial class QuestionEditorScreen : Control
 			U.Segmented(new[]
 				{
 					(ClassicMode.Buzzer, "Buzzer — first to buzz"),
+					(Typed, "Everyone types the answer"),
 					(ClassicMode.Choice, "Pick one — one is right"),
 					(ClassicMode.Multi, "Multiple choice — several right"),
 				},
-				_draft.Mode, mode =>
+				_draft.IsTyped ? Typed : _draft.Mode, mode =>
 				{
+					_draft.Typed = mode == Typed;
+					if (mode == Typed) mode = ClassicMode.Buzzer;
 					// Keep the marked answer when switching between the two choice modes.
 					if (mode == ClassicMode.Multi && _draft.CorrectChoices.Count == 0) _draft.CorrectChoices = new() { _draft.CorrectChoice };
 					if (mode == ClassicMode.Choice && _draft.CorrectChoices.Count > 0) _draft.CorrectChoice = _draft.CorrectChoices.Min();
@@ -163,15 +166,19 @@ public partial class QuestionEditorScreen : Control
 		left.AddChild(U.Field("Image (optional)", OptionalImage()));
 
 		var settings = new List<Control>();
-		if (choice) settings.Add(RoundSettings.TimeLimit(_draft, () => Changed()));
+		if (choice || _draft.IsTyped) settings.Add(RoundSettings.TimeLimit(_draft, () => Changed()));
 		settings.Add(RoundSettings.Points(_draft, () => Changed()));
-		settings.Add(U.Muted(_draft.IsMulti
+		settings.Add(RoundSettings.Bonus(_draft, () => Changed()));
+		settings.Add(U.Muted(_draft.IsTyped ? TypedHelp : _draft.IsMulti
 			? "Everyone picks all the answers they think are right on their own screen. Only players who pick exactly the right ones get the points. The answer is revealed when everyone has answered, the time runs out, or you reveal it."
 			: choice
 			? "Everyone picks A, B, C or D on their own screen. Everyone who picks the right one gets the points. The answer is revealed when everyone has answered, the time runs out, or you reveal it."
 			: "Players buzz in; the fastest answers first. You mark answers Correct or Wrong, and on Wrong the next in line gets a go. A correct answer reveals it; if nobody knows, you reveal it. Answer time per buzz is set in the lobby.", 13));
 		return Columns((left, 1.6f), (RoundSettings.Panel(settings.ToArray()), 1));
 	}
+
+	const string Typed = "typed";
+	const string TypedHelp = "Everyone types their answer on their own screen. Answers that match yours are ticked automatically (case and small typos don't matter; accept several with \"/\"). At the reveal you can tick or untick any answer.";
 
 	Control ChoiceRow(int i)
 	{
@@ -235,13 +242,15 @@ public partial class QuestionEditorScreen : Control
 				Changed();
 			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold))));
 		var settings = RoundSettings.Panel(
+			RoundSettings.AnswerMode(_draft, () => Changed(true)),
 			U.Field("Start playing at (seconds)", new NumberField(_draft.StartSec, v =>
 			{
 				_draft.StartSec = Math.Max(0, v ?? 0);
 				Changed();
 			}, 0, _draft.Media?.DurationSec), "Skip a silent intro or a title card that gives it away."),
-			RoundSettings.Points(_draft, () => Changed()),
-			U.Muted(isSound
+			_draft.Typed ? U.H(12, RoundSettings.TimeLimit(_draft, () => Changed()).Grow(), RoundSettings.Points(_draft, () => Changed()).Grow()) : RoundSettings.Points(_draft, () => Changed()),
+			RoundSettings.Bonus(_draft, () => Changed()),
+			U.Muted(_draft.Typed ? TypedHelp : isSound
 				? "The sound plays on your screen. Players buzz in on their own PC; playback pauses while someone answers and you mark it Correct or Wrong. Once it's guessed, everyone sees how many seconds of listening it took. Answer time per buzz is set in the lobby."
 				: "The video plays on your screen. Players buzz in on their own PC; playback pauses while someone answers and you mark it Correct or Wrong. Once it's guessed, everyone sees how many seconds of watching it took. Answer time per buzz is set in the lobby.", 13));
 		return Columns((left, 1.6f), (settings, 1));
@@ -347,12 +356,14 @@ public partial class QuestionEditorScreen : Control
 					Changed();
 				}, QuestionLimits.PointsMin, QuestionLimits.PointsMax, true)),
 				U.V(4, keepGoing, U.Muted("Off: the turn passes on after every item.", 12)),
+				RoundSettings.Bonus(_draft, () => Changed()),
 				U.Muted("Players take turns, fewest points first. On your turn you pick where the next item goes on the timeline. Right: it's placed with its label, you score and carry on. Wrong: the next player tries the same item. If nobody gets it, it's placed for free and the next player starts the next item.", 13));
 		}
 		else
 			settings = RoundSettings.Panel(
 				RoundSettings.TimeLimit(_draft, () => Changed()),
 				RoundSettings.Points(_draft, () => Changed()),
+				RoundSettings.Bonus(_draft, () => Changed()),
 				U.Muted("Everyone puts the items in order on their own screen. Only a perfect order gets the points; the reveal shows how many each player had in the right place.", 13));
 		return Columns((left, 1.6f), (settings, 1));
 	}
@@ -371,6 +382,7 @@ public partial class QuestionEditorScreen : Control
 		var settings = RoundSettings.Panel(
 			RoundSettings.TimeLimit(_draft, () => Changed()),
 			RoundSettings.Points(_draft, () => Changed()),
+			RoundSettings.Bonus(_draft, () => Changed()),
 			U.Muted("Everyone types their answer on their own screen. Answers that match are ticked for you; at the reveal you can tick or untick any answer, and the points follow.", 13));
 		return Columns((left, 1.6f), (settings, 1));
 	}
@@ -390,7 +402,11 @@ public partial class QuestionEditorScreen : Control
 			{
 				_draft.AnswerText = t;
 				Changed();
-			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold))));
+			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold))),
+			// (here, not in the settings: the picture on the left gives up the room)
+			U.H(12, RoundSettings.AnswerMode(_draft, () => Changed(true)).Grow(),
+				_draft.Typed ? RoundSettings.TimeLimit(_draft, () => Changed()).Grow() : U.Gap(0)),
+			RoundSettings.Bonus(_draft, () => Changed()));
 		var right = U.V(14);
 		if (_draft.Image != null)
 		{
@@ -422,7 +438,7 @@ public partial class QuestionEditorScreen : Control
 					Changed();
 				}, QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax, true), Lang.F("{0}–{1} seconds.", QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax)).Grow(1.4f),
 				RoundSettings.Points(_draft, () => Changed()).Grow()),
-			U.Muted("The picture is shown on your screen only and gets clearer over time. Players buzz in on their own PC; it pauses while someone answers and you mark it Correct or Wrong. Once it's guessed, everyone sees the whole picture and how many seconds it took. Answer time per buzz is set in the lobby.", 13));
+			_draft.Typed ? U.Muted(TypedHelp, 13) : U.Muted("The picture is shown on your screen only and gets clearer over time. Players buzz in on their own PC; it pauses while someone answers and you mark it Correct or Wrong. Once it's guessed, everyone sees the whole picture and how many seconds it took. Answer time per buzz is set in the lobby.", 13));
 		right.AddChild(settings);
 		return Columns((left, 1.6f), (right, 1));
 	}

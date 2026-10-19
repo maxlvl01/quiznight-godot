@@ -19,8 +19,10 @@ the original design decisions; most still apply.
   makes the room code findable. Host leaves = room closed.
 - **LAN mode (plain TCP, port 7777)** exists for testing several copies on one PC (Steam can't
   connect you to yourself) and for offline play on the same Wi-Fi.
-- **Quiz files extend the web version's format** (`.quiznight.json`, now format 4: multi choice, image reveal, timeline,
-  put in order, write the answer), so old exports import as-is.
+- **Quiz files extend the web version's format** (`.quiznight.json`, now format 5: multi choice, image reveal, timeline,
+  put in order, write the answer, typed buzzer questions, bonus points), so old exports import as-is.
+  Buzzer kinds with `Typed` play like write the answer (`Question.IsWritten`); a bonus is given by the host at the reveal
+  (`Game.ToggleBonus`), and the host can change scores any time (`HostSession.AdjustScore`).
   `QuizJson` reads forgivingly (= migration) and writes only each type's fields.
   Built-in map images are not stored in files (they ship with the game, `assets/maps/`). Each one's source and
   scale is noted in `MapPresets.cs`; `tools/stitch_map.gd` builds them from downloaded tiles (run one Godot at a
