@@ -163,6 +163,12 @@ public sealed class PublicQuestion
 	public PublicMap? Map;
 	public int? TimeLimitSec;
 	public double? StartSec;
+	/// <summary>
+	/// Video questions: the video the players' screens play too. It's sent to them ahead of time, encrypted
+	/// (VideoChunk); this id and the key to unlock it only come once the question is shown.
+	/// </summary>
+	public string? VideoId;
+	public string? VideoKey;
 
 	public bool IsMedia => Type is QuestionType.Sound or QuestionType.Video;
 	public bool HasPlayClock => IsMedia || Type == QuestionType.Image;
@@ -283,6 +289,9 @@ public sealed class GameView
 	public List<string> AnsweredIds = new();
 	public List<BuzzEntry> Buzzes = new();
 	public bool MediaPlaying;
+	/// <summary>How long the host's sound/video has played so far (at the state's ServerNow), and whether it ever started.</summary>
+	public long MediaPlayedMs;
+	public bool MediaStarted;
 	/// <summary>False while the host hasn't shown the question yet (players get no content then).</summary>
 	public bool Shown = true;
 	/// <summary>Buzzer questions: whether players can buzz right now.</summary>
@@ -403,4 +412,41 @@ public sealed class AssetPart
 public sealed class ClosedNotice
 {
 	public string Reason = "";
+}
+
+/// <summary>
+/// A piece of an encrypted video, as a binary message (JSON messages start with '{', these with Marker):
+/// [Marker][id length][id, UTF-8][total size, int64][offset, int64][data]. The file is the video encrypted
+/// with AES-CBC (16-byte IV first), so players can't watch it before the host shows its question.
+/// </summary>
+public static class VideoChunk
+{
+	public const byte Marker = 1;
+	public const int MaxData = 256 * 1024;
+
+	public static byte[] Encode(string id, long total, long offset, ReadOnlySpan<byte> data)
+	{
+		var idBytes = Encoding.UTF8.GetBytes(id);
+		var msg = new byte[2 + idBytes.Length + 16 + data.Length];
+		msg[0] = Marker;
+		msg[1] = (byte)idBytes.Length;
+		idBytes.CopyTo(msg, 2);
+		BitConverter.TryWriteBytes(msg.AsSpan(2 + idBytes.Length), total);
+		BitConverter.TryWriteBytes(msg.AsSpan(10 + idBytes.Length), offset);
+		data.CopyTo(msg.AsSpan(18 + idBytes.Length));
+		return msg;
+	}
+
+	public static bool TryDecode(byte[] msg, out string id, out long total, out long offset, out ReadOnlyMemory<byte> data)
+	{
+		id = "";
+		total = offset = 0;
+		data = default;
+		if (msg.Length < 18 || msg[0] != Marker || msg.Length < 18 + msg[1]) return false;
+		id = Encoding.UTF8.GetString(msg, 2, msg[1]);
+		total = BitConverter.ToInt64(msg, 2 + msg[1]);
+		offset = BitConverter.ToInt64(msg, 10 + msg[1]);
+		data = msg.AsMemory(18 + msg[1]);
+		return total > 0 && offset >= 0 && offset + data.Length <= total;
+	}
 }

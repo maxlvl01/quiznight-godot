@@ -251,8 +251,8 @@ public partial class QuestionEditorScreen : Control
 			_draft.Typed ? U.H(12, RoundSettings.TimeLimit(_draft, () => Changed()).Grow(), RoundSettings.Points(_draft, () => Changed()).Grow()) : RoundSettings.Points(_draft, () => Changed()),
 			RoundSettings.Bonus(_draft, () => Changed()),
 			U.Muted(_draft.Typed ? TypedHelp : isSound
-				? "The sound plays on your screen. Players buzz in on their own PC; playback pauses while someone answers and you mark it Correct or Wrong. Once it's guessed, everyone sees how many seconds of listening it took. Answer time per buzz is set in the lobby."
-				: "The video plays on your screen. Players buzz in on their own PC; playback pauses while someone answers and you mark it Correct or Wrong. Once it's guessed, everyone sees how many seconds of watching it took. Answer time per buzz is set in the lobby.", 13));
+				? "The sound plays on your screen. Players buzz in on their own PC; playback pauses when someone buzzes. After a wrong answer it stays paused until you resume it (or reveal the answer if nobody knows it). Once it's guessed, everyone sees how many seconds of listening it took. Answer time per buzz is set in the lobby."
+				: "The video plays on your screen and on the players' screens too (blurred until you start it). Players buzz in on their own PC; playback pauses when someone buzzes. After a wrong answer it stays paused until you resume it (or reveal the answer if nobody knows it). Once it's guessed, everyone sees how many seconds of watching it took. Answer time per buzz is set in the lobby.", 13));
 		return Columns((left, 1.6f), (settings, 1));
 	}
 

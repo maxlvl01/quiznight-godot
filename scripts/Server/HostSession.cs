@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using QuizNight.Net;
 using QuizNight.Shared;
 
@@ -38,6 +39,60 @@ public sealed class HostSession : IDisposable
 	{
 		_net.Poll();
 		if (Room.Tick()) Broadcast();
+		SendVideos();
+	}
+
+	// ---------- videos for the players' screens ----------
+	// From the start of a game, every player gets the game's videos (Game.Videos), encrypted, in question
+	// order, from the current question on: as fast as their connection takes them (TrySend), in the
+	// background. The key comes with the question once it's shown, so nobody can watch ahead.
+
+	Game? _videoGame;
+	readonly Dictionary<string, Task<byte[]>> _encrypted = new();
+	/// <summary>Per connection: how far each video has been sent.</summary>
+	readonly Dictionary<string, Dictionary<string, long>> _videoSent = new();
+
+	void SendVideos()
+	{
+		var game = Playing() ? Room.Game : null;
+		if (game != _videoGame)
+		{
+			_videoGame = game;
+			_encrypted.Clear();
+			_videoSent.Clear();
+			foreach (var v in game?.Videos ?? Array.Empty<Game.SharedVideo>()) _encrypted[v.Id] = Task.Run(() => Encrypt(v));
+		}
+		if (game == null || game.Videos.Count == 0) return;
+		foreach (var peer in _peerPlayer.Keys)
+		{
+			if (!_videoSent.TryGetValue(peer, out var sent)) _videoSent[peer] = sent = new();
+			// (at most 8 MB per frame and connection; usually the connection says "full" much sooner)
+			for (var n = 0; n < 32; n++)
+			{
+				var next = game.Videos.Where(v => v.Index >= game.Index)
+					.Select(v => (v.Id, Data: _encrypted[v.Id] is { IsCompletedSuccessfully: true } t ? t.Result : null))
+					.FirstOrDefault(v => v.Data != null && sent.GetValueOrDefault(v.Id) < v.Data.Length);
+				if (next.Data == null) break;
+				var offset = sent.GetValueOrDefault(next.Id);
+				var size = (int)Math.Min(VideoChunk.MaxData, next.Data.Length - offset);
+				if (!_net.TrySend(peer, VideoChunk.Encode(next.Id, next.Data.Length, offset, next.Data.AsSpan((int)offset, size)))) break;
+				sent[next.Id] = offset + size;
+			}
+		}
+	}
+
+	/// <summary>The video encrypted with AES-CBC, the 16-byte IV first.</summary>
+	static byte[] Encrypt(Game.SharedVideo video)
+	{
+		var plain = DataUrl.Bytes(video.DataUrl, out _) ?? Array.Empty<byte>();
+		using var aes = System.Security.Cryptography.Aes.Create();
+		aes.Key = video.Key;
+		var iv = System.Security.Cryptography.RandomNumberGenerator.GetBytes(16);
+		var cipher = aes.EncryptCbc(plain, iv);
+		var data = new byte[16 + cipher.Length];
+		iv.CopyTo(data, 0);
+		cipher.CopyTo(data, 16);
+		return data;
 	}
 
 	string? PeerOf(string playerId) => _peerPlayer.FirstOrDefault(kv => kv.Value == playerId).Key;
@@ -51,6 +106,7 @@ public sealed class HostSession : IDisposable
 
 	void OnPeerDisconnected(string peer)
 	{
+		_videoSent.Remove(peer);
 		if (!_peerPlayer.Remove(peer, out var playerId)) return;
 		// A newer connection may already have taken over this seat.
 		if (PeerOf(playerId) != null) return;

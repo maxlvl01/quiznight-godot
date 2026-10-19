@@ -21,7 +21,15 @@ public sealed class LanHostTransport : IHostTransport
 	{
 		public required StreamPeerTcp Tcp;
 		public readonly FrameReader Reader = new();
+		// What's still to send: written without blocking as the network takes it (Flush), so a big
+		// video never freezes the host's game.
+		public readonly Queue<byte[]> Out = new();
+		public int OutPos;
+		public long OutBytes;
 	}
+
+	/// <summary>TrySend refuses once this much is waiting for a player.</summary>
+	const long MaxQueued = 2 * 1024 * 1024;
 
 	readonly TcpServer _server = new();
 	readonly Dictionary<string, Peer> _peers = new();
@@ -50,12 +58,50 @@ public sealed class LanHostTransport : IHostTransport
 
 	public void Send(string peer, byte[] data)
 	{
-		if (_peers.TryGetValue(peer, out var p)) p.Tcp.PutData(FrameReader.Frame(data));
+		if (_peers.TryGetValue(peer, out var p)) Queue(p, data);
+	}
+
+	public bool TrySend(string peer, byte[] data)
+	{
+		if (!_peers.TryGetValue(peer, out var p) || p.OutBytes > MaxQueued) return false;
+		Queue(p, data);
+		return true;
+	}
+
+	static void Queue(Peer p, byte[] data)
+	{
+		var framed = FrameReader.Frame(data);
+		p.Out.Enqueue(framed);
+		p.OutBytes += framed.Length;
+		Flush(p);
+	}
+
+	/// <summary>Writes as much of the queue as the connection takes right now.</summary>
+	static void Flush(Peer p)
+	{
+		while (p.Out.Count > 0)
+		{
+			var head = p.Out.Peek();
+			var res = p.Tcp.PutPartialData(head.AsSpan(p.OutPos).ToArray());
+			if (res[0].AsInt32() != (int)Error.Ok) return;
+			var sent = res[1].AsInt32();
+			p.OutPos += sent;
+			p.OutBytes -= sent;
+			if (p.OutPos < head.Length) return; // the connection is full for now
+			p.Out.Dequeue();
+			p.OutPos = 0;
+		}
 	}
 
 	public void Disconnect(string peer)
 	{
 		if (!_peers.Remove(peer, out var p)) return;
+		// (whatever is still queued, e.g. "you were removed", goes out first)
+		while (p.Out.Count > 0)
+		{
+			p.Tcp.PutData(p.Out.Dequeue().AsSpan(p.OutPos).ToArray());
+			p.OutPos = 0;
+		}
 		p.Tcp.DisconnectFromHost();
 		PeerDisconnected?.Invoke(peer);
 	}
@@ -74,6 +120,7 @@ public sealed class LanHostTransport : IHostTransport
 		{
 			if (!_peers.ContainsKey(id)) continue; // dropped by a handler during this loop
 			peer.Tcp.Poll();
+			if (peer.Tcp.GetStatus() == StreamPeerTcp.Status.Connected) Flush(peer);
 			if (peer.Tcp.GetStatus() != StreamPeerTcp.Status.Connected)
 			{
 				_peers.Remove(id);

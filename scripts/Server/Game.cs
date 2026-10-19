@@ -80,8 +80,22 @@ public sealed class Game
 			Questions = quiz.Questions.Select(q => q.IsChoice ? QuizRules.ShuffleChoices(q, rng) : q.Type == QuestionType.Order ? QuizRules.ShuffleOrder(q, rng) : q).ToList(),
 		};
 		_hooks = hooks;
+		// Every playable video also plays on the players' screens: a random id and key per game (see SharedVideo).
+		Videos = _quiz.Questions
+			.Select((q, i) => (q, i))
+			.Where(x => x.q.Type == QuestionType.Video && x.q.Media is { } m && Storage.Media.CanPlayVideo(m))
+			.Select(x => new SharedVideo(x.i, Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(8)),
+				System.Security.Cryptography.RandomNumberGenerator.GetBytes(32), x.q.Media!.DataUrl))
+			.ToList();
 		Open(0);
 	}
+
+	/// <summary>
+	/// A video question's video, for the players' screens. HostSession sends it to everyone ahead of time,
+	/// encrypted with Key; the id and key only reach players with the question, once it's shown.
+	/// </summary>
+	public sealed record SharedVideo(int Index, string Id, byte[] Key, string DataUrl);
+	public readonly IReadOnlyList<SharedVideo> Videos;
 
 	public Question Question => _quiz.Questions[Index];
 
@@ -800,6 +814,11 @@ public sealed class Game
 			pq.TimeLimitSec = q.TimeLimitSec;
 		}
 		if (q.IsMedia) pq.StartSec = q.StartSec;
+		if (Videos.FirstOrDefault(v => v.Index == Index) is { } video)
+		{
+			pq.VideoId = video.Id;
+			pq.VideoKey = Convert.ToBase64String(video.Key);
+		}
 		return pq;
 	}
 
@@ -831,6 +850,8 @@ public sealed class Game
 			AnsweredIds = _answers.Select(a => a.PlayerId).ToList(),
 			Buzzes = _buzzes.Select(b => new BuzzEntry { PlayerId = b.PlayerId, Status = b.Status, AtSec = b.AtMs / 1000.0 }).ToList(),
 			MediaPlaying = _playingSince != null,
+			MediaPlayedMs = PlayTimeMs(_hooks.Now()),
+			MediaStarted = _playingSince != null || _playedMs > 0,
 			Reveal = _reveal,
 			// (the timeline only exists once the question is shown)
 			Timeline = Question.IsTimeline && Shown ? TimelineView() : null,

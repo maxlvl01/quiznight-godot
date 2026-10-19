@@ -77,6 +77,9 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			if (game.Stage == Stage.Open && game.Shown && GameParts.BonusLine(q) is { } bonusLine) box.AddChild(bonusLine);
 			if (q.ImageKey != null && q.Type != QuestionType.MapPin && game.Stage == Stage.Open)
 				box.AddChild(new AssetImage(_client.Assets, q.ImageKey, U.Flexible));
+			// (bots without a window have no renderer to play it)
+			if (q.VideoId != null && q.VideoKey != null && game.Stage == Stage.Open && game.Shown && DisplayServer.GetName() != "headless")
+				box.AddChild(new PlayerVideo(_client, () => _room, q.VideoId, q.VideoKey).MarkFlexible());
 			return box;
 		});
 
@@ -151,10 +154,12 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		}
 		var area = U.V(14);
 		area.Alignment = BoxContainer.AlignmentMode.Center;
-		var watch = game.Question.Type == QuestionType.Sound ? "Listen to the host's screen" : game.Question.Type is QuestionType.Video or QuestionType.Image ? "Watch the host's screen" : null;
+		// (a video plays on this screen too, above: then the buzzer is smaller to leave it room)
+		var video = game.Question.VideoId != null;
+		var watch = game.Question.Type == QuestionType.Sound ? "Listen to the host's screen" : game.Question.Type == QuestionType.Image || game.Question.Type == QuestionType.Video && !video ? "Watch the host's screen" : null;
 		if (watch != null) area.AddChild(U.Muted(watch, 16, false, HorizontalAlignment.Center).Center());
 		if (answering != null) area.AddChild(U.Muted(Lang.F("{0} is answering — buzz to get in line.", room.Player(answering.PlayerId).Name), 14, false, HorizontalAlignment.Center).Center());
-		var buzz = new BuzzButton(_client.Buzz) { Disabled = !game.BuzzersOpen };
+		var buzz = new BuzzButton(_client.Buzz, video ? 130 : 240) { Disabled = !game.BuzzersOpen };
 		area.AddChild(buzz.Center());
 		if (!game.BuzzersOpen) area.AddChild(U.Muted("Buzzers are locked — the host unlocks them in a moment.", 15, false, HorizontalAlignment.Center).Center());
 		area.AddChild(U.Muted("or press Space", 13, false, HorizontalAlignment.Center).Center());
@@ -384,7 +389,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			return Status(U.Muted("Locked in", 15), U.Text(mine, 32, C.Text, Fonts.Bold, true).Raw(), U.Muted("Waiting for the others…", 14));
 		var error = U.Error();
 		// Typed sound, video and image reveal questions play on the host's screen.
-		var watch = game.Question.Type == QuestionType.Sound ? "Listen to the host's screen" : game.Question.Type is QuestionType.Video or QuestionType.Image ? "Watch the host's screen" : null;
+		var watch = game.Question.Type == QuestionType.Sound ? "Listen to the host's screen" : game.Question.Type == QuestionType.Image || game.Question.Type == QuestionType.Video && game.Question.VideoId == null ? "Watch the host's screen" : null;
 		var lockIn = U.Btn("Lock in answer", "TealButton", null, 20);
 		lockIn.Disabled = true;
 		var field = U.Input("", "Type your answer", t => lockIn.Disabled = t.Trim() == "", QuestionLimits.WrittenMaxLength).With(e => e.ThemeTypeVariation = "BigInput");
@@ -497,14 +502,14 @@ public partial class BuzzButton : Button
 
 	public BuzzButton() : this(() => { }) { }
 
-	public BuzzButton(Action onBuzz)
+	public BuzzButton(Action onBuzz, float size = 240)
 	{
 		_onBuzz = onBuzz;
 		Text = "BUZZ!";
-		CustomMinimumSize = new Vector2(240, 240);
+		CustomMinimumSize = new Vector2(size, size);
 		MouseDefaultCursorShape = CursorShape.PointingHand;
 		AddThemeFontOverride("font", Fonts.Black);
-		AddThemeFontSizeOverride("font_size", 46);
+		AddThemeFontSizeOverride("font_size", (int)(46 * size / 240));
 		foreach (var (state, color) in new[] { ("normal", C.Coral), ("hover", C.Coral.Lightened(0.08f)), ("pressed", C.Coral.Darkened(0.12f)), ("focus", C.Coral) })
 		{
 			var box = UiTheme.Box(color, 999, new Color("#a33a46"), 0);

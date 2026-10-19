@@ -31,6 +31,26 @@ public static class SteamService
 	public static string PlayerName => Available ? SteamClient.Name : "";
 	public static ulong MySteamId => Available ? SteamClient.SteamId.Value : 0;
 
+	/// <summary>
+	/// Videos go to every player (tens of MB), so: a bigger send buffer than Steam's 512 KB, and a higher
+	/// send rate cap than its default. Facepunch keeps SetConfigInt internal, hence the reflection.
+	/// </summary>
+	static void TuneForVideos()
+	{
+		try
+		{
+			SteamNetworkingUtils.SendBufferSize = 4 * 1024 * 1024;
+			var set = typeof(SteamNetworkingUtils).GetMethod("SetConfigInt", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+			var config = typeof(SteamNetworkingUtils).Assembly.GetType("Steamworks.NetConfig");
+			if (set != null && config != null)
+				GD.Print($"Steam send rate cap raised: {set.Invoke(null, new[] { Enum.Parse(config, "SendRateMax"), (object)(16 * 1024 * 1024) })}");
+		}
+		catch (Exception e)
+		{
+			GD.Print($"Couldn't tune Steam networking: {e.Message}");
+		}
+	}
+
 	public static void Init()
 	{
 		if (Available) return;
@@ -40,7 +60,11 @@ public static class SteamService
 			SteamClient.Init(AppId, false);
 			Available = SteamClient.IsValid;
 			if (!Available) InitError = "Steam didn't start.";
-			else SteamNetworkingUtils.InitRelayNetworkAccess();
+			else
+			{
+				SteamNetworkingUtils.InitRelayNetworkAccess();
+				TuneForVideos();
+			}
 		}
 		catch (Exception e)
 		{
@@ -185,6 +209,10 @@ public sealed class SteamHostTransport : IHostTransport
 	{
 		if (_peers.TryGetValue(peer, out var p)) p.Conn.SendMessage(data, SendType.Reliable);
 	}
+
+	// (Steam refuses a message with LimitExceeded once the connection's send buffer is full)
+	public bool TrySend(string peer, byte[] data) =>
+		_peers.TryGetValue(peer, out var p) && p.Conn.SendMessage(data, SendType.Reliable) == Steamworks.Result.OK;
 
 	public void Disconnect(string peer)
 	{

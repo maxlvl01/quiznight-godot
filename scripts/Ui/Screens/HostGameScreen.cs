@@ -247,7 +247,7 @@ public partial class PeekButton : Button
 /// <summary>
 /// Plays the question's sound or video on the host screen. Tells the host session when it plays or
 /// pauses (that clock measures how long it took to guess), pauses while someone is answering after
-/// a buzz and carries on if they were wrong.
+/// a buzz; after a wrong answer (and nobody else in line) it stays paused until the host resumes it or reveals.
 /// </summary>
 public partial class HostMedia : VBoxContainer
 {
@@ -261,7 +261,9 @@ public partial class HostMedia : VBoxContainer
 	readonly double? _duration;
 	bool _reported;
 	bool _autoPaused;
+	bool _answering;
 	bool _open = true;
+	readonly Label _hint = U.Muted("Nobody's answering now: resume it, or reveal the answer if nobody knows it.", 14).With(l => l.Visible = false);
 
 	public HostMedia() : this(null!, new PublicQuestion(), null, 0) { }
 
@@ -290,6 +292,7 @@ public partial class HostMedia : VBoxContainer
 			_toggle = U.Btn("▶", "AccentButton", Toggle, 30).MinSize(84, 84);
 			_time = U.Mono("0:00", 18, C.Muted);
 			AddChild(U.Panel(GameParts.Row(18, _toggle, _bars.Grow(), _time), "Inset"));
+			AddChild(_hint);
 		}
 		else
 		{
@@ -304,7 +307,7 @@ public partial class HostMedia : VBoxContainer
 			AddChild(U.Panel(frame, "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(Colors.Black, 12, null, 0, 0, 0))));
 			_toggle = U.Small("Pause", Toggle);
 			_time = U.Mono("0:00", 15, C.Muted);
-			AddChild(GameParts.Row(10, _toggle, _time));
+			AddChild(GameParts.Row(10, _toggle, _time, _hint));
 		}
 		// Autoplay from the start point.
 		CallDeferred(MethodName.Start);
@@ -343,20 +346,18 @@ public partial class HostMedia : VBoxContainer
 		SetPaused(Playing);
 	}
 
-	/// <summary>Follows the game: pause while someone answers, stop at the reveal.</summary>
+	/// <summary>
+	/// Follows the game: pauses when someone buzzes. It doesn't carry on by itself after a wrong answer: the
+	/// host resumes it (or reveals the answer if nobody knows it).
+	/// </summary>
 	public void Update(GameView game)
 	{
 		_open = game.Stage == Stage.Open;
-		var answering = _open && game.Buzzes.Any(b => b.Status == BuzzStatus.Answering);
-		if (answering && Playing)
+		_answering = _open && game.Buzzes.Any(b => b.Status == BuzzStatus.Answering);
+		if (_answering && Playing)
 		{
 			_autoPaused = true;
 			SetPaused(true);
-		}
-		else if (!answering && _autoPaused && _open)
-		{
-			_autoPaused = false;
-			SetPaused(false);
 		}
 	}
 
@@ -368,7 +369,9 @@ public partial class HostMedia : VBoxContainer
 			_reported = playing;
 			if (_open) _host.SetMedia(playing);
 		}
-		if (_toggle != null) _toggle.Text = _audio != null ? (playing ? "❚❚" : "▶") : (playing ? "Pause" : "Play");
+		var waiting = _autoPaused && !playing && !_answering && _open;
+		_hint.Visible = waiting;
+		if (_toggle != null) _toggle.Text = _audio != null ? (playing ? "❚❚" : "▶") : playing ? "Pause" : waiting ? "▶ Resume" : "Play";
 		if (_bars != null) _bars.Active = playing;
 		var pos = _audio != null ? _audio.GetPlaybackPosition() : _video?.StreamPosition ?? 0;
 		if (_time != null) _time.Text = U.Clock(pos) + (_duration is { } d ? $" / {U.Clock(d)}" : "");

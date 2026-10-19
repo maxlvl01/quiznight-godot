@@ -473,6 +473,9 @@ public static class SelfTest
 		Eq(back.Game!.Reveal!.Target!.Value.Y, 0.2, "state target");
 		Eq(back.Game.Reveal.Entries[0].Value!.Point!.Value.X, 0.3, "answer point");
 		Check(Msg.Decode(new byte[] { 1, 2, 3 }) == null, "garbage message ignored");
+		var chunk = VideoChunk.Encode("ab12", 1000, 300, new byte[] { 7, 8, 9 });
+		Check(VideoChunk.TryDecode(chunk, out var cid, out var ctotal, out var coffset, out var cdata) && cid == "ab12" && ctotal == 1000 && coffset == 300 && cdata.Span.SequenceEqual(new byte[] { 7, 8, 9 }), "video piece round trip");
+		Check(!VideoChunk.TryDecode(VideoChunk.Encode("x", 10, 9, new byte[] { 1, 2 }), out _, out _, out _, out _), "video piece past the end is refused");
 
 		var reader = new FrameReader();
 		var frames = FrameReader.Frame(new byte[] { 1, 2, 3 }).Concat(FrameReader.Frame(new byte[] { 4 })).ToArray();

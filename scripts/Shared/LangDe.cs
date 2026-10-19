@@ -287,10 +287,10 @@ public static class LangDe
 		["e.g. Elden Ring"] = "z. B. Elden Ring",
 		["Start playing at (seconds)"] = "Abspielen ab (Sekunden)",
 		["Skip a silent intro or a title card that gives it away."] = "Überspringe ein stilles Intro oder eine Titelkarte, die alles verrät.",
-		["The sound plays on your screen. Players buzz in on their own PC; playback pauses while someone answers and you mark it Correct or Wrong. Once it's guessed, everyone sees how many seconds of listening it took. Answer time per buzz is set in the lobby."] =
-			"Der Sound läuft auf deinem Bildschirm. Die Spieler buzzern am eigenen PC; die Wiedergabe pausiert, während jemand antwortet und du Richtig oder Falsch markierst. Sobald es erraten ist, sehen alle, wie viele Sekunden Zuhören es gebraucht hat. Die Antwortzeit pro Buzz stellst du in der Lobby ein.",
-		["The video plays on your screen. Players buzz in on their own PC; playback pauses while someone answers and you mark it Correct or Wrong. Once it's guessed, everyone sees how many seconds of watching it took. Answer time per buzz is set in the lobby."] =
-			"Das Video läuft auf deinem Bildschirm. Die Spieler buzzern am eigenen PC; die Wiedergabe pausiert, während jemand antwortet und du Richtig oder Falsch markierst. Sobald es erraten ist, sehen alle, wie viele Sekunden Zuschauen es gebraucht hat. Die Antwortzeit pro Buzz stellst du in der Lobby ein.",
+		["The sound plays on your screen. Players buzz in on their own PC; playback pauses when someone buzzes. After a wrong answer it stays paused until you resume it (or reveal the answer if nobody knows it). Once it's guessed, everyone sees how many seconds of listening it took. Answer time per buzz is set in the lobby."] =
+			"Der Sound läuft auf deinem Bildschirm. Die Spieler buzzern am eigenen PC; die Wiedergabe pausiert, sobald jemand buzzert. Nach einer falschen Antwort bleibt sie pausiert, bis du sie fortsetzt (oder die Antwort aufdeckst, wenn niemand sie weiß). Sobald es erraten ist, sehen alle, wie viele Sekunden Zuhören es gebraucht hat. Die Antwortzeit pro Buzz stellst du in der Lobby ein.",
+		["The video plays on your screen and on the players' screens too (blurred until you start it). Players buzz in on their own PC; playback pauses when someone buzzes. After a wrong answer it stays paused until you resume it (or reveal the answer if nobody knows it). Once it's guessed, everyone sees how many seconds of watching it took. Answer time per buzz is set in the lobby."] =
+			"Das Video läuft auf deinem Bildschirm und auch bei den Spielern (verschwommen, bis du es startest). Die Spieler buzzern am eigenen PC; die Wiedergabe pausiert, sobald jemand buzzert. Nach einer falschen Antwort bleibt sie pausiert, bis du sie fortsetzt (oder die Antwort aufdeckst, wenn niemand sie weiß). Sobald es erraten ist, sehen alle, wie viele Sekunden Zuschauen es gebraucht hat. Die Antwortzeit pro Buzz stellst du in der Lobby ein.",
 		["1 · Screenshot"] = "1 · Screenshot",
 		["The screenshot players have to locate."] = "Der Screenshot, den die Spieler finden müssen.",
 		["2 · Map and correct spot"] = "2 · Karte und richtiger Ort",
@@ -656,5 +656,13 @@ public static class LangDe
 		["★ Bonus +{0}"] = "★ Bonus +{0}",
 		["Give bonus"] = "Bonus geben",
 		["★ Including the bonus: {0}"] = "★ Mit Bonus: {0}",
+		["Sound: on"] = "Ton: an",
+		["Sound: off"] = "Ton: aus",
+		["The video plays along with the host's."] = "Das Video läuft mit dem des Hosts mit.",
+		["Getting the video ready…"] = "Das Video wird vorbereitet…",
+		["The video is still on its way: {0}%"] = "Das Video ist noch unterwegs: {0}%",
+		["The host starts the video in a moment…"] = "Der Host startet das Video gleich…",
+		["Nobody's answering now: resume it, or reveal the answer if nobody knows it."] = "Gerade antwortet niemand: setz es fort oder deck die Antwort auf, wenn sie niemand weiß.",
+		["▶ Resume"] = "▶ Fortsetzen",
 	};
 }

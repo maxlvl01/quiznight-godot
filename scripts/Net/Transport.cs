@@ -23,6 +23,11 @@ public interface IHostTransport : IDisposable
 	string? PeerSteamId(string peer);
 
 	void Send(string peer, byte[] data);
+	/// <summary>
+	/// Sends unless a lot is still waiting to go out to that peer (then returns false: try again later).
+	/// For big transfers (videos), so they go out as fast as the connection takes them without piling up.
+	/// </summary>
+	bool TrySend(string peer, byte[] data);
 	/// <summary>Closes the connection after sending what is queued.</summary>
 	void Disconnect(string peer);
 	void Poll();

@@ -13,7 +13,14 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+### Added
+- **Videos play on the players' screens too**, in step with the host's: they play, pause and jump along with it.
+  The video is blurred until the host starts it, and players can turn its sound off. The game sends every video to
+  the players in the background from the start of the quiz (locked, so nobody can watch it before its question).
+
 ### Changed
+- **Sound and video questions stay paused after a wrong answer** (when nobody else is in line): the host decides
+  whether to resume it or to reveal the answer if nobody knows it.
 - **Much faster updates.** The game now downloads only the files that changed (usually a few MB instead of the whole
   game), several at once, and no longer slows the download down while it shows the progress bar. The update to this
   version still comes the old way (the whole zip), after that it's quick.

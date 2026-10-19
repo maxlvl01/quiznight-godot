@@ -34,6 +34,8 @@ public sealed class ClientSession : IDisposable
 	/// <summary>True while the connection is down and we are trying to get back in.</summary>
 	public bool Reconnecting => _lostAt != null;
 	public readonly ClientAssets Assets;
+	/// <summary>The game's videos, for playing them on this screen too.</summary>
+	public readonly ClientVideos Videos = new();
 
 	public event Action? Changed;
 	/// <summary>The session is over (left, kicked, room closed, couldn't join). Carries the reason to show.</summary>
@@ -117,6 +119,11 @@ public sealed class ClientSession : IDisposable
 
 	void OnReceived(byte[] bytes)
 	{
+		if (bytes.Length > 0 && bytes[0] == VideoChunk.Marker)
+		{
+			Videos.Receive(bytes);
+			return;
+		}
 		if (Msg.Decode(bytes) is not { } msg) return;
 		switch (msg.Type)
 		{
@@ -189,6 +196,7 @@ public sealed class ClientSession : IDisposable
 		FailPendingAnswers("You left the room.");
 		_net?.Dispose();
 		_net = null;
+		Videos.Dispose();
 		Ended?.Invoke(reason);
 	}
 
