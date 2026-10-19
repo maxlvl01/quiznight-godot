@@ -1,9 +1,9 @@
 // Updates the game from GitHub: the public repo ReleasesRepo has one release per version (tag "v0.5.0a")
-// with the builds as "Quiznight-<version>-windows.zip" and "…-linux.zip", plus "manifest-windows.json" /
-// "manifest-linux.json": every file of the build with its SHA-256 and where to download it gzipped
-// (tools/manifest.py). At startup the game asks for the latest release; if it's newer, it downloads only the
-// files that differ from its own (usually the .pck and the game's DLL, a few MB) — or the whole zip when a
-// release has no manifest. Then a small script (PowerShell on Windows, sh on Linux) waits for the game to
+// with the builds as "Quiznight-<version>-windows.zip" and "…-linux.zip", plus "update-windows.json" /
+// "update-linux.json": every file of the build with its SHA-256 and the pack (a zip: game, engine, maps or
+// AnyConverter) it's in, maybe in an older release (tools/manifest.py). At startup the game asks for the latest
+// release; if it's newer, it downloads only the packs with files that differ from its own (usually just the game
+// pack, about a MB) — or the whole zip when a release has no update list. Then a small script (PowerShell on Windows, sh on Linux) waits for the game to
 // close, copies the new files over the install folder and starts it again.
 // Only in exported builds — never while running from the Godot editor or a dev build.
 
@@ -29,11 +29,12 @@ public static class Updater
 	/// <summary>The release asset for this system: "Quiznight-0.5.0a-windows.zip" or "…-linux.zip".</summary>
 	public static string ZipSuffix => IsWindows ? "-windows.zip" : "-linux.zip";
 
-	/// <summary>The update manifest for this system.</summary>
-	static string ManifestName => IsWindows ? "manifest-windows.json" : "manifest-linux.json";
+	/// <summary>The update list for this system.</summary>
+	static string ManifestName => IsWindows ? "update-windows.json" : "update-linux.json";
 
 	public sealed record Release(AppVersion Version, string ZipUrl, long Size, string? ManifestUrl);
-	sealed record FileEntry(string Path, long Size, string Sha256, string Url, long Gz);
+	sealed record FileEntry(string Path, long Size, string Sha256, string Pack);
+	sealed record Pack(string Url, long Size, string Sha256);
 
 	/// <summary>Exported Windows and Linux builds only (the editor and `godot --path .` runs never update themselves).</summary>
 	public static bool Enabled => OS.HasFeature("template") && (IsWindows || OS.GetName() == "Linux");
@@ -150,34 +151,36 @@ public static class Updater
 	}
 
 	/// <summary>
-	/// Downloads every file of the manifest that this install doesn't have exactly (same size and SHA-256),
-	/// four at a time, into newFiles (keeping the build's folders).
+	/// Finds the files this install doesn't have exactly (same size and SHA-256), downloads the packs they're in
+	/// (a few at a time, checked against their SHA-256) and unpacks those files into newFiles (keeping the folders).
 	/// </summary>
 	static async Task DownloadChangedFiles(string manifestUrl, string installDir, string newFiles, string exeName, Action<float> report)
 	{
 		using var http = NewClient(TimeSpan.FromMinutes(30));
-		var files = (JsonNode.Parse(await http.GetStringAsync(manifestUrl))?["files"] as JsonArray)?.OfType<JsonObject>()
-			.Select(f => new FileEntry(f["path"]!.GetValue<string>(), f["size"]!.GetValue<long>(), f["sha256"]!.GetValue<string>(),
-				f["url"]!.GetValue<string>(), f["gz"]!.GetValue<long>()))
+		var list = JsonNode.Parse(await http.GetStringAsync(manifestUrl)) ?? throw new InvalidOperationException("The update list is empty.");
+		var files = (list["files"] as JsonArray)?.OfType<JsonObject>()
+			.Select(f => new FileEntry(f["path"]!.GetValue<string>(), f["size"]!.GetValue<long>(), f["sha256"]!.GetValue<string>(), f["pack"]!.GetValue<string>()))
 			.ToList() ?? throw new InvalidOperationException("The update's file list is empty.");
+		var packs = (list["packs"] as JsonObject)?.ToDictionary(p => p.Key, p => new Pack(p.Value!["url"]!.GetValue<string>(),
+			p.Value["size"]!.GetValue<long>(), p.Value["sha256"]!.GetValue<string>())) ?? new();
 		if (files.All(f => f.Path != exeName)) throw new InvalidOperationException($"The update doesn't contain {exeName}.");
 
 		var root = Path.GetFullPath(newFiles) + Path.DirectorySeparatorChar;
 		var needed = files.Where(f => !SameFile(Path.Combine(installDir, f.Path), f)).ToList();
-		var total = Math.Max(1, needed.Sum(f => f.Gz));
+		var byPack = needed.GroupBy(f => f.Pack).ToList();
+		if (byPack.Any(g => !packs.ContainsKey(g.Key))) throw new InvalidOperationException("The update list names a pack it doesn't have.");
+		var total = Math.Max(1, byPack.Sum(g => packs[g.Key].Size));
 		var done = new long[1];
-		GD.Print($"Updating {needed.Count} of {files.Count} files ({total / 1e6:0.0} MB).");
-		await Parallel.ForEachAsync(needed, new ParallelOptions { MaxDegreeOfParallelism = 4 }, async (file, ct) =>
+		GD.Print($"Updating {needed.Count} of {files.Count} files from {byPack.Count} packs ({total / 1e6:0.0} MB).");
+		await Parallel.ForEachAsync(byPack, new ParallelOptions { MaxDegreeOfParallelism = 3 }, async (group, ct) =>
 		{
-			var target = Path.GetFullPath(Path.Combine(newFiles, file.Path));
-			if (!target.StartsWith(root, StringComparison.Ordinal)) throw new InvalidOperationException($"Bad file name in the update: {file.Path}");
-			Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-			var gz = target + ".download.gz";
-			using (var response = await http.GetAsync(file.Url, HttpCompletionOption.ResponseHeadersRead, ct))
+			var pack = packs[group.Key];
+			var zipPath = Path.Combine(UpdateDir, Path.GetFileName(group.Key));
+			using (var response = await http.GetAsync(pack.Url, HttpCompletionOption.ResponseHeadersRead, ct))
 			{
 				response.EnsureSuccessStatusCode();
 				await using var from = await response.Content.ReadAsStreamAsync(ct);
-				await using var to = File.Create(gz);
+				await using var to = File.Create(zipPath);
 				var buffer = new byte[1 << 16];
 				int read;
 				while ((read = await from.ReadAsync(buffer, ct)) > 0)
@@ -186,11 +189,20 @@ public static class Updater
 					report((float)Interlocked.Add(ref done[0], read) / total * 0.95f);
 				}
 			}
-			await using (var packed = new GZipStream(File.OpenRead(gz), CompressionMode.Decompress))
-			await using (var to = File.Create(target))
-				await packed.CopyToAsync(to, ct);
-			File.Delete(gz);
-			if (!SameFile(target, file)) throw new InvalidOperationException($"{file.Path} arrived damaged.");
+			await using (var check = File.OpenRead(zipPath))
+				if (!Convert.ToHexString(SHA256.HashData(check)).Equals(pack.Sha256, StringComparison.OrdinalIgnoreCase))
+					throw new InvalidOperationException($"{group.Key} arrived damaged.");
+			using (var zip = ZipFile.OpenRead(zipPath))
+				foreach (var file in group)
+				{
+					var target = Path.GetFullPath(Path.Combine(newFiles, file.Path));
+					if (!target.StartsWith(root, StringComparison.Ordinal)) throw new InvalidOperationException($"Bad file name in the update: {file.Path}");
+					var entry = zip.GetEntry(file.Path) ?? throw new InvalidOperationException($"{group.Key} doesn't contain {file.Path}.");
+					Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+					entry.ExtractToFile(target, true);
+					if (!SameFile(target, file)) throw new InvalidOperationException($"{file.Path} arrived damaged.");
+				}
+			File.Delete(zipPath);
 		});
 	}
 
@@ -201,7 +213,7 @@ public static class Updater
 		return Convert.ToHexString(SHA256.HashData(stream)).Equals(file.Sha256, StringComparison.OrdinalIgnoreCase);
 	}
 
-	/// <summary>The whole build as a zip (for releases without a manifest), unpacked into newFiles.</summary>
+	/// <summary>The whole build as a zip (for releases without an update list), unpacked into newFiles.</summary>
 	static async Task DownloadZip(Release release, string newFiles, Action<float> report)
 	{
 		var zipPath = Path.Combine(UpdateDir, "update.zip");

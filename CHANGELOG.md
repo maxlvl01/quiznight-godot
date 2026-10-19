@@ -11,6 +11,12 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
+## [Unreleased]
+
+### Changed
+- Updates are downloaded as a few packs instead of hundreds of single files, so the release page stays tidy.
+  Still only what changed: usually about 1 MB.
+
 ## [0.7.3b] — everyone sees and hears it all, faster updates, smaller download
 
 ### Added

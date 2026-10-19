@@ -117,10 +117,12 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
   `maxlvl01/quiznight-releases` repo (code lives in the private `maxlvl01/quiznight-godot`; `maxlvl01/quiznight` is the web version). Exported games check
   it at startup (`Storage/Updater.cs`) and update themselves; "What's new" is read from the shipped
   CHANGELOG.md, so its `## [version]` / `### Added|Changed|Fixed|Removed` layout matters.
-  Updates go file by file: each release has `manifest-windows.json` / `manifest-linux.json` (every file's SHA-256 and
-  the URL of its gzipped copy, made by `tools/manifest.py`); only files whose hash is new are uploaded, the rest point
-  into older releases — so **never delete old releases**. The game downloads only what differs (off the main
-  thread: awaiting there throttles reads to one per frame), falling back to the zip. Test against a local server
+  Updates come in packs: each release has `update-windows.json` / `update-linux.json` (every file's SHA-256 and the
+  pack it's in, made by `tools/manifest.py`). Packs are zips by kind (game, engine, maps, anyconverter) named by a
+  hash of their contents; only new packs are uploaded (usually just the two game packs), the rest point into older
+  releases — so **never delete old releases**. The game downloads only the packs with files that differ (off the
+  main thread: awaiting there throttles reads to one per frame), falling back to the zip. (0.7.3b briefly had one
+  `.gz` per file with `manifest-*.json`; removed again, nothing used them.) Test against a local server
   with `QUIZNIGHT_UPDATE_FEED=<url of a fake releases/latest JSON>`. `build/` has a `.gdignore` (else the editor
   imports the copied maps).
 - **AnyConverter** (the user's separate Python/tkinter converter, `C:\Users\Xbox3\Desktop\AnyConverter`, not in git)

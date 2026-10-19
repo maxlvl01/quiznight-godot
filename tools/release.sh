@@ -63,15 +63,16 @@ rm -f "$ZIP_LINUX"
 (cd "$OUT_LINUX" && /c/Windows/System32/tar.exe -a -c -f "../../$ZIP_LINUX" *)
 ls -la "$ZIP_LINUX"
 
-echo "== Update manifests"
-# Every file with its hash; files that changed since the last release are gzipped into $BLOBS for upload,
-# the rest point to the older release that has them (tools/manifest.py). The game downloads only those.
-BLOBS="build/blobs-$VERSION"; PREV="build/prev-manifests"
-rm -rf "$BLOBS" "$PREV" && mkdir -p "$PREV"
-gh release download --repo "$REPO" --pattern 'manifest-*.json' -D "$PREV" 2>/dev/null || echo "(no earlier manifests: every file is new)"
+echo "== Update lists"
+# Every file with its hash, in a few packs by kind (game, engine, maps, AnyConverter). Packs that changed since
+# the last release are zipped into $PACKS for upload (usually just the game packs); the rest point to the older
+# release that has them (tools/manifest.py). The game downloads only the packs it needs.
+PACKS="build/packs-$VERSION"; PREV="build/prev-lists"
+rm -rf "$PACKS" "$PREV" && mkdir -p "$PREV"
+gh release download --repo "$REPO" --pattern 'update-*.json' -D "$PREV" 2>/dev/null || echo "(no earlier update lists: every pack is new)"
 BASE="https://github.com/$REPO/releases/download/v$VERSION/"
-py -I tools/manifest.py "$VERSION" "$OUT" build/manifest-windows.json "$BLOBS" "$BASE" "$PREV"/manifest-*.json
-py -I tools/manifest.py "$VERSION" "$OUT_LINUX" build/manifest-linux.json "$BLOBS" "$BASE" "$PREV"/manifest-*.json build/manifest-windows.json
+py -I tools/manifest.py "$VERSION" windows "$OUT" build/update-windows.json "$PACKS" "$BASE" "$PREV"/update-*.json
+py -I tools/manifest.py "$VERSION" linux "$OUT_LINUX" build/update-linux.json "$PACKS" "$BASE" "$PREV"/update-*.json build/update-windows.json
 
 # This version's notes: from its "## [version]" line up to the next "## [".
 awk -v v="## [$VERSION]" 'index($0, v) == 1 { on = 1; next } /^## \[/ { on = 0 } on' CHANGELOG.md > "$NOTES"
@@ -82,7 +83,7 @@ if [ "$DRY" = "--dry-run" ]; then
 fi
 
 echo "== Publishing v$VERSION to $REPO"
-# As a draft first, so no game sees the release before all its files are there; the manifests go up last.
+# As a draft first, so no game sees the release before all its files are there; the update lists go up last.
 if gh release view "v$VERSION" --repo "$REPO" >/dev/null 2>&1; then
 	# Same version again (e.g. a rebuilt build): replace the files and notes.
 	gh release edit "v$VERSION" --repo "$REPO" --notes-file "$NOTES"
@@ -90,8 +91,7 @@ else
 	gh release create "v$VERSION" --repo "$REPO" --title "Quiznight $VERSION" --notes-file "$NOTES" --draft
 fi
 gh release upload "v$VERSION" "$ZIP" "$ZIP_LINUX" --repo "$REPO" --clobber
-# (in batches: Windows limits how long a command line can be)
-find "$BLOBS" -name '*.gz' -print0 | xargs -0 -r -n 80 gh release upload "v$VERSION" --repo "$REPO" --clobber
-gh release upload "v$VERSION" build/manifest-windows.json build/manifest-linux.json --repo "$REPO" --clobber
+find "$PACKS" -name '*.zip' -print0 | xargs -0 -r gh release upload "v$VERSION" --repo "$REPO" --clobber
+gh release upload "v$VERSION" build/update-windows.json build/update-linux.json --repo "$REPO" --clobber
 gh release edit "v$VERSION" --repo "$REPO" --draft=false --latest
 echo "Done: https://github.com/$REPO/releases/tag/v$VERSION"
