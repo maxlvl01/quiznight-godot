@@ -299,8 +299,9 @@ public partial class HostMedia : VBoxContainer
 				AddChild(U.Error(Media.VideoHelp));
 				return;
 			}
-			_video = new VideoStreamPlayer { Stream = stream, Bus = Prefs.MusicBus, Expand = true, CustomMinimumSize = new Vector2(0, 200) }.MarkFlexible();
-			AddChild(U.Panel(_video, "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(Colors.Black, 12, null, 0, 0, 0))));
+			_video = new VideoStreamPlayer { Stream = stream, Bus = Prefs.MusicBus };
+			var frame = new VideoFrame(_video) { CustomMinimumSize = new Vector2(0, 200) }.MarkFlexible();
+			AddChild(U.Panel(frame, "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(Colors.Black, 12, null, 0, 0, 0))));
 			_toggle = U.Small("Pause", Toggle);
 			_time = U.Mono("0:00", 15, C.Muted);
 			AddChild(GameParts.Row(10, _toggle, _time));

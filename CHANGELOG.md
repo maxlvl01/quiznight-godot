@@ -21,6 +21,13 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
   (they're also next to the game in a `maps` folder) instead of being stored again bigger inside the game file.
   They look the same or slightly sharper, nothing was made smaller or blurrier.
 
+- **Wide screens:** on ultrawide monitors (21:9, 32:9) every screen now stays 16:9 in the middle instead of
+  stretching across the whole monitor.
+
+### Fixed
+- Videos keep their shape: in the editor preview and in the game they're no longer squashed or stretched to fit the
+  box (black bars fill the rest).
+
 ### Removed
 - Leftovers of an old sound pack that was never used in the game.
 

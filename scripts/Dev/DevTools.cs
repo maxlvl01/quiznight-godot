@@ -1,7 +1,7 @@
 // Command-line helpers for testing on one PC (arguments after "--"):
 //   --selftest                     run the checks and quit (exit code 0 = all passed)
 //   --host-sample | --host FILE    host the sample quiz / a quiz file in LAN mode
-//   --sound FILE                   with --host-sample: the sound question plays that file
+//   --sound FILE / --video FILE    with --host-sample or --open: the sound question plays that file / a video question follows it
 //   --autopilot [--players N]      as host: start with N players, judge buzzes, go to the next question
 //   --start-at N                   with --autopilot: skip straight to question N (1 = first)
 //   --quit-at-end                  quit a few seconds after the podium
@@ -67,6 +67,31 @@ public sealed class DevTools
 
 	bool Has(string name) => _args.Contains(name);
 
+	/// <summary>
+	/// --sound FILE: the sample quiz's sound question plays that file. --video FILE: a video question with that
+	/// file comes right after it. Both are read like the editor reads them.
+	/// </summary>
+	Quiz WithTestMedia(Quiz sample)
+	{
+		var sq = sample.Questions.FirstOrDefault(q => q.Type == QuestionType.Sound);
+		if (Value("--sound") is { } sound && sq != null)
+		{
+			sq.Media = Media.ReadFile(sound, QuestionType.Sound);
+			sq.Prompt = "Name this song!";
+			sq.AnswerText = System.IO.Path.GetFileNameWithoutExtension(sound);
+			sq.BonusText = "Also name the game";
+		}
+		if (Value("--video") is { } video)
+		{
+			var vq = QuizRules.NewQuestion(QuestionType.Video, "qv");
+			vq.Prompt = "Which game is this?";
+			vq.AnswerText = System.IO.Path.GetFileNameWithoutExtension(video).Split(" - ")[0];
+			vq.Media = Media.ReadFile(video, QuestionType.Video);
+			sample.Questions.Insert(sq != null ? sample.Questions.IndexOf(sq) + 1 : 0, vq);
+		}
+		return sample;
+	}
+
 	public static DevTools? FromArgs(App app, string[] args) => args.Length == 0 ? null : new DevTools(app, args).Setup();
 
 	DevTools Setup()
@@ -102,22 +127,14 @@ public sealed class DevTools
 		else if (Has("--host-sample") || Value("--host") != null)
 		{
 			TakesOver = true;
-			var sample = SampleQuiz.Build();
-			// --sound FILE (with --host-sample): the sound question plays that file, read like the editor does
-			if (Value("--sound") is { } sound && sample.Questions.FirstOrDefault(q => q.Type == QuestionType.Sound) is { } sq)
-			{
-				sq.Media = Media.ReadFile(sound, QuestionType.Sound);
-				sq.Prompt = "Name this song!";
-				sq.AnswerText = System.IO.Path.GetFileNameWithoutExtension(sound);
-				sq.BonusText = "Also name the game";
-			}
+			var sample = WithTestMedia(SampleQuiz.Build());
 			var quiz = Value("--host") is { } file ? QuizStore.Import(file) : QuizStore.Save(sample);
 			_app.HostQuiz(quiz, NetMode.Lan);
 		}
 		else if (Value("--open") is { } type)
 		{
 			TakesOver = true;
-			var sample = SampleQuiz.Build();
+			var sample = WithTestMedia(SampleQuiz.Build());
 			// --map-preset ID (with --open mapPin): the map pin question uses that built-in map instead of Skyrim
 			if (Value("--map-preset") is { } presetId && MapPresets.Get(presetId) is { } preset && Images.BuiltinTexture(preset.ImagePath) is { } tex)
 			{

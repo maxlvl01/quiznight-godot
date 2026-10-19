@@ -157,8 +157,8 @@ public partial class MediaField : VBoxContainer
 		}
 		else if (Media.LoadVideo(_media, "editor-preview") is { } video)
 		{
-			_video = new VideoStreamPlayer { Stream = video, Bus = Prefs.MusicBus, Expand = true, CustomMinimumSize = new Vector2(0, 220) };
-			_body.AddChild(U.Panel(_video, "Inset"));
+			_video = new VideoStreamPlayer { Stream = video, Bus = Prefs.MusicBus };
+			_body.AddChild(U.Panel(new VideoFrame(_video) { CustomMinimumSize = new Vector2(0, 220) }, "Inset"));
 		}
 		else Fail(Media.VideoHelp);
 		_play = U.Small("▶ Play", TogglePlay);

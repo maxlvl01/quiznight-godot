@@ -23,7 +23,7 @@ public partial class App : Control
 	public ClientSession? Client { get; private set; }
 	HostAssets? _hostAssets;
 
-	readonly Control _screens = new();
+	readonly Control _screens = new ScreenFrame();
 	readonly VBoxContainer _banners = U.V(0);
 	Control? _screen;
 	string? _bannerError;
