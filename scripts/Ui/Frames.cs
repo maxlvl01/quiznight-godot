@@ -42,7 +42,8 @@ public partial class ScreenFrame : Container
 
 /// <summary>
 /// The space picture behind everything, seen beside the 16:9 screens on wider monitors. Slightly out of
-/// focus, sharp around the mouse (the focus follows it, softly), and it shifts a little with the mouse.
+/// focus, sharp around the mouse (the focus follows it, softly), and it shifts a little with the mouse
+/// (unless Settings.BackgroundMotion is off).
 /// Picture: the Cosmic Cliffs in the Carina Nebula (NASA, ESA, CSA, STScI).
 /// </summary>
 public partial class SpaceBackdrop : Control
@@ -111,8 +112,11 @@ public partial class SpaceBackdrop : Control
 		// Only on windows wider than 16:9: elsewhere the screens cover it all.
 		Visible = _sharp != null && Size.X > Size.Y * ScreenFrame.MaxAspect + 2;
 		if (!Visible) return;
-		var mouse = GetLocalMousePosition() / Size;
-		_focus = _focus.Lerp(mouse.Clamp(Vector2.Zero, Vector2.One), (float)Mathf.Min(1, delta * 4));
+		// (the setting off: still, evenly out of focus)
+		var moving = Storage.Settings.BackgroundMotion;
+		_top.Visible = moving;
+		var target = moving ? (GetLocalMousePosition() / Size).Clamp(Vector2.Zero, Vector2.One) : new Vector2(0.5f, 0.5f);
+		_focus = _focus.Lerp(target, (float)Mathf.Min(1, delta * 4));
 		QueueRedraw();
 		_top.QueueRedraw();
 	}

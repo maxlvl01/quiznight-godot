@@ -58,11 +58,11 @@ public static class Settings
 	// ---------- settings screen ----------
 
 	/// <summary>Everything on the settings screen as one value: the screen edits a copy and saves it with Apply.</summary>
-	public sealed record Values(string Language, int Master, int Music, int GameMusic, int Sfx, string Buzzer, string WindowMode, Vector2I WindowSize, int Screen);
+	public sealed record Values(string Language, int Master, int Music, int GameMusic, int Sfx, string Buzzer, string WindowMode, Vector2I WindowSize, int Screen, bool BackgroundMotion);
 
-	public static Values Defaults => new(Lang.SystemDefault, 80, 80, 60, 100, Storage.Sfx.DefaultBuzzer, "windowed", new Vector2I(1600, 900), DisplayServer.GetPrimaryScreen());
+	public static Values Defaults => new(Lang.SystemDefault, 80, 80, 60, 100, Storage.Sfx.DefaultBuzzer, "windowed", new Vector2I(1600, 900), DisplayServer.GetPrimaryScreen(), true);
 
-	public static Values Current => new(Language, MasterVolume, MusicVolume, GameMusicVolume, SfxVolume, BuzzerSound, WindowMode, WindowSize, Screen);
+	public static Values Current => new(Language, MasterVolume, MusicVolume, GameMusicVolume, SfxVolume, BuzzerSound, WindowMode, WindowSize, Screen, BackgroundMotion);
 
 	public static void Save(Values v)
 	{
@@ -75,6 +75,7 @@ public static class Settings
 		WindowMode = v.WindowMode;
 		WindowSize = v.WindowSize;
 		Screen = v.Screen;
+		BackgroundMotion = v.BackgroundMotion;
 	}
 
 	static int GetPercent(string key, int fallback) => int.TryParse(Get(key, ""), out var v) ? Mathf.Clamp(v, 0, 100) : fallback;
@@ -114,6 +115,13 @@ public static class Settings
 	{
 		get => Sfx.Valid(Get("buzzer_sound", Sfx.DefaultBuzzer));
 		set => Set("buzzer_sound", value);
+	}
+
+	/// <summary>Whether the space picture beside the screens (wide monitors) moves with the mouse.</summary>
+	public static bool BackgroundMotion
+	{
+		get => Get("background_motion", "on") != "off";
+		set => Set("background_motion", value ? "on" : "off");
 	}
 
 	/// <summary>"windowed", "fullscreen" (exclusive) or "borderless" (borderless fullscreen window).</summary>

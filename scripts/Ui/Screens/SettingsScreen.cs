@@ -83,6 +83,8 @@ public partial class SettingsScreen : Control
 			U.Field("Window mode", mode),
 			U.Field("Window size", size),
 			sizeHint,
+			U.Field("Background movement", U.Segmented(new[] { ("on", "On"), ("off", "Off") }, d.BackgroundMotion ? "on" : "off", id => Change(Draft with { BackgroundMotion = id == "on" }))),
+			U.Muted("On wide monitors, the space picture beside the game sways with the mouse. Off keeps it still.", 12),
 			U.Muted("Frame rate is capped at 60 FPS.", 12));
 
 		var language = U.Card(12,

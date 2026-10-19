@@ -24,7 +24,8 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
   - **Image reveal**: players see the picture getting clearer on their own screen, in step with the host's.
   - **At the reveal** players see everyone's answers, like on the host's screen.
 - **Space background on wide monitors**: the Cosmic Cliffs (James Webb Space Telescope) fill the space beside the
-  screens, slightly out of focus, sharp where the mouse is.
+  screens, slightly out of focus, sharp where the mouse is. **Settings → Video → Background movement** turns its
+  movement off.
 
 ### Changed
 - **Sound, video and image reveal questions stay paused after a wrong answer** (when nobody else is in line): the host decides
