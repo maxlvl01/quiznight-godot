@@ -71,12 +71,15 @@ public partial class HomeScreen : Control
 		page.AddChild(U.H(6, U.Muted($"v{App.Version}  ·", 12, false), U.Link("What's new", () => WhatsNew.ShowCurrent(this), 12)).Center());
 
 		AddChild(U.Page(page, 960, 56));
-		var settings = U.Small("Settings", App.I.GoSettings);
-		settings.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight, LayoutPresetMode.KeepSize, 20);
-		settings.GrowHorizontal = GrowDirection.Begin;
-		AddChild(settings);
+		var corner = U.H(8, U.Small("☀ Light mode", LightMode), U.Small("Settings", App.I.GoSettings));
+		corner.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight, LayoutPresetMode.KeepSize, 20);
+		corner.GrowHorizontal = GrowDirection.Begin;
+		AddChild(corner);
 		BuildJoinFields();
 	}
+
+	/// <summary>There is no light mode. (A prank for friends: it opens Never Gonna Give You Up.)</summary>
+	public static void LightMode() => OS.ShellOpen("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
 
 	Control NetworkRow()
 	{
