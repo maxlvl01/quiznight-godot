@@ -7,7 +7,7 @@
 //   --quit-at-end                  quit a few seconds after the podium
 //   --bot NAME [--address IP]      join a LAN room and answer on its own
 //   --open TYPE                    open the editor on the sample quiz's question of that type
-//   --screen home|quizzes|quiz|settings|eternal  open that screen
+//   --screen home|quizzes|quiz|settings|eternal|delete  open that screen (delete: the delete question, deleting nothing)
 //   --lang en|de                   use that language this run (not saved)
 //   --video-guide [FILE]           open a new video question with the MP4 → .ogv guide
 //   --shot FILE [--after SEC]      save a screenshot after SEC seconds (default 2) and quit
@@ -182,6 +182,12 @@ public sealed class DevTools
 					break;
 				case "eternal":
 					_app.GoEternalTable();
+					break;
+				// (the delete question over My quizzes, to see it; it deletes nothing)
+				case "delete":
+					_app.GoQuizzes();
+					Callable.From(() => Ui.Dialogs.Confirm(_app, Lang.F("Delete \"{0}\"? This can't be undone — export it first if you want a backup.", "New quiz"),
+						"Delete", () => { }, dontAskAgain: () => { })).CallDeferred();
 					break;
 				default:
 					_app.GoHome();

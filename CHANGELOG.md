@@ -11,6 +11,11 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
+## [Unreleased]
+
+### Fixed
+- The "Don't ask me again" box in the delete question sat on top of the text.
+
 ## [0.8.1b] — tidier quiz screens
 
 ### Changed

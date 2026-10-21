@@ -381,8 +381,11 @@ public static class Dialogs
 		d.MinSize = new Vector2I(460, 0);
 		if (dontAskAgain != null)
 		{
+			// (a dialog's own text and an added control would sit on top of each other: both go in one column instead)
+			d.DialogText = "";
 			var box = new CheckBox { Text = Lang.T("Don't ask me again"), MouseDefaultCursorShape = Control.CursorShape.PointingHand };
-			d.AddChild(box);
+			var question = new Label { Text = Lang.T(text), AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(420, 0) };
+			d.AddChild(U.V(12, question, box));
 			d.Confirmed += () =>
 			{
 				if (box.ButtonPressed) dontAskAgain();
