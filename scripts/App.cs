@@ -19,6 +19,16 @@ public partial class App : Control
 	public static App I { get; private set; } = null!;
 	public static string Version => ProjectSettings.GetSetting("application/config/version", "0.0.0").AsString();
 
+	/// <summary>
+	/// LAN play is for testing: exported games hide it until the developer code is typed on the home screen
+	/// (until the game closes). Runs from the editor always have it.
+	/// </summary>
+	public static bool LanUnlocked { get; set; } = !OS.HasFeature("template");
+	public const string DevCode = "61969";
+
+	/// <summary>How to host and join: the saved choice once LAN is unlocked, else Steam.</summary>
+	public static NetMode NetMode => !LanUnlocked ? NetMode.Steam : SteamService.Available ? Settings.Mode : NetMode.Lan;
+
 	public HostSession? Host { get; private set; }
 	public ClientSession? Client { get; private set; }
 	HostAssets? _hostAssets;
@@ -50,6 +60,8 @@ public partial class App : Control
 		var ownWindow = DisplayServer.GetName() != "headless" && !OS.GetCmdlineArgs().Contains("--resolution");
 		Prefs.ApplyAll(ownWindow);
 		if (args.Contains("--selftest")) Lang.Use("en");
+		// (shows the exported game's home screen, LAN hidden, when run from the editor)
+		if (args.Contains("--lan-locked")) LanUnlocked = false;
 		if (!args.Contains("--no-steam") && !args.Contains("--selftest") && !args.Contains("--bot")) SteamService.Init();
 		_dev = DevTools.FromArgs(this, args);
 		if (_dev?.TakesOver != true)
@@ -150,7 +162,7 @@ public partial class App : Control
 			ShowError(Lang.F("Couldn't open the lobby: {0}", issues[0]));
 			return;
 		}
-		var mode = forceMode ?? (SteamService.Available ? Settings.Mode : NetMode.Lan);
+		var mode = forceMode ?? NetMode;
 		Show(new MessageScreen(mode == NetMode.Steam ? "Opening the lobby on Steam…" : "Opening the lobby…"));
 		ServerClock.Reset();
 		IHostTransport transport;

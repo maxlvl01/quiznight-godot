@@ -17,6 +17,7 @@ public partial class QuizListScreen : Control
 			U.Heading("My quizzes", 34).Grow(),
 			U.Btn("Open folder", "", () => OS.ShellOpen(QuizStore.Folder)).Tip("Where your quiz files are saved"),
 			U.Btn("Import file", "", Import),
+			U.Btn("Paste share code", "", PasteCode).Tip("Imports the share code you copied"),
 			U.Btn("New quiz", "AccentButton", Create));
 		var page = U.V(14, U.Link("← Home", () => App.I.GoHome()).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin), head, _error, _list);
 		AddChild(U.Page(page, 980, 20));
@@ -61,6 +62,7 @@ public partial class QuizListScreen : Control
 				Refresh();
 			}), 14),
 			U.Fill(),
+			U.Small("Copy share code", () => ShareInfo.Copy(this, quiz)),
 			U.Small("Export", () => Export(quiz)),
 			host);
 		return U.Card(6, title, info, U.Gap(4), actions).Grow();
@@ -72,7 +74,34 @@ public partial class QuizListScreen : Control
 		App.I.GoQuiz(quiz.Id);
 	}
 
-	void Import() => Dialogs.OpenFile(this, "Import a quiz file", QuizStore.FileFilters, path =>
+	void PasteCode()
+	{
+		var text = DisplayServer.ClipboardGet();
+		if (!ShareCode.Looks(text))
+		{
+			ShowError(Lang.T("Copy a share code first (it starts with QN1-), then press Paste share code."));
+			return;
+		}
+		try
+		{
+			var quiz = QuizStore.ImportCode(text);
+			_error.Visible = false;
+			Refresh();
+			ShareInfo.Imported(this, quiz);
+		}
+		catch (UserError e)
+		{
+			ShowError(e.Message);
+		}
+	}
+
+	void ShowError(string text)
+	{
+		_error.Text = text;
+		_error.Visible = true;
+	}
+
+	void Import() => Dialogs.OpenFile(this, "Import a quiz file", QuizStore.ImportFilters, path =>
 	{
 		try
 		{
@@ -108,7 +137,7 @@ public partial class QuizListScreen : Control
 	{
 		foreach (var f in files)
 		{
-			if (!f.EndsWith(".json")) continue;
+			if (!f.EndsWith(".json") && !f.EndsWith(".txt")) continue;
 			try
 			{
 				QuizStore.Import(f);

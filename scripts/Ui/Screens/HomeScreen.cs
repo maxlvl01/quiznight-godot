@@ -20,7 +20,7 @@ public partial class HomeScreen : Control
 	public HomeScreen(string? notice)
 	{
 		SetAnchorsPreset(LayoutPreset.FullRect);
-		_mode = SteamService.Available ? Settings.Mode : NetMode.Lan;
+		_mode = App.NetMode;
 
 		var brand = U.H(18, U.H(0, U.Text("Quiznight", 64, C.Text, Fonts.Black), U.Text("!", 64, C.Accent, Fonts.Black)));
 		// The stamp next to the logo follows the version letter: 0.5.0a = alpha, 0.7.1b = beta, none when finished.
@@ -86,6 +86,10 @@ public partial class HomeScreen : Control
 		var status = SteamService.Available
 			? Lang.F("Steam: signed in as {0}", SteamService.PlayerName)
 			: SteamService.InitError ?? "Steam isn't available.";
+		// (LAN is hidden until the developer code is typed: just the Steam status then)
+		if (!App.LanUnlocked)
+			return U.H(8, new ColorRect { Color = SteamService.Available ? C.Teal : C.Coral, CustomMinimumSize = new Vector2(8, 8) }.With(r => r.SizeFlagsVertical = SizeFlags.ShrinkCenter),
+				U.Muted(status, 13, false)).Center();
 		var row = U.H(10, U.Text("Play over", 14, C.Muted, Fonts.Bold).With(l => l.SizeFlagsVertical = SizeFlags.ShrinkCenter));
 		var seg = U.Segmented(new[] { ("steam", "Steam (internet)"), ("lan", "LAN / same PC") }, _mode == NetMode.Steam ? "steam" : "lan", id =>
 		{
@@ -135,6 +139,19 @@ public partial class HomeScreen : Control
 		Settings.PlayerName = _name.Text.Trim();
 		if (_mode == NetMode.Lan) Settings.LanAddress = _target.Text.Trim();
 		App.I.JoinRoom(_mode, _target.Text.Trim(), _name.Text.Trim());
+	}
+
+	// The last keys typed anywhere on this screen, for the developer code.
+	string _typed = "";
+
+	public override void _Input(InputEvent e)
+	{
+		if (App.LanUnlocked || e is not InputEventKey { Pressed: true, Echo: false } key || key.Unicode == 0) return;
+		_typed += (char)key.Unicode;
+		if (_typed.Length > App.DevCode.Length) _typed = _typed[^App.DevCode.Length..];
+		if (_typed != App.DevCode) return;
+		App.LanUnlocked = true;
+		Callable.From(() => App.I.GoHome("Developer mode: LAN play is unlocked until Quiznight closes.")).CallDeferred();
 	}
 
 	public override void _Ready() => (_mode == NetMode.Steam && _name.Text != "" ? _target : (Control)_name).CallDeferred(Control.MethodName.GrabFocus);

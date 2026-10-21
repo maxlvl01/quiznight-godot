@@ -18,12 +18,17 @@ the original design decisions; most still apply.
   connect to the host's Steam ID through Steam's relay (`SteamNetworkingSockets`). The lobby only
   makes the room code findable. Host leaves = room closed.
 - **LAN mode (plain TCP, port 7777)** exists for testing several copies on one PC (Steam can't
-  connect you to yourself) and for offline play on the same Wi-Fi.
+  connect you to yourself) and for offline play on the same Wi-Fi. Exported games hide it (`App.LanUnlocked`) until
+  the developer code `61969` is typed on the home screen (until the game closes); editor runs always have it,
+  `--lan-locked` shows the exported look.
 - **Quiz files extend the web version's format** (`.quiznight.json`, now format 5: multi choice, image reveal, timeline,
   put in order, write the answer, typed buzzer questions, bonus points), so old exports import as-is.
   Buzzer kinds with `Typed` play like write the answer (`Question.IsWritten`); a bonus is given by the host at the reveal
   (`Game.ToggleBonus`), and the host can change scores any time (`HostSession.AdjustScore`).
   `QuizJson` reads forgivingly (= migration) and writes only each type's fields.
+  **Share codes** (`Shared/ShareCode.cs`, `QN1-` + base64url of the Brotli'd quiz JSON) carry a quiz by copy/paste,
+  without sound/video data (names kept, so the importer is told what to add) or built-in map pictures. No server:
+  a Workshop (Cloudflare) was considered and dropped.
   Built-in map images are not stored in files (they ship with the game, `assets/maps/`). Each one's source and
   scale is noted in `MapPresets.cs`; `tools/stitch_map.gd` builds them from downloaded tiles (run one Godot at a
   time: two at once hang). All map images (also WoW's) are imported as **"keep"** and decoded by

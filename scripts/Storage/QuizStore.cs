@@ -15,6 +15,8 @@ public static class QuizStore
 	const string Dir = "user://quizzes";
 	public const string Extension = ".quiznight.json";
 	public static readonly string[] FileFilters = { "*.json ; Quiz files" };
+	/// <summary>For importing: quiz files and share codes saved as text (Discord sends long messages as message.txt).</summary>
+	public static readonly string[] ImportFilters = { "*.json, *.txt ; Quiz files and share codes" };
 
 	// Parsing files with big images is slow, so loaded quizzes are kept in memory.
 	static readonly Dictionary<string, Quiz> Cache = new();
@@ -136,9 +138,19 @@ public static class QuizStore
 		{
 			throw new UserError(Lang.F("Couldn't read that file: {0}", e.Message));
 		}
+		if (ShareCode.Looks(text)) return ImportCode(text);
 		var quiz = QuizJson.Parse(text, out var error) ?? throw new UserError(error ?? QuizJson.NotAQuiz);
-		quiz.Id = MakeId();
 		if (quiz.Title.Trim() == "") quiz.Title = Path.GetFileName(path).Replace(Extension, "");
+		return SaveImported(quiz);
+	}
+
+	/// <summary>Imports a share code (ShareCode) as a new quiz.</summary>
+	public static Quiz ImportCode(string code) =>
+		SaveImported(ShareCode.Read(code, out var error) ?? throw new UserError(error ?? QuizJson.NotAQuiz));
+
+	static Quiz SaveImported(Quiz quiz)
+	{
+		quiz.Id = MakeId();
 		if (quiz.CreatedAt == 0) quiz.CreatedAt = NowMs();
 		return Save(quiz);
 	}

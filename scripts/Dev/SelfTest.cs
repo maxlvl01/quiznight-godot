@@ -409,6 +409,15 @@ public static class SelfTest
 
 		var again = QuizJson.Parse(QuizJson.Write(quiz), out _)!;
 		Eq(QuizJson.Write(again), QuizJson.Write(quiz), "write/read round trip");
+		var code = ShareCode.Make(quiz);
+		var shared = ShareCode.Read("  " + code[..40] + "\n" + code[40..] + " ", out var shareError);
+		Check(shared != null, "a share code reads back (also wrapped over lines): " + shareError);
+		var noMedia = QuizJson.Parse(QuizJson.Write(quiz), out _)!;
+		foreach (var q in noMedia.Questions.Where(q => q.IsMedia)) q.Media!.DataUrl = "";
+		foreach (var m in noMedia.Maps.Where(m => MapPresets.Get(m.PresetId) != null)) m.Image.DataUrl = "";
+		Eq(QuizJson.Write(shared!), QuizJson.Write(noMedia), "a share code is the quiz without its sound, video and built-in map pictures");
+		Check(ShareCode.Read(code[..^30], out _) == null && ShareCode.Read("hello", out _) == null, "cut-off and non-codes are refused");
+		Check(shared!.Questions.Where(q => q.IsMedia).All(q => q.Media is { DataUrl: "", Name.Length: > 0 }), "shared media keep their file names");
 		var multi = Dev.SampleQuiz.Build().Questions.First(x => x.IsMulti).Clone();
 		Eq(multi.Mode, ClassicMode.Multi, "multi mode is saved");
 		Eq(string.Join(",", multi.CorrectChoices), "0,1", "multi correct answers are saved");

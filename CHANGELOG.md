@@ -11,6 +11,17 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
+## [Unreleased]
+
+### Added
+- **Share codes**: "Copy share code" (on a quiz, or in My quizzes) copies the whole quiz as one line of text. Paste it
+  to a friend or to your other PC, where **My quizzes → Paste share code** imports it. Pictures are in the code;
+  sound and video files aren't (too big), so the game tells you which ones to add again. A long code that Discord
+  turns into a message.txt file can be imported with **Import file**.
+
+### Changed
+- **LAN play is hidden** on the home screen: it was for testing on one PC. Games are played over Steam.
+
 ## [0.7.4b] — small fixes
 
 ### Changed
