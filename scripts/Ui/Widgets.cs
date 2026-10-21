@@ -374,10 +374,20 @@ public static class Stepper
 public static class Dialogs
 {
 	/// <summary>Asks a yes/no question; runs onYes only on yes.</summary>
-	public static void Confirm(Node owner, string text, string yes, Action onYes, string title = "Are you sure?")
+	/// <param name="dontAskAgain">With it, a "Don't ask me again" box; ticked and confirmed, this runs too.</param>
+	public static void Confirm(Node owner, string text, string yes, Action onYes, string title = "Are you sure?", Action? dontAskAgain = null)
 	{
 		var d = new ConfirmationDialog { Title = Lang.T(title), DialogText = Lang.T(text), OkButtonText = Lang.T(yes), CancelButtonText = Lang.T("Cancel"), DialogAutowrap = true };
 		d.MinSize = new Vector2I(460, 0);
+		if (dontAskAgain != null)
+		{
+			var box = new CheckBox { Text = Lang.T("Don't ask me again"), MouseDefaultCursorShape = Control.CursorShape.PointingHand };
+			d.AddChild(box);
+			d.Confirmed += () =>
+			{
+				if (box.ButtonPressed) dontAskAgain();
+			};
+		}
 		d.Confirmed += () => onYes();
 		d.Confirmed += d.QueueFree;
 		d.Canceled += d.QueueFree;

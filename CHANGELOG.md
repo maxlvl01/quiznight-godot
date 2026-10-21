@@ -11,9 +11,11 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
-## [Unreleased]
+## [0.8.1b] — tidier quiz screens
 
 ### Changed
+- **Deleting a quiz**: the trash can on a quiz in My quizzes. It asks first, unless you tick "Don't ask me again"
+  (Settings → Video → "Ask before deleting a quiz" turns the question back on).
 - **Picking a question type**: the cards show just the name. The **?** on each one tells what it does (hover) and
   explains its variants and options (click), e.g. buzzer, A B C D and multiple choice for a classic question.
 - German: "Put in order" is now called **Einordnen**.

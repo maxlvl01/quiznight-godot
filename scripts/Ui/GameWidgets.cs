@@ -251,3 +251,42 @@ public partial class Confetti : Control
 		};
 	}
 }
+
+/// <summary>A small trash can drawn in lines (like the question type icons), for delete buttons.</summary>
+public partial class TrashIcon : Control
+{
+	Color _color;
+
+	public TrashIcon() : this(C.Muted) { }
+
+	public Color Color
+	{
+		get => _color;
+		set
+		{
+			_color = value;
+			QueueRedraw();
+		}
+	}
+
+	public TrashIcon(Color color, float size = 18)
+	{
+		_color = color;
+		CustomMinimumSize = new Vector2(size, size);
+		MouseFilter = MouseFilterEnum.Ignore;
+	}
+
+	public override void _Draw()
+	{
+		var s = Mathf.Min(Size.X, Size.Y) / 24f;
+		var o = (Size - new Vector2(24, 24) * s) / 2;
+		Vector2 P(float x, float y) => o + new Vector2(x, y) * s;
+		var w = Mathf.Max(1.5f, 2 * s);
+		// lid, handle, can, two lines on the can
+		DrawLine(P(3, 6), P(21, 6), _color, w, true);
+		DrawPolyline(new[] { P(9, 6), P(9, 3.5f), P(15, 3.5f), P(15, 6) }, _color, w, true);
+		DrawPolyline(new[] { P(5.5f, 6), P(6.5f, 20.5f), P(17.5f, 20.5f), P(18.5f, 6) }, _color, w, true);
+		DrawLine(P(10, 10), P(10, 17), _color, w, true);
+		DrawLine(P(14, 10), P(14, 17), _color, w, true);
+	}
+}

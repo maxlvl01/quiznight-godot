@@ -56,16 +56,34 @@ public partial class QuizListScreen : Control
 		var host = U.Btn("Open lobby", "AccentButton", () => App.I.HostQuiz(quiz), 14);
 		host.Disabled = !ready;
 		var actions = U.H(6,
-			U.Link("Delete", () => Dialogs.Confirm(this, Lang.F("Delete \"{0}\"? This can't be undone — export it first if you want a backup.", quiz.Title), "Delete", () =>
-			{
-				QuizStore.Delete(quiz.Id);
-				Refresh();
-			}), 14),
+			TrashButton(quiz),
 			U.Fill(),
 			U.Small("Copy share code", () => ShareInfo.Copy(this, quiz)),
 			U.Small("Export", () => Export(quiz)),
 			host);
 		return U.Card(6, title, info, U.Gap(4), actions).Grow();
+	}
+
+	/// <summary>The trash can: deletes the quiz, after asking (unless "Don't ask me again" was ticked once).</summary>
+	Button TrashButton(Quiz quiz)
+	{
+		void Delete()
+		{
+			QuizStore.Delete(quiz.Id);
+			Refresh();
+		}
+		var button = U.Small("", () =>
+		{
+			if (!Settings.AskBeforeDeletingQuiz) Delete();
+			else Dialogs.Confirm(this, Lang.F("Delete \"{0}\"? This can't be undone — export it first if you want a backup.", quiz.Title), "Delete", Delete,
+				dontAskAgain: () => Settings.AskBeforeDeletingQuiz = false);
+		}).Tip("Delete quiz").MinSize(36, 34);
+		var icon = new TrashIcon(C.Muted);
+		icon.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, 8);
+		button.AddChild(icon);
+		button.MouseEntered += () => icon.Color = C.Coral;
+		button.MouseExited += () => icon.Color = C.Muted;
+		return button;
 	}
 
 	void Create()

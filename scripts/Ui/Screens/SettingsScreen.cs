@@ -89,7 +89,9 @@ public partial class SettingsScreen : Control
 			U.Field("Background movement", U.Segmented(new[] { ("on", "On"), ("off", "Off") }, d.BackgroundMotion ? "on" : "off", id => Change(Draft with { BackgroundMotion = id == "on" }))),
 			U.Muted("On wide monitors, the space picture beside the game sways with the mouse. Off keeps it still.", 12),
 			U.Field("Theme", U.Small("☀ Switch to light mode", HomeScreen.LightMode).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin)),
-			U.Muted("Frame rate is capped at 60 FPS.", 12));
+			U.Muted("Frame rate is capped at 60 FPS.", 12),
+			new CheckBox { Text = Lang.T("Ask before deleting a quiz"), ButtonPressed = Settings.AskBeforeDeletingQuiz, MouseDefaultCursorShape = CursorShape.PointingHand }
+				.With(b => b.Toggled += on => Settings.AskBeforeDeletingQuiz = on));
 
 		var language = U.Card(12,
 			U.Eyebrow("Language"),

@@ -128,6 +128,13 @@ public static class Settings
 		set => Set("podium_sound", value);
 	}
 
+	/// <summary>Ask before deleting a quiz (off once "Don't ask me again" was ticked; Settings turns it back on).</summary>
+	public static bool AskBeforeDeletingQuiz
+	{
+		get => Get("ask_delete_quiz", "on") != "off";
+		set => Set("ask_delete_quiz", value ? "on" : "off");
+	}
+
 	/// <summary>As a player: hear the podium sound the host picked (else your own).</summary>
 	public static bool PodiumFollowHost
 	{
