@@ -76,6 +76,9 @@ BASE="https://github.com/$REPO/releases/download/v$VERSION/"
 py -I tools/manifest.py "$VERSION" windows "$OUT" build/update-windows.json "$PACKS" "$BASE" "$PREV"/update-*.json
 py -I tools/manifest.py "$VERSION" linux "$OUT_LINUX" build/update-linux.json "$PACKS" "$BASE" "$PREV"/update-*.json build/update-windows.json
 
+# Big updates (x.y.0) get a name: '## [0.8.0b] — "Jokers Wild": …' makes the release "Quiznight 0.8.0b — Jokers Wild".
+NAME=$(sed -n "s/^## \[$VERSION\] — \"\([^\"]*\)\".*/\1/p" CHANGELOG.md)
+TITLE="Quiznight $VERSION${NAME:+ — $NAME}"
 # This version's notes: from its "## [version]" line up to the next "## [".
 awk -v v="## [$VERSION]" 'index($0, v) == 1 { on = 1; next } /^## \[/ { on = 0 } on' CHANGELOG.md > "$NOTES"
 
@@ -88,9 +91,9 @@ echo "== Publishing v$VERSION to $REPO"
 # As a draft first, so no game sees the release before all its files are there; the update lists go up last.
 if gh release view "v$VERSION" --repo "$REPO" >/dev/null 2>&1; then
 	# Same version again (e.g. a rebuilt build): replace the files and notes.
-	gh release edit "v$VERSION" --repo "$REPO" --notes-file "$NOTES"
+	gh release edit "v$VERSION" --repo "$REPO" --title "$TITLE" --notes-file "$NOTES"
 else
-	gh release create "v$VERSION" --repo "$REPO" --title "Quiznight $VERSION" --notes-file "$NOTES" --draft
+	gh release create "v$VERSION" --repo "$REPO" --title "$TITLE" --notes-file "$NOTES" --draft
 fi
 gh release upload "v$VERSION" "$ZIP" "$ZIP_LINUX" --repo "$REPO" --clobber
 find "$PACKS" -name '*.zip' -print0 | xargs -0 -r gh release upload "v$VERSION" --repo "$REPO" --clobber

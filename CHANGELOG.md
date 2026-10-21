@@ -11,7 +11,7 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
-## [0.8.0b] — jokers, big rooms, fair places and the eternal table
+## [0.8.0b] — "Jokers Wild": jokers, big rooms, fair places and the eternal table
 
 ### Added
 - **Jokers**: each player can play each joker once per match, before a question starts (during the reveal before it,

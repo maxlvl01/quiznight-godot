@@ -160,7 +160,9 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
 
 Same as the web version: **MAJOR.MINOR.HOTFIX** (`0.4.0a` = alpha, `0.7.1b` = beta; the home screen stamp follows the letter), stored in
 `project.godot` (`application/config/version`). Add changelog entries under `[Unreleased]` in
-CHANGELOG.md while working (plain language, for friends to read). If the quiz file format changes,
+CHANGELOG.md while working (plain language, for friends to read). Big updates (a new MINOR, x.y.0) get a name, chosen
+by Claude: `## [0.8.0b] — "Jokers Wild": what's in it`; `release.sh` makes the release title "Quiznight 0.8.0b — Jokers
+Wild" from it. If the quiz file format changes,
 bump `QuizRules.FormatVersion` and keep old files loading.
 
 **Never `git push` (or push tags, create releases/PRs) without the user's explicit approval for that
