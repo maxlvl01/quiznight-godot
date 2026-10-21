@@ -11,6 +11,13 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
+## [Unreleased]
+
+### Changed
+- **Picking a question type**: the cards show just the name. The **?** on each one tells what it does (hover) and
+  explains its variants and options (click), e.g. buzzer, A B C D and multiple choice for a classic question.
+- German: "Put in order" is now called **Einordnen**.
+
 ## [0.8.0b] — "Jokers Wild": jokers, big rooms, fair places and the eternal table
 
 ### Added

@@ -21,18 +21,75 @@ public static class QuestionType
 	/// <summary>Order the editor shows them in.</summary>
 	public static readonly string[] All = { MapPin, Estimation, Classic, Sound, Video, Image, Order, Write };
 
-	public record Info(string Label, string Short, string Blurb);
+	/// <summary>Help: what it does, then its variants and options (the "?" on the type cards).</summary>
+	public record Info(string Label, string Short, string Blurb, string Intro = "", string[]? Details = null);
 
 	public static readonly Dictionary<string, Info> Infos = new()
 	{
-		[MapPin] = new("Map pin", "map pin", "Show a screenshot. Players pin the spot on a map. Closest wins."),
-		[Estimation] = new("Estimation", "estimation", "Players guess a number. Closest guess wins."),
-		[Classic] = new("Classic question", "classic", "Buzz in and say the answer, or everyone picks from up to 4 answers (one or several right)."),
-		[Sound] = new("Sound", "sound", "Play a song or sound effect. Players buzz in; shows how fast it was guessed."),
-		[Video] = new("Video", "video", "Play a trailer or clip. Players buzz in; shows how fast it was guessed."),
-		[Image] = new("Image reveal", "image reveal", "A picture starts zoomed right in or pixelated and slowly gets clearer. Players buzz in; shows how fast it was guessed."),
-		[Order] = new("Put in order", "order", "Players put a few things in the right order, e.g. oldest to newest. Everyone at once, or taking turns on a timeline."),
-		[Write] = new("Write the answer", "write", "Everyone types their answer. Matching answers are ticked for you; you can tick or untick any at the reveal."),
+		[MapPin] = new("Map pin", "map pin", "Show a screenshot. Players pin the spot on a map. Closest wins.",
+			"Show a screenshot (or none), and everyone places a pin on a map. The closest pin wins.",
+			new[]
+			{
+				"Maps: built-in game maps with real distances (Skyrim, the seamless WoW Classic map and more), or any picture you upload.",
+				"Scoring: only the closest wins, or the top 3 score (3, 2 and 1 times the points).",
+				"Ties: all tied players score, or nobody does.",
+				"Players can click the screenshot to see it big.",
+			}),
+		[Estimation] = new("Estimation", "estimation", "Players guess a number. Closest guess wins.",
+			"Everyone types a number. The closest guess wins.",
+			new[]
+			{
+				"Add a unit (e.g. km or hours) and a picture if you like.",
+				"Scoring: only the closest wins, or the top 3 score (3, 2 and 1 times the points).",
+				"Ties: all tied players score, or nobody does.",
+			}),
+		[Classic] = new("Classic question", "classic", "Buzz in and say the answer, or everyone picks from up to 4 answers (one or several right).",
+			"Three ways to play:",
+			new[]
+			{
+				"Buzzer: players buzz in and say the answer out loud, and you judge Correct or Wrong. Or pick \"Everyone types\": everyone types it instead, and matching answers are ticked for you.",
+				"A B C D: up to 4 answers, one is right. Everyone picks one within the time limit.",
+				"Multiple choice: several answers can be right. Only exactly the right ones score.",
+				"All of them can have a picture, and a bonus you give at the reveal.",
+			}),
+		[Sound] = new("Sound", "sound", "Play a song or sound effect. Players buzz in; shows how fast it was guessed.",
+			"Play a song or sound effect (MP3, OGG or WAV). It plays on the players' PCs too, once you press Start.",
+			new[]
+			{
+				"Buzz in: players buzz when they know it; the sound pauses while someone answers. The reveal shows how much listening it took.",
+				"Everyone types: everyone types the answer within the time limit.",
+				"You can start it at any second, and add a bonus (e.g. \"also name the game\").",
+			}),
+		[Video] = new("Video", "video", "Play a trailer or clip. Players buzz in; shows how fast it was guessed.",
+			"Play a trailer or clip. It plays on the players' PCs too; until you press Start they see it blurred.",
+			new[]
+			{
+				"Buzz in: players buzz when they know it; the video pauses while someone answers. The reveal shows how much watching it took.",
+				"Everyone types: everyone types the answer within the time limit.",
+				"Videos must be .ogv: the editor helps you turn an MP4 into one with AnyConverter.",
+			}),
+		[Image] = new("Image reveal", "image reveal", "A picture starts zoomed right in or pixelated and slowly gets clearer. Players buzz in; shows how fast it was guessed.",
+			"A picture is hidden and slowly gets clearer, on everyone's screen.",
+			new[]
+			{
+				"Zoom: it starts zoomed right in on a spot you pick, then zooms out.",
+				"Pixelated: it starts as big blocks that get finer.",
+				"You set how many seconds until it's fully clear. Players buzz in (or everyone types); it pauses while someone answers.",
+			}),
+		[Order] = new("Put in order", "order", "Players put a few things in the right order, e.g. oldest to newest. Everyone at once, or taking turns on a timeline.",
+			"Players put a few things in the right order, e.g. oldest to newest.",
+			new[]
+			{
+				"Everyone at once: everyone sorts the list on their own screen within the time limit. All in the right order scores.",
+				"Timeline: players take turns placing one item between the cards already on the timeline (fewest points go first). A right spot scores; a wrong one passes the item on. Labels like years show once an item is placed.",
+			}),
+		[Write] = new("Write the answer", "write", "Everyone types their answer. Matching answers are ticked for you; you can tick or untick any at the reveal.",
+			"Everyone types their answer within the time limit.",
+			new[]
+			{
+				"Accepted answers: list several, separated by / (e.g. \"Canberra / ACT\"). Small typos are forgiven, and capitals and accents don't matter.",
+				"Matching answers are ticked for you. At the reveal you can tick or untick any answer, and give a bonus.",
+			}),
 	};
 
 	public static bool IsKnown(string type) => Infos.ContainsKey(type);

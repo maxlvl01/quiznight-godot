@@ -48,23 +48,29 @@ public partial class QuizOverviewScreen : Control
 		foreach (var type in QuestionType.All)
 		{
 			var info = QuestionType.Infos[type];
-			var card = new Button { ThemeTypeVariation = "", MouseDefaultCursorShape = CursorShape.PointingHand, CustomMinimumSize = new Vector2(0, 150) }.Grow();
-			card.AddThemeStyleboxOverride("normal", UiTheme.Box(C.Panel, 14, C.Border, 1, 16, 14));
-			card.AddThemeStyleboxOverride("hover", UiTheme.Box(C.Panel2, 14, C.ForType(type), 1, 16, 14));
-			card.AddThemeStyleboxOverride("pressed", UiTheme.Box(C.Panel2, 14, C.ForType(type), 1, 16, 14));
-			var inner = U.V(6, new TypeIcon(type, 28), U.Bold(info.Label, 17), U.Muted(info.Blurb, 13));
-			inner.MouseFilter = MouseFilterEnum.Ignore;
-			foreach (var c in inner.GetChildren().OfType<Control>()) c.MouseFilter = MouseFilterEnum.Ignore;
-			card.AddChild(U.Pad(inner, 16, 14, 16, 14).With(m =>
-			{
-				m.SetAnchorsPreset(LayoutPreset.FullRect);
-				m.MouseFilter = MouseFilterEnum.Ignore;
-			}));
+			// Layers: the clickable card, the name on top (it sets the height: long names wrap, e.g. in German), and the "?"
+			// in the top-right corner, which tells what the type does (hover) and its variants (click).
+			var card = new MarginContainer { MouseFilter = MouseFilterEnum.Ignore }.Grow();
+			var button = new Button { ThemeTypeVariation = "", MouseDefaultCursorShape = CursorShape.PointingHand, CustomMinimumSize = new Vector2(0, 76) };
+			button.AddThemeStyleboxOverride("normal", UiTheme.Box(C.Panel, 14, C.Border, 1, 16, 14));
+			button.AddThemeStyleboxOverride("hover", UiTheme.Box(C.Panel2, 14, C.ForType(type), 1, 16, 14));
+			button.AddThemeStyleboxOverride("pressed", UiTheme.Box(C.Panel2, 14, C.ForType(type), 1, 16, 14));
 			var t = type;
-			card.Pressed += () => App.I.GoQuestion(_quiz.Id, null, t);
+			button.Pressed += () => App.I.GoQuestion(_quiz.Id, null, t);
+			card.AddChild(button);
+			var inner = GameParts.Row(12, new TypeIcon(type, 28), U.Bold(info.Label, 17).Grow().With(l => l.AutowrapMode = TextServer.AutowrapMode.Word));
+			foreach (var c in inner.GetChildren().OfType<Control>()) c.MouseFilter = MouseFilterEnum.Ignore;
+			card.AddChild(U.Pad(inner, 16, 14, 44, 14).With(m => m.MouseFilter = MouseFilterEnum.Ignore));
+			var corner = new Control { MouseFilter = MouseFilterEnum.Ignore };
+			var help = U.Small("?", () => Dialogs.Info(this, TypeHelp(info), info.Label));
+			help.TooltipText = Lang.T(info.Blurb) + "\n\n" + Lang.T("What it does and its variants") + ": ?";
+			help.AnchorLeft = help.AnchorRight = 1;
+			(help.OffsetLeft, help.OffsetTop, help.OffsetRight, help.OffsetBottom) = (-36, 10, -10, 36);
+			corner.AddChild(help);
+			card.AddChild(corner);
 			types.AddChild(card);
 		}
-		var main = U.V(10, U.Heading("Add a question", 30), U.Muted("Pick a type, then fill in the blanks. No code needed.", 15), U.Gap(6), types);
+		var main = U.V(10, U.Heading("Add a question", 30), U.Muted("Pick a type, then fill in the blanks. No code needed. The ? on a type tells what it does.", 15), U.Gap(6), types);
 
 		var layout = U.H(0, side, U.Pad(new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.With(s => s.AddChild(main.Grow())), 32, 28, 32, 28).Grow().GrowV());
 		layout.SetAnchorsPreset(LayoutPreset.FullRect);
@@ -159,4 +165,8 @@ public partial class QuizOverviewScreen : Control
 		host.Disabled = issues.Count > 0;
 		_foot.AddChild(U.H(8, U.Btn("Copy share code", "", () => ShareInfo.Copy(this, _quiz)), U.Btn("Export file", "",() => QuizListScreen.ExportQuiz(this, _quiz, _error)), host));
 	}
+
+	/// <summary>A type's help, translated: what it does, then its variants as a list.</summary>
+	static string TypeHelp(QuestionType.Info info) =>
+		Lang.T(info.Intro) + "\n\n" + string.Join("\n\n", (info.Details ?? System.Array.Empty<string>()).Select(d => "• " + Lang.T(d)));
 }
