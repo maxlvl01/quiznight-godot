@@ -26,9 +26,13 @@ the original design decisions; most still apply.
   Buzzer kinds with `Typed` play like write the answer (`Question.IsWritten`); a bonus is given by the host at the reveal
   (`Game.ToggleBonus`), and the host can change scores any time (`HostSession.AdjustScore`).
   `QuizJson` reads forgivingly (= migration) and writes only each type's fields.
-  **Share codes** (`Shared/ShareCode.cs`, `QN1-` + base64url of the Brotli'd quiz JSON) carry a quiz by copy/paste,
-  without sound/video data (names kept, so the importer is told what to add) or built-in map pictures. No server:
-  a Workshop (Cloudflare) was considered and dropped.
+  **Share codes** (`Shared/ShareCode.cs`) carry a quiz without sound/video data (names kept, so the importer is told
+  what to add) or built-in map pictures: `ShareCode.Pack` (Brotli'd quiz JSON) is uploaded to the results repo
+  (`shares/<8 chars>.qn`, `Storage/QuizShare.cs`, same token) and the short code `QN-XXXX-XXXX` fetches it; offline it
+  falls back to the long code `QN1-` + base64url of the packed quiz. `--share-check` does a real round trip (delete the
+  printed code's file from the repo afterwards). A Workshop (Cloudflare) was considered and dropped.
+  **Export** writes a `.quiznight.zip`: `quiz.json` plus `media/<question id>.<ext>` for each sound/video
+  (`QuizStore.Export`/`ReadZip`); single `.json` files still import.
   Built-in map images are not stored in files (they ship with the game, `assets/maps/`). Each one's source and
   scale is noted in `MapPresets.cs`; `tools/stitch_map.gd` builds them from downloaded tiles (run one Godot at a
   time: two at once hang). All map images (also WoW's) are imported as **"keep"** and decoded by

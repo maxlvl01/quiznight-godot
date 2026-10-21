@@ -113,6 +113,8 @@ public sealed class DevTools
 		if (int.TryParse(Value("--players"), out var n)) _players = n;
 		if (int.TryParse(Value("--start-at"), out var first)) _startAt = first - 1;
 		if (Value("--lang") is { } lang) Lang.Use(lang);
+		// (the home screen as if that version were out: the update note and the green button)
+		if (Value("--pretend-update") is { } newer) Ui.Screens.UpdatePrompt.Pretend(newer);
 
 		if (Has("--selftest"))
 		{
@@ -123,6 +125,11 @@ public sealed class DevTools
 		{
 			TakesOver = true;
 			SteamCheck();
+		}
+		else if (Has("--share-check"))
+		{
+			TakesOver = true;
+			ShareCheck();
 		}
 		else if (Value("--bot") is { } name)
 		{
@@ -183,6 +190,14 @@ public sealed class DevTools
 				case "eternal":
 					_app.GoEternalTable();
 					break;
+				// (My quizzes with the mouse over the first trash can)
+				case "trash-hover":
+					_app.GoQuizzes();
+					Callable.From(() =>
+					{
+						if (Find<Ui.TrashIcon>(_app)?.GetParent()?.GetParent() is Button trash) trash.EmitSignal(Control.SignalName.MouseEntered);
+					}).CallDeferred();
+					break;
 				// (the delete question over My quizzes, to see it; it deletes nothing)
 				case "delete":
 					_app.GoQuizzes();
@@ -210,6 +225,25 @@ public sealed class DevTools
 			code = 2;
 		}
 		_app.Quit(code);
+	}
+
+	/// <summary>Uploads the sample quiz as a short share code and downloads it again (real GitHub repo; prints the code to delete).</summary>
+	async void ShareCheck()
+	{
+		var sample = SampleQuiz.Build();
+		try
+		{
+			var code = await QuizShare.Upload(sample);
+			var back = await QuizShare.Download(ShareCode.ShortKey(code)!);
+			var same = QuizJson.Write(back) == QuizJson.Write(ShareCode.Unpack(ShareCode.Pack(sample), out _)!);
+			GD.Print($"Share check: {code} ({ShareCode.Pack(sample).Length / 1024} KB) {(same ? "came back the same" : "CAME BACK DIFFERENT")}");
+			_app.Quit(same ? 0 : 1);
+		}
+		catch (Exception e)
+		{
+			GD.PrintErr($"Share check failed: {e.Message}");
+			_app.Quit(1);
+		}
 	}
 
 	/// <summary>Opens a Steam lobby, finds it again by its code, closes it. Needs Steam running.</summary>

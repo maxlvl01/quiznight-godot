@@ -94,12 +94,50 @@ public static class WhatsNew
 /// <summary>At startup (exported builds): looks for a newer version and installs it, restarting the game.</summary>
 public static class UpdatePrompt
 {
+	/// <summary>A newer version, once a check found one (the home screen shows it: a note under the logo, a green button).</summary>
+	public static Updater.Release? Available { get; private set; }
+	public static bool Checking { get; private set; }
+	public static event Action? Changed;
+
+	static void Set(Updater.Release? release, bool checking)
+	{
+		Available = release;
+		Checking = checking;
+		Changed?.Invoke();
+	}
+
+	/// <summary>At startup: if there's a newer version, install it (it can be put off with "Not now").</summary>
 	public static async void CheckAndInstall(Node owner)
 	{
-		if (!Updater.Enabled || await Updater.CheckAsync() is not { } release || !GodotObject.IsInstanceValid(owner)) return;
+		if (!Updater.Enabled) return;
+		Set(Available, true);
+		var release = await Updater.CheckAsync();
+		Set(release, false);
+		if (release == null || !GodotObject.IsInstanceValid(owner)) return;
 		// Not in the middle of a game: only from the home screen.
 		if (App.I.Host != null || App.I.Client != null) return;
+		Install(owner, release);
+	}
 
+	/// <summary>The "Check for updates" button: look now; tells you if you already have the newest version.</summary>
+	public static async void CheckNow(Node owner)
+	{
+		if (Checking) return;
+		Set(Available, true);
+		var release = Updater.Enabled ? await Updater.CheckAsync() : null;
+		Set(release ?? Available, false);
+		if (!GodotObject.IsInstanceValid(owner)) return;
+		if (Available == null) Dialogs.Info(owner, Updater.Enabled ? Lang.F("You have the newest version ({0}).", App.Version) : "Updates only work in the installed game.", "Update");
+	}
+
+	/// <summary>A test run (dev tools): the home screen as if a newer version were out.</summary>
+	public static void Pretend(string version) =>
+		Set(AppVersion.Parse(version) is { } v ? new Updater.Release(v, "", 0, null) : null, false);
+
+	/// <summary>Downloads and installs the release, then restarts.</summary>
+	public static async void Install(Node owner, Updater.Release release)
+	{
+		if (!Updater.Enabled) return;
 		var overlay = new VideoGuide.GuideOverlay { Closable = false };
 		var status = U.Muted(Lang.F("Downloading version {0}…", release.Version), 15);
 		var bar = new ProgressBar { MinValue = 0, MaxValue = 1, Step = 0, ShowPercentage = false, CustomMinimumSize = new Vector2(0, 10) };

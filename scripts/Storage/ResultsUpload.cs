@@ -13,10 +13,11 @@ namespace QuizNight.Storage;
 
 public static class ResultsUpload
 {
-	const string Repo = "maxlvl01/quiznight-results";
+	internal const string Repo = "maxlvl01/quiznight-results";
 	const string TokenFile = "res://results-token.txt";
 
-	static string? Token
+	/// <summary>The token that can read and write that repo (also for short share codes: QuizShare).</summary>
+	internal static string? Token
 	{
 		get
 		{
@@ -51,10 +52,7 @@ public static class ResultsUpload
 
 	static async Task Put(string token, string name, string csv)
 	{
-		using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-		http.DefaultRequestHeaders.UserAgent.ParseAdd("Quiznight");
-		http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-		http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+		using var http = Client(token);
 		var body = new JsonObject
 		{
 			["message"] = $"Results: {name}",
@@ -65,5 +63,15 @@ public static class ResultsUpload
 		var url = $"https://api.github.com/repos/{Repo}/contents/results/{Uri.EscapeDataString(file)}";
 		using var response = await http.PutAsync(url, new StringContent(body, Encoding.UTF8, "application/json"));
 		if (!response.IsSuccessStatusCode) throw new HttpRequestException($"GitHub said {(int)response.StatusCode}: {await response.Content.ReadAsStringAsync()}");
+	}
+
+	/// <summary>A client for GitHub's API, signed in with the token.</summary>
+	internal static System.Net.Http.HttpClient Client(string token, string accept = "application/vnd.github+json")
+	{
+		var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+		http.DefaultRequestHeaders.UserAgent.ParseAdd("Quiznight");
+		http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+		http.DefaultRequestHeaders.Accept.ParseAdd(accept);
+		return http;
 	}
 }

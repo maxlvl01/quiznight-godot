@@ -398,7 +398,7 @@ public static class Dialogs
 		d.PopupCentered();
 	}
 
-	public static void Info(Node owner, string text, string title = "Quiznight!")
+	public static AcceptDialog Info(Node owner, string text, string title = "Quiznight!")
 	{
 		var d = new AcceptDialog { Title = Lang.T(title), DialogText = Lang.T(text), DialogAutowrap = true };
 		d.MinSize = new Vector2I(460, 0);
@@ -406,6 +406,20 @@ public static class Dialogs
 		d.Canceled += d.QueueFree;
 		owner.AddChild(d);
 		d.PopupCentered();
+		return d;
+	}
+
+	/// <summary>"Please wait…" (no OK button) while something happens; Close it when done.</summary>
+	public static AcceptDialog Wait(Node owner, string text, string title = "Quiznight!")
+	{
+		var d = Info(owner, text, title);
+		d.GetOkButton().Visible = false;
+		return d;
+	}
+
+	public static void Close(AcceptDialog d)
+	{
+		if (GodotObject.IsInstanceValid(d)) d.QueueFree();
 	}
 
 	/// <summary>The system's file dialog for opening a file.</summary>

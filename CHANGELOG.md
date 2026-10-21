@@ -13,8 +13,17 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+### Added
+- **Short share codes**: "Copy share code" now gives a code like **QN-7K4P-9XZ2** that fits in any Discord message.
+  The quiz is stored with Max's results online; pasting the code (My quizzes → Paste share code) fetches it again.
+  Without internet you get the long code with the whole quiz in it, like before.
+- **Check for updates** next to the version number on the home screen. When a new version is out it turns green
+  ("Update to …") and a note under the logo says so.
+
 ### Changed
-- The trash can sits in a quiz's top-right corner, just a red can that lights up under the mouse.
+- **Export** makes a zip: the quiz plus its sound and video files as real files, about a third smaller than before.
+  Import file reads these zips and the older .json files.
+- The trash can sits in a quiz's top-right corner, just a red can. Under the mouse it grows and asks "Delete?".
 - The **?** on the question types sits level with the name, without a box.
 
 ### Fixed

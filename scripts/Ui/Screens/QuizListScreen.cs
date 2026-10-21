@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Godot;
 using QuizNight.Shared;
 using QuizNight.Storage;
@@ -78,14 +79,31 @@ public partial class QuizListScreen : Control
 			if (!Settings.AskBeforeDeletingQuiz) Delete();
 			else Dialogs.Confirm(this, Lang.F("Delete \"{0}\"? This can't be undone — export it first if you want a backup.", quiz.Title), "Delete", Delete,
 				dontAskAgain: () => Settings.AskBeforeDeletingQuiz = false);
-		}).Tip("Delete quiz").MinSize(36, 34);
-		// Just the red can, no box; it lights up under the mouse.
+		});
+		// Just the red can, no box. Under the mouse it grows, lights up and says "Delete?".
 		foreach (var state in new[] { "normal", "hover", "pressed", "focus" }) button.AddThemeStyleboxOverride(state, new StyleBoxEmpty());
 		var icon = new TrashIcon(new Color(C.Coral, 0.7f), 22);
-		icon.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, 6);
-		button.AddChild(icon);
-		button.MouseEntered += () => icon.Color = C.Coral.Lightened(0.25f);
-		button.MouseExited += () => icon.Color = new Color(C.Coral, 0.7f);
+		var ask = U.Text("Delete?", 15, C.Coral, Fonts.Bold).With(l => l.Visible = false);
+		var row = GameParts.Row(6, ask, icon);
+		row.Alignment = BoxContainer.AlignmentMode.End;
+		row.SetAnchorsPreset(LayoutPreset.FullRect);
+		row.MouseFilter = MouseFilterEnum.Ignore;
+		foreach (var c in row.GetChildren().OfType<Control>()) c.MouseFilter = MouseFilterEnum.Ignore;
+		button.AddChild(row);
+		void Fit() => button.CustomMinimumSize = row.GetCombinedMinimumSize().Max(new Vector2(34, 34));
+		row.MinimumSizeChanged += Fit;
+		Fit();
+		Tween? grow = null;
+		void Hover(bool on)
+		{
+			ask.Visible = on;
+			icon.Color = on ? C.Coral.Lightened(0.25f) : new Color(C.Coral, 0.7f);
+			grow?.Kill();
+			grow = button.CreateTween();
+			grow.TweenProperty(icon, "custom_minimum_size", new Vector2(on ? 28 : 22, on ? 28 : 22), 0.12);
+		}
+		button.MouseEntered += () => Hover(true);
+		button.MouseExited += () => Hover(false);
 		return button;
 	}
 
@@ -95,17 +113,31 @@ public partial class QuizListScreen : Control
 		App.I.GoQuiz(quiz.Id);
 	}
 
-	void PasteCode()
+	async void PasteCode()
 	{
 		var text = DisplayServer.ClipboardGet();
 		if (!ShareCode.Looks(text))
 		{
-			ShowError(Lang.T("Copy a share code first (it starts with QN1-), then press Paste share code."));
+			ShowError(Lang.T("Copy a share code first (it looks like QN-7K4P-9XZ2), then press Paste share code."));
 			return;
 		}
 		try
 		{
-			var quiz = QuizStore.ImportCode(text);
+			Quiz quiz;
+			if (ShareCode.ShortKey(text) is { } key)
+			{
+				var wait = Dialogs.Wait(this, "Looking up the share code…", "Share code");
+				try
+				{
+					quiz = QuizStore.SaveImported(await QuizShare.Download(key));
+				}
+				finally
+				{
+					Dialogs.Close(wait);
+				}
+				if (!IsInstanceValid(this)) return;
+			}
+			else quiz = QuizStore.ImportCode(text);
 			_error.Visible = false;
 			Refresh();
 			ShareInfo.Imported(this, quiz);
@@ -140,11 +172,11 @@ public partial class QuizListScreen : Control
 	public void Export(Quiz quiz) => ExportQuiz(this, quiz, _error);
 
 	public static void ExportQuiz(Node owner, Quiz quiz, Label? error) =>
-		Dialogs.SaveFile(owner, "Export quiz", QuizStore.SuggestedFileName(quiz), QuizStore.FileFilters, path =>
+		Dialogs.SaveFile(owner, "Export quiz", QuizStore.SuggestedFileName(quiz), QuizStore.ZipFilters, path =>
 		{
 			try
 			{
-				QuizStore.Export(quiz, path.EndsWith(".json") ? path : path + QuizStore.Extension);
+				QuizStore.Export(quiz, path.EndsWith(".zip") ? path : path + QuizStore.ZipExtension);
 			}
 			catch (UserError e)
 			{
@@ -158,7 +190,7 @@ public partial class QuizListScreen : Control
 	{
 		foreach (var f in files)
 		{
-			if (!f.EndsWith(".json") && !f.EndsWith(".txt")) continue;
+			if (!f.EndsWith(".json") && !f.EndsWith(".txt") && !f.EndsWith(".zip")) continue;
 			try
 			{
 				QuizStore.Import(f);

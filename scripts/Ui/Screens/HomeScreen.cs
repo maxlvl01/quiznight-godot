@@ -36,6 +36,9 @@ public partial class HomeScreen : Control
 
 		var page = U.V(18, brand,
 			U.Muted("Quiz nights with your friends — on Discord or on the couch.", 17, false, HorizontalAlignment.Center).Center());
+		// "Update available" under the logo, once a check found a newer version.
+		var updateNote = U.Text("", 14, C.Teal, Fonts.Bold, false, HorizontalAlignment.Center).Center();
+		page.AddChild(updateNote);
 		if (notice != null) page.AddChild(U.Panel(U.Text(notice, 15, null, null, true), "Notice").With(p =>
 			p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel2, 10, C.Accent, 1, 14, 10))));
 
@@ -70,8 +73,30 @@ public partial class HomeScreen : Control
 
 		var grid = U.H(16, host, join);
 		page.AddChild(grid);
-		page.AddChild(U.H(6, U.Muted($"v{App.Version}  ·", 12, false), U.Link("What's new", () => WhatsNew.ShowCurrent(this), 12),
+		var updateButton = U.Link("Check for updates", () =>
+		{
+			if (UpdatePrompt.Available is { } release) UpdatePrompt.Install(this, release);
+			else UpdatePrompt.CheckNow(this);
+		}, 12);
+		page.AddChild(U.H(6, U.Muted($"v{App.Version}", 12, false), updateButton, U.Muted("·", 12, false), U.Link("What's new", () => WhatsNew.ShowCurrent(this), 12),
 			U.Muted("·", 12, false), U.Link("🏆 Eternal table", App.I.GoEternalTable, 12)).Center());
+		// The button lights up green when a newer version is out.
+		void ShowUpdate()
+		{
+			if (!IsInstanceValid(updateButton)) return;
+			var release = UpdatePrompt.Available;
+			updateNote.Text = release != null ? Lang.F("An update is available: version {0}", release.Version) : "";
+			updateNote.Visible = release != null;
+			updateButton.Text = release != null ? Lang.F("⬆ Update to {0}", release.Version) : UpdatePrompt.Checking ? Lang.T("Checking…") : Lang.T("Check for updates");
+			foreach (var c in new[] { "font_color", "font_hover_color", "font_pressed_color", "font_focus_color" })
+				if (release != null) updateButton.AddThemeColorOverride(c, c == "font_hover_color" ? C.Teal.Lightened(0.25f) : C.Teal);
+				else updateButton.RemoveThemeColorOverride(c);
+			if (release != null) updateButton.AddThemeStyleboxOverride("normal", UiTheme.Box(new Color(C.Teal, 0.12f), 8, C.Teal, 1, 8, 2));
+			else updateButton.RemoveThemeStyleboxOverride("normal");
+		}
+		ShowUpdate();
+		UpdatePrompt.Changed += ShowUpdate;
+		TreeExiting += () => UpdatePrompt.Changed -= ShowUpdate;
 
 		AddChild(U.Page(page, 960, 56));
 		var corner = U.H(8, U.Small("☀ Light mode", LightMode), U.Small("Settings", App.I.GoSettings));

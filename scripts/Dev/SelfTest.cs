@@ -510,6 +510,22 @@ public static class SelfTest
 		foreach (var m in noMedia.Maps.Where(m => MapPresets.Get(m.PresetId) != null)) m.Image.DataUrl = "";
 		Eq(QuizJson.Write(shared!), QuizJson.Write(noMedia), "a share code is the quiz without its sound, video and built-in map pictures");
 		Check(ShareCode.Read(code[..^30], out _) == null && ShareCode.Read("hello", out _) == null, "cut-off and non-codes are refused");
+		// Export: a zip with the sound as its own file, and back.
+		var withSound = QuizJson.Parse(QuizJson.Write(quiz), out _)!;
+		var soundQ = withSound.Questions.First(q => q.IsMedia);
+		soundQ.Media = new MediaAsset { DataUrl = Server.DataUrl.Make("audio/mpeg", Enumerable.Range(0, 5000).Select(i => (byte)(i * 7)).ToArray()), Mime = "audio/mpeg", Name = "song.mp3" };
+		var zipPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"quiznight-selftest-{Guid.NewGuid():N}.quiznight.zip");
+		Storage.QuizStore.Export(withSound, zipPath);
+		using (var z = System.IO.Compression.ZipFile.OpenRead(zipPath))
+			Check(z.GetEntry($"media/{soundQ.Id}.mp3") is { Length: 5000 } && z.GetEntry("quiz.json") != null, "export zip: quiz.json and the sound as a file of its own");
+		var fromZip = Storage.QuizStore.ReadZip(zipPath);
+		System.IO.File.Delete(zipPath);
+		Eq(QuizJson.Write(fromZip), QuizJson.Write(withSound), "export zip reads back the same quiz, sound included");
+		var shortCode = ShareCode.NewShort();
+		Check(shortCode.Length == 12 && ShareCode.ShortKey(shortCode) is { Length: 8 }, "short codes look like QN-XXXX-XXXX");
+		Check(ShareCode.ShortKey(" qn-7k4p-9xz2 ") == "7K4P9XZ2" && ShareCode.ShortKey("7K4P 9XZ2") == "7K4P9XZ2", "short codes read in any case, with or without QN- and dashes");
+		Check(ShareCode.ShortKey("QN-7K4P-9XZ") == null && ShareCode.ShortKey("QN-0K4P-9XZ2") == null && ShareCode.ShortKey(code) == null, "not a short code: too short, a 0, or a long code");
+		Check(ShareCode.Looks("QN-7K4P-9XZ2") && ShareCode.Looks(code) && !ShareCode.LooksLong("QN-7K4P-9XZ2"), "both kinds are recognised");
 		Check(shared!.Questions.Where(q => q.IsMedia).All(q => q.Media is { DataUrl: "", Name.Length: > 0 }), "shared media keep their file names");
 		var multi = Dev.SampleQuiz.Build().Questions.First(x => x.IsMulti).Clone();
 		Eq(multi.Mode, ClassicMode.Multi, "multi mode is saved");
