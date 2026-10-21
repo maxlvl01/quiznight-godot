@@ -49,7 +49,7 @@ public partial class QuizOverviewScreen : Control
 		{
 			var info = QuestionType.Infos[type];
 			// Layers: the clickable card, the name on top (it sets the height: long names wrap, e.g. in German), and the "?"
-			// in the top-right corner, which tells what the type does (hover) and its variants (click).
+			// on the right, level with the name, which tells what the type does (hover) and its variants (click).
 			var card = new MarginContainer { MouseFilter = MouseFilterEnum.Ignore }.Grow();
 			var button = new Button { ThemeTypeVariation = "", MouseDefaultCursorShape = CursorShape.PointingHand, CustomMinimumSize = new Vector2(0, 76) };
 			button.AddThemeStyleboxOverride("normal", UiTheme.Box(C.Panel, 14, C.Border, 1, 16, 14));
@@ -62,10 +62,11 @@ public partial class QuizOverviewScreen : Control
 			foreach (var c in inner.GetChildren().OfType<Control>()) c.MouseFilter = MouseFilterEnum.Ignore;
 			card.AddChild(U.Pad(inner, 16, 14, 44, 14).With(m => m.MouseFilter = MouseFilterEnum.Ignore));
 			var corner = new Control { MouseFilter = MouseFilterEnum.Ignore };
-			var help = U.Small("?", () => Dialogs.Info(this, TypeHelp(info), info.Label));
+			var help = U.Link("?", () => Dialogs.Info(this, TypeHelp(info), info.Label), 20);
 			help.TooltipText = Lang.T(info.Blurb) + "\n\n" + Lang.T("What it does and its variants") + ": ?";
 			help.AnchorLeft = help.AnchorRight = 1;
-			(help.OffsetLeft, help.OffsetTop, help.OffsetRight, help.OffsetBottom) = (-36, 10, -10, 36);
+			help.AnchorTop = help.AnchorBottom = 0.5f;
+			(help.OffsetLeft, help.OffsetTop, help.OffsetRight, help.OffsetBottom) = (-38, -21, -10, 11);
 			corner.AddChild(help);
 			card.AddChild(corner);
 			types.AddChild(card);

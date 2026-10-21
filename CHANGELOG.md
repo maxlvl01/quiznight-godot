@@ -13,6 +13,10 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+### Changed
+- The trash can sits in a quiz's top-right corner, just a red can that lights up under the mouse.
+- The **?** on the question types sits level with the name, without a box.
+
 ### Fixed
 - The "Don't ask me again" box in the delete question sat on top of the text.
 

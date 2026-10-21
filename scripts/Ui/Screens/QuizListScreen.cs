@@ -56,12 +56,13 @@ public partial class QuizListScreen : Control
 		var host = U.Btn("Open lobby", "AccentButton", () => App.I.HostQuiz(quiz), 14);
 		host.Disabled = !ready;
 		var actions = U.H(6,
-			TrashButton(quiz),
 			U.Fill(),
 			U.Small("Copy share code", () => ShareInfo.Copy(this, quiz)),
 			U.Small("Export", () => Export(quiz)),
 			host);
-		return U.Card(6, title, info, U.Gap(4), actions).Grow();
+		// (the trash can in the top-right corner, away from the buttons you use all the time)
+		var top = GameParts.Row(10, title.Grow(), TrashButton(quiz));
+		return U.Card(6, top, info, U.Gap(4), actions).Grow();
 	}
 
 	/// <summary>The trash can: deletes the quiz, after asking (unless "Don't ask me again" was ticked once).</summary>
@@ -78,11 +79,13 @@ public partial class QuizListScreen : Control
 			else Dialogs.Confirm(this, Lang.F("Delete \"{0}\"? This can't be undone — export it first if you want a backup.", quiz.Title), "Delete", Delete,
 				dontAskAgain: () => Settings.AskBeforeDeletingQuiz = false);
 		}).Tip("Delete quiz").MinSize(36, 34);
-		var icon = new TrashIcon(C.Muted);
-		icon.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, 8);
+		// Just the red can, no box; it lights up under the mouse.
+		foreach (var state in new[] { "normal", "hover", "pressed", "focus" }) button.AddThemeStyleboxOverride(state, new StyleBoxEmpty());
+		var icon = new TrashIcon(new Color(C.Coral, 0.7f), 22);
+		icon.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, 6);
 		button.AddChild(icon);
-		button.MouseEntered += () => icon.Color = C.Coral;
-		button.MouseExited += () => icon.Color = C.Muted;
+		button.MouseEntered += () => icon.Color = C.Coral.Lightened(0.25f);
+		button.MouseExited += () => icon.Color = new Color(C.Coral, 0.7f);
 		return button;
 	}
 
