@@ -33,7 +33,18 @@ public sealed class HostSession : IDisposable
 		_net.Received += OnReceived;
 	}
 
-	public RoomState State => Room.ToState("host");
+	public RoomState State => StateFor("host");
+
+	/// <summary>The room as one viewer sees it, with everyone's download progress on a sound/video question.</summary>
+	RoomState StateFor(string viewer)
+	{
+		var state = Room.ToState(viewer);
+		if (state.Game is { Stage: Stage.Open } view && CurrentMediaId() is { } mediaId)
+			view.MediaProgress = Room.Players.ToDictionary(p => p.Id, p => MediaPercent(p.Id, mediaId));
+		return state;
+	}
+
+	string? CurrentMediaId() => Playing() ? Room.Game!.SharedFiles.FirstOrDefault(v => v.Index == Room.Game.Index)?.Id : null;
 
 	public void Poll()
 	{
@@ -109,7 +120,7 @@ public sealed class HostSession : IDisposable
 	public void Broadcast()
 	{
 		Changed?.Invoke();
-		foreach (var (peer, playerId) in _peerPlayer.ToList()) _net.Send(peer, Msg.Encode(Msg.State, Room.ToState(playerId)));
+		foreach (var (peer, playerId) in _peerPlayer.ToList()) _net.Send(peer, Msg.Encode(Msg.State, StateFor(playerId)));
 	}
 
 	void OnPeerDisconnected(string peer)
@@ -133,7 +144,7 @@ public sealed class HostSession : IDisposable
 				break;
 			case Msg.Leave when playerId != null:
 				_peerPlayer.Remove(peer);
-				Room.Remove(playerId);
+				Room.Leave(playerId);
 				_net.Disconnect(peer);
 				Broadcast();
 				break;
@@ -155,8 +166,16 @@ public sealed class HostSession : IDisposable
 				{
 					if (!_mediaProgress.TryGetValue(playerId, out var got)) _mediaProgress[playerId] = got = new();
 					got[mp.Id] = Math.Clamp(mp.Percent, 0, 100);
-					Changed?.Invoke();
+					// (everyone sees the current question's download rings fill up)
+					if (mp.Id == CurrentMediaId()) Broadcast();
+					else Changed?.Invoke();
 				}
+				break;
+			case Msg.Rename when playerId != null:
+				if (Msg.Read<RenameRequest>(msg.Data) is { } rr && Room.Rename(playerId, rr.Name).Ok) Broadcast();
+				break;
+			case Msg.Joker when playerId != null && Playing():
+				if (Msg.Read<JokerRequest>(msg.Data) is { } jr && Room.Game!.PlayJoker(playerId, jr.Kind, jr.On).Ok) Broadcast();
 				break;
 			case Msg.AssetRequest when playerId != null:
 				if (Msg.Read<AssetRequest>(msg.Data) is { } ar) SendAsset(peer, ar.Key);
@@ -229,10 +248,21 @@ public sealed class HostSession : IDisposable
 		}
 	}
 
-	public void UpdateSettings(int? maxPlayers = null, int? answerTimeSec = null, bool? hostShows = null, bool? hostUnlocks = null)
+	/// <summary>Podium sound for this room (an Sfx podium id).</summary>
+	public string PodiumSound
+	{
+		get => Room.Settings.PodiumSound;
+		set
+		{
+			Room.Settings.PodiumSound = value;
+			Broadcast();
+		}
+	}
+
+	public void UpdateSettings(int? answerTimeSec = null, bool? hostShows = null, bool? hostUnlocks = null, (string Kind, bool On)? joker = null)
 	{
 		if (Room.Phase != Phase.Lobby) return;
-		Room.UpdateSettings(maxPlayers, answerTimeSec, hostShows, hostUnlocks);
+		Room.UpdateSettings(answerTimeSec, hostShows, hostUnlocks, joker);
 		Broadcast();
 	}
 
@@ -246,6 +276,7 @@ public sealed class HostSession : IDisposable
 	public void BackToLobby()
 	{
 		Room.BackToLobby();
+		_resultsSent = false;
 		Broadcast();
 	}
 
@@ -269,6 +300,8 @@ public sealed class HostSession : IDisposable
 		Broadcast();
 	}
 	public void ShowQuestion() => GameAction(g => g.ShowQuestion());
+	/// <summary>Someone left and the game waits: go on without them.</summary>
+	public void Continue() => GameAction(g => g.Continue());
 	public void SetBuzzers(bool open) => GameAction(g => g.SetBuzzers(open));
 	public void SkipTurn() => GameAction(g => g.SkipTurn());
 	public void PlaceForFree() => GameAction(g => g.PlaceCurrentForFree());
@@ -279,6 +312,7 @@ public sealed class HostSession : IDisposable
 	{
 		if (!Playing()) return;
 		Room.Next();
+		SaveResultsIfFinished();
 		Broadcast();
 	}
 
@@ -286,7 +320,20 @@ public sealed class HostSession : IDisposable
 	{
 		if (!Playing()) return;
 		Room.Finish();
+		SaveResultsIfFinished();
 		Broadcast();
+	}
+
+	bool _resultsSent;
+
+	/// <summary>The game is over: its results go to Max's results repo (real games over Steam only, not LAN tests).</summary>
+	void SaveResultsIfFinished()
+	{
+		if (Room.Phase != Phase.Finished || _resultsSent) return;
+		_resultsSent = true;
+		if (Mode != NetMode.Steam || !Storage.ResultsUpload.Enabled) return;
+		var (name, csv) = Storage.Results.Make(Room);
+		Storage.ResultsUpload.Send(name, csv);
 	}
 
 	/// <summary>Tells everyone the room is closed and stops listening.</summary>

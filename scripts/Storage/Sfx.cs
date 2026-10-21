@@ -23,6 +23,20 @@ public static class Sfx
 	public static string PodiumJingle =>
 		new[] { "mp3", "wav", "ogg" }.Select(e => $"res://assets/soundeffects/Podium.{e}").FirstOrDefault(p => ResourceLoader.Exists(p)) ?? "res://assets/soundeffects/Podium.ogg";
 
+	/// <summary>What plays when the final results show. The host picks one for the room; a player can hear their own.</summary>
+	public static readonly Sound[] Podiums =
+	{
+		new("f1-podium", "F1 Podium", "res://assets/soundeffects/Podium2.wav"),
+		new("so-back", "#SoBack", PodiumJingle),
+	};
+
+	public const string DefaultPodium = "f1-podium";
+
+	public static (string Id, string Label)[] PodiumChoices() =>
+		Podiums.Select(p => (p.Id, p.Label)).Append((Off, "No sound")).ToArray();
+
+	public static string ValidPodium(string id) => PodiumChoices().Any(c => c.Id == id) ? id : DefaultPodium;
+
 	public const string DefaultBuzzer = "soft-beep";
 	public const string Custom = "custom";
 	public const string Off = "off";
@@ -107,11 +121,16 @@ public static class Sfx
 	public static void PlayRoomBuzzer(string hostChoice) =>
 		PlayBuzzer(hostChoice == Custom ? Settings.BuzzerSound : hostChoice);
 
-	/// <summary>Plays the jingle when the final results show (host only).</summary>
-	public static void PlayPodium()
+	/// <summary>Plays a podium sound (on the game music bus).</summary>
+	public static void PlayPodium(string id)
 	{
-		if (GD.Load<AudioStream>(PodiumJingle) is { } stream) Play(ref _musicPlayer, Prefs.GameMusicBus, stream);
+		if (Podiums.FirstOrDefault(p => p.Id == ValidPodium(id)) is { } podium && GD.Load<AudioStream>(podium.Path) is { } stream)
+			Play(ref _musicPlayer, Prefs.GameMusicBus, stream);
 	}
+
+	/// <summary>The final results: the host's choice for the room, unless this player picked their own in Settings.</summary>
+	public static void PlayRoomPodium(string hostChoice, bool isHost) =>
+		PlayPodium(isHost || Settings.PodiumFollowHost ? hostChoice : Settings.PodiumSound);
 
 	static AudioStreamPlayer? _musicPlayer;
 

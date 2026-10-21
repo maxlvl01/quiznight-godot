@@ -20,7 +20,6 @@ public partial class HostGameScreen : Control, IRoomScreen
 	readonly VBoxContainer _side = U.V(10);
 	HostMedia? _player;
 	HostImageReveal? _imageReveal;
-	readonly Curtain _curtain = new();
 
 	public HostGameScreen() : this(null!, null!) { }
 
@@ -32,12 +31,10 @@ public partial class HostGameScreen : Control, IRoomScreen
 
 		_content.AddThemeConstantOverride("separation", 14);
 		// The card fills the column; pictures and maps in it take the height that's left.
+		// (a question players can't see yet is shown to the host as it is: players see everything on their own
+		// screens, so the host's screen needn't be streamed and they can read it out before showing it)
 		var stageCard = U.Panel(U.V(14, _head, _media, _content).GrowV()).GrowV();
-		// The curtain covers the question until the host shows it.
-		var stageStack = new MarginContainer().GrowV();
-		stageStack.AddChild(stageCard);
-		stageStack.AddChild(_curtain);
-		var stage = U.V(12, stageStack, _controls).Grow(3).GrowV();
+		var stage = U.V(12, stageCard, _controls).Grow(3).GrowV();
 		var stageScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.Grow(3).GrowV();
 		stageScroll.AddChild(stage);
 		var side = U.Panel(_side).MinSize(330).GrowV();
@@ -65,8 +62,6 @@ public partial class HostGameScreen : Control, IRoomScreen
 		if (game.Buzzes.Count > _heardBuzzes) Sfx.PlayBuzzer(_host.BuzzerSound);
 		_heardBuzzes = game.Buzzes.Count;
 		var reveal = game.Stage == Stage.Reveal ? game.Reveal : null;
-		_curtain.Visible = game.Stage == Stage.Open && !game.Shown;
-		_curtain.Set(Lang.F("Question {0} / {1}", game.Index + 1, game.Total), Chips.TypeLabel(q));
 		HostNotes.Update(game);
 		_game = game;
 		var key = $"{game.Index}|{game.Stage}";
@@ -74,14 +69,18 @@ public partial class HostGameScreen : Control, IRoomScreen
 		// Timeline: rebuilt on every move.
 		var tlKey = tl == null ? "" : $"|{tl.Phase}|{tl.PendingGap}|{tl.Placed.Count}|{tl.TurnPlayerId}|{string.Join(",", tl.WrongGaps)}|{tl.Last?.Kind}{tl.Last?.PlayerId}{tl.Last?.Item}";
 
-		_bar.Set($"{game.Index}", () => U.Panel(GameParts.Row(12,
-			U.H(0, U.Text("Quiznight", 20, C.Text, Fonts.Black), U.Text("!", 20, C.Accent, Fonts.Black)),
-			U.Pill(Lang.F("Question {0} / {1}", game.Index + 1, game.Total)),
-			Chips.Question(q),
-			U.Pill(q.Points == 1 ? Lang.T("1 point") : Lang.F("{0} points", q.Points)),
-			U.Fill(),
-			U.Muted("Room", 15, false),
-			U.Text(room.Code, 20, C.Accent, Fonts.Mono)), "Bar"));
+		_bar.Set($"{game.Index}|{game.JokerIndex}", () =>
+		{
+			var row = GameParts.Row(12,
+				U.H(0, U.Text("Quiznight", 20, C.Text, Fonts.Black), U.Text("!", 20, C.Accent, Fonts.Black)),
+				U.Pill(Lang.F("Question {0} / {1}", game.Index + 1, game.Total)),
+				Chips.Question(q),
+				U.Pill(q.Points == 1 ? Lang.T("1 point") : Lang.F("{0} points", q.Points)));
+			if (GameParts.NextPill(game) is { } next) row.AddChild(next);
+			row.AddChild(U.Fill());
+			row.AddChild(new RoomCodeButton(room.Code));
+			return U.Panel(row, "Bar");
+		});
 
 		_head.Set(key, () => GameParts.Row(16,
 			U.Text(q.Prompt, 34, C.Text, Fonts.Black, true).Raw(),
@@ -110,7 +109,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 			var box = U.V(14);
 			if (reveal == null && GameParts.BonusLine(q, 18) is { } bonusLine) box.AddChild(bonusLine);
 			if (q.ImageKey != null && q.Type != QuestionType.Image && !(q.Type == QuestionType.MapPin && reveal != null))
-				box.AddChild(new AssetImage(_assets, q.ImageKey, U.Flexible));
+				box.AddChild(new AssetImage(_assets, q.ImageKey, U.Flexible) { Zoomable = true });
 			if (q.Choices != null) box.AddChild(GameParts.ChoiceGrid(game));
 			if (reveal == null && q.Mode == ClassicMode.Multi) box.AddChild(U.Muted("Several answers can be right — players pick all they think are.", 16));
 			if (reveal == null && q.Type == QuestionType.Estimation)
@@ -159,10 +158,17 @@ public partial class HostGameScreen : Control, IRoomScreen
 
 		var answering = game.Buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Answering);
 		var last = game.Index + 1 >= game.Total;
-		_controls.Set($"{key}|{answering?.PlayerId}|{answering?.AtSec}|{game.Shown}|{game.BuzzersOpen}|{tl?.TurnPlayerId}|{tl?.Current}|{tl?.Phase}", () =>
+		_controls.Set($"{key}|{answering?.PlayerId}|{answering?.AtSec}|{game.Shown}|{game.BuzzersOpen}|{tl?.TurnPlayerId}|{tl?.Current}|{tl?.Phase}|{GameParts.PausedText(room)}", () =>
 		{
 			var row = GameParts.Row(10);
 			row.Alignment = BoxContainer.AlignmentMode.End;
+			// Someone left: everything waits until they're back, or the host goes on without them.
+			if (GameParts.PausedText(room) is { } paused)
+			{
+				row.AddChild(U.Text(paused, 17, C.Accent, Fonts.Bold, true).Raw().Grow());
+				row.AddChild(U.Btn("Continue without them", "AccentButton", _host.Continue, 18).Tip("Timers, buzzers and answers carry on; they can still come back later"));
+				return row;
+			}
 			if (game.Stage == Stage.Open && q.Buzzer && answering != null)
 			{
 				var p = room.Player(answering.PlayerId);
@@ -173,6 +179,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 			}
 			if (game.Stage == Stage.Open && !game.Shown)
 			{
+				row.AddChild(U.Muted("Players don't see this question yet.", 15, false).Grow());
 				row.AddChild(U.Btn("Host notes", "", HostNotes.Open).Tip("The question and answer in a separate window (not in your stream if you share only the game window)"));
 				row.AddChild(U.Btn("Show question  (Space)", "AccentButton", _host.ShowQuestion, 20));
 				return row;
@@ -212,7 +219,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 	/// <summary>Space: show the hidden question, then unlock the buzzers.</summary>
 	public override void _UnhandledKeyInput(InputEvent e)
 	{
-		if (e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Space } || _game is not { Stage: Stage.Open } game) return;
+		if (e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Space } || _game is not { Stage: Stage.Open, Paused: false } game) return;
 		if (!game.Shown) _host.ShowQuestion();
 		else if (game.Timeline?.Phase == TimelinePhase.Locked) _host.RevealPlacement();
 		else if (game.Timeline?.Phase == TimelinePhase.Result) _host.NextTurn();
@@ -262,6 +269,7 @@ public partial class HostMedia : VBoxContainer
 	bool _reported;
 	bool _autoPaused;
 	bool _answering;
+	bool _paused;
 	bool _open = true;
 	bool _started;
 	double _readyCheck;
@@ -370,7 +378,9 @@ public partial class HostMedia : VBoxContainer
 	{
 		_open = game.Stage == Stage.Open;
 		_answering = _open && game.Buzzes.Any(b => b.Status == BuzzStatus.Answering);
-		if (_answering && Playing)
+		// (someone left: it waits for them, the host resumes it once the game goes on)
+		_paused = game.Paused;
+		if ((_answering || _paused) && Playing)
 		{
 			_autoPaused = true;
 			SetPaused(true);
@@ -385,10 +395,11 @@ public partial class HostMedia : VBoxContainer
 			_reported = playing;
 			if (_open) _host.SetMedia(playing);
 		}
-		var waiting = _autoPaused && !playing && !_answering && _open;
+		var waiting = _autoPaused && !playing && !_answering && !_paused && _open;
 		_hint.Visible = waiting;
 		if (_toggle != null)
 		{
+			_toggle.Disabled = _paused;
 			_toggle.Text = _audio != null ? (playing ? "❚❚" : "▶") : playing ? Lang.T("Pause") : !_started ? Lang.T("▶ Start video") : waiting ? Lang.T("▶ Resume") : Lang.T("Play");
 			_toggle.ThemeTypeVariation = _started && _video != null ? "SmallButton" : "AccentButton";
 		}
@@ -449,49 +460,5 @@ public partial class SoundBars : Control
 			var bh = h * Size.Y;
 			DrawRect(new Rect2(i * w + w * 0.2f, (Size.Y - bh) / 2, w * 0.6f, bh), new Color(C.Coral, Active ? 0.9f : 0.35f));
 		}
-	}
-}
-
-/// <summary>
-/// Frosted glass over the hidden question: what's behind it shows only as a blur, with the question
-/// number and type on top.
-/// </summary>
-public partial class Curtain : PanelContainer
-{
-	static readonly Shader Frost = new()
-	{
-		Code = """
-			shader_type canvas_item;
-			uniform sampler2D screen : hint_screen_texture, filter_linear;
-			void fragment() {
-				// A wide box blur of what's behind, darkened.
-				vec3 sum = vec3(0.0);
-				for (int x = -4; x <= 4; x++)
-					for (int y = -4; y <= 4; y++)
-						sum += texture(screen, SCREEN_UV + vec2(float(x), float(y)) * SCREEN_PIXEL_SIZE * 7.0).rgb;
-				COLOR = vec4(sum / 81.0 * 0.55, 1.0);
-			}
-			""",
-	};
-
-	readonly Label _title = U.Text("", 30, C.Text, Fonts.Black);
-	readonly Label _type = U.Muted("", 18, false);
-
-	public Curtain()
-	{
-		Material = new ShaderMaterial { Shader = Frost };
-		AddThemeStyleboxOverride("panel", UiTheme.Box(Colors.White, 16, C.Border, 1, 0, 0));
-		var box = U.V(10, _title.Center(), _type.Center(), U.Muted("Hidden from everyone. Read it in Host notes, then press Show question.", 15, false, HorizontalAlignment.Center).Center());
-		box.Alignment = BoxContainer.AlignmentMode.Center;
-		// (the text is drawn normally, not frosted)
-		foreach (var c in box.GetChildren().OfType<CanvasItem>()) c.UseParentMaterial = false;
-		AddChild(box);
-		MouseFilter = MouseFilterEnum.Stop;
-	}
-
-	public void Set(string title, string type)
-	{
-		_title.Text = title;
-		_type.Text = Lang.T(type);
 	}
 }

@@ -48,7 +48,8 @@ public partial class ScreenFrame : Container
 /// </summary>
 public partial class SpaceBackdrop : Control
 {
-	// The sharp picture on top of a blurred one, faded out away from the mouse.
+	// The sharp picture on top of a blurred one, faded out away from the mouse (in window coordinates, so it also
+	// works when each side shows its own part of the picture).
 	static readonly Shader Focus = new()
 	{
 		Code = """
@@ -56,15 +57,17 @@ public partial class SpaceBackdrop : Control
 			uniform vec2 focus = vec2(0.5);
 			uniform float aspect = 1.0;
 			void fragment() {
-				float d = length((UV - focus) * vec2(aspect, 1.0));
-				COLOR = texture(TEXTURE, UV);
-				COLOR.a = 1.0 - smoothstep(0.05, 0.38, d);
+				float d = length((SCREEN_UV - focus) * vec2(aspect, 1.0));
+				COLOR = texture(TEXTURE, UV) * COLOR;
+				COLOR.a = 1.0 - smoothstep(0.07, 0.5, d);
 			}
 			""",
 	};
 
-	readonly Texture2D? _sharp;
-	readonly Texture2D? _blurred;
+	Texture2D? _sharp;
+	Texture2D? _blurred;
+	/// <summary>The picture shown (a Backgrounds id); a new choice in Settings swaps it.</summary>
+	string? _picture;
 	readonly ShaderMaterial _material = new() { Shader = Focus };
 	readonly Control _top = new() { MouseFilter = MouseFilterEnum.Ignore };
 	Vector2 _focus = new(0.5f, 0.5f);
@@ -74,7 +77,18 @@ public partial class SpaceBackdrop : Control
 		MouseFilter = MouseFilterEnum.Ignore;
 		// (smooth scaling: the project's default filter is nearest)
 		TextureFilter = TextureFilterEnum.Linear;
-		var source = DisplayServer.GetName() == "headless" ? null : GD.Load<Texture2D>("res://assets/backgrounds/cosmic-cliffs.webp")?.GetImage();
+		_top.Material = _material;
+		_top.TextureFilter = TextureFilterEnum.Linear;
+		_top.SetAnchorsPreset(LayoutPreset.FullRect);
+		_top.Draw += () => DrawPicture(_top, _sharp);
+		AddChild(_top);
+	}
+
+	void Load(string picture)
+	{
+		_picture = picture;
+		_sharp = _blurred = null;
+		var source = DisplayServer.GetName() == "headless" ? null : GD.Load<Texture2D>(Storage.Backgrounds.Path(picture))?.GetImage();
 		if (source != null)
 		{
 			// Made once: a smoothly enlarged copy, and a blurred one: halved a few times and doubled back up
@@ -100,15 +114,12 @@ public partial class SpaceBackdrop : Control
 			_sharp = ImageTexture.CreateFromImage(sharp);
 			_blurred = ImageTexture.CreateFromImage(blurred);
 		}
-		_top.Material = _material;
-		_top.TextureFilter = TextureFilterEnum.Linear;
-		_top.SetAnchorsPreset(LayoutPreset.FullRect);
-		_top.Draw += () => DrawPicture(_top, _sharp);
-		AddChild(_top);
 	}
 
 	public override void _Process(double delta)
 	{
+		// (made on first use, and again when Settings picks another one)
+		if (Storage.Settings.Background is var picture && picture != _picture && Size.X > Size.Y * ScreenFrame.MaxAspect + 2) Load(picture);
 		// Only on windows wider than 16:9: elsewhere the screens cover it all.
 		Visible = _sharp != null && Size.X > Size.Y * ScreenFrame.MaxAspect + 2;
 		if (!Visible) return;
@@ -116,7 +127,10 @@ public partial class SpaceBackdrop : Control
 		var moving = Storage.Settings.BackgroundMotion;
 		_top.Visible = moving;
 		var target = moving ? (GetLocalMousePosition() / Size).Clamp(Vector2.Zero, Vector2.One) : new Vector2(0.5f, 0.5f);
-		_focus = _focus.Lerp(target, (float)Mathf.Min(1, delta * 4));
+		// (slow to follow, so quick mouse moves don't swing it around)
+		_focus = _focus.Lerp(target, (float)Mathf.Min(1, delta * 1.5));
+		_material.SetShaderParameter("focus", _focus);
+		_material.SetShaderParameter("aspect", Size.X / Size.Y);
 		QueueRedraw();
 		_top.QueueRedraw();
 	}
@@ -127,18 +141,34 @@ public partial class SpaceBackdrop : Control
 	{
 		if (texture == null) return;
 		// Covers the window, a little bigger than it, so it can shift with the mouse without showing its edge.
+		// The shift is small and the same on any screen (it used to be most of the overhang, which on ultrawide
+		// monitors meant big swings: motion sickness).
 		var tex = texture.GetSize();
-		var scale = Mathf.Max(Size.X / tex.X, Size.Y / tex.Y) * 1.04f;
-		var size = tex * scale;
-		var at = (Size - size) / 2 + (_focus - new Vector2(0.5f, 0.5f)) * (size - Size) * -0.8f;
-		if (on == _top)
-		{
-			// (where the mouse is on the picture)
-			_material.SetShaderParameter("focus", (_focus * Size - at) / size);
-			_material.SetShaderParameter("aspect", size.X / size.Y);
-		}
 		// A little darker, so the screens in the middle stand out.
-		on.DrawTextureRect(texture, new Rect2(at, size), false, new Color(0.75f, 0.75f, 0.75f));
+		var tint = new Color(0.75f, 0.75f, 0.75f);
+		var move = (_focus - new Vector2(0.5f, 0.5f)) * -0.03f * Size.Y;
+		if (Storage.Backgrounds.Sides(_picture) is { } sides)
+		{
+			// Each side of the screens shows its own part of the picture, as tall as the window.
+			var gap = (Size.X - Size.Y * ScreenFrame.MaxAspect) / 2;
+			DrawSide(new Rect2(0, 0, gap, Size.Y), sides.Left);
+			DrawSide(new Rect2(Size.X - gap, 0, gap, Size.Y), sides.Right);
+
+			void DrawSide(Rect2 area, Storage.Backgrounds.Side side)
+			{
+				var sideScale = Size.Y * 1.03f * side.Zoom / tex.Y;
+				var size = tex * sideScale;
+				var at = area.GetCenter() - side.Anchor * size + move;
+				// (never past the picture's edge)
+				at = new Vector2(Mathf.Clamp(at.X, area.End.X - size.X, area.Position.X), Mathf.Clamp(at.Y, area.End.Y - size.Y, area.Position.Y));
+				on.DrawTextureRectRegion(texture, area, new Rect2((area.Position - at) / sideScale, area.Size / sideScale), tint);
+			}
+			return;
+		}
+		var scale = Mathf.Max(Size.X / tex.X, Size.Y / tex.Y) * 1.03f;
+		var whole = tex * scale;
+		var at = (Size - whole) / 2 + move.Clamp(-(whole - Size) / 2, (whole - Size) / 2);
+		on.DrawTextureRect(texture, new Rect2(at, whole), false, tint);
 	}
 }
 

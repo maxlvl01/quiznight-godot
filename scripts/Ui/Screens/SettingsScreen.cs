@@ -36,7 +36,9 @@ public partial class SettingsScreen : Control
 			Volume("Game music", "Menu music and the podium jingle.", d.GameMusic, v => Change(Draft with { GameMusic = v })),
 			Volume("Sound effects", "Buzzer and other sound effects.", d.Sfx, v => Change(Draft with { Sfx = v })),
 			new HSeparator(),
-			BuzzerSection()).Grow();
+			BuzzerSection(),
+			new HSeparator(),
+			PodiumSection()).Grow();
 
 		// Only sizes that fit on the chosen monitor (a 1440p screen can't pick 4K).
 		var fitting = Prefs.SizesFor(d.Screen);
@@ -83,6 +85,7 @@ public partial class SettingsScreen : Control
 			U.Field("Window mode", mode),
 			U.Field("Window size", size),
 			sizeHint,
+			U.Field("Background picture", U.Select(Backgrounds.All, d.Background, id => Change(Draft with { Background = id }))),
 			U.Field("Background movement", U.Segmented(new[] { ("on", "On"), ("off", "Off") }, d.BackgroundMotion ? "on" : "off", id => Change(Draft with { BackgroundMotion = id == "on" }))),
 			U.Muted("On wide monitors, the space picture beside the game sways with the mouse. Off keeps it still.", 12),
 			U.Field("Theme", U.Small("☀ Switch to light mode", HomeScreen.LightMode).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin)),
@@ -213,6 +216,17 @@ public partial class SettingsScreen : Control
 			U.Muted("Plays for the host and all players when someone buzzes in. This is the default for new lobbies; the host can still change it in the lobby for one night. If you host with your own sound, players hear their own default buzzer instead.", 12),
 			U.H(10, own, U.Muted(Lang.F("MP3, OGG or WAV, up to {0} MB.", Sfx.CustomMaxMb), 12, false).With(l => l.SizeFlagsVertical = SizeFlags.ShrinkCenter)),
 			error);
+	}
+
+	Control PodiumSection()
+	{
+		var follow = new CheckBox { Text = Lang.T("As a player, play the one the host picked"), ButtonPressed = Draft.PodiumFollowHost, MouseDefaultCursorShape = CursorShape.PointingHand };
+		follow.Toggled += on => Change(Draft with { PodiumFollowHost = on });
+		return U.V(6,
+			U.Text("Podium sound", 15),
+			PodiumPicker.Make(Draft.Podium, id => Change(Draft with { Podium = id }), false),
+			follow,
+			U.Muted("Plays with the final results. As host, it's the default for your lobbies (you can change it there for one night). As a player, untick the box to always hear this one.", 12));
 	}
 
 	static Control Volume(string label, string hint, int value, System.Action<int> changed)

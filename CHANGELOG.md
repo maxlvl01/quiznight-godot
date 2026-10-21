@@ -11,16 +11,58 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
-## [Unreleased]
+## [0.8.0b] — jokers, big rooms, fair places and the eternal table
 
 ### Added
+- **Jokers**: each player can play each joker once per match, before a question starts (during the reveal before it,
+  or while the host still hides it). Until the question is shown you can take it back; then everyone sees it.
+  The host picks which ones are allowed in the lobby.
+  - **×2 Double points**: whatever the question gives you counts twice.
+  - **⚡ Fast Pass** (buzzer questions only): when you buzz, you go ahead of everyone waiting in line.
+  - During a reveal the top bar says whether the **next question is a buzzer one**, so you know when a Fast Pass works.
+- **Leaving and joining during a game**:
+  - If someone drops out, **the game pauses** (timers, buzzers, answers and the video or song) until they're back,
+    so they lose nothing. The host can also **continue without them**. Leaving and coming back with the code keeps
+    your seat and points.
+  - **New players can join a running game** with the code. They watch the question that's running and play from
+    the next one.
+  - The scores and the podium show **who left (and at which question) and who joined later**.
+- **Download rings**: on sound and video questions, a ring next to each name in the scores fills up while that
+  player gets the file, and turns into a tick when they have it.
+- **The room code** is in the top bar for the host and the players. Click it to copy it.
+- **Change your name in the waiting room**: double-click it, type, Enter. The waiting room shows everyone who's in
+  plus one open seat, instead of every seat the room has.
+- **Confetti** on the final results.
+- **Fairer places**: equal points are decided by who got there first, then by the faster average buzz/answer time
+  (to the thousandth of a second), then by how close your map pins were on average. Hover a name in the scores to see
+  their average answer time.
+- **Shorter scores for players**: the top 3, then "⋮" and the players right around you (the one ahead, you, the one
+  behind), so you see your closest competition even in a big room. The host still sees everyone.
+- **Results go to Max**: after a quiz night the host's game sends everyone's results to Max for the eternal table
+  (only if that fails, e.g. without internet, it keeps them in Documents/Quiznight/Results).
+- **🏆 Eternal table** (link on the home screen): every quiz night whose results came with the game, added up per
+  player: nights, wins, podiums, points, average points, average answer time and average km off.
+- **Podium sounds**: the new **F1 Podium** (now the default) and the first one, **#SoBack**. The host picks one in the lobby, and everyone
+  hears it with the final results. In Settings you can pick your own and untick "As a player, play the one the host
+  picked" to always hear yours.
+- **A new background picture** for wide monitors, the **Pinke Geilheit Spacing Team** (now the default): the astronaut
+  beside the screens on the left, a corner of her ship on the right. Settings → Video → Background picture switches back to the
+  Cosmic Cliffs.
+- **Click a question's picture** (e.g. the screenshot of a map question) to see it as big as your screen allows.
 - **Share codes**: "Copy share code" (on a quiz, or in My quizzes) copies the whole quiz as one line of text. Paste it
   to a friend or to your other PC, where **My quizzes → Paste share code** imports it. Pictures are in the code;
   sound and video files aren't (too big), so the game tells you which ones to add again. A long code that Discord
   turns into a message.txt file can be imported with **Import file**.
 
 ### Changed
+- **No more "Max players" setting**: every room has room for 24 players.
+- **The host sees a hidden question right away** (no more frosted glass), so you can read it out before pressing
+  Show question. Players still see "Get ready…" until then.
+- **Names are at most 12 characters** (longer Steam names are shortened), so the scores stay tidy. Initials skip
+  symbols ("[OTB] maxlvl" is OM).
 - **LAN play is hidden** on the home screen: it was for testing on one PC. Games are played over Steam.
+- **The space background on wide monitors moves much less** and follows the mouse more slowly (it could cause motion
+  sickness). Settings → Video → Background movement still turns it off completely.
 
 ## [0.7.4b] — small fixes
 

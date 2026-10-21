@@ -63,12 +63,12 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 		_content.AddChild(U.H(16, code, U.Fill(), copied.With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter)));
 
 		if (_host.Mode == NetMode.Steam)
-			_content.AddChild(U.Muted(Lang.F("Players open Quiznight, choose Steam on the home screen and enter this code. {0} of {1} seats taken.", room.Players.Count, room.Settings.MaxPlayers), 15));
+			_content.AddChild(U.Muted(Lang.F("Players open Quiznight, choose Steam on the home screen and enter this code. {0} here so far (up to {1}).", room.Players.Count, Limits.MaxPlayers), 15));
 		else
 		{
 			var addresses = LanHostTransport.LanAddresses();
 			var where = addresses.Count > 0 ? string.Join(Lang.T("  or  "), addresses) : Lang.T("this PC's network address");
-			_content.AddChild(U.Muted(Lang.F("LAN mode: players choose \"LAN / same PC\" and enter {0} (same Wi-Fi), or 127.0.0.1 on this PC. Port {1}. {2} of {3} seats taken.", where, _host.LanPort, room.Players.Count, room.Settings.MaxPlayers), 15));
+			_content.AddChild(U.Muted(Lang.F("LAN mode: players choose \"LAN / same PC\" and enter {0} (same Wi-Fi), or 127.0.0.1 on this PC. Port {1}. {2} here so far (up to {3}).", where, _host.LanPort, room.Players.Count, Limits.MaxPlayers), 15));
 		}
 
 		var chips = U.Flow(8);
@@ -85,15 +85,19 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 
 		var rules = U.Panel(U.V(10,
 			U.Eyebrow("Game rules for tonight"),
-			Stepper.Make("Max players", room.Settings.MaxPlayers, Math.Max(Limits.MaxPlayersMin, room.Players.Count), Limits.MaxPlayersMax,
-				v => _host.UpdateSettings(maxPlayers: v)),
 			Stepper.Make("Answer time per buzz", room.Settings.AnswerTimeSec, Limits.AnswerTimeMin, Limits.AnswerTimeMax,
 				v => _host.UpdateSettings(answerTimeSec: v), " s"),
 			Rule("I show each question myself (it stays hidden until I press Show — Space)", room.Settings.HostShowsQuestions,
 				on => _host.UpdateSettings(hostShows: on)),
 			Rule("I unlock the buzzers myself (after reading the question out — Space)", room.Settings.HostUnlocksBuzzers,
 				on => _host.UpdateSettings(hostUnlocks: on)),
-			BuzzerPicker.Make(_host.BuzzerSound, id => _host.BuzzerSound = id, false)), "Inset");
+			U.Text("Jokers (each player can play each one once per match, before a question starts)", 15),
+			Rule("×2 Double points: whatever the next question gives counts twice", room.Settings.Jokers.Contains(Joker.Double),
+				on => _host.UpdateSettings(joker: (Joker.Double, on))),
+			Rule("⚡ Fast Pass: on the next buzzer question, your buzz goes ahead of the line", room.Settings.Jokers.Contains(Joker.FastPass),
+				on => _host.UpdateSettings(joker: (Joker.FastPass, on))),
+			BuzzerPicker.Make(_host.BuzzerSound, id => _host.BuzzerSound = id, false),
+			PodiumPicker.Make(_host.PodiumSound, id => _host.PodiumSound = id, true)), "Inset");
 		_content.AddChild(rules);
 
 		if (_error != null) _content.AddChild(U.Error(_error));
@@ -131,12 +135,17 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 		AddChild(U.Page(U.Panel(_content), 900));
 	}
 
+	/// <summary>While you change your name: the field (kept across updates, so typing isn't lost).</summary>
+	LineEdit? _rename;
+	string? _renameError;
+
 	public void Refresh(RoomState room)
 	{
+		_rename?.GetParent()?.RemoveChild(_rename);
 		_content.Clear();
 		_content.AddChild(U.H(8, U.Heading("Waiting room", 28, false).Grow(),
-			U.Pill(_client.Mode == NetMode.Steam ? Lang.F("Code {0}", room.Code) : Lang.F("Host {0}", _client.Target)),
-			U.Pill(Lang.F("{0} of {1} players", room.Players.Count, room.Settings.MaxPlayers))));
+			_client.Mode == NetMode.Steam ? new RoomCodeButton(room.Code) : U.Pill(Lang.F("Host {0}", _client.Target)),
+			U.Pill(U.Plural(room.Players.Count, "player", "players"))));
 		_content.AddChild(U.Muted(room.Quiz.Title, 15).Raw());
 
 		var grid = new GridContainer { Columns = 4 };
@@ -145,11 +154,13 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 		foreach (var p in room.Players)
 		{
 			var me = p.Id == _client.MyId;
-			var seat = U.V(6, new Avatar(p, 56).Center(), U.Bold(p.Name, 16, null, false, HorizontalAlignment.Center).Raw(),
-				U.Muted(me ? "You" : p.Connected ? "Joined" : "Reconnecting…", 13, false, HorizontalAlignment.Center));
+			var seat = U.V(6, new Avatar(p, 56).Center(), me ? MyName(p, room) : U.Bold(p.Name, 16, null, false, HorizontalAlignment.Center).Raw(),
+				U.Muted(me ? "You · double-click your name to change it" : p.Connected ? "Joined" : "Reconnecting…", 13, true, HorizontalAlignment.Center));
+			if (me && _renameError != null) seat.AddChild(U.Text(_renameError, 12, C.Coral, null, true, HorizontalAlignment.Center));
 			grid.AddChild(U.Panel(seat, me ? "Scored" : "Card2").Grow());
 		}
-		for (var i = room.Players.Count; i < room.Settings.MaxPlayers; i++)
+		// Everyone who's in, plus one open seat (while the room isn't full): the grid grows as people join.
+		for (var i = room.Players.Count; i < Math.Min(room.Players.Count + 1, Limits.MaxPlayers); i++)
 		{
 			var empty = U.V(6, U.Panel(U.Gap(44), "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(Colors.Transparent, 999, C.Border, 2, 4, 4))).Center(),
 				U.Muted("Open seat", 13, false, HorizontalAlignment.Center));
@@ -160,6 +171,56 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 			U.Muted("Waiting for the host to start the quiz.", 14, false).Grow(),
 			U.Muted(Lang.F("Answer time per buzz: {0} s", room.Settings.AnswerTimeSec), 14, false),
 			U.Link("Leave", App.I.LeaveRoom)));
+	}
+}
+
+public partial class WaitingRoomScreen
+{
+	/// <summary>Your name; double-click it to change it (Enter keeps it, Esc goes back).</summary>
+	Control MyName(PublicPlayer me, RoomState room)
+	{
+		if (_rename != null) return _rename;
+		var name = U.Bold(me.Name, 16, null, false, HorizontalAlignment.Center).Raw();
+		name.MouseFilter = MouseFilterEnum.Stop;
+		name.MouseDefaultCursorShape = CursorShape.Ibeam;
+		name.TooltipText = Lang.T("Double-click to change your name");
+		name.GuiInput += e =>
+		{
+			if (e is not InputEventMouseButton { DoubleClick: true, ButtonIndex: MouseButton.Left }) return;
+			_rename = U.Input(me.Name, "", null, Limits.NameMaxLength);
+			_rename.Alignment = HorizontalAlignment.Center;
+			var field = _rename;
+			field.TextSubmitted += _ => Done(true);
+			field.FocusExited += () => Done(true);
+			field.GuiInput += k =>
+			{
+				if (k is InputEventKey { Pressed: true, Keycode: Key.Escape }) Done(false);
+			};
+			Refresh(room);
+			field.CallDeferred(Control.MethodName.GrabFocus);
+			field.CallDeferred(LineEdit.MethodName.SelectAll);
+
+			void Done(bool keep)
+			{
+				if (_rename != field) return;
+				_rename = null;
+				var text = Server.Room.CleanName(field.Text);
+				_renameError = null;
+				if (keep && text != "" && text != me.Name)
+				{
+					if (room.Players.Any(p => p.Id != me.Id && string.Equals(p.Name, text, StringComparison.OrdinalIgnoreCase)))
+						_renameError = Lang.T("Someone in this room already uses that name.");
+					else
+					{
+						_client.Rename(text);
+						Storage.Settings.PlayerName = text;
+					}
+				}
+				// (after the field's own signal is done: rebuilding frees it)
+				Callable.From(() => Refresh(_client.State ?? room)).CallDeferred();
+			}
+		};
+		return name;
 	}
 }
 
@@ -181,14 +242,22 @@ public partial class PodiumScreen : Control, IRoomScreen
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		_content.Alignment = BoxContainer.AlignmentMode.Center;
 		AddChild(U.Page(_content, 860, 48));
-		if (isHost) Ready += Storage.Sfx.PlayPodium;
+		Ready += () => AddChild(new Confetti());
 	}
+
+	bool _played;
 
 	public void Refresh(RoomState room)
 	{
+		// The host's podium sound, once (a player may have picked their own in Settings).
+		if (!_played)
+		{
+			_played = true;
+			Storage.Sfx.PlayRoomPodium(room.Settings.PodiumSound, _isHost);
+		}
 		_content.Clear();
-		var sorted = room.Players.Select(p => (P: p, Score: room.Score(p.Id))).OrderByDescending(r => r.Score).ToList();
-		var ranked = sorted.Select(r => (r.P, r.Score, Place: sorted.FindIndex(o => o.Score == r.Score) + 1)).ToList();
+		// (places by points, then the tiebreaks: only fully equal players share one)
+		var ranked = room.Ranked().Select(p => (P: p, Score: room.Score(p.Id), Place: room.Place(p.Id))).ToList();
 		var top = ranked.Where(r => r.Place <= 3).ToList();
 		var rest = ranked.Where(r => r.Place > 3).ToList();
 		var me = ranked.FirstOrDefault(r => r.P.Id == _myId);
@@ -212,7 +281,17 @@ public partial class PodiumScreen : Control, IRoomScreen
 					box.CornerRadiusTopLeft = box.CornerRadiusTopRight = 14;
 					p.AddThemeStyleboxOverride("panel", box);
 				}).MinSize(170, height);
-			var step = U.V(6, new Avatar(r.P, 64).Center(), U.Bold(r.P.Name, 18, null, false, HorizontalAlignment.Center).Raw(), U.Mono(Lang.F("{0} pts", r.Score), 15, C.Muted).Center(), block);
+			// (a wide name is cut off with "…" instead of widening its step)
+			var name = U.Bold(r.P.Name, 18, null, false, HorizontalAlignment.Center).Raw().With(l =>
+			{
+				l.ClipText = true;
+				l.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+				l.TooltipText = r.P.Name;
+				l.MouseFilter = MouseFilterEnum.Pass;
+			});
+			var step = U.V(6, new Avatar(r.P, 64).Center(), name, U.Mono(Lang.F("{0} pts", r.Score), 15, C.Muted).Center());
+			if (GameParts.SeatNote(r.P, room) is { } note) step.AddChild(note.Center());
+			step.AddChild(block);
 			step.Alignment = BoxContainer.AlignmentMode.End;
 			podium.AddChild(step);
 		}
@@ -226,6 +305,7 @@ public partial class PodiumScreen : Control, IRoomScreen
 			{
 				var chip = Chips.Player(r.P, $"· {r.Score}", r.P.Id == _myId);
 				((HBoxContainer)chip.GetChild(0)).AddChild(U.Mono($"#{r.Place}", 13, C.Muted));
+				if (GameParts.SeatNote(r.P, room) is { } note) ((HBoxContainer)chip.GetChild(0)).AddChild(note);
 				chips.AddChild(chip);
 			}
 			_content.AddChild(chips);

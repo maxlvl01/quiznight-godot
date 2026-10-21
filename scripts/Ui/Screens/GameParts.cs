@@ -20,17 +20,58 @@ public static class GameParts
 	public static Control RankBadge(int rank) =>
 		U.Mono($"{rank}", 14, C.Muted).MinSize(22).With(l => l.HorizontalAlignment = HorizontalAlignment.Center);
 
-	/// <summary>Players by score; at the reveal it shows what each one just won.</summary>
+	/// <summary>"left at Q 4/13" / "joined at Q 3/13" under a name (or null).</summary>
+	public static Label? SeatNote(PublicPlayer p, RoomState room) =>
+		!p.Connected && p.LeftAt is { } left ? U.Text(Lang.F("left at Q {0}/{1}", left, room.Quiz.QuestionCount), 12, C.Coral)
+		: p.JoinedAt is { } joined ? U.Muted(Lang.F("joined at Q {0}/{1}", joined, room.Quiz.QuestionCount), 12, false)
+		: null;
+
+	/// <summary>"×2" and "⚡" pills for the jokers a player plays on the current question (once it's shown).</summary>
+	static void AddJokers(HBoxContainer row, RoomState room, string playerId)
+	{
+		var game = room.Game;
+		if (game == null) return;
+		foreach (var j in game.Jokers.Where(j => j.PlayerId == playerId && j.Index == game.Index && (game.Shown || game.Stage == Stage.Reveal)))
+			row.AddChild(U.Pill(Joker.Icon(j.Kind), C.Accent).Tip(Joker.Label(j.Kind)));
+	}
+
+	/// <summary>
+	/// Which positions a player's scoreboard shows: the top 3, then the one ahead of them, themselves and the one behind
+	/// (their closest competition). With few players that's everyone.
+	/// </summary>
+	public static List<int> ShownPositions(int count, int me)
+	{
+		var shown = new SortedSet<int> { 0, 1, 2, me - 1, me, me + 1 };
+		return shown.Where(i => i >= 0 && i < count).ToList();
+	}
+
+	/// <summary>
+	/// Players by position (points, then the tiebreaks); at the reveal it shows what each one just won. A player's own
+	/// screen (<paramref name="highlight"/>, no <paramref name="adjust"/>) shows the top 3 and the positions around them, with
+	/// "⋮" where some are skipped; the host's shows everyone.
+	/// </summary>
 	/// <param name="adjust">Host: − and + buttons to take away or add a point at will.</param>
 	public static Control Scoreboard(RoomState room, string? highlight = null, Action<string, int>? adjust = null)
 	{
 		var gained = (room.Game?.Reveal?.Entries ?? new List<RevealEntry>()).ToDictionary(e => e.PlayerId, e => e.Points);
+		var progress = room.Game?.MediaProgress;
 		var list = U.V(6);
-		var rows = room.Players.OrderByDescending(p => room.Score(p.Id)).ToList();
-		for (var i = 0; i < rows.Count; i++)
+		var rows = room.Ranked();
+		var me = rows.FindIndex(p => p.Id == highlight);
+		var shown = adjust == null && me >= 0 ? ShownPositions(rows.Count, me) : Enumerable.Range(0, rows.Count).ToList();
+		var previous = -1;
+		foreach (var i in shown)
 		{
+			if (i > previous + 1)
+				list.AddChild(U.Muted(Lang.F("⋮  {0} more", i - previous - 1), 13, false, HorizontalAlignment.Center).Center());
+			previous = i;
 			var p = rows[i];
-			var row = Row(8, RankBadge(i + 1), new Avatar(p, 26), U.Text(p.Name, 15).Raw().Grow());
+			// Sound/video questions: how much of the file each player has, right after the name.
+			var ring = progress != null && p.Connected && progress.TryGetValue(p.Id, out var percent) ? new[] { (Control)new DownloadRing(percent, 16) } : Array.Empty<Control>();
+			var row = Row(8, RankBadge(room.Place(p.Id)), new Avatar(p, 26), new NameRow(p, SeatNote(p, room), ring).Grow());
+			// (what decides between equal scores, on hover)
+			if (room.AvgAnswerMs.TryGetValue(p.Id, out var ms)) row.TooltipText = Lang.F("Average answer time: {0} s", (ms / 1000).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
+			AddJokers(row, room, p.Id);
 			if (gained.TryGetValue(p.Id, out var g) && g != 0) row.AddChild(U.Text($"+{g}", 14, C.Teal, Fonts.Bold));
 			row.AddChild(U.Mono($"{room.Score(p.Id)}", 16));
 			if (adjust != null)
@@ -42,6 +83,8 @@ public static class GameParts
 			list.AddChild(U.Panel(row, p.Id == highlight ? "ChipMe" : "Card2").With(c => c.AddThemeStyleboxOverride("panel",
 				UiTheme.Box(C.Panel2, 10, p.Id == highlight ? C.Teal : C.Border, 1, 10, 6))));
 		}
+		if (shown.Count > 0 && shown[^1] < rows.Count - 1)
+			list.AddChild(U.Muted(Lang.F("⋮  {0} more", rows.Count - 1 - shown[^1]), 13, false, HorizontalAlignment.Center).Center());
 		return list;
 	}
 
@@ -89,6 +132,18 @@ public static class GameParts
 		side.AddChild(Scoreboard(room, me, adjust));
 	}
 
+	/// <summary>During a reveal: whether the next question is a buzzer one (players decide on a Fast Pass with it).</summary>
+	public static Control? NextPill(GameView game) =>
+		game.JokerIndex is { } next && next != game.Index
+			? U.Pill(game.JokerBuzzer ? Lang.T("Next: buzzer question") : Lang.T("Next: everyone answers"), game.JokerBuzzer ? C.Coral : C.Muted)
+			: null;
+
+	/// <summary>"⏸ Paused: waiting for Ann to come back." (null when the game isn't paused).</summary>
+	public static string? PausedText(RoomState room) =>
+		room.Game is { Paused: true } game
+			? Lang.F("⏸ Paused: waiting for {0} to come back.", string.Join(", ", game.WaitingFor.Select(id => room.Player(id).Name)))
+			: null;
+
 	/// <summary>"★ Bonus +2 · Also name the game" under the question, if it has a bonus.</summary>
 	public static Control? BonusLine(PublicQuestion q, int size = 16)
 	{
@@ -121,8 +176,9 @@ public static class GameParts
 				BuzzStatus.Wrong => "Wrong",
 				_ => "Correct",
 			};
+			var statusText = b.FastPass ? "⚡ " + Lang.F("Fast Pass · {0}", Lang.T(status)) : Lang.T(status);
 			var row = Row(8, RankBadge(i + 1), new Avatar(p, 26),
-				U.V(0, U.Text(p.Name, 15).Raw(), U.Muted(status, 12, false)).Grow(),
+				U.V(0, U.Text(p.Name, 15).Raw(), U.Muted(statusText, 12, false).Raw()).Grow(),
 				U.Mono(game.Question.HasPlayClock ? U.FormatSeconds(b.AtSec) : $"{b.AtSec:0.00} s", 13, C.Muted));
 			var border = b.Status switch { BuzzStatus.Answering => C.Accent, BuzzStatus.Correct => C.Teal, _ => C.Border };
 			var bg = b.Status == BuzzStatus.Answering ? new Color(C.Accent, 0.1f) : C.Panel2;
@@ -156,6 +212,7 @@ public static class GameParts
 				var row = Row(6, new Avatar(w, 26), U.Bold(w.Name, 17).Raw(), U.Text(gotIt, 17));
 				var entry = reveal.Entries.FirstOrDefault(e => e.PlayerId == winnerId);
 				row.AddChild(U.Text($"· +{entry?.Points ?? q.Points}", 17, C.Teal, Fonts.Bold));
+				if (entry?.Doubled == true) row.AddChild(U.Pill(Lang.T("×2 Double points"), C.Accent));
 				if (bonus != null && entry != null)
 				{
 					row.AddChild(U.Fill());
@@ -180,6 +237,7 @@ public static class GameParts
 			row.AddChild(new Avatar(p, 26));
 			row.AddChild(U.Text(p.Name, 15).Raw().MinSize(140));
 			row.AddChild(U.Text(e.Text, 15, C.Muted).Raw().Grow());
+			if (e.Doubled) row.AddChild(U.Pill("×2", C.Accent).Tip("Double points"));
 			row.AddChild(U.Text(e.Points > 0 ? $"+{e.Points}" : "", 15, C.Teal, Fonts.Bold).MinSize(36));
 			if (toggle != null)
 			{

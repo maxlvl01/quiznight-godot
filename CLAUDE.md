@@ -39,6 +39,25 @@ the original design decisions; most still apply.
   locked (`BuzzersOpen`) until unlocked — both lobby rules. Players get no content of a hidden question, and
   an image reveal's picture revealed in step with the host's. Choice answers and order items are shuffled per game
   (`QuizRules.ShuffleChoices`/`ShuffleOrder`); the stored quiz is never changed.
+- **Jokers** (`Shared.Joker`, `Game.PlayJoker`): Double points and Fast Pass, each once per player and match, allowed per
+  lobby (`RoomSettings.Jokers`). They're played for `Game.JokerIndex` (the hidden current question, or the next one
+  during a reveal), can be taken back until that question is shown, and are secret until then. Double multiplies the
+  reveal's points (`RevealEntry.Doubled`; timeline points as they're placed; written ticks and bonuses too). A Fast
+  Pass buzz is inserted ahead of everyone waiting.
+- **Leaving during a game keeps the seat** (`Room.Leave`/`Disconnect`): the game pauses (`Game.Paused`: no timers,
+  buzzes, answers, Show or Next; the host's media pauses) until everyone is back (`Room.Join` with the same id) or the host
+  continues. New players can join a running game (`Player.JoinedAt`); during an open question they sit it out
+  (`Game.LateJoin`, `GameView.LateIds`). LAN players keep one client id per app run, so rejoining gets the seat back.
+- **Ranking** (`Room.Ranking`, sent as `RoomState.Ranking`/`Places`): points, then who reached that score first
+  (`PlayerStats.ScoreChangedAt`), then average buzz/answer time, then average km off; fully equal players share a place.
+  Players' scoreboards show the top 3 and the positions around them (`GameParts.ShownPositions`), the host's everyone.
+- **Results and the eternal table** (`Storage/Results.cs`, `ResultsUpload.cs`): when a game over Steam ends, an
+  exported build uploads a CSV to the private repo `maxlvl01/quiznight-results` (`results/`), using the
+  fine-grained token in `results-token.txt` (repo root, gitignored, shipped via the export include_filter; it can only
+  write that repo). Only if the upload fails is the CSV kept in Documents/Quiznight/Results. Editor runs and LAN games
+  never upload. To update the table: copy the repo's CSVs into `assets/results/` with a 3-line `importer="keep"`
+  .import each (else Godot imports CSVs as translations); `EternalTableScreen` adds them up per player id (the same
+  night twice counts once). Never ship test results there.
 - **Game state is per viewer** (`Room.ToState(viewer)`): players never get answers before the
   reveal. Question images/custom maps are fetched by asset key (`q3/image`, `q3/map`) only for
   questions already shown, split into ≤300 KB parts (Steam's message limit is 512 KB).

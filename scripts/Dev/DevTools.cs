@@ -7,7 +7,7 @@
 //   --quit-at-end                  quit a few seconds after the podium
 //   --bot NAME [--address IP]      join a LAN room and answer on its own
 //   --open TYPE                    open the editor on the sample quiz's question of that type
-//   --screen home|quizzes|quiz|settings  open that screen
+//   --screen home|quizzes|quiz|settings|eternal  open that screen
 //   --lang en|de                   use that language this run (not saved)
 //   --video-guide [FILE]           open a new video question with the MP4 → .ogv guide
 //   --shot FILE [--after SEC]      save a screenshot after SEC seconds (default 2) and quit
@@ -180,6 +180,9 @@ public sealed class DevTools
 				case "settings":
 					_app.GoSettings();
 					break;
+				case "eternal":
+					_app.GoEternalTable();
+					break;
 				default:
 					_app.GoHome();
 					break;
@@ -289,7 +292,7 @@ public sealed class DevTools
 		var g = state?.Game;
 		var moment = state == null
 			? _app.CurrentScreen?.GetType().Name ?? ""
-			: $"{state.Phase}-{g?.Index}-{g?.Stage}{(g is { Shown: false } ? "-hidden" : g is { Question.Buzzer: true, BuzzersOpen: false } ? "-locked" : "")}-{g?.Buzzes.Count}-{g?.Buzzes.Count(b => b.Status == BuzzStatus.Wrong)}-{g?.AnsweredIds.Count}-{state.Players.Count}{(g?.Timeline is { } tl ? $"-tl{tl.Placed.Count}{tl.TurnOrder.IndexOf(tl.TurnPlayerId ?? "")}{tl.WrongGaps.Count}{tl.Phase[0]}" : "")}{(g?.Reveal?.Entries.Count(e => e.Bonus) is > 0 and var bonuses ? $"-bonus{bonuses}" : "")}";
+			: $"{state.Phase}-{g?.Index}-{g?.Stage}{(g is { Shown: false } ? "-hidden" : g is { Question.Buzzer: true, BuzzersOpen: false } ? "-locked" : "")}-{g?.Buzzes.Count}-{g?.Buzzes.Count(b => b.Status == BuzzStatus.Wrong)}-{g?.AnsweredIds.Count}-{state.Players.Count}{(g?.Timeline is { } tl ? $"-tl{tl.Placed.Count}{tl.TurnOrder.IndexOf(tl.TurnPlayerId ?? "")}{tl.WrongGaps.Count}{tl.Phase[0]}" : "")}{(g?.Reveal?.Entries.Count(e => e.Bonus) is > 0 and var bonuses ? $"-bonus{bonuses}" : "")}{(g is { Paused: true } ? "-paused" : "")}-on{state.Players.Count(p => p.Connected)}";
 		if (moment != _lastMoment)
 		{
 			_lastMoment = moment;
@@ -320,6 +323,10 @@ public sealed class DevTools
 		{
 			case Phase.Lobby when s.Players.Count(p => p.Connected) >= _players && waited > 1.5:
 				host.Start();
+				break;
+			// Someone left: wait a little for them, then go on without them.
+			case Phase.Playing when g!.Paused:
+				if (waited > 8) host.Continue();
 				break;
 			case Phase.Playing when g!.Index < _startAt:
 				host.Next();
@@ -398,6 +405,13 @@ public sealed class DevTools
 				return;
 			}
 			var g = client.State?.Game;
+			// Jokers: a bot plays a Fast Pass on the first buzzer question it can, and Double points on the third question.
+			if (client.State?.Phase == Phase.Playing && g?.JokerIndex is { } jokerAt && client.State.Settings.Jokers.Count > 0)
+			{
+				bool Has(string kind) => g.Jokers.Any(j => j.PlayerId == client.MyId && j.Kind == kind);
+				if (g.JokerBuzzer && !Has(Joker.FastPass) && client.State.Settings.Jokers.Contains(Joker.FastPass)) client.PlayJoker(Joker.FastPass, true);
+				if (jokerAt == 2 && !Has(Joker.Double) && client.State.Settings.Jokers.Contains(Joker.Double)) client.PlayJoker(Joker.Double, true);
+			}
 			// Timeline: on its turn, a bot picks a gap nobody has tried yet.
 			if (client.State?.Phase == Phase.Playing && g is { Stage: Stage.Open, Timeline: { } tl } && tl.TurnPlayerId == client.MyId && tl.Current != null && tl.Phase == TimelinePhase.Choosing)
 			{

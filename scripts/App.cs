@@ -26,6 +26,8 @@ public partial class App : Control
 	public static bool LanUnlocked { get; set; } = !OS.HasFeature("template");
 	public const string DevCode = "61969";
 
+	static readonly string LanClientId = QuizStore.MakeId();
+
 	/// <summary>How to host and join: the saved choice once LAN is unlocked, else Steam.</summary>
 	public static NetMode NetMode => !LanUnlocked ? NetMode.Steam : SteamService.Available ? Settings.Mode : NetMode.Lan;
 
@@ -131,6 +133,7 @@ public partial class App : Control
 	public void GoHome(string? notice = null) => Show(new HomeScreen(notice));
 	public void GoQuizzes() => Show(new QuizListScreen());
 	public void GoSettings() => Show(new SettingsScreen());
+	public void GoEternalTable() => Show(new EternalTableScreen());
 
 	public void GoQuiz(string id)
 	{
@@ -193,7 +196,7 @@ public partial class App : Control
 			code = Room.NewCode();
 			lanPort = lan.Port;
 		}
-		Host = new HostSession(new Room(code, quiz), transport, mode, lanPort) { BuzzerSound = Settings.BuzzerSound };
+		Host = new HostSession(new Room(code, quiz), transport, mode, lanPort) { BuzzerSound = Settings.BuzzerSound, PodiumSound = Settings.PodiumSound };
 		_hostAssets = new HostAssets(() => Host?.Room);
 		Host.Changed += OnRoomChanged;
 		OnRoomChanged();
@@ -215,7 +218,8 @@ public partial class App : Control
 	public void JoinRoom(NetMode mode, string target, string name, string? clientId = null)
 	{
 		Client?.Dispose();
-		clientId ??= QuizStore.MakeId();
+		// (the same id all session: on LAN that's who you are, so joining again gets your seat and score back)
+		clientId ??= LanClientId;
 		var client = mode == NetMode.Steam
 			? ClientSession.Steam(Limits.NormalizeCode(target), name)
 			: ClientSession.Lan(target, LanHostTransport.DefaultPort, name, clientId);

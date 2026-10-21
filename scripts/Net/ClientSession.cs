@@ -18,7 +18,7 @@ public sealed class ClientSession : IDisposable
 	public readonly NetMode Mode;
 	/// <summary>Room code (Steam) or host address (LAN).</summary>
 	public readonly string Target;
-	readonly string _name;
+	string _name;
 	readonly string _clientId;
 	readonly Func<Task<(IClientTransport? Transport, string? Error)>> _connect;
 
@@ -174,6 +174,16 @@ public sealed class ClientSession : IDisposable
 	// ---------- player actions ----------
 
 	public void Buzz() => _net?.Send(Msg.Encode(Msg.Buzz));
+
+	/// <summary>Change your name (waiting room only); it's also the name you join with next time.</summary>
+	public void Rename(string name)
+	{
+		_name = name;
+		_net?.Send(Msg.Encode(Msg.Rename, new RenameRequest { Name = name }));
+	}
+
+	/// <summary>Play a joker for the next question, or take it back.</summary>
+	public void PlayJoker(string kind, bool on) => _net?.Send(Msg.Encode(Msg.Joker, new JokerRequest { Kind = kind, On = on }));
 
 	public void Answer(int index, AnswerValue value, Action<Result> onResult)
 	{

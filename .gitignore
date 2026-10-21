@@ -5,3 +5,6 @@
 # Builds
 /build/
 *.tmp
+
+# The token that lets the game upload results to maxlvl01/quiznight-results (shipped in builds, never in git)
+/results-token.txt

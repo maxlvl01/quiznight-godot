@@ -1,5 +1,6 @@
 // Small things remembered between sessions (user://settings.cfg).
 
+using System.Linq;
 using Godot;
 using QuizNight.Net;
 using QuizNight.Shared;
@@ -58,11 +59,11 @@ public static class Settings
 	// ---------- settings screen ----------
 
 	/// <summary>Everything on the settings screen as one value: the screen edits a copy and saves it with Apply.</summary>
-	public sealed record Values(string Language, int Master, int Music, int GameMusic, int Sfx, string Buzzer, string WindowMode, Vector2I WindowSize, int Screen, bool BackgroundMotion);
+	public sealed record Values(string Language, int Master, int Music, int GameMusic, int Sfx, string Buzzer, string WindowMode, Vector2I WindowSize, int Screen, bool BackgroundMotion, string Background, string Podium, bool PodiumFollowHost);
 
-	public static Values Defaults => new(Lang.SystemDefault, 80, 80, 60, 100, Storage.Sfx.DefaultBuzzer, "windowed", new Vector2I(1600, 900), DisplayServer.GetPrimaryScreen(), true);
+	public static Values Defaults => new(Lang.SystemDefault, 80, 80, 60, 100, Storage.Sfx.DefaultBuzzer, "windowed", new Vector2I(1600, 900), DisplayServer.GetPrimaryScreen(), true, Backgrounds.Default, Sfx.DefaultPodium, true);
 
-	public static Values Current => new(Language, MasterVolume, MusicVolume, GameMusicVolume, SfxVolume, BuzzerSound, WindowMode, WindowSize, Screen, BackgroundMotion);
+	public static Values Current => new(Language, MasterVolume, MusicVolume, GameMusicVolume, SfxVolume, BuzzerSound, WindowMode, WindowSize, Screen, BackgroundMotion, Background, PodiumSound, PodiumFollowHost);
 
 	public static void Save(Values v)
 	{
@@ -76,6 +77,9 @@ public static class Settings
 		WindowSize = v.WindowSize;
 		Screen = v.Screen;
 		BackgroundMotion = v.BackgroundMotion;
+		Background = v.Background;
+		PodiumSound = v.Podium;
+		PodiumFollowHost = v.PodiumFollowHost;
 	}
 
 	static int GetPercent(string key, int fallback) => int.TryParse(Get(key, ""), out var v) ? Mathf.Clamp(v, 0, 100) : fallback;
@@ -117,11 +121,32 @@ public static class Settings
 		set => Set("buzzer_sound", value);
 	}
 
+	/// <summary>The podium sound: what you pick for your room as host, and what you hear as a player if you don't follow the host.</summary>
+	public static string PodiumSound
+	{
+		get => Sfx.ValidPodium(Get("podium_sound", Sfx.DefaultPodium));
+		set => Set("podium_sound", value);
+	}
+
+	/// <summary>As a player: hear the podium sound the host picked (else your own).</summary>
+	public static bool PodiumFollowHost
+	{
+		get => Get("podium_follow_host", "on") != "off";
+		set => Set("podium_follow_host", value ? "on" : "off");
+	}
+
 	/// <summary>Whether the space picture beside the screens (wide monitors) moves with the mouse.</summary>
 	public static bool BackgroundMotion
 	{
 		get => Get("background_motion", "on") != "off";
 		set => Set("background_motion", value ? "on" : "off");
+	}
+
+	/// <summary>The picture beside the screens on wide monitors (a Backgrounds id).</summary>
+	public static string Background
+	{
+		get => Backgrounds.Valid(Get("background", Backgrounds.Default));
+		set => Set("background", value);
 	}
 
 	/// <summary>"windowed", "fullscreen" (exclusive) or "borderless" (borderless fullscreen window).</summary>
@@ -150,4 +175,31 @@ public static class Settings
 		get => Prefs.ValidScreen(int.TryParse(Get("screen", ""), out var s) ? s : -1);
 		set => Set("screen", value.ToString());
 	}
+}
+
+/// <summary>The pictures to choose from for the space beside the screens on wide monitors.</summary>
+public static class Backgrounds
+{
+	public const string Default = "pinke-geilheit";
+
+	public static readonly (string Id, string Label)[] All =
+	{
+		("pinke-geilheit", "Pinke Geilheit Spacing Team"),
+		("cosmic-cliffs", "Cosmic Cliffs (James Webb Space Telescope)"),
+	};
+
+	/// <summary>One side's part of a picture: centred on Anchor (0–1 across the picture), Zoom times as tall as the window.</summary>
+	public readonly record struct Side(Vector2 Anchor, float Zoom = 1);
+
+	/// <summary>Pictures with a subject: each side of the screens shows its own part. Others (null) cover the whole window.</summary>
+	public static (Side Left, Side Right)? Sides(string? id) => id switch
+	{
+		// the astronaut on the left; on the right, the ship's top corner (zoomed in, so her suit doesn't peek in at the bottom)
+		"pinke-geilheit" => (new Side(new Vector2(0.53f, 0.45f)), new Side(new Vector2(0.9f, 0.28f), 1.8f)),
+		_ => null,
+	};
+
+	public static string Valid(string id) => All.Any(b => b.Id == id) ? id : Default;
+
+	public static string Path(string id) => $"res://assets/backgrounds/{Valid(id)}.webp";
 }

@@ -21,6 +21,8 @@ DRY=${1:-}
 
 echo "== Quiznight $VERSION"
 grep -q "^## \[$VERSION\]" CHANGELOG.md || { echo "CHANGELOG.md has no section '## [$VERSION]'"; exit 1; }
+# The token that lets games upload their results to maxlvl01/quiznight-results (Storage/ResultsUpload.cs); not in git.
+[ -s results-token.txt ] || echo "Warning: results-token.txt is missing: this build won't upload quiz night results."
 
 # (keeps Godot from importing what's in build/, e.g. the maps copied next to the Windows build)
 mkdir -p build && touch build/.gdignore

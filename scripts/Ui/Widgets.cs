@@ -245,6 +245,26 @@ public partial class AssetImage : FitImage
 		if (Texture == null) source.Loaded += OnLoaded;
 	}
 
+	/// <summary>A click shows the picture as big as the window allows (e.g. a map question's screenshot).</summary>
+	public bool Zoomable
+	{
+		get => _zoomable;
+		set
+		{
+			_zoomable = value;
+			MouseDefaultCursorShape = value ? CursorShape.PointingHand : CursorShape.Arrow;
+			TooltipText = value ? Lang.T("Click to see it bigger") : "";
+		}
+	}
+	bool _zoomable;
+
+	public override void _GuiInput(InputEvent e)
+	{
+		if (!_zoomable || Texture == null || e is not InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }) return;
+		ImagePopup.Open(Texture);
+		AcceptEvent();
+	}
+
 	void OnLoaded(string key)
 	{
 		if (key != _key || !IsInstanceValid(this)) return;

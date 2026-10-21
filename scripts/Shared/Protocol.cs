@@ -13,9 +13,10 @@ namespace QuizNight.Shared;
 public static class Limits
 {
 	public const int CodeLength = 4;
-	public const int NameMaxLength = 20;
+	public const int NameMaxLength = 12;
 	public const int MinPlayersToStart = 2;
-	public const int MaxPlayersMin = 4, MaxPlayersMax = 24, MaxPlayersDefault = 8;
+	/// <summary>Seats in a room (no setting: big enough for big nights; one colour each in PlayerColors).</summary>
+	public const int MaxPlayers = 24;
 	public const int AnswerTimeMin = 3, AnswerTimeMax = 60, AnswerTimeDefault = 10;
 
 	// Room codes skip look-alike characters (0/O, 1/I) so they are easy to read out loud.
@@ -60,17 +61,44 @@ public static class BuzzStatus
 	public const string Correct = "correct";
 }
 
+/// <summary>
+/// Jokers: each player can play each kind the host allows once per match, before a question is shown (during the
+/// reveal before it, or while it's still hidden).
+/// </summary>
+public static class Joker
+{
+	/// <summary>Double points: whatever the question gives (or the host takes) counts twice.</summary>
+	public const string Double = "double";
+	/// <summary>Fast Pass (buzzer questions only): your buzz goes ahead of everyone waiting in line.</summary>
+	public const string FastPass = "fastPass";
+	public static readonly string[] All = { Double, FastPass };
+
+	public static string Label(string kind) => kind == Double ? "×2 Double points" : "⚡ Fast Pass";
+	public static string Icon(string kind) => kind == Double ? "×2" : "⚡";
+}
+
+public sealed class JokerPlay
+{
+	public string PlayerId = "";
+	public string Kind = Joker.Double;
+	/// <summary>The question (index) it's for.</summary>
+	public int Index;
+}
+
 public sealed class RoomSettings
 {
-	public int MaxPlayers = Limits.MaxPlayersDefault;
 	public int AnswerTimeSec = Limits.AnswerTimeDefault;
 	/// <summary>Buzzer sound (an Sfx id) — played on the host and on every player's screen when someone buzzes.</summary>
 	public string BuzzerSound = "soft-beep";
+	/// <summary>Podium sound (an Sfx podium id) for the final results; players hear it unless they chose their own.</summary>
+	public string PodiumSound = "f1-podium";
 	/// <summary>Each question stays hidden until the host shows it (so they can read it out first).</summary>
 	public bool HostShowsQuestions = true;
 	/// <summary>Buzzers stay locked until the host unlocks them.</summary>
 	public bool HostUnlocksBuzzers = true;
-	public RoomSettings Clone() => new() { MaxPlayers = MaxPlayers, AnswerTimeSec = AnswerTimeSec, BuzzerSound = BuzzerSound, HostShowsQuestions = HostShowsQuestions, HostUnlocksBuzzers = HostUnlocksBuzzers };
+	/// <summary>The jokers players may play this match (Joker kinds).</summary>
+	public List<string> Jokers = new(Joker.All);
+	public RoomSettings Clone() => new() { AnswerTimeSec = AnswerTimeSec, BuzzerSound = BuzzerSound, PodiumSound = PodiumSound, HostShowsQuestions = HostShowsQuestions, HostUnlocksBuzzers = HostUnlocksBuzzers, Jokers = Jokers.ToList() };
 }
 
 public sealed class PublicPlayer
@@ -79,6 +107,10 @@ public sealed class PublicPlayer
 	public string Name = "";
 	public string Color = "#8b8fa3";
 	public bool Connected;
+	/// <summary>Joined after the start: the question (1-based) they came in at.</summary>
+	public int? JoinedAt;
+	/// <summary>Left during the game (and not back yet): the question (1-based) they left at.</summary>
+	public int? LeftAt;
 }
 
 public sealed class QuizInfo
@@ -102,7 +134,21 @@ public sealed class RoomState
 	/// <summary>Host clock when this state was made, so players can turn deadlines into a countdown.</summary>
 	public long ServerNow;
 
+	/// <summary>Player ids by position (points, then the tiebreaks: Room.Ranking), and each one's place (equal ones share).</summary>
+	public List<string> Ranking = new();
+	public Dictionary<string, int> Places = new();
+	/// <summary>Average buzz/answer time per player (ms), shown with the scores.</summary>
+	public Dictionary<string, double> AvgAnswerMs = new();
+
 	public int Score(string playerId) => Scores.TryGetValue(playerId, out var s) ? s : 0;
+
+	/// <summary>Players by position (falls back to score when the host sent no ranking).</summary>
+	public List<PublicPlayer> Ranked() =>
+		Ranking.Count == Players.Count && Ranking.All(id => Players.Any(p => p.Id == id))
+			? Ranking.Select(Player).ToList()
+			: Players.OrderByDescending(p => Score(p.Id)).ToList();
+
+	public int Place(string playerId) => Places.TryGetValue(playerId, out var place) ? place : Ranked().FindIndex(p => p.Id == playerId) + 1;
 
 	public PublicPlayer Player(string id) =>
 		Players.Find(p => p.Id == id) ?? new PublicPlayer { Id = id, Name = "Someone", Color = "#8b8fa3" };
@@ -251,6 +297,8 @@ public sealed class BuzzEntry
 	public string Status = BuzzStatus.Waiting;
 	/// <summary>Sound/video: seconds of playback heard before buzzing. Classic: seconds since the question opened.</summary>
 	public double AtSec;
+	/// <summary>Buzzed with a Fast Pass (went ahead of the line).</summary>
+	public bool FastPass;
 }
 
 public sealed class RevealEntry
@@ -264,6 +312,8 @@ public sealed class RevealEntry
 	public int? Rank;
 	/// <summary>The host gave this player the question's bonus (its points are in Points).</summary>
 	public bool Bonus;
+	/// <summary>Played Double points on this question (Points are already doubled).</summary>
+	public bool Doubled;
 }
 
 public sealed class RevealView
@@ -308,6 +358,19 @@ public sealed class GameView
 	public AnswerValue? MyAnswer;
 	/// <summary>Only in the host's state: the correct answer, before the reveal.</summary>
 	public string? HostAnswer;
+	/// <summary>Someone left: answers, buzzers and timers wait until they're back or the host continues.</summary>
+	public bool Paused;
+	/// <summary>Paused: who the game waits for.</summary>
+	public List<string> WaitingFor = new();
+	/// <summary>Joined during this question: they play from the next one.</summary>
+	public List<string> LateIds = new();
+	/// <summary>Sound/video questions: how much of the file each player has (0–100).</summary>
+	public Dictionary<string, int>? MediaProgress;
+	/// <summary>The question jokers can be played for right now (null: not now), and whether it's a buzzer question.</summary>
+	public int? JokerIndex;
+	public bool JokerBuzzer;
+	/// <summary>Jokers played: everyone's once their question is shown, your own (still takeable back) before that.</summary>
+	public List<JokerPlay> Jokers = new();
 }
 
 public sealed class Result
@@ -329,6 +392,8 @@ public static class Msg
 	public const string Answer = "answer";
 	public const string AssetRequest = "assetReq";
 	public const string MediaProgress = "mediaProgress";
+	public const string Joker = "joker";
+	public const string Rename = "rename";
 
 	// host → player
 	public const string Joined = "joined";
@@ -392,6 +457,19 @@ public sealed class JoinReply
 	public bool Ok;
 	public string? Error;
 	public string PlayerId = "";
+}
+
+/// <summary>A player changes their name in the waiting room.</summary>
+public sealed class RenameRequest
+{
+	public string Name = "";
+}
+
+/// <summary>Play a joker for the next question (On), or take it back before the question is shown.</summary>
+public sealed class JokerRequest
+{
+	public string Kind = Shared.Joker.Double;
+	public bool On = true;
 }
 
 public sealed class AnswerRequest

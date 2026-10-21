@@ -22,3 +22,20 @@ public static class BuzzerPicker
 		return withLabelAbove ? U.H(8, select, play) : U.H(8, U.Text("Buzzer sound", 15).Grow(), select, play);
 	}
 }
+
+/// <summary>The podium sound: a dropdown and ▶ to hear it.</summary>
+public static class PodiumPicker
+{
+	public static HBoxContainer Make(string selected, Action<string> changed, bool withLabel)
+	{
+		var current = Sfx.ValidPodium(selected);
+		var select = U.Select(Sfx.PodiumChoices(), current, id =>
+		{
+			current = id;
+			changed(id);
+		}).MinSize(220);
+		select.SizeFlagsHorizontal = withLabel ? Control.SizeFlags.ShrinkEnd : Control.SizeFlags.ExpandFill;
+		var play = U.Small("▶", () => Sfx.PlayPodium(current)).Tip("Play the podium sound");
+		return withLabel ? U.H(8, U.Text("Podium sound", 15).Grow(), select, play) : U.H(8, select, play);
+	}
+}

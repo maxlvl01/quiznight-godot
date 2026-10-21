@@ -76,6 +76,6 @@ public partial class HostNotes : Window
 		_body.AddChild(new HSeparator());
 		_body.AddChild(U.Eyebrow("Answer"));
 		_body.AddChild(U.Text(game.HostAnswer ?? "", 20, C.Accent, Fonts.Bold, true).Raw());
-		_body.AddChild(U.Muted(game.Shown ? "Shown to everyone." : "Hidden from everyone until you press Show question.", 13));
+		_body.AddChild(U.Muted(game.Shown ? "Shown to everyone." : "Players don't see it until you press Show question.", 13));
 	}
 }

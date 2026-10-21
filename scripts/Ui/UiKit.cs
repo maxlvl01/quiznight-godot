@@ -494,8 +494,10 @@ public static class U
 
 	public static string Initials(string name)
 	{
-		var parts = name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-		var s = parts.Length > 1 ? $"{parts[0][0]}{parts[1][0]}" : name.Trim().Length >= 2 ? name.Trim()[..2] : name.Trim();
+		// Letters and digits only, so "[OTB] maxlvl" is "OM", not "[M".
+		var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+			.Select(w => new string(w.Where(char.IsLetterOrDigit).ToArray())).Where(w => w != "").ToArray();
+		var s = parts.Length > 1 ? $"{parts[0][0]}{parts[1][0]}" : parts.Length == 1 ? parts[0][..Math.Min(2, parts[0].Length)] : name.Trim()[..Math.Min(2, name.Trim().Length)];
 		return s.ToUpperInvariant();
 	}
 

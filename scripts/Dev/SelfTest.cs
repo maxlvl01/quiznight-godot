@@ -145,14 +145,103 @@ public static class SelfTest
 		Check(g.BuzzIn("ann"), "the next (buzzer) question still buzzes");
 	}
 
+	/// <summary>Jokers, joining during a game, and the pause when someone leaves.</summary>
+	static void JokersAndSeats()
+	{
+		var quiz = Dev.SampleQuiz.Build();
+		var (room, clock) = NewRoom(quiz, "ann", "bob", "cat");
+		room.UpdateSettings(hostShows: true);
+		Check(room.Rename("ann", "  Annie  ").Ok && room.GetPlayer("ann")!.Name == "Annie", "a player changes their name in the waiting room");
+		Check(!room.Rename("ann", "BOB").Ok && !room.Rename("ann", " ").Ok, "not to someone else's name, or none");
+		Check(room.Rename("ann", "Ann").Ok, "and back");
+		room.Start();
+		Check(!room.Rename("ann", "Zed").Ok, "no renaming during a game");
+		var g = room.Game!;
+		Eq(g.JokerIndex, 0, "jokers go on the hidden question");
+		Check(g.PlayJoker("ann", Joker.FastPass, true).Ok && g.PlayJoker("bob", Joker.Double, true).Ok, "jokers played");
+		Check(g.View("cat").Jokers.Count == 0 && g.View("ann").Jokers.Count == 1, "a joker stays secret until its question is shown");
+		Check(g.PlayJoker("ann", Joker.FastPass, false).Ok && g.PlayJoker("ann", Joker.FastPass, true).Ok, "taken back and played again");
+		g.ShowQuestion();
+		Check(!g.PlayJoker("ann", Joker.FastPass, false).Ok && g.JokerIndex == null, "once shown: locked in, no new ones");
+		Eq(g.View("cat").Jokers.Count, 2, "everyone sees them now");
+		clock.Now += 1000;
+		g.BuzzIn("cat");
+		g.BuzzIn("bob");
+		g.BuzzIn("ann");
+		Eq(string.Join(",", g.View("host").Buzzes.Select(b => b.PlayerId)), "cat,ann,bob", "the Fast Pass goes ahead of the line, not the one answering");
+		Check(g.View("host").Buzzes[1].FastPass, "the buzz shows its Fast Pass");
+		g.Judge(false);
+		g.Judge(true);
+		Eq(room.Scores["ann"], 1, "fast pass scores normally");
+		Eq(g.JokerIndex, 1, "during the reveal: jokers for the next question");
+		Check(!g.PlayJoker("cat", Joker.FastPass, true).Ok, "no Fast Pass for a question that isn't a buzzer one");
+		Check(!g.PlayJoker("ann", Joker.FastPass, true).Ok, "each joker once per match");
+		Check(g.PlayJoker("cat", Joker.Double, true).Ok, "double for the next question");
+		room.Next();
+		g.ShowQuestion();
+		// Someone joins mid-question: they play from the next one.
+		var (dan, _) = room.Join("dan", "dan");
+		Check(dan != null && dan.JoinedAt == 2 && g.View("dan").LateIds.Contains("dan"), "joining during a game: they come in at this question");
+		Check(!g.Answer("dan", 1, AnswerValue.Number(g.Question.CorrectChoice)).Ok, "but can't answer it");
+		foreach (var p in new[] { "ann", "bob", "cat" }) g.Answer(p, 1, AnswerValue.Number(g.Question.CorrectChoice));
+		Eq(g.Stage, Stage.Reveal, "the reveal doesn't wait for them");
+		Eq(room.Scores["cat"], g.Question.Points * 2, "double points");
+		Check(g.View("host").Reveal!.Entries.First(e => e.PlayerId == "cat").Doubled, "the reveal shows the double");
+		// Someone leaves: the clock stops until they're back.
+		room.Next();
+		g.ShowQuestion();
+		var ends = g.View("host").EndsAt;
+		room.Disconnect("bob");
+		clock.Now += 5000;
+		room.Join("bob", "bob");
+		Check(!g.Paused && room.GetPlayer("bob")!.LeftAt == null, "back: the game goes on");
+		Eq(g.View("host").EndsAt, ends + 5000, "the timer lost no time while they were away");
+		room.Leave("cat");
+		Check(room.GetPlayer("cat") is { Connected: false } && room.Scores["cat"] > 0 && g.Paused, "leaving during a game keeps the seat and score, and waits");
+		room.Next();
+		Eq(g.Index, 2, "paused: Next waits for the host to continue");
+	}
+
+	/// <summary>The ranking's tiebreaks, the players' short scoreboard and the saved results.</summary>
+	static void RankingAndResults()
+	{
+		var (room, clock) = NewRoom(Dev.SampleQuiz.Build(), "ann", "bob", "cat", "dan");
+		room.Start();
+		Check(room.Ranking().Places.Values.All(p => p == 1), "nobody has done anything: everyone shares first place");
+		room.Award("bob", 3);
+		clock.Now += 5000;
+		room.Award("ann", 3);
+		Eq(string.Join(",", room.Ranking().Order.Take(2)), "bob,ann", "same points: whoever got there first is ahead");
+		room.Award("cat", 2);
+		room.Award("dan", 2);
+		room.NoteAnswerTime("cat", 2500);
+		room.NoteAnswerTime("dan", 1200);
+		var (order, places) = room.Ranking();
+		Eq(string.Join(",", order), "bob,ann,dan,cat", "same points at the same moment: the faster average answer time is ahead");
+		Eq(places["cat"], 4, "and nobody shares a place then");
+		Eq(string.Join(",", Ui.Screens.GameParts.ShownPositions(10, 6)), "0,1,2,5,6,7", "7th of 10 sees the top 3 and 6th–8th");
+		Eq(string.Join(",", Ui.Screens.GameParts.ShownPositions(10, 9)), "0,1,2,8,9", "the last one sees who's just ahead");
+		Eq(string.Join(",", Ui.Screens.GameParts.ShownPositions(4, 1)), "0,1,2", "small rooms: everyone near the top");
+
+		room.GetPlayer("ann")!.Name = "Ann, \"the\" Great";
+		room.NoteDistance("ann", 12.5);
+		var (_, csv) = Storage.Results.Make(room);
+		var rows = Storage.Results.Parse(csv);
+		Check(rows.Count == 4 && rows[1]["player"] == "Ann, \"the\" Great" && rows[1]["avg_km_off"] == "12.500" && rows[0]["place"] == "1", "results CSV: one row per player, in place order, names with commas and quotes survive");
+		var table = Storage.Results.Table(new[] { csv, csv.Replace("2026", "2027"), csv });
+		Check(table.Count == 4 && table.First(c => c.Id == "bob") is { Nights: 2, Wins: 2, Podiums: 2, Points: 6 } && table.Last().Points == 4, "eternal table: nights added up per player (the same night twice counts once), most points first");
+	}
+
 	public static async Task<int> Run(Node node)
 	{
+		RankingAndResults();
 		Rules();
 		TypedAndBonus();
+		JokersAndSeats();
 		Files();
 		// Load, not just Exists: an Opus .ogg exists but Godot can't import it.
 		foreach (var b in Storage.Sfx.Buzzers) Check(ResourceLoader.Load<AudioStream>(b.Path) != null, $"buzzer sound {b.Id} plays");
-		Check(ResourceLoader.Load<AudioStream>(Storage.Sfx.PodiumJingle) != null, "podium jingle plays (must be Ogg Vorbis, MP3 or WAV — not Opus)");
+		foreach (var p in Storage.Sfx.Podiums) Check(ResourceLoader.Load<AudioStream>(p.Path) != null, $"podium sound {p.Id} plays (must be Ogg Vorbis, MP3 or WAV — not Opus)");
 		Atlas();
 		Protocol();
 		await Network(node);
@@ -225,7 +314,11 @@ public static class SelfTest
 		g.Answer("bob", 1, AnswerValue.Number((right + 1) % 4));
 		Eq(g.Stage, Stage.Open, "still waiting for cat");
 		room.Disconnect("cat");
-		Eq(g.Stage, Stage.Reveal, "reveals when the last missing player leaves");
+		Check(g.Paused && g.Stage == Stage.Open && g.View("ann").WaitingFor.SequenceEqual(new[] { "cat" }), "someone leaves: the game waits for them");
+		Eq(room.ToState("ann").Players.First(p => p.Id == "cat").LeftAt, 2, "everyone sees when they left");
+		Check(!g.Answer("cat", 1, AnswerValue.Number(0)).Ok && !room.Tick(), "paused: no answers, the clock stands still");
+		Check(g.Continue(), "the host goes on without them");
+		Eq(g.Stage, Stage.Reveal, "reveals when the last missing player is gone");
 		Eq(room.Scores["ann"], 3, "choice points");
 		Eq(g.View("host").Reveal!.Counts![right], 1, "counts");
 

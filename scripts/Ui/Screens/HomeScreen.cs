@@ -49,7 +49,9 @@ public partial class HomeScreen : Control
 			U.Btn("My quizzes", "AccentButton", App.I.GoQuizzes).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin)).Grow();
 
 		_target = U.Input("", "", _ => Validate(), 0, "CodeInput");
-		_name = U.Input(Settings.PlayerName != "" ? Settings.PlayerName : SteamService.PlayerName, "e.g. Max", _ => Validate(), Limits.NameMaxLength);
+		// (Steam names can be longer than names in a room may be: the field starts with the part that fits)
+		var name = Settings.PlayerName != "" ? Settings.PlayerName : SteamService.PlayerName;
+		_name = U.Input(Server.Room.CleanName(name), "e.g. Max", _ => Validate(), Limits.NameMaxLength);
 		_name.TextSubmitted += _ => Join();
 		_target.TextSubmitted += _ => Join();
 		_target.TextChanged += t =>
@@ -68,7 +70,8 @@ public partial class HomeScreen : Control
 
 		var grid = U.H(16, host, join);
 		page.AddChild(grid);
-		page.AddChild(U.H(6, U.Muted($"v{App.Version}  ·", 12, false), U.Link("What's new", () => WhatsNew.ShowCurrent(this), 12)).Center());
+		page.AddChild(U.H(6, U.Muted($"v{App.Version}  ·", 12, false), U.Link("What's new", () => WhatsNew.ShowCurrent(this), 12),
+			U.Muted("·", 12, false), U.Link("🏆 Eternal table", App.I.GoEternalTable, 12)).Center());
 
 		AddChild(U.Page(page, 960, 56));
 		var corner = U.H(8, U.Small("☀ Light mode", LightMode), U.Small("Settings", App.I.GoSettings));

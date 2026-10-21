@@ -16,6 +16,14 @@ public interface IGameHooks
 	bool HostShowsQuestions();
 	bool HostUnlocksBuzzers();
 	int AnswerTimeSec();
+	/// <summary>The host allows this joker kind this match.</summary>
+	bool JokerAllowed(string kind);
+	/// <summary>For the ranking's tiebreaks: how long a player took to buzz or lock in an answer (ms)…</summary>
+	void NoteAnswerTime(string playerId, long ms);
+	/// <summary>…how far off a map pin was (km, maps with a scale only)…</summary>
+	void NoteDistance(string playerId, double km);
+	/// <summary>…and that they scored on a question.</summary>
+	void NoteScored(string playerId);
 	int Score(string playerId);
 	void Award(string playerId, int points);
 	long Now();
@@ -28,6 +36,7 @@ public sealed class Game
 		public string PlayerId = "";
 		public string Status = BuzzStatus.Waiting;
 		public long AtMs;
+		public bool FastPass;
 	}
 
 	public int Index { get; private set; }
@@ -69,6 +78,14 @@ public sealed class Game
 	/// <summary>Result phase: whether the last turn placed the item (else it passes on).</summary>
 	bool _tlResultRight;
 
+	/// <summary>Every joker played this match (each player plays each kind once).</summary>
+	readonly List<JokerPlay> _jokers = new();
+	/// <summary>Joined during the current question: they play from the next one.</summary>
+	readonly HashSet<string> _late = new();
+	/// <summary>Paused because these players left; it goes on when they're back or the host continues.</summary>
+	readonly HashSet<string> _waitingFor = new();
+	long? _pausedAt;
+
 	public Game(Quiz quiz, IGameHooks hooks, Random? rng = null)
 	{
 		// Choice answers get a new random order every game (the quiz itself isn't changed).
@@ -100,6 +117,9 @@ public sealed class Game
 
 	public Question Question => _quiz.Questions[Index];
 
+	/// <summary>Who plays the current question: connected, and not joined during it.</summary>
+	IReadOnlyList<string> Active() => _hooks.ActivePlayerIds().Where(id => !_late.Contains(id)).ToList();
+
 	static int? TimeLimitSec(Question q) => q.HasTimeLimit ? q.TimeLimitSec : null;
 
 	void Open(int index)
@@ -129,6 +149,7 @@ public sealed class Game
 		_tlPhase = TimelinePhase.Choosing;
 		_tlPending = null;
 		_tlResultRight = false;
+		_late.Clear();
 		Shown = false;
 		BuzzersOpen = false;
 		if (!_hooks.HostShowsQuestions()) StartShown(now);
@@ -148,7 +169,7 @@ public sealed class Game
 	/// <summary>The host shows the hidden question to everyone.</summary>
 	public bool ShowQuestion()
 	{
-		if (Stage != Shared.Stage.Open || Shown) return false;
+		if (Stage != Shared.Stage.Open || Shown || Paused) return false;
 		StartShown(_hooks.Now());
 		return true;
 	}
@@ -156,7 +177,7 @@ public sealed class Game
 	/// <summary>The host locks or unlocks the buzzers (buzzer questions, once shown).</summary>
 	public bool SetBuzzers(bool open)
 	{
-		if (Stage != Shared.Stage.Open || !Shown || !Question.IsBuzzer || BuzzersOpen == open) return false;
+		if (Stage != Shared.Stage.Open || !Shown || !Question.IsBuzzer || BuzzersOpen == open || open && Paused) return false;
 		BuzzersOpen = open;
 		return true;
 	}
@@ -164,6 +185,8 @@ public sealed class Game
 	/// <summary>Runs timers. Returns true if something changed (the time ran out).</summary>
 	public bool Tick()
 	{
+		// (paused: every clock stands still)
+		if (Paused) return false;
 		if (Stage == Shared.Stage.Open && _tlTurnEnds is { } turnEnds && _hooks.Now() >= turnEnds)
 		{
 			MissTurn(TimelineEventKind.TimeUp);
@@ -202,15 +225,21 @@ public sealed class Game
 	public bool BuzzIn(string playerId)
 	{
 		var q = Question;
-		if (Stage != Shared.Stage.Open || !q.IsBuzzer || !Shown || !BuzzersOpen || _buzzes.Any(b => b.PlayerId == playerId)) return false;
+		if (Stage != Shared.Stage.Open || !q.IsBuzzer || !Shown || !BuzzersOpen || Paused || _late.Contains(playerId) || _buzzes.Any(b => b.PlayerId == playerId)) return false;
 		var now = _hooks.Now();
 		var someoneAnswering = _buzzes.Any(b => b.Status == BuzzStatus.Answering);
-		_buzzes.Add(new Buzz
+		var buzz = new Buzz
 		{
 			PlayerId = playerId,
 			Status = someoneAnswering ? BuzzStatus.Waiting : BuzzStatus.Answering,
 			AtMs = q.HasPlayClock ? PlayTimeMs(now) : now - _openedAt,
-		});
+			FastPass = Played(playerId, Joker.FastPass, Index),
+		};
+		// A Fast Pass goes ahead of everyone waiting (after earlier Fast Passes).
+		var at = buzz.FastPass ? _buzzes.FindIndex(b => b.Status == BuzzStatus.Waiting && !b.FastPass) : -1;
+		if (at >= 0) _buzzes.Insert(at, buzz);
+		else _buzzes.Add(buzz);
+		_hooks.NoteAnswerTime(playerId, buzz.AtMs);
 		if (!someoneAnswering) _answeringSince = now;
 		return true;
 	}
@@ -238,6 +267,8 @@ public sealed class Game
 		var q = Question;
 		if (index != Index || Stage != Shared.Stage.Open) return Result.Fail("This question is already closed.");
 		if (!Shown) return Result.Fail("The host hasn't shown this question yet.");
+		if (Paused) return Result.Fail("The game is paused until everyone is back.");
+		if (_late.Contains(playerId)) return Result.Fail("You joined during this question: you play from the next one.");
 		if (q.IsBuzzer) return Result.Fail("This is a buzzer question.");
 		if (q.IsTimeline)
 		{
@@ -285,21 +316,24 @@ public sealed class Game
 		else return Result.Fail("This question takes no answers.");
 
 		_answers.Add((playerId, value));
-		if (_hooks.ActivePlayerIds().All(id => _answers.Any(a => a.PlayerId == id))) DoReveal();
+		_hooks.NoteAnswerTime(playerId, _hooks.Now() - _openedAt);
+		if (Active().All(id => _answers.Any(a => a.PlayerId == id))) DoReveal();
 		return Result.Success();
 	}
 
 	/// <summary>Someone left or reconnected: maybe everyone who is still here has answered.</summary>
 	public bool CheckAllAnswered()
 	{
+		// (paused: nothing goes on without the ones who left)
+		if (Paused) return false;
 		// Timeline: the player whose turn it is left, so the next one goes.
-		if (Stage == Shared.Stage.Open && _tlPhase == TimelinePhase.Choosing && _tlTurn is { } turn && !_hooks.ActivePlayerIds().Contains(turn))
+		if (Stage == Shared.Stage.Open && _tlPhase == TimelinePhase.Choosing && _tlTurn is { } turn && !Active().Contains(turn))
 		{
 			MissTurn(TimelineEventKind.Skipped);
 			return true;
 		}
 		if (Stage != Shared.Stage.Open || Question.IsBuzzer || _answers.Count == 0) return false;
-		if (!_hooks.ActivePlayerIds().All(id => _answers.Any(a => a.PlayerId == id))) return false;
+		if (!Active().All(id => _answers.Any(a => a.PlayerId == id))) return false;
 		DoReveal();
 		return true;
 	}
@@ -320,10 +354,15 @@ public sealed class Game
 		_tlTurn = null;
 		_tlTurnEnds = null;
 		_reveal = ComputeReveal();
-		// (timeline points were awarded as the items were placed)
-		if (!Question.IsTimeline)
-			foreach (var e in _reveal.Entries)
-				if (e.Points != 0) _hooks.Award(e.PlayerId, e.Points);
+		foreach (var e in _reveal.Entries)
+		{
+			e.Doubled = Multiplier(e.PlayerId) == 2;
+			// (timeline points were awarded, doubled, as the items were placed)
+			if (Question.IsTimeline) continue;
+			e.Points *= Multiplier(e.PlayerId);
+			if (e.Points != 0) _hooks.Award(e.PlayerId, e.Points);
+		}
+		foreach (var e in _reveal.Entries.Where(e => e.Points > 0)) _hooks.NoteScored(e.PlayerId);
 	}
 
 	// ---------- timeline ----------
@@ -342,7 +381,7 @@ public sealed class Game
 		// The rest come in the shown (shuffled) order.
 		foreach (var i in Enumerable.Range(0, q.Items.Count).Where(i => i != q.TimelineStart)) _tlDeck.Enqueue(i);
 		// Fewest points first; ties in the order people joined.
-		var active = _hooks.ActivePlayerIds();
+		var active = Active();
 		_tlOrder.AddRange(active.Select((id, joined) => (id, joined)).OrderBy(p => _hooks.Score(p.id)).ThenBy(p => p.joined).Select(p => p.id));
 		NextItem(_tlOrder.FirstOrDefault(), now);
 	}
@@ -350,7 +389,7 @@ public sealed class Game
 	/// <summary>The next player after this one in turn order (still connected; with skipMissed, not yet missed the current item).</summary>
 	string? NextPlayer(string? after, bool skipMissed)
 	{
-		var active = _hooks.ActivePlayerIds();
+		var active = Active();
 		// People who joined during the question queue up at the end.
 		foreach (var id in active)
 			if (!_tlOrder.Contains(id)) _tlOrder.Add(id);
@@ -376,7 +415,7 @@ public sealed class Game
 			return;
 		}
 		_tlCurrent = _tlDeck.Dequeue();
-		_tlTurn = player != null && _hooks.ActivePlayerIds().Contains(player) ? player : NextPlayer(player, false);
+		_tlTurn = player != null && Active().Contains(player) ? player : NextPlayer(player, false);
 		StartTurn(now);
 	}
 
@@ -417,8 +456,8 @@ public sealed class Game
 		if (_tlResultRight)
 		{
 			PutDown(item, player);
-			_tlPoints[player] = _tlPoints.GetValueOrDefault(player) + Question.Points;
-			_hooks.Award(player, Question.Points);
+			_tlPoints[player] = _tlPoints.GetValueOrDefault(player) + Question.Points * Multiplier(player);
+			_hooks.Award(player, Question.Points * Multiplier(player));
 			_tlCurrent = null;
 			// (gaps tried for this item no longer mean anything once it's placed)
 			_tlWrongGaps.Clear();
@@ -696,6 +735,8 @@ public sealed class Game
 		var map = _quiz.MapById(q.MapId)!;
 		var target = q.Target!.Value;
 		var measured = _answers.Select(a => (a.PlayerId, a.Value, D: QuizRules.MapDistance(map, a.Value.Point!.Value, target))).ToList();
+		foreach (var m in measured)
+			if (m.D.Km is { } km) _hooks.NoteDistance(m.PlayerId, km);
 		var mapRanks = ClosenessPoints(measured.Select(m => (m.PlayerId, m.D.Km ?? m.D.Percent)).ToList(), q.Points, q.Scoring, q.TieRule);
 		var pinEntries = measured.Select(m =>
 		{
@@ -724,7 +765,7 @@ public sealed class Game
 		if (Stage != Shared.Stage.Reveal || !Question.IsWritten || _reveal?.Entries.FirstOrDefault(e => e.PlayerId == playerId) is not { } entry)
 			return false;
 		entry.Correct = !entry.Correct;
-		SetPoints(entry, (entry.Correct ? Question.Points : 0) + (entry.Bonus ? Question.BonusPoints : 0));
+		SetPoints(entry, ((entry.Correct ? Question.Points : 0) + (entry.Bonus ? Question.BonusPoints : 0)) * Multiplier(playerId));
 		_reveal.WinnerIds = _reveal.Entries.Where(e => e.Correct).Select(e => e.PlayerId).ToList();
 		return true;
 	}
@@ -735,7 +776,7 @@ public sealed class Game
 		if (Stage != Shared.Stage.Reveal || !Question.HasBonus || _reveal?.Entries.FirstOrDefault(e => e.PlayerId == playerId) is not { } entry)
 			return false;
 		entry.Bonus = !entry.Bonus;
-		SetPoints(entry, entry.Points + (entry.Bonus ? Question.BonusPoints : -Question.BonusPoints));
+		SetPoints(entry, entry.Points + (entry.Bonus ? Question.BonusPoints : -Question.BonusPoints) * Multiplier(playerId));
 		return true;
 	}
 
@@ -855,17 +896,106 @@ public sealed class Game
 			EndsAt = open ? _endsAt : null,
 			AnswerEndsAt = open && _answeringSince is { } since ? since + _hooks.AnswerTimeSec() * 1000L : null,
 			AnsweredIds = _answers.Select(a => a.PlayerId).ToList(),
-			Buzzes = _buzzes.Select(b => new BuzzEntry { PlayerId = b.PlayerId, Status = b.Status, AtSec = b.AtMs / 1000.0 }).ToList(),
+			Buzzes = _buzzes.Select(b => new BuzzEntry { PlayerId = b.PlayerId, Status = b.Status, AtSec = b.AtMs / 1000.0, FastPass = b.FastPass }).ToList(),
 			MediaPlaying = _playingSince != null,
 			MediaPlayedMs = PlayTimeMs(_hooks.Now()),
 			MediaStarted = _playingSince != null || _playedMs > 0,
 			Reveal = _reveal,
 			// (the timeline only exists once the question is shown)
 			Timeline = Question.IsTimeline && Shown ? TimelineView() : null,
+			Paused = Paused,
+			WaitingFor = _waitingFor.ToList(),
+			LateIds = _late.ToList(),
+			JokerIndex = JokerIndex,
+			JokerBuzzer = JokerIndex is { } ji && _quiz.Questions[ji].IsBuzzer,
+			// (a joker for a question not shown yet is a secret: only its player sees it, and can take it back)
+			Jokers = _jokers.Where(j => j.PlayerId == viewer || Locked(j)).Select(j => new JokerPlay { PlayerId = j.PlayerId, Kind = j.Kind, Index = j.Index }).ToList(),
 		};
 		if (viewer == "host") view.HostAnswer = HostAnswer();
 		else view.MyAnswer = _answers.FirstOrDefault(a => a.PlayerId == viewer).Value;
 		return view;
+	}
+
+	// ---------- jokers ----------
+
+	/// <summary>
+	/// The question jokers go on right now: the current one while it's still hidden, the next one during a reveal.
+	/// Null while a question is running (too late) and after the last one.
+	/// </summary>
+	public int? JokerIndex =>
+		Stage == Shared.Stage.Open && !Shown ? Index
+		: Stage == Shared.Stage.Reveal && Index + 1 < _quiz.Questions.Count ? Index + 1
+		: null;
+
+	bool Played(string playerId, string kind, int index) => _jokers.Any(j => j.PlayerId == playerId && j.Kind == kind && j.Index == index);
+
+	/// <summary>A joker counts (and everyone sees it) once its question is shown.</summary>
+	bool Locked(JokerPlay j) => j.Index < Index || j.Index == Index && (Shown || Stage == Shared.Stage.Reveal);
+
+	/// <summary>2 for a player who played Double points on the current question, else 1.</summary>
+	int Multiplier(string playerId) => Played(playerId, Joker.Double, Index) ? 2 : 1;
+
+	/// <summary>A player plays a joker for the next question (on), or takes it back before that question is shown.</summary>
+	public Result PlayJoker(string playerId, string kind, bool on)
+	{
+		if (!Joker.All.Contains(kind) || !_hooks.JokerAllowed(kind)) return Result.Fail("The host didn't allow that joker tonight.");
+		var mine = _jokers.FirstOrDefault(j => j.PlayerId == playerId && j.Kind == kind);
+		if (!on)
+		{
+			if (mine == null || Locked(mine)) return Result.Fail("That joker is already in play.");
+			_jokers.Remove(mine);
+			return Result.Success();
+		}
+		if (mine != null) return Result.Fail("You already used that joker.");
+		if (JokerIndex is not { } index) return Result.Fail("Jokers are played before a question starts.");
+		if (kind == Joker.FastPass && !_quiz.Questions[index].IsBuzzer) return Result.Fail("The Fast Pass is only for buzzer questions.");
+		_jokers.Add(new JokerPlay { PlayerId = playerId, Kind = kind, Index = index });
+		return Result.Success();
+	}
+
+	// ---------- someone left or joined ----------
+
+	public bool Paused => _pausedAt != null;
+
+	/// <summary>A player dropped out: everything waits (timers, buzzers, answers, the host's media) until they're back.</summary>
+	public void PlayerLeft(string playerId)
+	{
+		_waitingFor.Add(playerId);
+		if (_pausedAt != null) return;
+		_pausedAt = _hooks.Now();
+		SetMedia(false);
+	}
+
+	/// <summary>A player who left is back (or was removed): the game goes on once nobody is missing.</summary>
+	public bool PlayerBack(string playerId) => _waitingFor.Remove(playerId) && _waitingFor.Count == 0 && Resume();
+
+	/// <summary>The host goes on without the players who left.</summary>
+	public bool Continue()
+	{
+		if (!Paused) return false;
+		_waitingFor.Clear();
+		Resume();
+		return true;
+	}
+
+	bool Resume()
+	{
+		if (_pausedAt is not { } since) return false;
+		_pausedAt = null;
+		// The clocks pick up where they stopped.
+		var away = _hooks.Now() - since;
+		_openedAt += away;
+		if (_endsAt != null) _endsAt += away;
+		if (_answeringSince != null) _answeringSince += away;
+		if (_tlTurnEnds != null) _tlTurnEnds += away;
+		CheckAllAnswered();
+		return true;
+	}
+
+	/// <summary>Someone joined while a question runs: they play from the next one.</summary>
+	public void LateJoin(string playerId)
+	{
+		if (Stage == Shared.Stage.Open && Shown) _late.Add(playerId);
 	}
 
 	/// <summary>Image data for an asset key — only for questions already shown.</summary>

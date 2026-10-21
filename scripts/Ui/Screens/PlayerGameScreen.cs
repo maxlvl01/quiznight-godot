@@ -16,6 +16,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 {
 	readonly ClientSession _client;
 	readonly Keyed _bar = new();
+	readonly Keyed _notice = new();
 	readonly Keyed _question = new();
 	readonly Keyed _panel = new();
 	readonly VBoxContainer _side = U.V(10);
@@ -28,7 +29,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		_client = client;
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		// The card fills the column; pictures and maps in it take the height that's left.
-		var card = U.Panel(U.V(14, _question, _panel).GrowV()).GrowV();
+		var card = U.Panel(U.V(14, _notice, _question, _panel).GrowV()).GrowV();
 		var stageScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.Grow(3).GrowV();
 		stageScroll.AddChild(card.Grow());
 		var sideScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.MinSize(310).GrowV();
@@ -56,17 +57,34 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		if (_heardIndex >= 0 && game.Buzzes.Count > heard) Sfx.PlayRoomBuzzer(room.Settings.BuzzerSound);
 		_heardIndex = game.Index;
 		_heardBuzzes = game.Buzzes.Count;
-		_bar.Set($"{game.Index}|{me.Name}|{room.Score(MyId)}", () => U.Panel(GameParts.Row(12,
-			U.H(0, U.Text("Quiznight", 20, C.Text, Fonts.Black), U.Text("!", 20, C.Accent, Fonts.Black)),
-			U.Pill(Lang.F("Question {0} / {1}", game.Index + 1, game.Total)),
-			Chips.Question(q),
-			U.Pill(q.Points == 1 ? Lang.T("1 point") : Lang.F("{0} points", q.Points)),
-			U.Fill(),
-			new Avatar(me, 28), U.Bold(me.Name, 17).Raw(),
-			U.Pill(Lang.F("{0} pts", room.Score(MyId)), C.Accent)), "Bar"));
+		_bar.Set($"{game.Index}|{me.Name}|{room.Score(MyId)}|{game.JokerIndex}", () =>
+		{
+			var row = GameParts.Row(12,
+				U.H(0, U.Text("Quiznight", 20, C.Text, Fonts.Black), U.Text("!", 20, C.Accent, Fonts.Black)),
+				U.Pill(Lang.F("Question {0} / {1}", game.Index + 1, game.Total)),
+				Chips.Question(q),
+				U.Pill(q.Points == 1 ? Lang.T("1 point") : Lang.F("{0} points", q.Points)));
+			if (GameParts.NextPill(game) is { } next) row.AddChild(next);
+			row.AddChild(U.Fill());
+			row.AddChild(new RoomCodeButton(room.Code));
+			row.AddChild(new Avatar(me, 28));
+			row.AddChild(U.Bold(me.Name, 17).Raw());
+			row.AddChild(U.Pill(Lang.F("{0} pts", room.Score(MyId)), C.Accent));
+			return U.Panel(row, "Bar");
+		});
 
 		_side.Clear();
+		if (JokerBox(room) is { } jokers)
+		{
+			_side.AddChild(jokers);
+			_side.AddChild(U.Gap(4));
+		}
 		GameParts.SideInfo(_side, room, MyId);
+
+		var late = game.LateIds.Contains(MyId) && game.Stage == Stage.Open;
+		var notice = GameParts.PausedText(room) ?? (late ? Lang.T("You joined during this question: you play from the next one. Watch along until then.") : null);
+		_notice.Set(notice ?? "", () => notice == null ? null
+			: U.Panel(U.Text(notice, 16, C.Accent, Fonts.Bold, true).Raw(), "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(C.Accent, 0.1f), 12, C.Accent, 1, 14, 10))));
 
 		var key = $"{game.Index}|{game.Stage}|{game.Shown}";
 		_question.Set(key, () =>
@@ -81,7 +99,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			if (q.ImageKey != null && q.Type == QuestionType.Image && open)
 				box.AddChild(new PlayerImageReveal(_client.Assets, () => _room, q.ImageKey));
 			else if (q.ImageKey != null && q.Type != QuestionType.MapPin && game.Stage == Stage.Open)
-				box.AddChild(new AssetImage(_client.Assets, q.ImageKey, U.Flexible));
+				box.AddChild(new AssetImage(_client.Assets, q.ImageKey, U.Flexible) { Zoomable = true });
 			if (q.MediaId != null && q.MediaKey != null && open && window)
 				box.AddChild(q.Type == QuestionType.Video
 					? new PlayerVideo(_client, () => _room, q.MediaId, q.MediaKey).MarkFlexible()
@@ -100,12 +118,17 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			_panel.Set($"{key}|hidden", () => Status(U.Bold("Get ready…", 28), U.Muted("The host is about to show the next question.", 16)));
 			return;
 		}
+		if (late)
+		{
+			_panel.Set($"{key}|late", () => Status(U.Bold("Watch along", 26), U.Muted("You're in from the next question.", 16)));
+			return;
+		}
 		if (q.Buzzer)
 		{
 			var mine = game.Buzzes.FirstOrDefault(b => b.PlayerId == MyId);
 			var answering = game.Buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Answering);
 			var place = game.Buzzes.Where(b => b.Status == BuzzStatus.Waiting).ToList().FindIndex(b => b.PlayerId == MyId);
-			_panel.Set($"{key}|{mine?.Status}|{place}|{answering?.PlayerId}|{game.BuzzersOpen}", () => Buzzer(room));
+			_panel.Set($"{key}|{mine?.Status}|{place}|{answering?.PlayerId}|{game.BuzzersOpen}|{game.Paused}", () => Buzzer(room));
 		}
 		else if (q.Choices != null) _panel.Set($"{key}|{game.MyAnswer?.Num}|{string.Join(",", game.MyAnswer?.Picks ?? new List<int>())}", () => Choices(room));
 		else if (game.Timeline is { } tl)
@@ -114,6 +137,49 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		else if (q.Written) _panel.Set($"{key}|{game.MyAnswer?.Text}", () => Write(room));
 		else if (q.Type == QuestionType.Estimation) _panel.Set($"{key}|{game.MyAnswer?.Num}", () => Estimate(room));
 		else _panel.Set($"{key}|{game.MyAnswer?.Point != null}", () => MapPin(room));
+	}
+
+	/// <summary>
+	/// The jokers the host allows: play one for the next question (during a reveal, or while a question is still hidden),
+	/// take it back until that question is shown. Each one once per match.
+	/// </summary>
+	Control? JokerBox(RoomState room)
+	{
+		var game = room.Game!;
+		var allowed = Joker.All.Where(room.Settings.Jokers.Contains).ToList();
+		if (allowed.Count == 0) return null;
+		var box = U.V(6, U.Eyebrow("Your jokers"));
+		foreach (var kind in allowed)
+		{
+			var k = kind;
+			var mine = game.Jokers.FirstOrDefault(j => j.PlayerId == MyId && j.Kind == k);
+			string hint;
+			Button button;
+			if (mine != null && (mine.Index < game.Index || mine.Index == game.Index && (game.Shown || game.Stage == Stage.Reveal)))
+			{
+				button = U.Btn(Joker.Label(k), "SmallButton", null, 14);
+				button.Disabled = true;
+				hint = Lang.F("Used on question {0}.", mine.Index + 1);
+			}
+			else if (mine != null)
+			{
+				button = U.Btn("✓ " + Lang.T(Joker.Label(k)), "TealButton", () => _client.PlayJoker(k, false), 14);
+				hint = Lang.F("Played on question {0}. Click to take it back.", mine.Index + 1);
+			}
+			else
+			{
+				button = U.Btn(Joker.Label(k), "SmallButton", () => _client.PlayJoker(k, true), 14);
+				var fastOff = k == Joker.FastPass && !game.JokerBuzzer;
+				button.Disabled = game.JokerIndex == null || fastOff;
+				hint = game.JokerIndex is not { } next ? Lang.T("Play it before a question starts.")
+					: fastOff ? Lang.T("Only for buzzer questions: the next one isn't.")
+					: Lang.F("Plays on question {0}.", next + 1);
+			}
+			button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+			box.AddChild(button);
+			box.AddChild(U.Muted(hint, 12));
+		}
+		return box;
 	}
 
 	static Control Status(params Control[] kids)
@@ -165,7 +231,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		var watch = WatchHint(game.Question);
 		if (watch != null) area.AddChild(U.Muted(watch, 16, false, HorizontalAlignment.Center).Center());
 		if (answering != null) area.AddChild(U.Muted(Lang.F("{0} is answering — buzz to get in line.", room.Player(answering.PlayerId).Name), 14, false, HorizontalAlignment.Center).Center());
-		var buzz = new BuzzButton(_client.Buzz, big ? 130 : 240) { Disabled = !game.BuzzersOpen };
+		var buzz = new BuzzButton(_client.Buzz, big ? 130 : 240) { Disabled = !game.BuzzersOpen || game.Paused };
 		area.AddChild(buzz.Center());
 		if (!game.BuzzersOpen) area.AddChild(U.Muted("Buzzers are locked — the host unlocks them in a moment.", 15, false, HorizontalAlignment.Center).Center());
 		area.AddChild(U.Muted("or press Space", 13, false, HorizontalAlignment.Center).Center());
@@ -452,7 +518,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		var box = U.V(10);
 		if (q.ImageKey != null)
 		{
-			var shot = new AssetImage(_client.Assets, q.ImageKey, U.Flexible);
+			var shot = new AssetImage(_client.Assets, q.ImageKey, U.Flexible) { Zoomable = true };
 			map.Visible = false;
 			box.AddChild(U.Segmented(new[] { ("shot", "Screenshot"), ("map", "Map") }, "shot", id =>
 			{
@@ -489,6 +555,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		}
 		if (mine != null && !q.Buzzer) kids.Add(U.Text(Lang.F("You: {0}", mine.Text), 17));
 		kids.Add(mine is { Points: > 0 } ? U.Text($"+{mine.Points}", 48, C.Accent, Fonts.Black) : U.Muted("No points this time.", 15));
+		if (mine is { Doubled: true, Points: > 0 }) kids.Add(U.Text(Lang.T("×2 Double points!"), 18, C.Accent, Fonts.Black, false, HorizontalAlignment.Center));
 		if (mine is { Bonus: true }) kids.Add(U.Text(Lang.F("★ Including the bonus: {0}", q.BonusText ?? ""), 16, C.Accent, Fonts.Bold, true, HorizontalAlignment.Center).Raw());
 		kids.Add(U.Muted("Waiting for the host to continue…", 13));
 		var panel = Status(kids.ToArray());
@@ -497,7 +564,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		// Everyone's answers, like on the host's screen (buzzer questions: who got it is said above).
 		if (!q.Buzzer && q.Type != QuestionType.MapPin && reveal.Entries.Count > 0) box.AddChild(GameParts.RevealPanel(room, heading: false));
 		// Image reveal: everyone gets the whole picture now.
-		if (q.Type == QuestionType.Image && q.ImageKey != null) box.AddChild(new AssetImage(_client.Assets, q.ImageKey, U.Flexible));
+		if (q.Type == QuestionType.Image && q.ImageKey != null) box.AddChild(new AssetImage(_client.Assets, q.ImageKey, U.Flexible) { Zoomable = true });
 		if (q.Type == QuestionType.MapPin && q.Map != null)
 		{
 			// The answer on the left, the map with everyone's pins as big as the rest of the card.
