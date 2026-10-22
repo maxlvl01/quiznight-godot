@@ -15,6 +15,7 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ### Changed
 - Map pin editor: you pick the map from a grid of pictures (name and width under each) instead of a drop-down. "Change map" brings the grid back; your own uploaded maps are in it too.
+- Maps that come with an update get an orange NEW badge in the map grid for that update.
 
 ## [0.8.5b] — scores and lobby
 

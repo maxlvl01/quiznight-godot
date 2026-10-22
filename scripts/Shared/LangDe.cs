@@ -733,6 +733,7 @@ public static class LangDe
 		["The Fast Pass is only for buzzer questions."] = "Der Fast Pass gilt nur für Buzzer-Fragen.",
 		["You · double-click your name to change it"] = "Du · Doppelklick auf deinen Namen, um ihn zu ändern",
 		["Skin"] = "Skin",
+		["NEW"] = "NEU",
 		["Change map"] = "Karte ändern",
 		["{0} km wide"] = "{0} km breit",
 		["Your map"] = "Deine Karte",

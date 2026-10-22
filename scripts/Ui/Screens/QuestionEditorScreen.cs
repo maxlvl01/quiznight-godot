@@ -574,7 +574,7 @@ public partial class QuestionEditorScreen : Control
 		foreach (var m in _maps.Where(m => MapPresets.Get(m.PresetId) == null))
 		{
 			var own = m;
-			grid.AddChild(MapCard(MapTexture(own), own.Name, own.WidthKm is { } km ? Lang.F("{0} km wide", Km(km)) : Lang.T("Your map"), own == current, () => Pick(() =>
+			grid.AddChild(MapCard(MapTexture(own), own.Name, own.WidthKm is { } km ? Lang.F("{0} km wide", Km(km)) : Lang.T("Your map"), own == current, false, () => Pick(() =>
 			{
 				_draft.MapId = own.Id;
 				_draft.Target = null;
@@ -585,9 +585,10 @@ public partial class QuestionEditorScreen : Control
 		{
 			var preset = p;
 			var width = preset.WidthKm is { } km ? Lang.F("{0} km wide", Km(km)) : preset.Id == WowAtlas.PresetId ? Lang.T("World → continents → zones") : "";
-			grid.AddChild(MapCard(Images.MapThumb(preset.ImagePath), preset.Name, width, current?.PresetId == preset.Id, () => Pick(() => ChoosePreset(preset.Id))));
+			grid.AddChild(MapCard(Images.MapThumb(preset.ImagePath), preset.Name, width, current?.PresetId == preset.Id, MapPresets.IsNew(preset, App.Version),
+				() => Pick(() => ChoosePreset(preset.Id))));
 		}
-		grid.AddChild(MapCard(null, Lang.T("+ Upload a new map"), Lang.T("Any picture of a map"), false, () =>
+		grid.AddChild(MapCard(null, Lang.T("+ Upload a new map"), Lang.T("Any picture of a map"), false, false, () =>
 		{
 			_pickingMap = false;
 			_addingMap = true;
@@ -610,8 +611,8 @@ public partial class QuestionEditorScreen : Control
 
 	static string Km(double km) => km.ToString(km < 10 ? "0.#" : "0", System.Globalization.CultureInfo.InvariantCulture);
 
-	/// <summary>One map in the picker: its picture, name and width; the chosen one has a blue frame.</summary>
-	static Control MapCard(Texture2D? picture, string name, string detail, bool chosen, Action pick)
+	/// <summary>One map in the picker: its picture, name and width; the chosen one has a blue frame, a map that came with this update a NEW badge.</summary>
+	static Control MapCard(Texture2D? picture, string name, string detail, bool chosen, bool isNew, Action pick)
 	{
 		var button = new Button { MouseDefaultCursorShape = CursorShape.PointingHand, SizeFlagsHorizontal = SizeFlags.ExpandFill, TooltipText = name };
 		foreach (var state in new[] { "normal", "hover", "pressed", "focus" })
@@ -621,6 +622,15 @@ public partial class QuestionEditorScreen : Control
 			? new TextureRect { Texture = picture, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, ClipContents = true }
 			: (Control)U.Panel(U.Text("+", 30, C.Muted, Fonts.Bold, false, HorizontalAlignment.Center), "Inset");
 		image.CustomMinimumSize = new Vector2(0, 72);
+		if (isNew)
+		{
+			var badge = U.Text(Lang.T("NEW"), 10, C.AccentInk, Fonts.Black, false, HorizontalAlignment.Center);
+			var pill = U.Panel(badge, "Clear");
+			pill.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Accent, 6, null, 0, 6, 1));
+			pill.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight, LayoutPresetMode.KeepSize, 4);
+			pill.GrowHorizontal = GrowDirection.Begin;
+			image.AddChild(pill);
+		}
 		var label = U.Bold(name, 12).Raw();
 		label.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
 		var content = U.V(3, image, label, U.Muted(detail, 11, false));

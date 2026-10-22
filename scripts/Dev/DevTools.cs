@@ -122,6 +122,8 @@ public sealed class DevTools
 		if (Value("--lang") is { } lang) Lang.Use(lang);
 		// (the home screen as if that version were out: the update note and the green button)
 		if (Value("--pretend-update") is { } newer) Ui.Screens.UpdatePrompt.Pretend(newer);
+		// (the map grid as if that built-in map had come with this update: its NEW badge)
+		if (Value("--pretend-new-map") is { } newMap) MapPresets.PretendNew = newMap;
 		// --press TEXT: presses the first button whose text starts with TEXT, once, as soon as one shows up (e.g. "⋮" on a scoreboard)
 		if (Value("--press") is { } press)
 		{

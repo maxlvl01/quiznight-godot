@@ -38,7 +38,10 @@ the original design decisions; most still apply.
   time: two at once hang). All map images (also WoW's) are imported as **"keep"** and decoded by
   `Images.LoadBuiltinImage` (WebP + mipmaps): Godot's texture import stored them 2–7× bigger. Exports leave
   `assets/maps/` out of the .pck; `release.sh` copies the WebPs into a `maps/` folder next to the game
-  (`Images.BuiltinFile` finds them there). New map images need the same 3-line `importer="keep"` .import file.
+  (`Images.BuiltinFile` finds them there). New map images need the same 3-line `importer="keep"` .import file,
+  and a thumbnail for the editor's map grid: `assets/map-thumbs/<same name>.webp`, 400 px wide (made with Pillow), also
+  "keep" — those stay in the .pck via the export `include_filter` (`Images.MapThumb`).
+  Give a new map `AddedIn: "x.y.zb"` in `MapPresets.cs`: the grid marks it NEW for that MAJOR.MINOR (`--pretend-new-map ID` to see it).
 - **The host runs the pace.** Questions open hidden (`Game.Shown`) until the host shows them; buzzers stay
   locked (`BuzzersOpen`) until unlocked — both lobby rules. Players get no content of a hidden question, and
   an image reveal's picture revealed in step with the host's. Choice answers and order items are shuffled per game

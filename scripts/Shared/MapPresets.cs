@@ -35,10 +35,21 @@ using System.Linq;
 
 namespace QuizNight.Shared;
 
-public sealed record MapPreset(string Id, string Name, double? WidthKm, string ImagePath, string Credit);
+/// <param name="AddedIn">The version that brought the map (e.g. "0.9.0b"): the editor's map grid marks it NEW for that
+/// MAJOR.MINOR (all of 0.9.x). Null for the maps that were there before this existed.</param>
+public sealed record MapPreset(string Id, string Name, double? WidthKm, string ImagePath, string Credit, string? AddedIn = null);
 
 public static class MapPresets
 {
+	/// <summary>Dev (--pretend-new-map ID): treat that map as new, to see the badge.</summary>
+	public static string? PretendNew;
+
+	/// <summary>Whether the map came with this MAJOR.MINOR version (0.9.0b and 0.9.2b are both "0.9").</summary>
+	public static bool IsNew(MapPreset preset, string version) =>
+		preset.Id == PretendNew || preset.AddedIn is { } added && MinorOf(added) == MinorOf(version);
+
+	static string MinorOf(string version) => string.Join('.', version.Split('.').Take(2));
+
 	const double YardKm = 0.9144 / 1000;
 	const double BethesdaUnitKm = YardKm / 64;
 
