@@ -11,7 +11,7 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
-## [Unreleased]
+## [0.8.5b] — scores and lobby
 
 ### Changed
 - Tick boxes are drawn in the skin's colours: blue in Pinke Geilheit, teal in Classic.
