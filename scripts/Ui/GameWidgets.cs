@@ -11,13 +11,13 @@ public partial class RoomCodeButton : Button
 {
 	public RoomCodeButton() : this("") { }
 
-	public RoomCodeButton(string code)
+	public RoomCodeButton(string code, int size = 20)
 	{
 		ThemeTypeVariation = "LinkButton2";
 		MouseDefaultCursorShape = CursorShape.PointingHand;
 		SizeFlagsVertical = SizeFlags.ShrinkCenter;
 		TooltipText = Lang.T("Click to copy the room code");
-		var row = U.H(8, U.Muted("Room", 15, false), U.Text(code, 20, C.Accent, Fonts.Mono));
+		var row = U.H(8, U.Muted("Room", 15, false).With(l => l.SizeFlagsVertical = SizeFlags.ShrinkCenter), U.Text(code, size, C.Accent, Fonts.Mono));
 		row.MouseFilter = MouseFilterEnum.Ignore;
 		foreach (var c in row.GetChildren()) ((Control)c).MouseFilter = MouseFilterEnum.Ignore;
 		var copied = U.Muted("Copied!", 13, false).With(l =>

@@ -19,6 +19,8 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - In the score tables, 1st, 2nd and 3rd are gold, silver and bronze, and when someone overtakes someone the rows slide past each other into their new places. At the reveal, a green ▲ or red ▼ shows how many places each player moved with that question.
 - Only one player per question can use the ⚡ Fast Pass: whoever plays it first. Everyone else's button says it's taken (not by whom). ×2 Double points can still be used by anyone.
 - Players: click "⋮ 3 more" in the scores to see everyone (it scrolls). It folds back a few seconds after your mouse leaves it.
+- The host's lobby looks like the players' waiting room: big room code, a seat for everyone (× removes a player), and the game rules in two compact columns at the bottom. It fits without scrolling.
+- The waiting room shows tonight's rules at the bottom: how the host runs the questions and buzzers, the answer time and which jokers are allowed. It updates as soon as the host changes something.
 
 ## [0.8.4b] — new colours
 

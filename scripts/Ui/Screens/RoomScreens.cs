@@ -41,64 +41,68 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 	{
 		_host = host;
 		SetAnchorsPreset(LayoutPreset.FullRect);
-		AddChild(U.Page(U.Panel(_content), 900, 16));
+		AddChild(U.Page(U.Panel(_content), 1000, 16));
 	}
 
+	/// <summary>
+	/// Laid out like the players' waiting room (the code, a seat for everyone plus an open one), with the host's options
+	/// in two columns underneath, so it fits without scrolling.
+	/// </summary>
 	public void Refresh(RoomState room)
 	{
 		_content.Clear();
 		var connected = room.Players.Count(p => p.Connected);
-		_content.AddChild(U.Eyebrow("Host view"));
-		_content.AddChild(U.H(10, U.Heading(room.Quiz.Title, 28, false).Raw(), U.Muted($"· {U.Plural(room.Quiz.QuestionCount, "question", "questions")}", 16, false)
-			.With(l => l.SizeFlagsVertical = SizeFlags.ShrinkEnd)));
-
-		_content.AddChild(U.Muted("Lobby code", 15));
-		var code = U.Text(room.Code, 64, C.Accent, Fonts.Mono);
-		var copied = U.Small("Copy code", null);
-		copied.Pressed += () =>
-		{
-			DisplayServer.ClipboardSet(room.Code);
-			copied.Text = "Copied!";
-		};
-		_content.AddChild(U.H(16, code, U.Fill(), copied.With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter)));
+		_content.AddChild(U.H(8, U.Heading("Lobby", 28, false).Grow(), new RoomCodeButton(room.Code, 32),
+			U.Pill(U.Plural(room.Players.Count, "player", "players"))));
+		_content.AddChild(U.Muted($"{room.Quiz.Title} · {U.Plural(room.Quiz.QuestionCount, "question", "questions")}", 15).Raw());
 
 		if (_host.Mode == NetMode.Steam)
-			_content.AddChild(U.Muted(Lang.F("Players open Quiznight, choose Steam on the home screen and enter this code. {0} here so far (up to {1}).", room.Players.Count, Limits.MaxPlayers), 15));
+			_content.AddChild(U.Muted(Lang.F("Players open Quiznight, choose Steam on the home screen and enter this code. {0} here so far (up to {1}).", room.Players.Count, Limits.MaxPlayers), 13));
 		else
 		{
 			var addresses = LanHostTransport.LanAddresses();
 			var where = addresses.Count > 0 ? string.Join(Lang.T("  or  "), addresses) : Lang.T("this PC's network address");
-			_content.AddChild(U.Muted(Lang.F("LAN mode: players choose \"LAN / same PC\" and enter {0} (same Wi-Fi), or 127.0.0.1 on this PC. Port {1}. {2} here so far (up to {3}).", where, _host.LanPort, room.Players.Count, Limits.MaxPlayers), 15));
+			_content.AddChild(U.Muted(Lang.F("LAN mode: players choose \"LAN / same PC\" and enter {0} (same Wi-Fi), or 127.0.0.1 on this PC. Port {1}. {2} here so far (up to {3}).", where, _host.LanPort, room.Players.Count, Limits.MaxPlayers), 13));
 		}
 
-		var chips = U.Flow(8);
-		if (room.Players.Count == 0) chips.AddChild(U.Muted("Nobody here yet — send the code to your friends.", 14, false));
+		// Seats: everyone who's in (× removes them), plus one open seat while the room isn't full.
+		var grid = new GridContainer { Columns = 6 };
+		grid.AddThemeConstantOverride("h_separation", 10);
+		grid.AddThemeConstantOverride("v_separation", 10);
 		foreach (var p in room.Players)
 		{
-			var chip = Chips.Player(p, p.Connected ? null : "(offline)");
-			var row = (HBoxContainer)chip.GetChild(0);
 			var id = p.Id;
-			row.AddChild(U.Link("×", () => _host.Kick(id), 16).Tip(Lang.F("Remove {0}", p.Name)));
-			chips.AddChild(chip);
+			var seat = U.V(4, new Avatar(p, 44).Center(), U.Bold(p.Name, 15, null, false, HorizontalAlignment.Center).Raw(),
+				U.H(4, U.Muted(p.Connected ? "Joined" : "Offline", 12, false), U.Link("×", () => _host.Kick(id), 15).Tip(Lang.F("Remove {0}", p.Name))).Center());
+			grid.AddChild(U.Panel(seat, "Card2").Grow());
 		}
-		_content.AddChild(chips);
+		for (var i = room.Players.Count; i < Math.Min(room.Players.Count + 1, Limits.MaxPlayers); i++)
+		{
+			var empty = U.V(4, U.Panel(U.Gap(34), "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(Colors.Transparent, 999, C.Border, 2, 4, 4))).Center(),
+				U.Muted(room.Players.Count == 0 ? "Send the code to your friends" : "Open seat", 12, true, HorizontalAlignment.Center));
+			grid.AddChild(U.Panel(empty, "Card2").With(p => p.Modulate = new Color(1, 1, 1, 0.5f)).Grow());
+		}
+		_content.AddChild(grid);
+		// (the options sit at the bottom of the screen; the seats grow into the space above them)
+		_content.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
 
-		var rules = U.Panel(U.V(10,
-			U.Eyebrow("Game rules for tonight"),
+		// The host's options: rules on the left, time and sounds on the right (details on hover).
+		var left = U.V(2,
+			Rule("I show each question myself", "It stays hidden until you press Show (Space).", room.Settings.HostShowsQuestions,
+				on => _host.UpdateSettings(hostShows: on)),
+			Rule("I unlock the buzzers myself", "After reading the question out (Space).", room.Settings.HostUnlocksBuzzers,
+				on => _host.UpdateSettings(hostUnlocks: on)),
+			U.Muted("Jokers (once per player and match)", 13).With(l => l.TooltipText = Lang.T("Played before a question starts.")),
+			Rule("×2 Double points", "Whatever the next question gives counts twice. Anyone can play it.", room.Settings.Jokers.Contains(Joker.Double),
+				on => _host.UpdateSettings(joker: (Joker.Double, on))),
+			Rule("⚡ Fast Pass", "On the next buzzer question, your buzz goes ahead of the line. One player per question.", room.Settings.Jokers.Contains(Joker.FastPass),
+				on => _host.UpdateSettings(joker: (Joker.FastPass, on))));
+		var right = U.V(8,
 			Stepper.Make("Answer time per buzz", room.Settings.AnswerTimeSec, Limits.AnswerTimeMin, Limits.AnswerTimeMax,
 				v => _host.UpdateSettings(answerTimeSec: v), " s"),
-			Rule("I show each question myself (it stays hidden until I press Show — Space)", room.Settings.HostShowsQuestions,
-				on => _host.UpdateSettings(hostShows: on)),
-			Rule("I unlock the buzzers myself (after reading the question out — Space)", room.Settings.HostUnlocksBuzzers,
-				on => _host.UpdateSettings(hostUnlocks: on)),
-			U.Text("Jokers (each player can play each one once per match, before a question starts)", 15),
-			Rule("×2 Double points: whatever the next question gives counts twice", room.Settings.Jokers.Contains(Joker.Double),
-				on => _host.UpdateSettings(joker: (Joker.Double, on))),
-			Rule("⚡ Fast Pass: on the next buzzer question, your buzz goes ahead of the line", room.Settings.Jokers.Contains(Joker.FastPass),
-				on => _host.UpdateSettings(joker: (Joker.FastPass, on))),
 			BuzzerPicker.Make(_host.BuzzerSound, id => _host.BuzzerSound = id, false),
-			PodiumPicker.Make(_host.PodiumSound, id => _host.PodiumSound = id, true)), "Inset");
-		_content.AddChild(rules);
+			PodiumPicker.Make(_host.PodiumSound, id => _host.PodiumSound = id, true));
+		_content.AddChild(U.Panel(U.V(8, U.Eyebrow("Game rules for tonight"), U.H(24, left.Grow(), right.Grow())), "Inset"));
 
 		if (_error != null) _content.AddChild(U.Error(_error));
 		var start = U.Btn("Start quiz", "AccentButton", () =>
@@ -108,14 +112,14 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 			if (!result.Ok) Refresh(_host.State);
 		});
 		start.Disabled = connected < Limits.MinPlayersToStart;
-		_content.AddChild(U.H(10, U.Link("Close room", () => Dialogs.Confirm(this, "Close the room? Everyone in it is sent back to the home screen.", "Close room", App.I.CloseRoom)), U.Fill(), start));
-		if (connected < Limits.MinPlayersToStart)
-			_content.AddChild(U.Muted(Lang.F("Needs at least {0} players.", Limits.MinPlayersToStart), 13, false, HorizontalAlignment.Right).End());
+		var needs = connected < Limits.MinPlayersToStart ? U.Muted(Lang.F("Needs at least {0} players.", Limits.MinPlayersToStart), 13, false) : U.Fill();
+		_content.AddChild(U.H(12, U.Link("Close room", () => Dialogs.Confirm(this, "Close the room? Everyone in it is sent back to the home screen.", "Close room", App.I.CloseRoom)),
+			U.Fill(), needs, start));
 	}
 
-	static CheckBox Rule(string text, bool on, Action<bool> changed)
+	static CheckBox Rule(string text, string tip, bool on, Action<bool> changed)
 	{
-		var box = new CheckBox { Text = text, ButtonPressed = on, MouseDefaultCursorShape = CursorShape.PointingHand };
+		var box = new CheckBox { Text = text, TooltipText = tip, ButtonPressed = on, MouseDefaultCursorShape = CursorShape.PointingHand };
 		box.Toggled += v => changed(v);
 		return box;
 	}
@@ -132,7 +136,7 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 	{
 		_client = client;
 		SetAnchorsPreset(LayoutPreset.FullRect);
-		AddChild(U.Page(U.Panel(_content), 900));
+		AddChild(U.Page(U.Panel(_content), 1000, 16));
 	}
 
 	/// <summary>While you change your name: the field (kept across updates, so typing isn't lost).</summary>
@@ -167,10 +171,28 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 			grid.AddChild(U.Panel(empty, "Card2").With(p => p.Modulate = new Color(1, 1, 1, 0.5f)).Grow());
 		}
 		_content.AddChild(grid);
+		_content.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
+		_content.AddChild(Rules(room.Settings));
 		_content.AddChild(U.H(16,
 			U.Muted("Waiting for the host to start the quiz.", 14, false).Grow(),
-			U.Muted(Lang.F("Answer time per buzz: {0} s", room.Settings.AnswerTimeSec), 14, false),
 			U.Link("Leave", App.I.LeaveRoom)));
+	}
+
+	/// <summary>Tonight's rules as the host set them (read only): how the host runs it, and the jokers you can play.</summary>
+	static Control Rules(RoomSettings settings)
+	{
+		Control Line(string text) => U.Text(text, 15);
+		var general = U.V(6,
+			Line(settings.HostShowsQuestions ? "• The host shows each question when ready" : "• Questions show right away"),
+			Line(settings.HostUnlocksBuzzers ? "• The host unlocks the buzzers after reading out" : "• Buzzers open as soon as a question shows"),
+			Line(Lang.F("• Answer time per buzz: {0} s", settings.AnswerTimeSec)));
+		var jokers = U.V(6, U.Muted("Jokers (once each per match)", 13));
+		foreach (var kind in Joker.All.Where(settings.Jokers.Contains))
+			jokers.AddChild(U.H(8, U.Pill(Joker.Label(kind), C.Accent), U.Muted(kind == Joker.Double
+				? "The next question counts twice. Anyone can play it."
+				: "Your buzz goes ahead of the line. One player per question.", 13).Grow()));
+		if (settings.Jokers.Count == 0) jokers.AddChild(U.Muted("No jokers tonight.", 14, false));
+		return U.Panel(U.V(8, U.Eyebrow("Tonight's rules"), U.H(24, general.Grow(), jokers.Grow())), "Inset");
 	}
 }
 
