@@ -20,7 +20,7 @@ public partial class EternalTableScreen : Control
 		var table = Results.Table(Results.BundledCsvs());
 		var page = U.V(14,
 			U.Link("← Home", () => App.I.GoHome()).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin),
-			U.Heading("🏆 Eternal table", 34),
+			U.Heading("🏆 Ewige Tabelle", 34),
 			U.Muted("Every quiz night added up: most points first, then the faster average answer time.", 15));
 		if (table.Count == 0)
 		{

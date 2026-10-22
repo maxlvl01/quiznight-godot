@@ -804,7 +804,6 @@ public static class LangDe
 		["What it does and its variants"] = "Was es macht und welche Varianten es gibt",
 		["⋮  {0} more"] = "⋮  {0} weitere",
 		["Average answer time: {0} s"] = "Durchschnittliche Antwortzeit: {0} s",
-		["🏆 Eternal table"] = "🏆 Ewige Tabelle",
 		["Every quiz night added up: most points first, then the faster average answer time."] = "Alle Quizabende zusammengezählt: die meisten Punkte zuerst, dann die schnellere durchschnittliche Antwortzeit.",
 		["No quiz nights yet"] = "Noch keine Quizabende",
 		["After each quiz night the results go to Max. With the next update they show up here."] = "Nach jedem Quizabend gehen die Ergebnisse an Max. Mit dem nächsten Update erscheinen sie hier.",
