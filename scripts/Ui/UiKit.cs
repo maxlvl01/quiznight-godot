@@ -183,8 +183,19 @@ public static class UiTheme
 		t.SetColor("font_disabled_color", "PopupMenu", C.Muted);
 		t.SetColor("font_separator_color", "PopupMenu", C.Muted);
 		t.SetStylebox("panel", "AcceptDialog", Box(C.Panel, 0, null, 0, 20, 16));
-		t.SetStylebox("embedded_border", "Window", Box(C.Panel, 14, C.Border, 1, 0, 0));
+		// Pop-ups' frame reaches up over their title bar, so the title sits on a solid background (else what's behind shows through).
+		const int titleHeight = 40;
+		foreach (var state in new[] { "embedded_border", "embedded_unfocused_border" })
+		{
+			var frame = Box(C.Panel2, 14, C.Border, 1, 0, 0);
+			frame.ExpandMarginTop = titleHeight;
+			frame.ExpandMarginLeft = frame.ExpandMarginRight = frame.ExpandMarginBottom = 6;
+			t.SetStylebox(state, "Window", frame);
+		}
+		t.SetConstant("title_height", "Window", titleHeight);
 		t.SetColor("title_color", "Window", C.Text);
+		t.SetFont("title_font", "Window", Fonts.Bold);
+		t.SetFontSize("title_font_size", "Window", 16);
 		t.SetStylebox("panel", "TooltipPanel", Box(C.Panel2, 8, C.Border, 1, 10, 6));
 		t.SetColor("font_color", "TooltipLabel", C.Text);
 
