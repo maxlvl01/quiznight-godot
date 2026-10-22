@@ -41,12 +41,16 @@ public partial class App : Control
 	string? _bannerError;
 	DevTools? _dev;
 
+	readonly ColorRect _bg = new();
+
 	public override void _Ready()
 	{
 		I = this;
+		C.Use(Settings.Skin);
 		Theme = UiTheme.Build();
 		SetAnchorsPreset(LayoutPreset.FullRect);
-		AddChild(new ColorRect { Color = C.Bg }.With(r => r.SetAnchorsPreset(LayoutPreset.FullRect)));
+		_bg.Color = C.Bg;
+		AddChild(_bg.With(r => r.SetAnchorsPreset(LayoutPreset.FullRect)));
 		AddChild(new SpaceBackdrop().With(b => b.SetAnchorsPreset(LayoutPreset.FullRect)));
 		_screens.SetAnchorsPreset(LayoutPreset.FullRect);
 		AddChild(_screens);
@@ -133,6 +137,16 @@ public partial class App : Control
 	public void GoHome(string? notice = null) => Show(new HomeScreen(notice));
 	public void GoQuizzes() => Show(new QuizListScreen());
 	public void GoSettings() => Show(new SettingsScreen());
+
+	/// <summary>Switches the colour skin now: a new theme, and the settings screen built again in its colours.</summary>
+	public void UseSkin(string skin)
+	{
+		Settings.Skin = skin;
+		C.Use(skin);
+		Theme = UiTheme.Build();
+		_bg.Color = C.Bg;
+		GoSettings();
+	}
 	public void GoEternalTable() => Show(new EternalTableScreen());
 
 	public void GoQuiz(string id)

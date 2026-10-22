@@ -129,6 +129,13 @@ public static class Settings
 	}
 
 	/// <summary>Ask before deleting a quiz (off once "Don't ask me again" was ticked; Settings turns it back on).</summary>
+	/// <summary>The colour skin (a Ui.Skins id). Saved as soon as it's picked, like the background picture's look.</summary>
+	public static string Skin
+	{
+		get => Ui.Skins.Valid(Get("skin", Ui.Skins.Default));
+		set => Set("skin", value);
+	}
+
 	public static bool AskBeforeDeletingQuiz
 	{
 		get => Get("ask_delete_quiz", "on") != "off";

@@ -1,5 +1,5 @@
-// The look (dark UI, yellow accent, teal/coral buttons — same palette as the web version) and
-// small helpers for building screens in code.
+// The look (two skins: Pinke Geilheit, dark purple with an orange accent and blue outlines; Classic, the web version's
+// grey with yellow and teal) and small helpers for building screens in code.
 
 using System;
 using System.Linq;
@@ -10,14 +10,14 @@ namespace QuizNight.Ui;
 
 public static class C
 {
-	public static readonly Color Bg = new("#121318");
-	public static readonly Color Panel = new("#1b1d26");
-	public static readonly Color Panel2 = new("#232634");
-	public static readonly Color Border = new("#2e3142");
-	public static readonly Color Text = new("#ecedf3");
-	public static readonly Color Muted = new("#8b8fa3");
-	public static readonly Color Accent = new("#f5b942");
-	public static readonly Color AccentInk = new("#1a1408");
+	// The palette's own colours (Use switches them): purple/orange/blue, or the classic grey/yellow/teal.
+	public static Color Bg, Panel, Panel2, Text, Muted, Accent, AccentInk;
+	/// <summary>Outlines: the blue, dimmed into the background (focus and highlights use Blue itself).</summary>
+	public static Color Border;
+	/// <summary>Focus outlines, toggles, sliders, the caret.</summary>
+	public static Color Blue;
+	/// <summary>Write the answer (yellow in the purple palette, where orange is the accent).</summary>
+	public static Color Orange;
 	public static readonly Color Teal = new("#3fd0b0");
 	public static readonly Color TealInk = new("#062019");
 	public static readonly Color Coral = new("#ff6b7a");
@@ -25,10 +25,27 @@ public static class C
 	public static readonly Color Sky = new("#5cc8ff");
 	public static readonly Color Pink = new("#ff8ad8");
 	public static readonly Color Lime = new("#a8e05f");
-	public static readonly Color Orange = new("#ff9f43");
 
-	/// <summary>A–D tiles: coral, sky, yellow, teal.</summary>
-	public static readonly Color[] Choice = { Coral, Sky, Accent, Teal };
+	/// <summary>A–D tiles: coral, sky, the accent, teal.</summary>
+	public static Color[] Choice = Array.Empty<Color>();
+
+	static C() => Use(Skins.Default);
+
+	/// <summary>Switches the skin's colours. The theme and screens built before keep the old ones: rebuild them (App.UseSkin).</summary>
+	public static void Use(string skin)
+	{
+		if (Skins.Valid(skin) == Skins.Classic)
+		{
+			(Bg, Panel, Panel2, Border, Blue) = (new("#121318"), new("#1b1d26"), new("#232634"), new("#2e3142"), Teal);
+			(Text, Muted, Accent, AccentInk, Orange) = (new("#ecedf3"), new("#8b8fa3"), new("#f5b942"), new("#1a1408"), new("#ff9f43"));
+		}
+		else
+		{
+			(Bg, Panel, Panel2, Border, Blue) = (new("#150023"), new("#1f0833"), new("#2a1042"), new("#1a5a85"), new("#00c9f6"));
+			(Text, Muted, Accent, AccentInk, Orange) = (new("#efeaf6"), new("#a593bd"), new("#ff8201"), new("#2a1200"), new("#ffd23f"));
+		}
+		Choice = new[] { Coral, Sky, Accent, Teal };
+	}
 
 	public static Color ForType(string type) => type switch
 	{
@@ -42,6 +59,21 @@ public static class C
 		QuestionType.Write => Orange,
 		_ => Muted,
 	};
+}
+
+/// <summary>The colour skins to choose from in Settings.</summary>
+public static class Skins
+{
+	public const string Default = "pinke-geilheit";
+	public const string Classic = "classic";
+
+	public static readonly (string Id, string Label)[] All =
+	{
+		(Default, "Pinke Geilheit"),
+		(Classic, "Classic"),
+	};
+
+	public static string Valid(string? id) => All.Any(s => s.Id == id) ? id! : Default;
 }
 
 public static class Fonts
@@ -89,7 +121,7 @@ public static class UiTheme
 		t.SetStylebox("hover_pressed", type, Box(bg.A == 0 ? bg : bg.Darkened(0.04f), radius, border, 1, padX, padY));
 		var disabled = bg.A == 0 ? bg : new Color(bg, 0.4f);
 		t.SetStylebox("disabled", type, Box(disabled, radius, border is { } b ? new Color(b, 0.4f) : null, 1, padX, padY));
-		t.SetStylebox("focus", type, Outline(C.Teal, radius));
+		t.SetStylebox("focus", type, Outline(C.Blue, radius));
 		t.SetColor("font_color", type, ink);
 		t.SetColor("font_hover_color", type, bg.A == 0 ? C.Text : ink);
 		t.SetColor("font_pressed_color", type, ink);
@@ -119,7 +151,7 @@ public static class UiTheme
 		t.SetTypeVariation("SmallButton", "Button");
 		ButtonType(t, "SmallButton", C.Panel2, C.Text, C.Border, 8, 12, 5);
 		t.SetTypeVariation("ToggleOn", "Button");
-		ButtonType(t, "ToggleOn", new Color(C.Teal, 0.18f), C.Teal, C.Teal, 10, 14, 8);
+		ButtonType(t, "ToggleOn", new Color(C.Blue, 0.18f), C.Blue, C.Blue, 10, 14, 8);
 		t.SetTypeVariation("ToggleOff", "Button");
 		ButtonType(t, "ToggleOff", C.Bg, C.Muted, C.Border, 10, 14, 8);
 
@@ -133,7 +165,7 @@ public static class UiTheme
 			("Card2", Box(C.Panel2, 12, C.Border, 1, 14, 12)),
 			("Inset", Box(C.Bg, 12, C.Border, 1, 14, 12)),
 			("Chip", Box(C.Panel2, 999, C.Border, 1, 10, 5)),
-			("ChipMe", Box(C.Panel2, 999, C.Teal, 1, 10, 5)),
+			("ChipMe", Box(C.Panel2, 999, C.Blue, 1, 10, 5)),
 			("Pill", Box(C.Panel2, 999, C.Border, 1, 12, 5)),
 			("Notice", Box(C.Panel2, 10, C.Border, 1, 14, 10)),
 			("Bar", Box(C.Panel, 0, null, 0, 20, 12)),
@@ -150,12 +182,12 @@ public static class UiTheme
 		foreach (var type in new[] { "LineEdit", "TextEdit" })
 		{
 			t.SetStylebox("normal", type, Box(C.Bg, 10, C.Border, 1, 12, 9));
-			t.SetStylebox("focus", type, Outline(C.Teal, 10, 1));
+			t.SetStylebox("focus", type, Outline(C.Blue, 10, 1));
 			t.SetStylebox("read_only", type, Box(C.Panel2, 10, C.Border, 1, 12, 9));
 			t.SetColor("font_color", type, C.Text);
 			t.SetColor("font_placeholder_color", type, new Color(C.Muted, 0.7f));
-			t.SetColor("caret_color", type, C.Teal);
-			t.SetColor("selection_color", type, new Color(C.Teal, 0.3f));
+			t.SetColor("caret_color", type, C.Blue);
+			t.SetColor("selection_color", type, new Color(C.Blue, 0.3f));
 		}
 		t.SetTypeVariation("CodeInput", "LineEdit");
 		t.SetFont("font", "CodeInput", Fonts.Mono);
@@ -177,7 +209,7 @@ public static class UiTheme
 		// Popups and dialogs
 		var popup = Box(C.Panel2, 10, C.Border, 1, 6, 6);
 		t.SetStylebox("panel", "PopupMenu", popup);
-		t.SetStylebox("hover", "PopupMenu", Box(new Color(C.Teal, 0.2f), 6, null, 0, 8, 4));
+		t.SetStylebox("hover", "PopupMenu", Box(new Color(C.Blue, 0.2f), 6, null, 0, 8, 4));
 		t.SetColor("font_color", "PopupMenu", C.Text);
 		t.SetColor("font_hover_color", "PopupMenu", C.Text);
 		t.SetColor("font_disabled_color", "PopupMenu", C.Muted);
@@ -211,8 +243,8 @@ public static class UiTheme
 
 		// Volume sliders: thin track, teal fill.
 		t.SetStylebox("slider", "HSlider", Box(C.Border, 4, null, 0, 0, 3));
-		t.SetStylebox("grabber_area", "HSlider", Box(C.Teal, 4, null, 0, 0, 3));
-		t.SetStylebox("grabber_area_highlight", "HSlider", Box(C.Teal.Lightened(0.15f), 4, null, 0, 0, 3));
+		t.SetStylebox("grabber_area", "HSlider", Box(C.Blue, 4, null, 0, 0, 3));
+		t.SetStylebox("grabber_area_highlight", "HSlider", Box(C.Blue.Lightened(0.15f), 4, null, 0, 0, 3));
 		t.SetConstant("separation", "HSeparator", 12);
 		t.SetStylebox("separator", "HSeparator", new StyleBoxLine { Color = C.Border, Thickness = 1 });
 		return t;

@@ -85,6 +85,7 @@ public partial class SettingsScreen : Control
 			U.Field("Window mode", mode),
 			U.Field("Window size", size),
 			sizeHint,
+			U.Field("Skin", U.Select(Skins.All, Settings.Skin, id => Callable.From(() => App.I.UseSkin(id)).CallDeferred())),
 			U.Field("Background picture", U.Select(Backgrounds.All, d.Background, id => Change(Draft with { Background = id }))),
 			U.Field("Background movement", U.Segmented(new[] { ("on", "On"), ("off", "Off") }, d.BackgroundMotion ? "on" : "off", id => Change(Draft with { BackgroundMotion = id == "on" }))),
 			U.Muted("On wide monitors, the space picture beside the game sways with the mouse. Off keeps it still.", 12),

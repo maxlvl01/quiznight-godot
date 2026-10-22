@@ -733,6 +733,8 @@ public static class LangDe
 		["Jokers are played before a question starts."] = "Joker werden gesetzt, bevor eine Frage beginnt.",
 		["The Fast Pass is only for buzzer questions."] = "Der Fast Pass gilt nur für Buzzer-Fragen.",
 		["You · double-click your name to change it"] = "Du · Doppelklick auf deinen Namen, um ihn zu ändern",
+		["Skin"] = "Skin",
+		["Classic"] = "Klassisch",
 		["Background picture"] = "Hintergrundbild",
 		["Don't ask me again"] = "Nicht mehr fragen",
 		["Delete quiz"] = "Quiz löschen",

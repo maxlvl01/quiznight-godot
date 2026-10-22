@@ -11,9 +11,10 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
-## [Unreleased]
+## [0.8.4b] — new colours
 
 ### Changed
+- New look, the "Pinke Geilheit" skin: a deep purple background, orange instead of yellow for buttons and highlights, and blue outlines. Prefer the old colours? Settings → Skin → Classic.
 - The update button next to the version is just an arrow now: grey (click it to check for updates), green when there is one (click it to install).
 - Timelines start with a random item each game, instead of one you pick in the editor.
 
