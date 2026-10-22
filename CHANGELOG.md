@@ -16,6 +16,7 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 ### Changed
 - Tick boxes are drawn in the skin's colours: blue in Pinke Geilheit, teal in Classic.
 - Places read 1st, 2nd, 3rd … (German 1., 2., 3.) on the podium, scoreboards and in the buzzer line, instead of plain numbers or #4.
+- In the score tables, 1st, 2nd and 3rd are gold, silver and bronze, and when someone overtakes someone the rows slide past each other into their new places.
 
 ## [0.8.4b] — new colours
 

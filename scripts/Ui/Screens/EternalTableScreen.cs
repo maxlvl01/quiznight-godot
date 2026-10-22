@@ -38,7 +38,7 @@ public partial class EternalTableScreen : Control
 		for (var i = 0; i < table.Count; i++)
 		{
 			var c = table[i];
-			grid.AddChild(GameParts.RankBadge(i + 1));
+			grid.AddChild(GameParts.RankBadge(i + 1, true));
 			grid.AddChild(U.Text(c.Name, 16, i == 0 ? C.Accent : C.Text, i < 3 ? Fonts.Bold : null).Raw().Grow());
 			grid.AddChild(U.Mono($"{c.Nights}", 15));
 			grid.AddChild(U.Mono($"{c.Wins}", 15));

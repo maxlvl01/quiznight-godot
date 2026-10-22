@@ -29,6 +29,13 @@ public static class C
 	/// <summary>A–D tiles: coral, sky, the accent, teal.</summary>
 	public static Color[] Choice = Array.Empty<Color>();
 
+	public static readonly Color Gold = new("#ffc93c");
+	public static readonly Color Silver = new("#c7cbe0");
+	public static readonly Color Bronze = new("#d39a6a");
+
+	/// <summary>1st, 2nd and 3rd place: gold, silver, bronze.</summary>
+	public static Color? Medal(int place) => place switch { 1 => Gold, 2 => Silver, 3 => Bronze, _ => null };
+
 	static C() => Use(Skins.Default);
 
 	/// <summary>Switches the skin's colours. The theme and screens built before keep the old ones: rebuild them (App.UseSkin).</summary>

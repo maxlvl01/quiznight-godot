@@ -330,3 +330,46 @@ public partial class UpdateArrow : Control
 		if (_available) DrawCircle(P(20.5f, 3.5f), 2.6f * s, color, true, -1, true);
 	}
 }
+
+/// <summary>
+/// A scoreboard row that can slide in from a few rows above or below (someone overtook someone): its child is drawn
+/// <see cref="Rows"/> row heights away from its place and eases back.
+/// </summary>
+public partial class SlideRow : Container
+{
+	const float Gap = 6;
+	float _rows;
+	Tween? _tween;
+
+	/// <summary>How far from its place the row is drawn now, in rows (+ = below).</summary>
+	public float Rows
+	{
+		get => _rows;
+		set
+		{
+			_rows = value;
+			QueueSort();
+		}
+	}
+
+	/// <summary>Starts drawn <paramref name="rows"/> rows away and slides home (climbers drawn on top).</summary>
+	public void SlideFrom(float rows)
+	{
+		if (Mathf.Abs(rows) < 0.01f) return;
+		Rows = Mathf.Clamp(rows, -6, 6);
+		ZIndex = rows > 0 ? 1 : 0;
+		_tween = CreateTween();
+		_tween.TweenProperty(this, "Rows", 0f, 0.7f).SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+		_tween.TweenCallback(Callable.From(() => ZIndex = 0));
+	}
+
+	public override Vector2 _GetMinimumSize() =>
+		GetChildren().OfType<Control>().Aggregate(Vector2.Zero, (size, c) => size.Max(c.GetCombinedMinimumSize()));
+
+	public override void _Notification(int what)
+	{
+		if (what != NotificationSortChildren) return;
+		foreach (var c in GetChildren().OfType<Control>())
+			FitChildInRect(c, new Rect2(0, _rows * (Size.Y + Gap), Size));
+	}
+}

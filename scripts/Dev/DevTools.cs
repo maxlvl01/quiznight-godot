@@ -204,6 +204,33 @@ public sealed class DevTools
 					Callable.From(() => Ui.Dialogs.Confirm(_app, Lang.F("Delete \"{0}\"? This can't be undone — export it first if you want a backup.", "New quiz"),
 						"Delete", () => { }, dontAskAgain: () => { })).CallDeferred();
 					break;
+				// (four scoreboard rows; after 1.3 s the last one overtakes the other three: shoot at 1.5 to see it mid-slide)
+				case "slide":
+				{
+					var list = Ui.U.V(6);
+					var rows = new[] { "1st  Ann  5", "2nd  Ben  4", "3rd  Cleo  3", "4th  Dan  2" }.Select(t =>
+					{
+						var slide = new Ui.SlideRow();
+						slide.AddChild(Ui.U.Panel(Ui.U.Text(t, 16), "Card2"));
+						list.AddChild(slide);
+						return slide;
+					}).ToList();
+					var page = new Control();
+					page.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+					var center = new CenterContainer();
+					center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+					page.AddChild(center);
+					list.CustomMinimumSize = new Vector2(300, 0);
+					center.AddChild(list);
+					_app.AddChild(page);
+					_app.GetTree().CreateTimer(1.3).Timeout += () =>
+					{
+						list.MoveChild(rows[3], 0);
+						rows[3].SlideFrom(3);
+						for (var i = 0; i < 3; i++) rows[i].SlideFrom(-1);
+					};
+					break;
+				}
 				default:
 					_app.GoHome();
 					break;

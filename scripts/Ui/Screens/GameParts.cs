@@ -17,8 +17,12 @@ public static class GameParts
 		return row;
 	}
 
-	public static Control RankBadge(int rank) =>
-		U.Mono(Lang.Ordinal(rank), 14, C.Muted).Raw().MinSize(34).With(l => l.HorizontalAlignment = HorizontalAlignment.Center);
+	/// <param name="medal">A place in the standings: 1st to 3rd in gold, silver and bronze (not for turn or buzz order).</param>
+	public static Control RankBadge(int rank, bool medal = false) =>
+		U.Mono(Lang.Ordinal(rank), 14, medal ? C.Medal(rank) ?? C.Muted : C.Muted).Raw().MinSize(34).With(l => l.HorizontalAlignment = HorizontalAlignment.Center);
+
+	/// <summary>Where each player's row was on each scoreboard (by viewer), so a rebuilt board can slide the ones that moved.</summary>
+	static readonly Dictionary<string, Dictionary<string, (int Slot, SlideRow Row)>> _lastSlots = new();
 
 	/// <summary>"left at Q 4/13" / "joined at Q 3/13" under a name (or null).</summary>
 	public static Label? SeatNote(PublicPlayer p, RoomState room) =>
@@ -60,6 +64,9 @@ public static class GameParts
 		var me = rows.FindIndex(p => p.Id == highlight);
 		var shown = adjust == null && me >= 0 ? ShownPositions(rows.Count, me) : Enumerable.Range(0, rows.Count).ToList();
 		var previous = -1;
+		var board = highlight ?? (adjust != null ? "host" : "");
+		var last = _lastSlots.GetValueOrDefault(board) ?? new();
+		var slots = new Dictionary<string, (int Slot, SlideRow Row)>();
 		foreach (var i in shown)
 		{
 			if (i > previous + 1)
@@ -68,7 +75,7 @@ public static class GameParts
 			var p = rows[i];
 			// Sound/video questions: how much of the file each player has, right after the name.
 			var ring = progress != null && p.Connected && progress.TryGetValue(p.Id, out var percent) ? new[] { (Control)new DownloadRing(percent, 16) } : Array.Empty<Control>();
-			var row = Row(8, RankBadge(room.Place(p.Id)), new Avatar(p, 26), new NameRow(p, SeatNote(p, room), ring).Grow());
+			var row = Row(8, RankBadge(room.Place(p.Id), true), new Avatar(p, 26), new NameRow(p, SeatNote(p, room), ring).Grow());
 			// (what decides between equal scores, on hover)
 			if (room.AvgAnswerMs.TryGetValue(p.Id, out var ms)) row.TooltipText = Lang.F("Average answer time: {0} s", (ms / 1000).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
 			AddJokers(row, room, p.Id);
@@ -80,9 +87,17 @@ public static class GameParts
 				row.AddChild(U.Small("−", () => adjust(id, -1)).Tip(Lang.F("Take a point from {0}", p.Name)));
 				row.AddChild(U.Small("+", () => adjust(id, 1)).Tip(Lang.F("Give {0} a point", p.Name)));
 			}
-			list.AddChild(U.Panel(row, p.Id == highlight ? "ChipMe" : "Card2").With(c => c.AddThemeStyleboxOverride("panel",
+			var slide = new SlideRow();
+			slide.AddChild(U.Panel(row, p.Id == highlight ? "ChipMe" : "Card2").With(c => c.AddThemeStyleboxOverride("panel",
 				UiTheme.Box(C.Panel2, 10, p.Id == highlight ? C.Teal : C.Border, 1, 10, 6))));
+			// Overtaken: rows that changed places slide from where they were (still sliding: from where they are now).
+			var slot = list.GetChildCount();
+			if (last.TryGetValue(p.Id, out var before))
+				slide.SlideFrom(before.Slot - slot + (GodotObject.IsInstanceValid(before.Row) ? before.Row.Rows : 0));
+			slots[p.Id] = (slot, slide);
+			list.AddChild(slide);
 		}
+		_lastSlots[board] = slots;
 		if (shown.Count > 0 && shown[^1] < rows.Count - 1)
 			list.AddChild(U.Muted(Lang.F("⋮  {0} more", rows.Count - 1 - shown[^1]), 13, false, HorizontalAlignment.Center).Center());
 		return list;
