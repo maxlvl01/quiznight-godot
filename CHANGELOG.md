@@ -11,7 +11,7 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
-## [Unreleased]
+## [0.8.6b] — map grid
 
 ### Changed
 - Map pin editor: you pick the map from a grid of pictures (name and width under each) instead of a drop-down. "Change map" brings the grid back; your own uploaded maps are in it too.
