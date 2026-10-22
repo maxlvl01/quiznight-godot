@@ -15,6 +15,7 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ### Changed
 - Quiznight has its own icon: a white Q with the orange "!" on purple (the game file, the taskbar and the window).
+- Sound previews (buzzer and podium, in Settings and the lobby): ▶ turns into ■ while it plays, so you can stop it. Only one plays at a time, and leaving the screen stops it.
 
 ## [0.8.7b] — hotfix 1
 

@@ -110,6 +110,7 @@ public partial class App : Control
 
 	void Show(Control screen)
 	{
+		Sfx.StopPreview();
 		_screens.Clear();
 		_screen = screen;
 		screen.SetAnchorsPreset(LayoutPreset.FullRect);

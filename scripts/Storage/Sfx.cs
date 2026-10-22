@@ -134,6 +134,26 @@ public static class Sfx
 
 	static AudioStreamPlayer? _musicPlayer;
 
+	/// <summary>Whether a buzzer sound (false) or podium sound (true) is playing right now.</summary>
+	public static bool IsPlaying(bool music) => (music ? _musicPlayer : _player) is { } p && GodotObject.IsInstanceValid(p) && p.Playing;
+
+	/// <summary>A ▶ preview (Settings, host lobby) is what's playing: it's stopped when the screen changes.</summary>
+	public static bool Previewing;
+
+	/// <summary>Stops the buzzer and podium sounds: only one preview plays at a time.</summary>
+	public static void StopAll()
+	{
+		foreach (var p in new[] { _player, _musicPlayer })
+			if (p != null && GodotObject.IsInstanceValid(p)) p.Stop();
+		Previewing = false;
+	}
+
+	/// <summary>Leaving a screen: a preview still playing stops (a game's own buzzer or podium sound doesn't).</summary>
+	public static void StopPreview()
+	{
+		if (Previewing) StopAll();
+	}
+
 	static void Play(AudioStream stream) => Play(ref _player, Prefs.SfxBus, stream);
 
 	static void Play(ref AudioStreamPlayer? player, string bus, AudioStream stream)

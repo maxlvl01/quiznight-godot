@@ -124,13 +124,17 @@ public sealed class DevTools
 		if (Value("--pretend-update") is { } newer) Ui.Screens.UpdatePrompt.Pretend(newer);
 		// (the map grid as if that built-in map had come with this update: its NEW badge)
 		if (Value("--pretend-new-map") is { } newMap) MapPresets.PretendNew = newMap;
-		// --press TEXT: presses the first button whose text starts with TEXT, once, as soon as one shows up (e.g. "⋮" on a scoreboard)
-		if (Value("--press") is { } press)
+		// --press TEXT[#N]: presses the first (or Nth) button whose text starts with TEXT, once, as soon as there is one
+		// (e.g. "⋮" on a scoreboard, "▶#2" for the podium sound in Settings)
+		if (Value("--press") is { } pressArg)
 		{
 			var timer = new Timer { WaitTime = 0.5, Autostart = true };
 			timer.Timeout += () =>
 			{
-				if (FindAll<Button>(_app).FirstOrDefault(b => b.IsVisibleInTree() && b.Text.StartsWith(press)) is not { } button) return;
+				var parts = pressArg.Split('#');
+				var press = parts[0];
+				var nth = parts.Length > 1 && int.TryParse(parts[1], out var n) ? n : 1;
+				if (FindAll<Button>(_app).Where(b => b.IsVisibleInTree() && b.Text.StartsWith(press)).Skip(nth - 1).FirstOrDefault() is not { } button) return;
 				button.EmitSignal(BaseButton.SignalName.Pressed);
 				timer.QueueFree();
 			};
