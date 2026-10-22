@@ -44,7 +44,8 @@ the original design decisions; most still apply.
   an image reveal's picture revealed in step with the host's. Choice answers and order items are shuffled per game
   (`QuizRules.ShuffleChoices`/`ShuffleOrder`); the stored quiz is never changed.
 - **Jokers** (`Shared.Joker`, `Game.PlayJoker`): Double points and Fast Pass, each once per player and match, allowed per
-  lobby (`RoomSettings.Jokers`). They're played for `Game.JokerIndex` (the hidden current question, or the next one
+  lobby (`RoomSettings.Jokers`). Only one player per question can hold the Fast Pass (first come; others see
+  `GameView.FastPassTaken`, not who); Double is open to everyone. They're played for `Game.JokerIndex` (the hidden current question, or the next one
   during a reveal), can be taken back until that question is shown, and are secret until then. Double multiplies the
   reveal's points (`RevealEntry.Doubled`; timeline points as they're placed; written ticks and bonuses too). A Fast
   Pass buzz is inserted ahead of everyone waiting.

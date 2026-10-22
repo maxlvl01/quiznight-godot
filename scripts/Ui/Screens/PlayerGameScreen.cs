@@ -170,9 +170,11 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			{
 				button = U.Btn(Joker.Label(k), "SmallButton", () => _client.PlayJoker(k, true), 14);
 				var fastOff = k == Joker.FastPass && !game.JokerBuzzer;
-				button.Disabled = game.JokerIndex == null || fastOff;
+				var taken = k == Joker.FastPass && game.FastPassTaken;
+				button.Disabled = game.JokerIndex == null || fastOff || taken;
 				hint = game.JokerIndex is not { } next ? Lang.T("Play it before a question starts.")
 					: fastOff ? Lang.T("Only for buzzer questions: the next one isn't.")
+					: taken ? Lang.T("Someone else already has the Fast Pass for this question.")
 					: Lang.F("Plays on question {0}.", next + 1);
 			}
 			button.SizeFlagsHorizontal = SizeFlags.ExpandFill;

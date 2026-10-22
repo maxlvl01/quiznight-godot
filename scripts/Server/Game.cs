@@ -908,6 +908,8 @@ public sealed class Game
 			LateIds = _late.ToList(),
 			JokerIndex = JokerIndex,
 			JokerBuzzer = JokerIndex is { } ji && _quiz.Questions[ji].IsBuzzer,
+			// (that someone has it, not who: still a secret)
+			FastPassTaken = JokerIndex is { } fi && FastPassTaken(fi, viewer),
 			// (a joker for a question not shown yet is a secret: only its player sees it, and can take it back)
 			Jokers = _jokers.Where(j => j.PlayerId == viewer || Locked(j)).Select(j => new JokerPlay { PlayerId = j.PlayerId, Kind = j.Kind, Index = j.Index }).ToList(),
 		};
@@ -936,6 +938,8 @@ public sealed class Game
 	int Multiplier(string playerId) => Played(playerId, Joker.Double, Index) ? 2 : 1;
 
 	/// <summary>A player plays a joker for the next question (on), or takes it back before that question is shown.</summary>
+	bool FastPassTaken(int index, string viewer) => _jokers.Any(j => j.Kind == Joker.FastPass && j.Index == index && j.PlayerId != viewer);
+
 	public Result PlayJoker(string playerId, string kind, bool on)
 	{
 		if (!Joker.All.Contains(kind) || !_hooks.JokerAllowed(kind)) return Result.Fail("The host didn't allow that joker tonight.");
@@ -949,6 +953,8 @@ public sealed class Game
 		if (mine != null) return Result.Fail("You already used that joker.");
 		if (JokerIndex is not { } index) return Result.Fail("Jokers are played before a question starts.");
 		if (kind == Joker.FastPass && !_quiz.Questions[index].IsBuzzer) return Result.Fail("The Fast Pass is only for buzzer questions.");
+		// (Double: anyone; Fast Pass: one player per question, first come)
+		if (kind == Joker.FastPass && FastPassTaken(index, playerId)) return Result.Fail("Someone else already has the Fast Pass for this question.");
 		_jokers.Add(new JokerPlay { PlayerId = playerId, Kind = kind, Index = index });
 		return Result.Success();
 	}

@@ -479,7 +479,7 @@ public sealed class DevTools
 			if (client.State?.Phase == Phase.Playing && g?.JokerIndex is { } jokerAt && client.State.Settings.Jokers.Count > 0)
 			{
 				bool Has(string kind) => g.Jokers.Any(j => j.PlayerId == client.MyId && j.Kind == kind);
-				if (g.JokerBuzzer && !Has(Joker.FastPass) && client.State.Settings.Jokers.Contains(Joker.FastPass)) client.PlayJoker(Joker.FastPass, true);
+				if (g.JokerBuzzer && !g.FastPassTaken && !Has(Joker.FastPass) && client.State.Settings.Jokers.Contains(Joker.FastPass)) client.PlayJoker(Joker.FastPass, true);
 				if (jokerAt == 2 && !Has(Joker.Double) && client.State.Settings.Jokers.Contains(Joker.Double)) client.PlayJoker(Joker.Double, true);
 			}
 			// Timeline: on its turn, a bot picks a gap nobody has tried yet.

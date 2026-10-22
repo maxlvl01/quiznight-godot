@@ -69,7 +69,7 @@ public static class Joker
 {
 	/// <summary>Double points: whatever the question gives (or the host takes) counts twice.</summary>
 	public const string Double = "double";
-	/// <summary>Fast Pass (buzzer questions only): your buzz goes ahead of everyone waiting in line.</summary>
+	/// <summary>Fast Pass (buzzer questions only): your buzz goes ahead of everyone waiting in line. One player per question (first come); Double: anyone.</summary>
 	public const string FastPass = "fastPass";
 	public static readonly string[] All = { Double, FastPass };
 
@@ -369,6 +369,8 @@ public sealed class GameView
 	/// <summary>The question jokers can be played for right now (null: not now), and whether it's a buzzer question.</summary>
 	public int? JokerIndex;
 	public bool JokerBuzzer;
+	/// <summary>Someone else already plays the Fast Pass on that question (only one per question; who stays secret).</summary>
+	public bool FastPassTaken;
 	/// <summary>Jokers played: everyone's once their question is shown, your own (still takeable back) before that.</summary>
 	public List<JokerPlay> Jokers = new();
 }

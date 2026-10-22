@@ -161,6 +161,8 @@ public static class SelfTest
 		Check(g.PlayJoker("ann", Joker.FastPass, true).Ok && g.PlayJoker("bob", Joker.Double, true).Ok, "jokers played");
 		Check(g.View("cat").Jokers.Count == 0 && g.View("ann").Jokers.Count == 1, "a joker stays secret until its question is shown");
 		Check(g.PlayJoker("ann", Joker.FastPass, false).Ok && g.PlayJoker("ann", Joker.FastPass, true).Ok, "taken back and played again");
+		Check(!g.PlayJoker("cat", Joker.FastPass, true).Ok && g.View("cat").FastPassTaken && !g.View("ann").FastPassTaken, "one Fast Pass per question (others see it's taken, not by whom)");
+		Check(g.PlayJoker("cat", Joker.Double, true).Ok && g.PlayJoker("cat", Joker.Double, false).Ok, "Double: anyone can play it on the same question");
 		g.ShowQuestion();
 		Check(!g.PlayJoker("ann", Joker.FastPass, false).Ok && g.JokerIndex == null, "once shown: locked in, no new ones");
 		Eq(g.View("cat").Jokers.Count, 2, "everyone sees them now");
