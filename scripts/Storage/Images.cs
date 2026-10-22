@@ -91,6 +91,13 @@ public static class Images
 		return tex;
 	}
 
+	/// <summary>
+	/// A small picture of a built-in map for the map picker (assets/map-thumbs/, 400 px wide, made from the map files
+	/// with Pillow; inside the .pck, unlike the maps themselves). Null if there is none.
+	/// </summary>
+	public static Texture2D? MapThumb(string mapPath) =>
+		BuiltinTexture($"res://assets/map-thumbs/{System.IO.Path.GetFileNameWithoutExtension(mapPath)}.webp");
+
 	const string MapsRes = "res://assets/maps/";
 
 	/// <summary>

@@ -439,8 +439,8 @@ public partial class QuestionEditorScreen : Control
 	VBoxContainer _mapCol = U.V(10);
 	readonly Dictionary<string, Texture2D?> _mapTextures = new();
 	bool _addingMap;
-	const string NewMap = "__new";
-	const string PresetPrefix = "preset:";
+	/// <summary>The map grid is open again ("Change map") although a map is chosen.</summary>
+	bool _pickingMap;
 
 	Control MapPinForm()
 	{
@@ -481,24 +481,8 @@ public partial class QuestionEditorScreen : Control
 		_mapCol.Clear();
 		// (once it's built: the map takes the height that's left)
 		Callable.From(() => U.PropagateGrow(_form)).CallDeferred();
-		_mapCol.AddChild(U.Bold("2 · Map and correct spot", 16));
-
-		var items = new List<(string, string)> { ("", "Choose a map…") };
-		items.AddRange(_maps.Select(m => (m.Id, m.Name)));
-		items.AddRange(MapPresets.All.Where(p => _maps.All(m => m.PresetId != p.Id)).OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase).Select(p => (PresetPrefix + p.Id, Lang.F("{0}  (built-in)", p.Name))));
-		items.Add((NewMap, "+ Upload a new map"));
-		_mapCol.AddChild(U.Select(items.ToArray(), _addingMap ? NewMap : _draft.MapId ?? "", id =>
-		{
-			_addingMap = id == NewMap;
-			if (id.StartsWith(PresetPrefix)) ChoosePreset(id[PresetPrefix.Length..]);
-			else if (!_addingMap)
-			{
-				_draft.MapId = id == "" ? null : id;
-				_draft.Target = null;
-				Changed();
-			}
-			BuildMapColumn();
-		}));
+		var heading = U.H(8, U.Bold("2 · Map and correct spot", 16).Grow());
+		_mapCol.AddChild(heading);
 
 		var map = CurrentMap;
 		if (_addingMap)
@@ -506,11 +490,16 @@ public partial class QuestionEditorScreen : Control
 			_mapCol.AddChild(MapUploader());
 			return;
 		}
-		if (map == null)
+		if (map == null || _pickingMap)
 		{
-			_mapCol.AddChild(U.Panel(U.Muted("Pick a game map or upload your own above.", 14, true, HorizontalAlignment.Center).MinSize(0, 120), "Inset"));
+			_mapCol.AddChild(MapGrid(map));
 			return;
 		}
+		heading.AddChild(U.Small("Change map", () =>
+		{
+			_pickingMap = true;
+			BuildMapColumn();
+		}));
 
 		var hint = U.Muted("", 13);
 		void UpdateHint(bool wow) => hint.Text = wow
@@ -567,6 +556,85 @@ public partial class QuestionEditorScreen : Control
 		if (credit != null) _mapCol.AddChild(U.Muted(credit, 12));
 	}
 
+	/// <summary>
+	/// The maps to pick from as picture cards: this quiz's own uploaded maps, every built-in one (A–Z, with its width) and
+	/// "Upload a new map". Scrolls when there are more than fit.
+	/// </summary>
+	Control MapGrid(MapAsset? current)
+	{
+		var grid = new GridContainer { Columns = 3 };
+		grid.AddThemeConstantOverride("h_separation", 8);
+		grid.AddThemeConstantOverride("v_separation", 8);
+		void Pick(Action choose)
+		{
+			_pickingMap = false;
+			choose();
+			BuildMapColumn();
+		}
+		foreach (var m in _maps.Where(m => MapPresets.Get(m.PresetId) == null))
+		{
+			var own = m;
+			grid.AddChild(MapCard(MapTexture(own), own.Name, own.WidthKm is { } km ? Lang.F("{0} km wide", Km(km)) : Lang.T("Your map"), own == current, () => Pick(() =>
+			{
+				_draft.MapId = own.Id;
+				_draft.Target = null;
+				Changed();
+			})));
+		}
+		foreach (var p in MapPresets.All.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase))
+		{
+			var preset = p;
+			var width = preset.WidthKm is { } km ? Lang.F("{0} km wide", Km(km)) : preset.Id == WowAtlas.PresetId ? Lang.T("World → continents → zones") : "";
+			grid.AddChild(MapCard(Images.MapThumb(preset.ImagePath), preset.Name, width, current?.PresetId == preset.Id, () => Pick(() => ChoosePreset(preset.Id))));
+		}
+		grid.AddChild(MapCard(null, Lang.T("+ Upload a new map"), Lang.T("Any picture of a map"), false, () =>
+		{
+			_pickingMap = false;
+			_addingMap = true;
+			BuildMapColumn();
+		}));
+		var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, SizeFlagsVertical = SizeFlags.ExpandFill };
+		grid.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		scroll.AddChild(grid);
+		var box = U.V(8, scroll);
+		box.SizeFlagsVertical = SizeFlags.ExpandFill;
+		if (current != null)
+			box.AddChild(U.Link(Lang.F("← Keep {0}", current.Name), () =>
+			{
+				_pickingMap = false;
+				BuildMapColumn();
+			}, 14).Raw());
+		else box.AddChild(U.Muted("Pick a game map or upload your own.", 13));
+		return box;
+	}
+
+	static string Km(double km) => km.ToString(km < 10 ? "0.#" : "0", System.Globalization.CultureInfo.InvariantCulture);
+
+	/// <summary>One map in the picker: its picture, name and width; the chosen one has a blue frame.</summary>
+	static Control MapCard(Texture2D? picture, string name, string detail, bool chosen, Action pick)
+	{
+		var button = new Button { MouseDefaultCursorShape = CursorShape.PointingHand, SizeFlagsHorizontal = SizeFlags.ExpandFill, TooltipText = name };
+		foreach (var state in new[] { "normal", "hover", "pressed", "focus" })
+			button.AddThemeStyleboxOverride(state, UiTheme.Box(state == "hover" ? C.Panel2.Lightened(0.08f) : C.Panel2, 10, chosen ? C.Blue : state == "hover" ? C.Blue.Darkened(0.3f) : C.Border, chosen ? 2 : 1, 6, 6));
+		button.Pressed += pick;
+		var image = picture != null
+			? new TextureRect { Texture = picture, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, ClipContents = true }
+			: (Control)U.Panel(U.Text("+", 30, C.Muted, Fonts.Bold, false, HorizontalAlignment.Center), "Inset");
+		image.CustomMinimumSize = new Vector2(0, 72);
+		var label = U.Bold(name, 12).Raw();
+		label.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+		var content = U.V(3, image, label, U.Muted(detail, 11, false));
+		content.MouseFilter = MouseFilterEnum.Ignore;
+		foreach (var c in content.GetChildren().OfType<Control>()) c.MouseFilter = MouseFilterEnum.Ignore;
+		var pad = new MarginContainer { MouseFilter = MouseFilterEnum.Ignore };
+		foreach (var side in new[] { "left", "right", "top", "bottom" }) pad.AddThemeConstantOverride($"margin_{side}", 6);
+		pad.SetAnchorsPreset(LayoutPreset.FullRect);
+		pad.AddChild(content);
+		button.AddChild(pad);
+		button.CustomMinimumSize = new Vector2(0, 118);
+		return button;
+	}
+
 	void ChoosePreset(string presetId)
 	{
 		_addingMap = false;
@@ -610,12 +678,11 @@ public partial class QuestionEditorScreen : Control
 			BuildMapColumn();
 		};
 		var actions = U.H(8, U.Fill());
-		if (_maps.Count > 0)
-			actions.AddChild(U.Link("Cancel", () =>
-			{
-				_addingMap = false;
-				BuildMapColumn();
-			}, 14));
+		actions.AddChild(U.Link("Cancel", () =>
+		{
+			_addingMap = false;
+			BuildMapColumn();
+		}, 14));
 		actions.AddChild(add);
 		return U.Panel(U.V(12,
 			new ImageField(null, img =>
