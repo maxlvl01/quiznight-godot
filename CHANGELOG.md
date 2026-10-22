@@ -11,15 +11,10 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
-## [Unreleased]
-
-### Changed
-- The icon's Q and "!" are now in the same font as the Quiznight! logo on the home screen.
-
 ## [0.8.8b] — icon and sound previews
 
 ### Changed
-- Quiznight has its own icon: a white Q with the orange "!" on purple (the game file, the taskbar and the window).
+- Quiznight has its own icon: a Q and the orange "!" in the logo's font, on purple (the game file, the taskbar and the window).
 - Sound previews (buzzer and podium, in Settings and the lobby): ▶ turns into ■ while it plays, so you can stop it. Only one plays at a time, and leaving the screen stops it.
 
 ## [0.8.7b] — hotfix 1
