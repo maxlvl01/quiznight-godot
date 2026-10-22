@@ -18,7 +18,7 @@ public static class GameParts
 	}
 
 	public static Control RankBadge(int rank) =>
-		U.Mono($"{rank}", 14, C.Muted).MinSize(22).With(l => l.HorizontalAlignment = HorizontalAlignment.Center);
+		U.Mono(Lang.Ordinal(rank), 14, C.Muted).Raw().MinSize(34).With(l => l.HorizontalAlignment = HorizontalAlignment.Center);
 
 	/// <summary>"left at Q 4/13" / "joined at Q 3/13" under a name (or null).</summary>
 	public static Label? SeatNote(PublicPlayer p, RoomState room) =>

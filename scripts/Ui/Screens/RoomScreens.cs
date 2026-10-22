@@ -264,7 +264,7 @@ public partial class PodiumScreen : Control, IRoomScreen
 
 		_content.AddChild(U.Eyebrow(Lang.F("{0} · final results", room.Quiz.Title)).Center());
 		_content.AddChild(U.H(0, U.Heading(top.Count(r => r.Place == 1) > 1 ? "It's a tie at the top" : "And the winner is", 48, false), U.Text("…", 48, C.Accent, Fonts.Black)).Center());
-		if (me.P != null) _content.AddChild(U.H(4, U.Muted("You finished", 16, false), U.Text($"#{me.Place}", 16, C.Accent, Fonts.Bold), U.Muted(Lang.F("with {0} points.", me.Score), 16, false)).Center());
+		if (me.P != null) _content.AddChild(U.H(4, U.Muted("You finished", 16, false), U.Text(Lang.Ordinal(me.Place), 16, C.Accent, Fonts.Bold).Raw(), U.Muted(Lang.F("with {0} points.", me.Score), 16, false)).Center());
 
 		// Classic podium order: 2nd, 1st, 3rd
 		var podium = U.H(14);
@@ -274,7 +274,7 @@ public partial class PodiumScreen : Control, IRoomScreen
 		{
 			var height = place == 1 ? 190 : place == 2 ? 140 : 100;
 			var color = place == 1 ? C.Accent : place == 2 ? new Color("#c7cbe0") : new Color("#d39a6a");
-			var block = U.Panel(U.Text($"{place}", 44, new Color("#14151b"), Fonts.Black, false, HorizontalAlignment.Center), "Clear")
+			var block = U.Panel(U.Text(Lang.Ordinal(place), 44, new Color("#14151b"), Fonts.Black, false, HorizontalAlignment.Center).Raw(), "Clear")
 				.With(p =>
 				{
 					var box = UiTheme.Box(color, 0, null, 0, 0, 10);
@@ -304,8 +304,12 @@ public partial class PodiumScreen : Control, IRoomScreen
 			foreach (var r in rest)
 			{
 				var chip = Chips.Player(r.P, $"· {r.Score}", r.P.Id == _myId);
-				((HBoxContainer)chip.GetChild(0)).AddChild(U.Mono($"#{r.Place}", 13, C.Muted));
-				if (GameParts.SeatNote(r.P, room) is { } note) ((HBoxContainer)chip.GetChild(0)).AddChild(note);
+				var inside = (HBoxContainer)chip.GetChild(0);
+				// The place first, like the podium: "4th  Ann · 2"
+				var place = U.Mono(Lang.Ordinal(r.Place), 13, C.Muted).Raw();
+				inside.AddChild(place);
+				inside.MoveChild(place, 0);
+				if (GameParts.SeatNote(r.P, room) is { } note) inside.AddChild(note);
 				chips.AddChild(chip);
 			}
 			_content.AddChild(chips);

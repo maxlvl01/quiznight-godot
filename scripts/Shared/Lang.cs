@@ -33,4 +33,12 @@ public static class Lang
 	public static string T(string en) => TranslationServer.Translate(en).ToString();
 
 	public static string F(string en, params object?[] args) => string.Format(T(en), args);
+
+	/// <summary>A place: "1st", "2nd", "3rd", "4th", "11th", "22nd" (German "1.", "2.").</summary>
+	public static string Ordinal(int n)
+	{
+		if (TranslationServer.GetLocale() == "de") return $"{n}.";
+		var suffix = (n % 100) is 11 or 12 or 13 ? "th" : (n % 10) switch { 1 => "st", 2 => "nd", 3 => "rd", _ => "th" };
+		return $"{n}{suffix}";
+	}
 }

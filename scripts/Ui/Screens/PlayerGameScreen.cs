@@ -219,7 +219,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		{
 			if (mine.Status == BuzzStatus.Wrong)
 				return Status(U.Text("Not quite.", 30, C.Text, Fonts.Black), U.Muted("The others get a go now.", 16), U.Muted(Lang.F("You buzzed after {0}.", U.FormatSeconds(mine.AtSec)), 13));
-			var kids = new System.Collections.Generic.List<Control> { U.Text($"#{place + 2}", 56, C.Accent, Fonts.Black), U.Bold("You're in line", 20) };
+			var kids = new System.Collections.Generic.List<Control> { U.Text(Lang.Ordinal(place + 2), 56, C.Accent, Fonts.Black).Raw(), U.Bold("You're in line", 20) };
 			if (answering != null) kids.Add(U.Muted(Lang.F("{0} is answering.", room.Player(answering.PlayerId).Name), 16));
 			kids.Add(U.Muted(Lang.F("You buzzed after {0}.", U.FormatSeconds(mine.AtSec)), 13));
 			return Status(kids.ToArray());
