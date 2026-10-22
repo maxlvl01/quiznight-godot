@@ -205,6 +205,21 @@ public static class UiTheme
 		// CheckBox would otherwise inherit the button frame.
 		foreach (var state in new[] { "normal", "hover", "pressed", "hover_pressed", "disabled", "focus" })
 			t.SetStylebox(state, "CheckBox", new StyleBoxEmpty { ContentMarginLeft = 2, ContentMarginRight = 2, ContentMarginTop = 4, ContentMarginBottom = 4 });
+		// Tick boxes in the skin's colours (SVG, so they stay sharp at any window size; no textures in headless runs)
+		if (DisplayServer.GetName() != "headless")
+		{
+			static string Hex(Color c) => "#" + c.ToHtml(false);
+			string Box(bool on, float alpha) =>
+				$"<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18' opacity='{alpha.ToString(System.Globalization.CultureInfo.InvariantCulture)}'>" +
+				(on
+					? $"<rect x='0.5' y='0.5' width='17' height='17' rx='4' fill='{Hex(C.Blue)}'/><path d='M4.5 9.2 7.7 12.4 13.5 5.8' fill='none' stroke='{Hex(C.Bg)}' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/>"
+					: $"<rect x='1' y='1' width='16' height='16' rx='4' fill='{Hex(C.Bg)}' stroke='{Hex(C.Blue.Lerp(C.Bg, 0.35f))}' stroke-width='1.6'/>") +
+				"</svg>";
+			t.SetIcon("checked", "CheckBox", DpiTexture.CreateFromString(Box(true, 1)));
+			t.SetIcon("unchecked", "CheckBox", DpiTexture.CreateFromString(Box(false, 1)));
+			t.SetIcon("checked_disabled", "CheckBox", DpiTexture.CreateFromString(Box(true, 0.45f)));
+			t.SetIcon("unchecked_disabled", "CheckBox", DpiTexture.CreateFromString(Box(false, 0.45f)));
+		}
 
 		// Popups and dialogs
 		var popup = Box(C.Panel2, 10, C.Border, 1, 6, 6);
