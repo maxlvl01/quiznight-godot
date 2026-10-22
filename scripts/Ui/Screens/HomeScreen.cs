@@ -73,26 +73,29 @@ public partial class HomeScreen : Control
 
 		var grid = U.H(16, host, join);
 		page.AddChild(grid);
-		var updateButton = U.Link("Check for updates", () =>
+		// Just an arrow: grey (click to check), green when a newer version is out (click to update).
+		var updateButton = U.Small("", () =>
 		{
 			if (UpdatePrompt.Available is { } release) UpdatePrompt.Install(this, release);
 			else UpdatePrompt.CheckNow(this);
-		}, 12);
+		}).MinSize(22, 22);
+		foreach (var state in new[] { "normal", "hover", "pressed", "focus" }) updateButton.AddThemeStyleboxOverride(state, new StyleBoxEmpty());
+		var arrow = new UpdateArrow();
+		arrow.SetAnchorsPreset(LayoutPreset.FullRect);
+		updateButton.AddChild(arrow);
+		updateButton.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+		updateButton.MouseEntered += () => arrow.Hovered = true;
+		updateButton.MouseExited += () => arrow.Hovered = false;
 		page.AddChild(U.H(6, U.Muted($"v{App.Version}", 12, false), updateButton, U.Muted("·", 12, false), U.Link("What's new", () => WhatsNew.ShowCurrent(this), 12),
 			U.Muted("·", 12, false), U.Link("🏆 Eternal table", App.I.GoEternalTable, 12)).Center());
-		// The button lights up green when a newer version is out.
 		void ShowUpdate()
 		{
 			if (!IsInstanceValid(updateButton)) return;
 			var release = UpdatePrompt.Available;
 			updateNote.Text = release != null ? Lang.F("An update is available: version {0}", release.Version) : "";
 			updateNote.Visible = release != null;
-			updateButton.Text = release != null ? Lang.F("⬆ Update to {0}", release.Version) : UpdatePrompt.Checking ? Lang.T("Checking…") : Lang.T("Check for updates");
-			foreach (var c in new[] { "font_color", "font_hover_color", "font_pressed_color", "font_focus_color" })
-				if (release != null) updateButton.AddThemeColorOverride(c, c == "font_hover_color" ? C.Teal.Lightened(0.25f) : C.Teal);
-				else updateButton.RemoveThemeColorOverride(c);
-			if (release != null) updateButton.AddThemeStyleboxOverride("normal", UiTheme.Box(new Color(C.Teal, 0.12f), 8, C.Teal, 1, 8, 2));
-			else updateButton.RemoveThemeStyleboxOverride("normal");
+			arrow.Available = release != null;
+			updateButton.TooltipText = release != null ? Lang.F("Update to {0}", release.Version) : UpdatePrompt.Checking ? Lang.T("Checking…") : Lang.T("Check for updates");
 		}
 		ShowUpdate();
 		UpdatePrompt.Changed += ShowUpdate;

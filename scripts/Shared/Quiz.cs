@@ -261,7 +261,7 @@ public sealed class Question
 	public string OrderMode = Shared.OrderMode.All;
 	/// <summary>Timeline: what each item shows once it's placed, e.g. its year (same index as Items).</summary>
 	public List<string> ItemLabels = new();
-	/// <summary>Timeline: the item (index into Items) that starts on the timeline.</summary>
+	/// <summary>Timeline: the item (index into Items) that starts on the timeline. Only in a game: picked at random per game (ShuffleOrder).</summary>
 	public int TimelineStart;
 	/// <summary>Timeline: whoever places an item right places the next one too (else the turn passes on).</summary>
 	public bool KeepGoing = true;
@@ -388,8 +388,8 @@ public static class QuizRules
 		copy.Items = shown.Select(i => items[i]).ToList();
 		copy.ItemLabels = shown.Select(i => q.ItemLabel(filled[i])).ToList();
 		copy.CorrectOrder = Enumerable.Range(0, items.Count).Select(i => shown.IndexOf(i)).ToList();
-		// Timeline: the start item's new place (the first filled item if the marked one is empty).
-		copy.TimelineStart = Math.Max(0, shown.IndexOf(Math.Max(0, filled.IndexOf(q.TimelineStart))));
+		// Timeline: a random item starts on it.
+		copy.TimelineStart = items.Count > 0 ? rng.Next(items.Count) : 0;
 		return copy;
 	}
 

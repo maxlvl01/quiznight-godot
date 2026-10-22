@@ -84,7 +84,7 @@ public static class SampleQuiz
 			{
 				Id = "q12", Type = QuestionType.Order, OrderMode = OrderMode.Timeline, Prompt = "When did these games come out?",
 				Items = new() { "Doom", "Half-Life", "Portal", "Elden Ring" }, ItemLabels = new() { "1993", "1998", "2007", "2022" },
-				TimelineStart = 1, OrderTop = "Oldest", OrderBottom = "Newest", TimeLimitSec = 30, Points = 1,
+				OrderTop = "Oldest", OrderBottom = "Newest", TimeLimitSec = 30, Points = 1,
 			},
 		};
 		return new Quiz

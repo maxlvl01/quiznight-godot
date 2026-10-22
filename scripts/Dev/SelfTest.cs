@@ -53,7 +53,7 @@ public static class SelfTest
 
 		Check(g.View("host").EndsAt == null, "a timeline has no question timer, only turn timers");
 		Eq(Tl().Placed.Count, 1, "one item starts on the timeline");
-		Check(Tl().Placed[0] is { Text: "Half-Life", Label: "1998", Start: true }, "the start item shows its year");
+		Check(Tl().Placed[0] is { Start: true } first && first.Label == years[first.Text].ToString(), "the start item shows its year");
 		var order = Tl().TurnOrder;
 		Check(order.Select(id => start[id]).SequenceEqual(order.Select(id => start[id]).OrderBy(s => s)), "fewest points go first");
 		Eq(Tl().TurnPlayerId, order[0], "the first player's turn");
@@ -531,9 +531,10 @@ public static class SelfTest
 		Eq(multi.Mode, ClassicMode.Multi, "multi mode is saved");
 		Eq(string.Join(",", multi.CorrectChoices), "0,1", "multi correct answers are saved");
 		var timelineQ = Dev.SampleQuiz.Build().Questions.First(x => x.IsTimeline).Clone();
-		Check(timelineQ.IsTimeline && timelineQ.TimelineStart == 1 && string.Join(",", timelineQ.ItemLabels) == "1993,1998,2007,2022" && timelineQ.KeepGoing, "timeline settings are saved");
+		Check(timelineQ.IsTimeline && string.Join(",", timelineQ.ItemLabels) == "1993,1998,2007,2022" && timelineQ.KeepGoing, "timeline settings are saved");
 		var shuffledTl = QuizRules.ShuffleOrder(timelineQ, new Random(3));
-		Eq(shuffledTl.Items[shuffledTl.TimelineStart], "Half-Life", "the start item survives the shuffle");
+		var starts = Enumerable.Range(0, 40).Select(seed => QuizRules.ShuffleOrder(timelineQ, new Random(seed))).Select(s => s.Items[s.TimelineStart]).Distinct().Count();
+		Eq(starts, 4, "the timeline starts with a random item");
 		Eq(shuffledTl.ItemLabel(shuffledTl.Items.IndexOf("Portal")), "2007", "labels move with their items");
 		var image = Dev.SampleQuiz.Build().Questions.First(x => x.Type == QuestionType.Image).Clone();
 		Check(image.RevealStyle == RevealStyle.Pixelate && image.RevealSec == 20 && Math.Abs(image.Focus.Y - 0.45) < 1e-9, "image reveal settings are saved");

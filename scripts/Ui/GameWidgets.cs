@@ -290,3 +290,43 @@ public partial class TrashIcon : Control
 		DrawLine(P(14, 10), P(14, 17), _color, w, true);
 	}
 }
+
+/// <summary>The update button's arrow: grey (no update known; click checks), green when a newer version is out.</summary>
+public partial class UpdateArrow : Control
+{
+	bool _available, _hovered;
+
+	public UpdateArrow() => MouseFilter = MouseFilterEnum.Ignore;
+
+	public bool Available
+	{
+		set
+		{
+			_available = value;
+			QueueRedraw();
+		}
+	}
+
+	public bool Hovered
+	{
+		set
+		{
+			_hovered = value;
+			QueueRedraw();
+		}
+	}
+
+	public override void _Draw()
+	{
+		var color = _available ? (_hovered ? C.Teal.Lightened(0.25f) : C.Teal) : (_hovered ? C.Text : C.Muted);
+		var s = Mathf.Min(Size.X, Size.Y) / 24f;
+		var o = (Size - new Vector2(24, 24) * s) / 2;
+		Vector2 P(float x, float y) => o + new Vector2(x, y) * s;
+		var w = Mathf.Max(1.5f, 2.4f * s);
+		// An arrow up out of a tray (the "download" sign, pointing up: a newer version)
+		DrawLine(P(12, 16), P(12, 4), color, w, true);
+		DrawPolyline(new[] { P(6.5f, 9.5f), P(12, 4), P(17.5f, 9.5f) }, color, w, true);
+		DrawPolyline(new[] { P(4, 15), P(4, 20), P(20, 20), P(20, 15) }, color, w, true);
+		if (_available) DrawCircle(P(20.5f, 3.5f), 2.6f * s, color, true, -1, true);
+	}
+}

@@ -112,7 +112,6 @@ public static class QuizJson
 				if (q.IsTimeline)
 				{
 					o["itemLabels"] = new JsonArray(q.Items.Select((_, i) => (JsonNode)JsonValue.Create(q.ItemLabel(i))!).ToArray());
-					o["timelineStart"] = q.TimelineStart;
 					o["keepGoing"] = q.KeepGoing;
 				}
 				break;
@@ -175,7 +174,6 @@ public static class QuizJson
 				.Take(q.IsTimeline ? QuestionLimits.TimelineItemsMax : QuestionLimits.OrderItemsMax).ToList();
 		if (o["itemLabels"] is JsonArray labels)
 			q.ItemLabels = labels.Select(i => i is JsonValue v && v.TryGetValue<string>(out var s) ? s : "").Take(q.Items.Count).ToList();
-		q.TimelineStart = Math.Clamp((int)Num(o, "timelineStart", 0), 0, Math.Max(0, q.Items.Count - 1));
 		q.KeepGoing = o["keepGoing"] is not JsonValue kg || !kg.TryGetValue<bool>(out var keep) || keep;
 		q.OrderTop = Str(o, "orderTop", q.OrderTop);
 		q.OrderBottom = Str(o, "orderBottom", q.OrderBottom);
