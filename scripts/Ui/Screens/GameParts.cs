@@ -79,6 +79,7 @@ public static class GameParts
 			// (what decides between equal scores, on hover)
 			if (room.AvgAnswerMs.TryGetValue(p.Id, out var ms)) row.TooltipText = Lang.F("Average answer time: {0} s", (ms / 1000).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
 			AddJokers(row, room, p.Id);
+			if (Moved(room, rows, gained, p.Id) is { } moved) row.AddChild(moved);
 			if (gained.TryGetValue(p.Id, out var g) && g != 0) row.AddChild(U.Text($"+{g}", 14, C.Teal, Fonts.Bold));
 			row.AddChild(U.Mono($"{room.Score(p.Id)}", 16));
 			if (adjust != null)
@@ -101,6 +102,18 @@ public static class GameParts
 		if (shown.Count > 0 && shown[^1] < rows.Count - 1)
 			list.AddChild(U.Muted(Lang.F("⋮  {0} more", rows.Count - 1 - shown[^1]), 13, false, HorizontalAlignment.Center).Center());
 		return list;
+	}
+
+	/// <summary>At the reveal: "▲2" (green) or "▼1" (red), the places a player moved with this question's points (or null).</summary>
+	public static Control? Moved(RoomState room, List<PublicPlayer> rows, Dictionary<string, int> gained, string id)
+	{
+		if (gained.Count == 0) return null;
+		int Before(string pid) => room.Score(pid) - gained.GetValueOrDefault(pid);
+		var before = 1 + rows.Count(o => Before(o.Id) > Before(id));
+		var moved = before - room.Place(id);
+		return moved == 0 ? null
+			: U.Text(moved > 0 ? $"▲{moved}" : $"▼{-moved}", 13, moved > 0 ? C.Teal : C.Coral, Fonts.Bold)
+				.Raw().Tip(moved > 0 ? Lang.F("Up {0} places with this question", moved) : Lang.F("Down {0} places with this question", -moved));
 	}
 
 	/// <summary>

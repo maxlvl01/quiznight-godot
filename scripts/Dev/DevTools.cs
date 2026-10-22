@@ -226,6 +226,9 @@ public sealed class DevTools
 					_app.GetTree().CreateTimer(1.3).Timeout += () =>
 					{
 						list.MoveChild(rows[3], 0);
+						// (as the real board: rebuilt with the new places, and how far each one moved)
+						var after = new[] { "2nd  Ann  5  ▼1", "3rd  Ben  4  ▼1", "4th  Cleo  3  ▼1", "1st  Dan  6  ▲3" };
+						for (var i = 0; i < 4; i++) ((Label)((Control)rows[i].GetChild(0)).GetChild(0)).Text = after[i];
 						rows[3].SlideFrom(3);
 						for (var i = 0; i < 3; i++) rows[i].SlideFrom(-1);
 					};
