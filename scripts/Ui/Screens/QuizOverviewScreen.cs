@@ -59,6 +59,8 @@ public partial class QuizOverviewScreen : Control
 			button.Pressed += () => App.I.GoQuestion(_quiz.Id, null, t);
 			card.AddChild(button);
 			var inner = GameParts.Row(12, new TypeIcon(type, 28), U.Bold(info.Label, 17).Grow().With(l => l.AutowrapMode = TextServer.AutowrapMode.Word));
+			// (the row and everything in it let clicks through to the card underneath)
+			inner.MouseFilter = MouseFilterEnum.Ignore;
 			foreach (var c in inner.GetChildren().OfType<Control>()) c.MouseFilter = MouseFilterEnum.Ignore;
 			card.AddChild(U.Pad(inner, 16, 14, 44, 14).With(m => m.MouseFilter = MouseFilterEnum.Ignore));
 			var corner = new Control { MouseFilter = MouseFilterEnum.Ignore };

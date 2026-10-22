@@ -15,6 +15,7 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ### Fixed
 - Pop-up titles sit on a solid bar now, instead of on whatever was behind the pop-up.
+- Clicking a question type's name or icon (not just the space around it) opens it again.
 
 ## [0.8.2b] — short share codes and update check
 
