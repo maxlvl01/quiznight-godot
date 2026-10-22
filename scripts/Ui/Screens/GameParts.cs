@@ -49,28 +49,63 @@ public static class GameParts
 		return shown.Where(i => i >= 0 && i < count).ToList();
 	}
 
+	/// <summary>Player boards opened with a click on "⋮": until when they stay open (seconds, Time.GetTicksMsec).</summary>
+	static readonly Dictionary<string, double> _openUntil = new();
+	/// <summary>An opened board closes again after this long without the mouse over it.</summary>
+	const double OpenIdleSec = 5;
+
+	static double Now => Time.GetTicksMsec() / 1000.0;
+
 	/// <summary>
 	/// Players by position (points, then the tiebreaks); at the reveal it shows what each one just won. A player's own
 	/// screen (<paramref name="highlight"/>, no <paramref name="adjust"/>) shows the top 3 and the positions around them, with
-	/// "⋮" where some are skipped; the host's shows everyone.
+	/// "⋮" where some are skipped: clicking it shows everyone (the side column scrolls) until the mouse has been away for
+	/// a few seconds. The host's shows everyone.
 	/// </summary>
 	/// <param name="adjust">Host: − and + buttons to take away or add a point at will.</param>
 	public static Control Scoreboard(RoomState room, string? highlight = null, Action<string, int>? adjust = null)
 	{
+		var list = U.V(6);
+		var board = highlight ?? (adjust != null ? "host" : "");
+		void Fill()
+		{
+			list.Clear();
+			var open = _openUntil.TryGetValue(board, out var until) && Now < until;
+			if (!open) _openUntil.Remove(board);
+			FillScoreboard(list, room, highlight, adjust, board, open, () =>
+			{
+				_openUntil[board] = Now + OpenIdleSec;
+				Fill();
+			});
+			if (!open) return;
+			// Open: stays so while the mouse is over it, closes a few seconds after it leaves.
+			list.AddChild(new FrameWatch(() =>
+			{
+				if (list.GetGlobalRect().HasPoint(list.GetGlobalMousePosition())) _openUntil[board] = Now + OpenIdleSec;
+				else if (!_openUntil.TryGetValue(board, out var end) || Now >= end) Callable.From(Fill).CallDeferred();
+			}));
+		}
+		Fill();
+		return list;
+	}
+
+	static void FillScoreboard(VBoxContainer list, RoomState room, string? highlight, Action<string, int>? adjust, string board, bool open, Action expand)
+	{
 		var gained = (room.Game?.Reveal?.Entries ?? new List<RevealEntry>()).ToDictionary(e => e.PlayerId, e => e.Points);
 		var progress = room.Game?.MediaProgress;
-		var list = U.V(6);
 		var rows = room.Ranked();
 		var me = rows.FindIndex(p => p.Id == highlight);
-		var shown = adjust == null && me >= 0 ? ShownPositions(rows.Count, me) : Enumerable.Range(0, rows.Count).ToList();
+		var shown = adjust == null && me >= 0 && !open ? ShownPositions(rows.Count, me) : Enumerable.Range(0, rows.Count).ToList();
+		Control More(int count) =>
+			U.Link(Lang.F("⋮  {0} more", count), expand, 13).Tip("Show everyone").Center();
 		var previous = -1;
-		var board = highlight ?? (adjust != null ? "host" : "");
-		var last = _lastSlots.GetValueOrDefault(board) ?? new();
+		// (open and closed boards keep their own places, so opening one doesn't slide every row)
+		var slotsKey = open ? board + "|open" : board;
+		var last = _lastSlots.GetValueOrDefault(slotsKey) ?? new();
 		var slots = new Dictionary<string, (int Slot, SlideRow Row)>();
 		foreach (var i in shown)
 		{
-			if (i > previous + 1)
-				list.AddChild(U.Muted(Lang.F("⋮  {0} more", i - previous - 1), 13, false, HorizontalAlignment.Center).Center());
+			if (i > previous + 1) list.AddChild(More(i - previous - 1));
 			previous = i;
 			var p = rows[i];
 			// Sound/video questions: how much of the file each player has, right after the name.
@@ -98,10 +133,8 @@ public static class GameParts
 			slots[p.Id] = (slot, slide);
 			list.AddChild(slide);
 		}
-		_lastSlots[board] = slots;
-		if (shown.Count > 0 && shown[^1] < rows.Count - 1)
-			list.AddChild(U.Muted(Lang.F("⋮  {0} more", rows.Count - 1 - shown[^1]), 13, false, HorizontalAlignment.Center).Center());
-		return list;
+		_lastSlots[slotsKey] = slots;
+		if (shown.Count > 0 && shown[^1] < rows.Count - 1) list.AddChild(More(rows.Count - 1 - shown[^1]));
 	}
 
 	/// <summary>At the reveal: "▲2" (green) or "▼1" (red), the places a player moved with this question's points (or null).</summary>

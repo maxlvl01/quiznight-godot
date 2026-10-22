@@ -68,6 +68,13 @@ public sealed class DevTools
 	bool Has(string name) => _args.Contains(name);
 
 	/// <summary>The first node of that type under root (C# classes aren't found by Godot's FindChildren).</summary>
+	static System.Collections.Generic.IEnumerable<T> FindAll<T>(Node root) where T : Node
+	{
+		if (root is T t) yield return t;
+		foreach (var child in root.GetChildren())
+			foreach (var found in FindAll<T>(child)) yield return found;
+	}
+
 	static T? Find<T>(Node root) where T : Node
 	{
 		foreach (var child in root.GetChildren())
@@ -115,6 +122,18 @@ public sealed class DevTools
 		if (Value("--lang") is { } lang) Lang.Use(lang);
 		// (the home screen as if that version were out: the update note and the green button)
 		if (Value("--pretend-update") is { } newer) Ui.Screens.UpdatePrompt.Pretend(newer);
+		// --press TEXT: presses the first button whose text starts with TEXT, once, as soon as one shows up (e.g. "⋮" on a scoreboard)
+		if (Value("--press") is { } press)
+		{
+			var timer = new Timer { WaitTime = 0.5, Autostart = true };
+			timer.Timeout += () =>
+			{
+				if (FindAll<Button>(_app).FirstOrDefault(b => b.IsVisibleInTree() && b.Text.StartsWith(press)) is not { } button) return;
+				button.EmitSignal(BaseButton.SignalName.Pressed);
+				timer.QueueFree();
+			};
+			_app.AddChild(timer);
+		}
 
 		if (Has("--selftest"))
 		{

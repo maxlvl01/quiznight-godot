@@ -734,6 +734,7 @@ public static class LangDe
 		["The Fast Pass is only for buzzer questions."] = "Der Fast Pass gilt nur für Buzzer-Fragen.",
 		["You · double-click your name to change it"] = "Du · Doppelklick auf deinen Namen, um ihn zu ändern",
 		["Skin"] = "Skin",
+		["Show everyone"] = "Alle zeigen",
 		["Someone else already has the Fast Pass for this question."] = "Jemand anderes hat den Fast Pass für diese Frage schon.",
 		["Up {0} places with this question"] = "Mit dieser Frage {0} Plätze hoch",
 		["Down {0} places with this question"] = "Mit dieser Frage {0} Plätze runter",

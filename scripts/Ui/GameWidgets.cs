@@ -373,3 +373,15 @@ public partial class SlideRow : Container
 			FitChildInRect(c, new Rect2(0, _rows * (Size.Y + Gap), Size));
 	}
 }
+
+/// <summary>Runs an action every frame while it's in the tree (for small watchers, e.g. an opened scoreboard closing).</summary>
+public partial class FrameWatch : Node
+{
+	readonly System.Action _tick;
+
+	public FrameWatch() : this(() => { }) { }
+
+	public FrameWatch(System.Action tick) => _tick = tick;
+
+	public override void _Process(double delta) => _tick();
+}
