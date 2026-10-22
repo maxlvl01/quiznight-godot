@@ -46,7 +46,7 @@ public partial class QuizListScreen : Control
 	Control Card(Quiz quiz)
 	{
 		var ready = QuizRules.QuizIssues(quiz).Count == 0;
-		var edited = DateTimeOffset.FromUnixTimeMilliseconds(quiz.UpdatedAt).LocalDateTime.ToShortDateString();
+		var edited = DateTimeOffset.FromUnixTimeMilliseconds(quiz.UpdatedAt).LocalDateTime.ToString("dd.MM.yyyy", System.Globalization.CultureInfo.InvariantCulture);
 		var title = U.Btn(quiz.Title == "" ? "Untitled quiz" : quiz.Title, "LinkButton2", () => App.I.GoQuiz(quiz.Id), 22);
 		title.AddThemeColorOverride("font_color", C.Text);
 		title.Alignment = HorizontalAlignment.Left;

@@ -21,6 +21,7 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - Players: click "⋮ 3 more" in the scores to see everyone (it scrolls). It folds back a few seconds after your mouse leaves it.
 - The host's lobby looks like the players' waiting room: big room code, a seat for everyone (× removes a player), and the game rules in two compact columns at the bottom. It fits without scrolling.
 - The waiting room shows tonight's rules at the bottom: how the host runs the questions and buzzers, the answer time and which jokers are allowed. It updates as soon as the host changes something.
+- Dates in My quizzes read 22.10.2026 (day.month.year).
 
 ## [0.8.4b] — new colours
 
