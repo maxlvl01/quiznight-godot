@@ -17,9 +17,11 @@ public static class QuestionType
 	public const string Image = "image";
 	public const string Order = "order";
 	public const string Write = "write";
+	/// <summary>One picture or a slideshow the host flips through, answered like a classic question.</summary>
+	public const string Picture = "picture";
 
 	/// <summary>Order the editor shows them in.</summary>
-	public static readonly string[] All = { MapPin, Estimation, Classic, Sound, Video, Image, Order, Write };
+	public static readonly string[] All = { MapPin, Estimation, Classic, Picture, Sound, Video, Image, Order, Write };
 
 	/// <summary>Help: what it does, then its variants and options (the "?" on the type cards).</summary>
 	public record Info(string Label, string Short, string Blurb, string Intro = "", string[]? Details = null);
@@ -51,6 +53,14 @@ public static class QuestionType
 				"A B C D: up to 4 answers, one is right. Everyone picks one within the time limit.",
 				"Multiple choice: several answers can be right. Only exactly the right ones score.",
 				"All of them can have a picture, and a bonus you give at the reveal.",
+			}),
+		[Picture] = new("Picture", "picture", "Show a picture (e.g. a Steam review) or a slideshow you flip through. Answered like a classic question.",
+			"Show one picture, or several as a slideshow, on everyone's screen. Players answer like a classic question.",
+			new[]
+			{
+				"One picture: e.g. a Steam review, a meme or a chart. Players read it and buzz in.",
+				"Slideshow: add several pictures and flip through them with ◀ ▶ (or the arrow keys); every player's screen follows.",
+				"Answer it like a classic question: buzzer, everyone types, A B C D or multiple choice. A bonus works too.",
 			}),
 		[Sound] = new("Sound", "sound", "Play a song or sound effect. Players buzz in; shows how fast it was guessed.",
 			"Play a song or sound effect (MP3, OGG or WAV). It plays on the players' PCs too, once you press Start.",
@@ -226,6 +236,8 @@ public sealed class Question
 
 	/// <summary>Classic and estimation: optional image. Map pin: the screenshot players have to locate.</summary>
 	public ImageAsset? Image;
+	/// <summary>Picture: the pictures, in order (one = a still picture, more = a slideshow the host flips through).</summary>
+	public List<ImageAsset> Slides = new();
 
 	// classic
 	public string Mode = ClassicMode.Buzzer;
@@ -284,9 +296,11 @@ public sealed class Question
 	/// <summary>Sound, video and image reveal: buzz times count on a clock that only runs while it plays.</summary>
 	public bool HasPlayClock => IsMedia || Type == QuestionType.Image;
 	public bool IsCloseness => Type is QuestionType.Estimation or QuestionType.MapPin;
+	/// <summary>Answered like a classic question (buzzer, everyone types, A–D, multiple choice): classic and picture.</summary>
+	public bool IsClassicLike => Type is QuestionType.Classic or QuestionType.Picture;
 	/// <summary>Everyone picks from the answers (one correct, or several in multi mode).</summary>
-	public bool IsChoice => Type == QuestionType.Classic && Mode is ClassicMode.Choice or ClassicMode.Multi;
-	public bool IsMulti => Type == QuestionType.Classic && Mode == ClassicMode.Multi;
+	public bool IsChoice => IsClassicLike && Mode is ClassicMode.Choice or ClassicMode.Multi;
+	public bool IsMulti => IsClassicLike && Mode == ClassicMode.Multi;
 	/// <summary>Put in order, played in turns on a timeline.</summary>
 	public bool IsTimeline => Type == QuestionType.Order && OrderMode == Shared.OrderMode.Timeline;
 	/// <summary>Timeline: the label for item i (empty if none).</summary>
@@ -295,7 +309,7 @@ public sealed class Question
 	/// <summary>Indexes of the right answers, in either choice mode.</summary>
 	public List<int> CorrectSet => IsMulti ? CorrectChoices.Distinct().OrderBy(i => i).ToList() : new List<int> { CorrectChoice };
 	/// <summary>Played with buzzers unless the quiz maker chose "everyone types" (classic buzzer, sound, video, image reveal).</summary>
-	public bool CanBeTyped => HasPlayClock || (Type == QuestionType.Classic && !IsChoice);
+	public bool CanBeTyped => HasPlayClock || (IsClassicLike && !IsChoice);
 	public bool IsTyped => Typed && CanBeTyped;
 	/// <summary>Players buzz in (classic buzzer, sound, video, image reveal) instead of everyone answering.</summary>
 	public bool IsBuzzer => CanBeTyped && !Typed;
@@ -346,6 +360,8 @@ public static class QuestionLimits
 	public const int WrittenMaxLength = 80;
 	public const int BonusPointsMax = 10;
 	public const int BonusTextMaxLength = 60;
+	/// <summary>Picture questions: at most this many pictures in a slideshow.</summary>
+	public const int SlidesMax = 12;
 }
 
 public static class QuizRules
@@ -355,8 +371,9 @@ public static class QuizRules
 	/// 3: classic "multi" mode with several correct answers (correctChoices); image reveal, order and write questions.
 	/// 4: put in order can be played as a timeline (orderMode, itemLabels, timelineStart, keepGoing).
 	/// 5: buzzer questions can be typed by everyone (typed); every question can have a bonus (bonusPoints, bonusText).
+	/// 6: picture questions (type "picture": slides, answered like classic).
 	/// </summary>
-	public const int FormatVersion = 5;
+	public const int FormatVersion = 6;
 
 	public static readonly string[] ChoiceLetters = { "A", "B", "C", "D" };
 
@@ -449,6 +466,7 @@ public static class QuizRules
 		switch (type)
 		{
 			case QuestionType.Classic:
+			case QuestionType.Picture:
 				q.TimeLimitSec = QuestionLimits.ChoiceTimeLimitSec;
 				break;
 			case QuestionType.Sound:
@@ -476,7 +494,8 @@ public static class QuizRules
 	public static string Summary(Question q)
 	{
 		var kind = Lang.T(QuestionType.Infos[q.Type].Short);
-		if (q.Type == QuestionType.Classic)
+		if (q.Type == QuestionType.Picture && q.Slides.Count > 1) kind += " · " + Lang.F("{0} pictures", q.Slides.Count);
+		if (q.IsClassicLike)
 			return q.IsMulti ? $"{kind} · {Lang.T("several correct")} · {q.TimeLimitSec} s"
 				: q.IsChoice ? $"{kind} · A–D · {q.TimeLimitSec} s" : q.IsTyped ? $"{kind} · {Lang.T("everyone types")} · {q.TimeLimitSec} s" : $"{kind} · {Lang.T("buzzer")}";
 		if (q.Type == QuestionType.Order)
@@ -491,7 +510,8 @@ public static class QuizRules
 	{
 		var issues = new List<string>();
 		if (string.IsNullOrWhiteSpace(q.Prompt)) issues.Add(Lang.T("Question text is missing."));
-		if (q.Type == QuestionType.Classic)
+		if (q.Type == QuestionType.Picture && q.Slides.Count == 0) issues.Add(Lang.T("Add at least one picture."));
+		if (q.IsClassicLike)
 		{
 			if (q.IsChoice)
 			{

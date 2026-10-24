@@ -86,7 +86,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		_notice.Set(notice ?? "", () => notice == null ? null
 			: U.Panel(U.Text(notice, 16, C.Accent, Fonts.Bold, true).Raw(), "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(C.Accent, 0.1f), 12, C.Accent, 1, 14, 10))));
 
-		var key = $"{game.Index}|{game.Stage}|{game.Shown}";
+		var key = $"{game.Index}|{game.Stage}|{game.Shown}|{q.Slide}";
 		_question.Set(key, () =>
 		{
 			var box = U.V(14, GameParts.Row(16,
@@ -99,7 +99,12 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			if (q.ImageKey != null && q.Type == QuestionType.Image && open)
 				box.AddChild(new PlayerImageReveal(_client.Assets, () => _room, q.ImageKey));
 			else if (q.ImageKey != null && q.Type != QuestionType.MapPin && game.Stage == Stage.Open)
+			{
 				box.AddChild(new AssetImage(_client.Assets, q.ImageKey, U.Flexible) { Zoomable = true });
+				// (the host flips the slideshow; this screen follows)
+				if (q is { SlideCount: > 1, Slide: { } slide })
+					box.AddChild(U.Muted(Lang.F("Picture {0} / {1}", slide + 1, q.SlideCount.Value), 15, false, HorizontalAlignment.Center).Center());
+			}
 			if (q.MediaId != null && q.MediaKey != null && open && window)
 				box.AddChild(q.Type == QuestionType.Video
 					? new PlayerVideo(_client, () => _room, q.MediaId, q.MediaKey).MarkFlexible()

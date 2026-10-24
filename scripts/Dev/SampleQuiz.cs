@@ -86,6 +86,16 @@ public static class SampleQuiz
 				Items = new() { "Doom", "Half-Life", "Portal", "Elden Ring" }, ItemLabels = new() { "1993", "1998", "2007", "2022" },
 				OrderTop = "Oldest", OrderBottom = "Newest", TimeLimitSec = 30, Points = 1,
 			},
+			new()
+			{
+				Id = "q13", Type = QuestionType.Picture, Mode = ClassicMode.Buzzer, Prompt = "Which game are these Steam reviews about?", AnswerText = "Skyrim",
+				Points = 1, Slides = new()
+				{
+					Picture(1280, 720, new Color("#1b2838"), new Color("#2a475e"), "REVIEW 1"),
+					Picture(1280, 720, new Color("#2a475e"), new Color("#1b2838"), "REVIEW 2"),
+					Picture(1280, 720, new Color("#66c0f4"), new Color("#1b2838"), "REVIEW 3"),
+				},
+			},
 		};
 		return new Quiz
 		{

@@ -64,6 +64,7 @@ public static class C
 		QuestionType.Image => Pink,
 		QuestionType.Order => Lime,
 		QuestionType.Write => Orange,
+		QuestionType.Picture => Blue,
 		_ => Muted,
 	};
 }

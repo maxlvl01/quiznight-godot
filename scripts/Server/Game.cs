@@ -127,6 +127,7 @@ public sealed class Game
 		var now = _hooks.Now();
 		Index = index;
 		Stage = Shared.Stage.Open;
+		Slide = 0;
 		_openedAt = now;
 		_answers.Clear();
 		_buzzes.Clear();
@@ -302,7 +303,7 @@ public sealed class Game
 				return Result.Fail("Pick at least one of the answers.");
 			value = AnswerValue.Picked(picks.Distinct().OrderBy(i => i));
 		}
-		else if (q.Type == QuestionType.Classic)
+		else if (q.IsClassicLike)
 		{
 			if (raw?.Num is not { } n || n != Math.Floor(n) || n < 0 || n >= q.Choices.Count || string.IsNullOrWhiteSpace(q.Choices[(int)n]))
 				return Result.Fail("Pick one of the answers.");
@@ -674,7 +675,7 @@ public sealed class Game
 			};
 		}
 
-		if (q.Type == QuestionType.Classic)
+		if (q.IsClassicLike)
 		{
 			var counts = new int[q.Choices.Count];
 			var right = q.CorrectSet;
@@ -799,6 +800,19 @@ public sealed class Game
 	/// <summary>An image reveal's picture while its question is still open.</summary>
 	public static string ImageKey(int index) => $"q{index}/image";
 	public static string MapKey(int index) => $"q{index}/map";
+	public static string SlideKey(int index, int slide) => $"q{index}/slide{slide}";
+
+	/// <summary>Picture questions: the picture showing now (the host flips through them).</summary>
+	public int Slide { get; private set; }
+
+	/// <summary>The host shows another picture of a picture question (any time during the question and its reveal).</summary>
+	public bool SetSlide(int slide)
+	{
+		var q = Question;
+		if (q.Type != QuestionType.Picture || Finished || slide == Slide || slide < 0 || slide >= q.Slides.Count) return false;
+		Slide = slide;
+		return true;
+	}
 
 	PublicQuestion PublicQuestion()
 	{
@@ -815,7 +829,13 @@ public sealed class Game
 			// (players see only what's shown: an image reveal's picture is revealed on their screen in step with the host's)
 			ImageKey = q.HasImageField && q.Image != null ? ImageKey(Index) : null,
 		};
-		if (q.Type == QuestionType.Classic)
+		if (q.Type == QuestionType.Picture && q.Slides.Count > 0)
+		{
+			pq.ImageKey = SlideKey(Index, Slide);
+			pq.Slide = Slide;
+			pq.SlideCount = q.Slides.Count;
+		}
+		if (q.IsClassicLike)
 		{
 			pq.Mode = q.Mode;
 			if (q.IsChoice)
@@ -873,7 +893,7 @@ public sealed class Game
 	string HostAnswer()
 	{
 		var q = Question;
-		if (q.Type == QuestionType.Classic) return q.IsChoice ? ChoiceText(q, q.CorrectSet) : q.AnswerText;
+		if (q.IsClassicLike) return q.IsChoice ? ChoiceText(q, q.CorrectSet) : q.AnswerText;
 		if (q.Type == QuestionType.Order) return OrderText(q);
 		if (q.Type == QuestionType.Estimation) return $"{Fmt(q.AnswerNumber ?? 0)}{(q.Unit != "" ? " " + q.Unit : "")}";
 		if (q.Type == QuestionType.MapPin) return Lang.T("The marked spot on the map (shown at the reveal).");
@@ -890,7 +910,7 @@ public sealed class Game
 			Total = _quiz.Questions.Count,
 			Stage = Stage,
 			// A hidden question: players only learn its number, type and points.
-			Question = Shown || viewer == "host" || !open ? PublicQuestion() : new PublicQuestion { Type = Question.Type, Points = Question.Points, Buzzer = Question.IsBuzzer, Written = Question.IsWritten, Mode = Question.Type == QuestionType.Classic ? Question.Mode : null, OrderMode = Question.Type == QuestionType.Order ? Question.OrderMode : null },
+			Question = Shown || viewer == "host" || !open ? PublicQuestion() : new PublicQuestion { Type = Question.Type, Points = Question.Points, Buzzer = Question.IsBuzzer, Written = Question.IsWritten, Mode = Question.IsClassicLike ? Question.Mode : null, OrderMode = Question.Type == QuestionType.Order ? Question.OrderMode : null },
 			Shown = Shown || !open,
 			BuzzersOpen = BuzzersOpen,
 			EndsAt = open ? _endsAt : null,
@@ -1015,6 +1035,10 @@ public sealed class Game
 		var q = _quiz.Questions[index];
 		if (parts[1] == "image" && q.HasImageField && q.Image != null) return q.Image.DataUrl;
 		if (parts[1] == "map" && q.Type == QuestionType.MapPin) return _quiz.MapById(q.MapId)?.Image.DataUrl;
+		// (players get the pictures shown so far, never the ones the host hasn't flipped to yet)
+		if (parts[1].StartsWith("slide") && int.TryParse(parts[1].AsSpan(5), out var slide) && q.Type == QuestionType.Picture
+			&& slide >= 0 && slide < q.Slides.Count && (host || index < Index || Stage != Shared.Stage.Open || slide <= Slide))
+			return q.Slides[slide].DataUrl;
 		return null;
 	}
 }

@@ -77,11 +77,13 @@ public static class QuizJson
 		}
 		if (q.CanBeTyped) o["typed"] = q.Typed;
 		// (typed questions have a time limit; classic writes it anyway)
-		if (q.IsTyped && q.Type != QuestionType.Classic) o["timeLimitSec"] = q.TimeLimitSec;
+		if (q.IsTyped && !q.IsClassicLike) o["timeLimitSec"] = q.TimeLimitSec;
 		switch (q.Type)
 		{
 			case QuestionType.Classic:
-				o["image"] = WriteImage(q.Image);
+			case QuestionType.Picture:
+				if (q.Type == QuestionType.Picture) o["slides"] = new JsonArray(q.Slides.Select(i => WriteImage(i)).ToArray());
+				else o["image"] = WriteImage(q.Image);
 				o["mode"] = q.Mode;
 				o["answer"] = q.AnswerText;
 				o["choices"] = new JsonArray(q.Choices.Select(c => (JsonNode)JsonValue.Create(c)!).ToArray());
@@ -151,6 +153,8 @@ public static class QuizJson
 		q.Prompt = Str(o, "prompt", q.Prompt);
 		q.Points = (int)Num(o, "points", q.Points);
 		q.Image = ReadImage(o["image"]);
+		if (o["slides"] is JsonArray slides)
+			q.Slides = slides.Select(ReadImage).OfType<ImageAsset>().Take(QuestionLimits.SlidesMax).ToList();
 		var mode = Str(o, "mode", ClassicMode.Buzzer);
 		q.Mode = mode is ClassicMode.Choice or ClassicMode.Multi ? mode : ClassicMode.Buzzer;
 		if (o["answer"] is JsonValue a)

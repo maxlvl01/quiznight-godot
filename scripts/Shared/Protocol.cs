@@ -194,8 +194,11 @@ public sealed class PublicQuestion
 	/// <summary>The bonus the host can give at the reveal (0 = none) and what it's for.</summary>
 	public int BonusPoints;
 	public string? BonusText;
-	/// <summary>Asset key of the question image, if it has one.</summary>
+	/// <summary>Asset key of the question image, if it has one (picture questions: the slide showing now).</summary>
 	public string? ImageKey;
+	/// <summary>Picture questions: which picture shows (0-based) and how many there are.</summary>
+	public int? Slide;
+	public int? SlideCount;
 	public string? Mode;
 	/// <summary>Choice mode: answers by letter index; empty answers are null.</summary>
 	public List<string?>? Choices;

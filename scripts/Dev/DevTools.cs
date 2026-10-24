@@ -407,7 +407,7 @@ public sealed class DevTools
 		var s = host.State;
 		var g = s.Game;
 		var answering = g?.Buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Answering);
-		var key = $"{s.Phase}|{g?.Index}|{g?.Stage}|{g?.Shown}|{g?.BuzzersOpen}|{answering?.PlayerId}|{g?.Buzzes.Count}|{s.Players.Count(p => p.Connected)}|{g?.Timeline?.Placed.Count}|{g?.Timeline?.TurnPlayerId}|{g?.Timeline?.WrongGaps.Count}|{g?.Timeline?.Phase}";
+		var key = $"{s.Phase}|{g?.Index}|{g?.Stage}|{g?.Shown}|{g?.BuzzersOpen}|{answering?.PlayerId}|{g?.Buzzes.Count}|{s.Players.Count(p => p.Connected)}|{g?.Timeline?.Placed.Count}|{g?.Timeline?.TurnPlayerId}|{g?.Timeline?.WrongGaps.Count}|{g?.Timeline?.Phase}|{g?.Question.Slide}";
 		if (key != _pilotKey)
 		{
 			_pilotKey = key;
@@ -437,6 +437,12 @@ public sealed class DevTools
 				{
 					var everyone = g.Question.MediaId is not { } mid || host.Room.Players.Where(p => p.Connected).All(p => host.MediaPercent(p.Id, mid) >= 100);
 					if (waited > 1.5 && (everyone || waited > 30)) media.StartNow();
+					break;
+				}
+				// A picture slideshow: flip to the next picture now and then, like a host showing them one by one.
+				if (g.Question is { SlideCount: > 1, Slide: { } slide } && slide < g.Question.SlideCount - 1 && answering == null)
+				{
+					if (waited > 1.5) host.SetSlide(slide + 1);
 					break;
 				}
 				if (g.Question.Buzzer && !g.BuzzersOpen && answering == null)

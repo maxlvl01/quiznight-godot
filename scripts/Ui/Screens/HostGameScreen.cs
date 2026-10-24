@@ -64,7 +64,8 @@ public partial class HostGameScreen : Control, IRoomScreen
 		var reveal = game.Stage == Stage.Reveal ? game.Reveal : null;
 		HostNotes.Update(game);
 		_game = game;
-		var key = $"{game.Index}|{game.Stage}";
+		// (picture questions: the shown picture is part of it, so flipping redraws the picture)
+		var key = $"{game.Index}|{game.Stage}|{q.Slide}";
 		var tl = game.Stage == Stage.Open ? game.Timeline : null;
 		// Timeline: rebuilt on every move.
 		var tlKey = tl == null ? "" : $"|{tl.Phase}|{tl.PendingGap}|{tl.Placed.Count}|{tl.TurnPlayerId}|{string.Join(",", tl.WrongGaps)}|{tl.Last?.Kind}{tl.Last?.PlayerId}{tl.Last?.Item}";
@@ -110,6 +111,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 			if (reveal == null && GameParts.BonusLine(q, 18) is { } bonusLine) box.AddChild(bonusLine);
 			if (q.ImageKey != null && q.Type != QuestionType.Image && !(q.Type == QuestionType.MapPin && reveal != null))
 				box.AddChild(new AssetImage(_assets, q.ImageKey, U.Flexible) { Zoomable = true });
+			if (q is { SlideCount: > 1, Slide: { } slide }) box.AddChild(SlideControls(slide, q.SlideCount.Value));
 			if (q.Choices != null) box.AddChild(GameParts.ChoiceGrid(game));
 			if (reveal == null && q.Mode == ClassicMode.Multi) box.AddChild(U.Muted("Several answers can be right — players pick all they think are.", 16));
 			if (reveal == null && q.Type == QuestionType.Estimation)
@@ -216,9 +218,27 @@ public partial class HostGameScreen : Control, IRoomScreen
 
 	GameView? _game;
 
-	/// <summary>Space: show the hidden question, then unlock the buzzers.</summary>
+	/// <summary>Picture slideshows: ◀ "Picture 2 / 5" ▶ under the picture (the arrow keys do the same).</summary>
+	Control SlideControls(int slide, int count)
+	{
+		var back = U.Btn("◀", "SmallButton", () => _host.SetSlide(slide - 1), 18).MinSize(56, 0).Tip("Previous picture (←)");
+		back.Disabled = slide == 0;
+		var next = U.Btn("▶", "SmallButton", () => _host.SetSlide(slide + 1), 18).MinSize(56, 0).Tip("Next picture (→)");
+		next.Disabled = slide >= count - 1;
+		var row = GameParts.Row(14, back, U.Text(Lang.F("Picture {0} / {1}", slide + 1, count), 17, C.Text, Fonts.Bold), next);
+		row.Alignment = BoxContainer.AlignmentMode.Center;
+		return row;
+	}
+
+	/// <summary>Space: show the hidden question, then unlock the buzzers. ← →: flip a picture slideshow.</summary>
 	public override void _UnhandledKeyInput(InputEvent e)
 	{
+		if (e is InputEventKey { Pressed: true, Keycode: Key.Left or Key.Right } arrow && _game?.Question is { SlideCount: > 1, Slide: { } slide })
+		{
+			_host.SetSlide(slide + (arrow.Keycode == Key.Right ? 1 : -1));
+			GetViewport().SetInputAsHandled();
+			return;
+		}
 		if (e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Space } || _game is not { Stage: Stage.Open, Paused: false } game) return;
 		if (!game.Shown) _host.ShowQuestion();
 		else if (game.Timeline?.Phase == TimelinePhase.Locked) _host.RevealPlacement();

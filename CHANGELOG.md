@@ -13,8 +13,11 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+### Added
+- New question type **Picture**: show one picture (e.g. a Steam review to read) or several as a slideshow. You flip through them with ◀ ▶ or the arrow keys, and every player's screen follows; players only ever see the pictures you've shown so far. Answered like a classic question: buzzer, everyone types, A B C D or multiple choice, and a bonus works too. Drop several screenshots on the editor at once, or paste them one after another, to build a slideshow.
+
 ### Changed
-- Quiznight is now **Quiznight?** — like an invitation to a quiz night. The logo, the window title and the icon (Q?) say so.
+- Quiznight is now **Quiznight?** — like an invitation to a quiz night. The logo, the window title and a new icon say so.
 
 ## [0.8.8b] — icon and sound previews
 

@@ -46,6 +46,10 @@ the original design decisions; most still apply.
   and a thumbnail for the editor's map grid: `assets/map-thumbs/<same name>.webp`, 400 px wide (made with Pillow), also
   "keep" — those stay in the .pck via the export `include_filter` (`Images.MapThumb`).
   Give a new map `AddedIn: "x.y.zb"` in `MapPresets.cs`: the grid marks it NEW for that MAJOR.MINOR (`--pretend-new-map ID` to see it).
+- **Picture questions** (`QuestionType.Picture`, format 6): `Question.Slides` (one = a still picture, more = a slideshow);
+  answered like classic (`Question.IsClassicLike` covers both). The host flips with `HostSession.SetSlide`
+  (`Game.Slide`, ◀ ▶ / arrow keys); `PublicQuestion.ImageKey` is the shown slide's key (`q3/slide1`), and players can
+  only fetch slides up to the shown one while the question is open.
 - **The host runs the pace.** Questions open hidden (`Game.Shown`) until the host shows them; buzzers stay
   locked (`BuzzersOpen`) until unlocked — both lobby rules. Players get no content of a hidden question, and
   an image reveal's picture revealed in step with the host's. Choice answers and order items are shuffled per game
@@ -122,7 +126,7 @@ dotnet build "QuizNight!.csproj"                              # compile — run 
 "$G" --path . --resolution 1600x900 -- --no-steam --open mapPin --shot out.png    # screenshot a screen
 ```
 
-`--sound FILE` / `--video FILE` (with `--host-sample` or `--open`: the sound question plays that file / a video question follows it), `--screen home|quizzes|quiz|settings`, `--open classic|choice|multi|estimation|mapPin|wow|sound|image|order|timeline|write` (`--map-preset ID` with mapPin), `--start-at N` (with `--autopilot`), `--bot-drag` (a windowed bot drags the timeline item with real mouse events), `--map-zoom Z [--map-at X,Y]` (WoW map), `--lang en|de` (this run only), `--shot FILE --after SEC`
+`--sound FILE` / `--video FILE` (with `--host-sample` or `--open`: the sound question plays that file / a video question follows it), `--screen home|quizzes|quiz|settings`, `--open classic|choice|multi|picture|estimation|mapPin|wow|sound|image|order|timeline|write` (`--map-preset ID` with mapPin), `--start-at N` (with `--autopilot`), `--bot-drag` (a windowed bot drags the timeline item with real mouse events), `--map-zoom Z [--map-at X,Y]` (WoW map), `--lang en|de` (this run only), `--shot FILE --after SEC`
 (see `DevTools.cs`). Full solo test: host with `--autopilot --players 2` plus two `--bot` instances.
 Screenshots need a window (no `--headless`); the window opens briefly on the user's screen.
 

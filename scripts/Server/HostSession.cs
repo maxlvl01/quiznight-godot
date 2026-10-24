@@ -300,6 +300,8 @@ public sealed class HostSession : IDisposable
 		Broadcast();
 	}
 	public void ShowQuestion() => GameAction(g => g.ShowQuestion());
+	/// <summary>Picture questions: show another picture (every player's screen follows).</summary>
+	public void SetSlide(int slide) => GameAction(g => g.SetSlide(slide));
 	/// <summary>Someone left and the game waits: go on without them.</summary>
 	public void Continue() => GameAction(g => g.Continue());
 	public void SetBuzzers(bool open) => GameAction(g => g.SetBuzzers(open));

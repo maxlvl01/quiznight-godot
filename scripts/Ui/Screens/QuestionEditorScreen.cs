@@ -74,7 +74,7 @@ public partial class QuestionEditorScreen : Control
 		_mediaField = null;
 		_form.AddChild(_draft.Type switch
 		{
-			QuestionType.Classic => ClassicForm(),
+			QuestionType.Classic or QuestionType.Picture => ClassicForm(),
 			QuestionType.Estimation => EstimationForm(),
 			QuestionType.MapPin => MapPinForm(),
 			QuestionType.Image => ImageRevealForm(),
@@ -128,7 +128,8 @@ public partial class QuestionEditorScreen : Control
 	Control ClassicForm()
 	{
 		var choice = _draft.IsChoice;
-		var left = U.V(14, PromptArea("e.g. How many hours did we play last month?"),
+		var picture = _draft.Type == QuestionType.Picture;
+		var left = U.V(14, PromptArea(picture ? "e.g. Which game is this Steam review about?" : "e.g. How many hours did we play last month?"),
 			U.Segmented(new[]
 				{
 					(ClassicMode.Buzzer, "Buzzer — first to buzz"),
@@ -163,7 +164,8 @@ public partial class QuestionEditorScreen : Control
 				Changed();
 			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold))));
 		}
-		left.AddChild(U.Field("Image (optional)", OptionalImage()));
+		// (picture questions: the pictures fill the space under the answer)
+		left.AddChild(picture ? SlidesField() : U.Field("Image (optional)", OptionalImage()));
 
 		var settings = new List<Control>();
 		if (choice || _draft.IsTyped) settings.Add(RoundSettings.TimeLimit(_draft, () => Changed()));
@@ -175,6 +177,115 @@ public partial class QuestionEditorScreen : Control
 			? "Everyone picks A, B, C or D on their own screen. Everyone who picks the right one gets the points. The answer is revealed when everyone has answered, the time runs out, or you reveal it."
 			: "Players buzz in; the fastest answers first. You mark answers Correct or Wrong, and on Wrong the next in line gets a go. A correct answer reveals it; if nobody knows, you reveal it. Answer time per buzz is set in the lobby.", 13));
 		return Columns((left, 1.6f), (RoundSettings.Panel(settings.ToArray()), 1));
+	}
+
+	// ---------- picture ----------
+
+	/// <summary>Which picture of a picture question is being edited (Slides.Count = a new one being added).</summary>
+	int _slide;
+
+	/// <summary>
+	/// The pictures of a picture question: a strip to pick one (or + for a new one), the picked one big (replace, paste,
+	/// remove) and buttons to move it earlier or later.
+	/// </summary>
+	Control SlidesField()
+	{
+		var slides = _draft.Slides;
+		_slide = Math.Clamp(_slide, 0, slides.Count);
+		var adding = _slide >= slides.Count;
+		var at = _slide;
+		_primaryImage = new ImageField(adding ? null : slides[at], img =>
+		{
+			if (img == null)
+			{
+				if (!adding) slides.RemoveAt(at);
+				_slide = Math.Max(0, Math.Min(at, slides.Count - 1));
+			}
+			else if (adding)
+			{
+				slides.Add(img);
+				_slide = slides.Count - 1;
+			}
+			else slides[at] = img;
+			Changed(true);
+		}, Images.ScreenshotMax, slides.Count == 0 ? "No picture yet" : "Add another picture", !adding);
+
+		var strip = U.Flow(6);
+		for (var i = 0; i < slides.Count; i++)
+		{
+			var index = i;
+			strip.AddChild(SlideThumb(slides[i], i + 1, i == _slide, () =>
+			{
+				_slide = index;
+				Changed(true);
+			}));
+		}
+		if (slides.Count < QuestionLimits.SlidesMax)
+			strip.AddChild(U.Btn("+", adding ? "TealButton" : "SmallButton", () =>
+			{
+				_slide = slides.Count;
+				Changed(true);
+			}, 22).MinSize(56, 40).Tip("Add a picture"));
+
+		// (Earlier / Later on the thumbnail row, so the form fits without scrolling)
+		var row = U.H(6, strip.Grow());
+		if (!adding && slides.Count > 1)
+		{
+			void Move(int by)
+			{
+				(slides[at], slides[at + by]) = (slides[at + by], slides[at]);
+				_slide = at + by;
+				Changed(true);
+			}
+			var earlier = U.Small("◀ Earlier", () => Move(-1)).Tip(Lang.F("Picture {0} of {1}", at + 1, slides.Count));
+			earlier.Disabled = at == 0;
+			var later = U.Small("Later ▶", () => Move(1)).Tip(Lang.F("Picture {0} of {1}", at + 1, slides.Count));
+			later.Disabled = at == slides.Count - 1;
+			row.AddChild(earlier.With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter));
+			row.AddChild(later.With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter));
+		}
+		var heading = U.H(10, U.Bold(slides.Count > 1 ? Lang.F("Pictures ({0}) — a slideshow", slides.Count) : Lang.T("Picture"), 16),
+			U.Muted("In the game you flip through them with ◀ ▶ (or ← →); players' screens follow. Drop several files to add them all.", 12, false)
+				.With(l => l.SizeFlagsVertical = SizeFlags.ShrinkEnd));
+		var box = U.V(8, heading, row, _primaryImage);
+		return box;
+	}
+
+	static Control SlideThumb(ImageAsset image, int number, bool chosen, Action pick)
+	{
+		var button = new Button { MouseDefaultCursorShape = CursorShape.PointingHand, CustomMinimumSize = new Vector2(56, 40), TooltipText = Lang.F("Picture {0}", number) };
+		foreach (var state in new[] { "normal", "hover", "pressed", "focus" })
+			button.AddThemeStyleboxOverride(state, UiTheme.Box(C.Bg, 6, chosen ? C.Blue : state == "hover" ? C.Blue.Darkened(0.3f) : C.Border, chosen ? 2 : 1, 2, 2));
+		button.Pressed += pick;
+		var picture = new TextureRect
+		{
+			Texture = Images.TextureFromDataUrl(image.DataUrl), ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+			StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered, TextureFilter = TextureFilterEnum.LinearWithMipmaps,
+			MouseFilter = MouseFilterEnum.Ignore, ClipContents = true,
+		};
+		picture.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, 3);
+		button.AddChild(picture);
+		var label = U.Text($"{number}", 11, C.Text, Fonts.Black);
+		label.MouseFilter = MouseFilterEnum.Ignore;
+		var pill = U.Panel(label, "Clear");
+		pill.MouseFilter = MouseFilterEnum.Ignore;
+		pill.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(C.Bg, 0.85f), 4, null, 0, 4, 0));
+		pill.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomLeft, LayoutPresetMode.KeepSize, 3);
+		pill.GrowVertical = GrowDirection.Begin;
+		button.AddChild(pill);
+		return button;
+	}
+
+	/// <summary>Picture questions: pictures dropped or pasted are added as new ones (after the last).</summary>
+	void AddSlides(IEnumerable<ImageAsset> images)
+	{
+		foreach (var img in images)
+		{
+			if (_draft.Slides.Count >= QuestionLimits.SlidesMax) break;
+			_draft.Slides.Add(img);
+			_slide = _draft.Slides.Count - 1;
+		}
+		Changed(true);
 	}
 
 	const string Typed = "typed";
@@ -749,7 +860,9 @@ public partial class QuestionEditorScreen : Control
 	{
 		if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.V, CtrlPressed: true } && DisplayServer.ClipboardHasImage() && _primaryImage != null)
 		{
-			_primaryImage.Paste();
+			// (picture questions: a pasted screenshot is a new picture, so pasting several in a row builds a slideshow)
+			if (_draft.Type == QuestionType.Picture && Images.FromClipboard(Images.ScreenshotMax) is { } pasted) AddSlides(new[] { pasted });
+			else _primaryImage.Paste();
 			GetViewport().SetInputAsHandled();
 		}
 	}
@@ -758,6 +871,23 @@ public partial class QuestionEditorScreen : Control
 	{
 		var file = files.FirstOrDefault();
 		if (file == null) return;
+		if (_draft.Type == QuestionType.Picture)
+		{
+			var images = new List<ImageAsset>();
+			foreach (var f in files.Where(Images.IsImagePath).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+			{
+				try
+				{
+					images.Add(Images.ReadFile(f, Images.ScreenshotMax));
+				}
+				catch (UserError e)
+				{
+					Dialogs.Info(this, e.Message);
+				}
+			}
+			if (images.Count > 0) AddSlides(images);
+			return;
+		}
 		if (_mediaField != null && Media.IsMediaPath(file)) _mediaField.LoadFile(file);
 		else if (_mediaField != null && file.GetExtension().ToLowerInvariant() is "mp4" or "webm" or "mov" or "mkv") _mediaField.LoadFile(file);
 		else if (_primaryImage != null && Images.IsImagePath(file)) _primaryImage.LoadFile(file);

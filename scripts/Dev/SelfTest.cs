@@ -429,6 +429,17 @@ public static class SelfTest
 		Check(!QuizRules.WrittenMatches("Sydney", "Canberra / Canberra City") && QuizRules.WrittenMatches("canberra city", "Canberra / Canberra City"), "several accepted answers");
 		room.Next();
 		Timeline(room, clock, g);
+
+		// Picture: a slideshow the host flips through; players only get the pictures shown so far.
+		room.Next();
+		Eq(g.Question.Type, QuestionType.Picture, "picture question");
+		var pic = g.View("ann").Question;
+		Check(pic.Slide == 0 && pic.SlideCount == 3 && pic.ImageKey == Game.SlideKey(g.Index, 0), "the slideshow starts on the first picture");
+		Check(g.AssetDataUrl(Game.SlideKey(g.Index, 1)) == null && g.AssetDataUrl(Game.SlideKey(g.Index, 1), host: true) != null, "players can't get a picture before the host shows it");
+		Check(g.SetSlide(1) && g.View("ann").Question.ImageKey == Game.SlideKey(g.Index, 1) && g.AssetDataUrl(Game.SlideKey(g.Index, 1)) != null, "the host flips; everyone sees the next picture");
+		Check(!g.SetSlide(3) && !g.SetSlide(-1) && g.Slide == 1, "no flipping past the ends");
+		room.Next(); // (open: reveals first)
+		Check(g.SetSlide(2), "the host can still flip at the reveal");
 		room.Next();
 		Eq(room.Phase, Phase.Finished, "podium after the last question");
 
@@ -538,6 +549,9 @@ public static class SelfTest
 		var starts = Enumerable.Range(0, 40).Select(seed => QuizRules.ShuffleOrder(timelineQ, new Random(seed))).Select(s => s.Items[s.TimelineStart]).Distinct().Count();
 		Eq(starts, 4, "the timeline starts with a random item");
 		Eq(shuffledTl.ItemLabel(shuffledTl.Items.IndexOf("Portal")), "2007", "labels move with their items");
+		var pictureQ = Dev.SampleQuiz.Build().Questions.First(x => x.Type == QuestionType.Picture).Clone();
+		Check(pictureQ.Slides.Count == 3 && pictureQ.Slides.All(i => i.DataUrl.StartsWith("data:image")) && pictureQ.IsBuzzer && pictureQ.IsClassicLike, "picture questions keep their pictures and play like classic");
+		Check(QuizRules.QuestionIssues(new Question { Type = QuestionType.Picture, Prompt = "x", AnswerText = "y" }, new List<MapAsset>()).Contains(Lang.T("Add at least one picture.")), "a picture question needs a picture");
 		var image = Dev.SampleQuiz.Build().Questions.First(x => x.Type == QuestionType.Image).Clone();
 		Check(image.RevealStyle == RevealStyle.Pixelate && image.RevealSec == 20 && Math.Abs(image.Focus.Y - 0.45) < 1e-9, "image reveal settings are saved");
 		// Shuffling moves the right answer around (over many games it can't always stay first).

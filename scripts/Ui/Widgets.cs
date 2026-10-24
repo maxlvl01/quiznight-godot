@@ -104,6 +104,13 @@ public partial class TypeIcon : Control
 				DrawPolyline(new[] { P(4, 20), P(5, 15), P(16, 4), P(20, 8), P(9, 19), P(4, 20) }, color, w, true);
 				DrawLine(P(14, 6), P(18, 10), color, w, true);
 				break;
+			case QuestionType.Picture:
+				// (two pictures, one behind the other: a slideshow; lines like the text of a review)
+				DrawPolyline(new[] { P(7, 6), P(7, 3), P(21, 3), P(21, 14), P(18, 14) }, color, w, true);
+				DrawRect(new Rect2(P(3, 7), P(15, 13)), color, false, w, true);
+				DrawLine(P(6, 11), P(15, 11), color, w, true);
+				DrawLine(P(6, 15), P(12, 15), color, w, true);
+				break;
 			case QuestionType.Image:
 				DrawRect(new Rect2(P(3, 4), P(18, 16)), color, false, w, true);
 				DrawPolyline(new[] { P(4, 18), P(10, 11), P(14, 15), P(16, 13), P(20, 17) }, color, w, true);
