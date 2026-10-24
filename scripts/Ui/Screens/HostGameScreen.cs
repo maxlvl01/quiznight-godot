@@ -72,7 +72,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 		_bar.Set($"{game.Index}|{game.JokerIndex}", () =>
 		{
 			var row = GameParts.Row(12,
-				U.H(0, U.Text("Quiznight", 20, C.Text, Fonts.Black), U.Text("!", 20, C.Accent, Fonts.Black)),
+				U.H(0, U.Text("Quiznight", 20, C.Text, Fonts.Black), U.Text("?", 20, C.Accent, Fonts.Black)),
 				U.Pill(Lang.F("Question {0} / {1}", game.Index + 1, game.Total)),
 				Chips.Question(q),
 				U.Pill(q.Points == 1 ? Lang.T("1 point") : Lang.F("{0} points", q.Points)));

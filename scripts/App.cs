@@ -59,6 +59,8 @@ public partial class App : Control
 		AddChild(_banners);
 
 		GetTree().AutoAcceptQuit = false;
+		// (the name players see; project.godot keeps "QuizNight!", which names the exported data folder that updates rely on)
+		GetWindow().Title = "Quiznight?";
 		GetWindow().FilesDropped += OnFilesDropped;
 
 		var args = OS.GetCmdlineUserArgs();

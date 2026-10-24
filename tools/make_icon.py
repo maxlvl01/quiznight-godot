@@ -1,5 +1,5 @@
-# Draws Quiznight's icon: "Q!" in the home screen logo's font (Segoe UI Black: the logo asks for Sora, which isn't
-# installed, so Godot falls back to it), a white Q and the logo's orange "!", on the purple with a blue edge.
+# Draws Quiznight?'s icon: "Q?" in the home screen logo's font (Segoe UI Black: the logo asks for Sora, which isn't
+# installed, so Godot falls back to it), a white Q and the logo's orange "?", on the purple with a blue edge.
 # Writes assets/icon/icon.png (the window icon, project.godot's config/icon) and assets/icon/icon.ico (the Windows
 # .exe, each size drawn from a 4x larger picture):
 #   py tools/make_icon.py
@@ -30,19 +30,19 @@ image.paste(gradient, (0, 0), mask)
 draw = ImageDraw.Draw(image)
 draw.rounded_rectangle(box, radius=s(54), outline=BLUE, width=s(8))
 
-# "Q!" as one word, centred on its ink (not on the font's line box), like the logo's last letter and "!".
+# "Q?" as one word, centred on its ink (not on the font's line box), like the logo's last letter and "?".
 font = ImageFont.truetype(FONT, s(190))
 q_box = draw.textbbox((0, 0), "Q", font=font)
-bang_box = draw.textbbox((0, 0), "!", font=font)
+mark_box = draw.textbbox((0, 0), "?", font=font)
 q_advance = draw.textlength("Q", font=font)
-left = min(q_box[0], q_advance + bang_box[0])
-right = max(q_box[2], q_advance + bang_box[2])
-top = min(q_box[1], bang_box[1])
-bottom = max(q_box[3], bang_box[3])
+left = min(q_box[0], q_advance + mark_box[0])
+right = max(q_box[2], q_advance + mark_box[2])
+top = min(q_box[1], mark_box[1])
+bottom = max(q_box[3], mark_box[3])
 x = (SIZE - (right - left)) / 2 - left
 y = (SIZE - (bottom - top)) / 2 - top
 draw.text((x, y), "Q", font=font, fill=WHITE)
-draw.text((x + q_advance, y), "!", font=font, fill=ORANGE)
+draw.text((x + q_advance, y), "?", font=font, fill=ORANGE)
 
 out = Path(__file__).resolve().parent.parent / "assets" / "icon"
 out.mkdir(exist_ok=True)

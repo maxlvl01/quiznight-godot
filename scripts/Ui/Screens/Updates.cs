@@ -46,7 +46,7 @@ public static class WhatsNew
 		var overlay = new VideoGuide.GuideOverlay();
 		var box = U.V(16);
 		box.AddChild(U.Eyebrow("What's new"));
-		box.AddChild(U.Heading(Lang.F("Quiznight {0}", App.Version), 32, false));
+		box.AddChild(U.Heading(Lang.F("Quiznight? {0}", App.Version), 32, false));
 		foreach (var release in releases)
 		{
 			if (releases.Count > 1 || release.Title != "")
@@ -147,7 +147,7 @@ public static class UpdatePrompt
 		var later = U.Small("Not now", overlay.QueueFree);
 		var box = U.V(14,
 			U.Eyebrow("Update"),
-			U.Heading(Lang.F("Quiznight {0} is here!", release.Version), 30, false),
+			U.Heading(Lang.F("Quiznight? {0} is here!", release.Version), 30, false),
 			U.Muted(Lang.F("You have {0}. The game downloads the new version, restarts and then shows you what's new.", App.Version), 15),
 			bar, status, error, later.With(b => b.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd));
 		overlay.SetContent(U.Pad(box, 28, 26, 28, 26));

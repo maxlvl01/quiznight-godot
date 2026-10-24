@@ -16,7 +16,7 @@ public partial class HostNotes : Window
 
 	public HostNotes()
 	{
-		Title = Lang.T("Quiznight – host notes");
+		Title = Lang.T("Quiznight? – host notes");
 		Size = new Vector2I(560, 420);
 		MinSize = new Vector2I(380, 260);
 		// Its own window on the desktop, not drawn inside the game's.

@@ -78,7 +78,7 @@ py -I tools/manifest.py "$VERSION" linux "$OUT_LINUX" build/update-linux.json "$
 
 # Big updates (x.y.0) get a name: '## [0.8.0b] — "Jokers Wild": …' makes the release "Quiznight 0.8.0b — Jokers Wild".
 NAME=$(sed -n "s/^## \[$VERSION\] — \"\([^\"]*\)\".*/\1/p" CHANGELOG.md)
-TITLE="Quiznight $VERSION${NAME:+ — $NAME}"
+TITLE="Quiznight? $VERSION${NAME:+ — $NAME}"
 # This version's notes: from its "## [version]" line up to the next "## [".
 awk -v v="## [$VERSION]" 'index($0, v) == 1 { on = 1; next } /^## \[/ { on = 0 } on' CHANGELOG.md > "$NOTES"
 

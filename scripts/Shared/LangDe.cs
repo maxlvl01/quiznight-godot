@@ -164,7 +164,7 @@ public static class LangDe
 		["Lock buzzers"] = "Buzzer sperren",
 		["Buzzers locked"] = "Buzzer gesperrt",
 		["Players don't see this question yet."] = "Die Spieler sehen diese Frage noch nicht.",
-		["Quiznight – host notes"] = "Quiznight – Host-Notizen",
+		["Quiznight? – host notes"] = "Quiznight? – Host-Notizen",
 		["Answer"] = "Antwort",
 		["Shown to everyone."] = "Für alle sichtbar.",
 		["Players don't see it until you press Show question."] = "Die Spieler sehen sie erst, wenn du auf Frage zeigen drückst.",
