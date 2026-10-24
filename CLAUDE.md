@@ -80,7 +80,12 @@ the original design decisions; most still apply.
 - **Players see and hear what the host's screen shows** (no Discord stream needed), except answers. Sound and
   video files go to every player in the background from the game's start (`Game.SharedFiles`, `HostSession.SendMedia`:
   binary `MediaChunk` messages, AES-encrypted, paced with `TrySend`); the id and key come with the question once
-  it's shown. Players report download progress (`Msg.MediaProgress`); the host starts sound/video by hand
+  it's shown. Since 0.8.11b this covers all pictures too (question images, slides, custom maps: `SharedMedia.Asset`),
+  made per room (`Room.SharedFiles`) and sent from the lobby on; `PublicQuestion.Files` unlocks the shown question's
+  pictures (`ClientAssets` falls back to asking by asset key if one isn't downloaded); the lobby's Start waits for
+  `RoomState.Downloads`. Steam: refused sends wait in `SteamHostTransport`'s outbox (never dropped); background files
+  (`TrySend`) only go while nothing waits, at a per-connection speed that halves when the buffer runs full.
+  Players report download progress (`Msg.MediaProgress`); the host starts sound/video by hand
   (`HostMedia`, "Everyone has it"), players' copies follow the play clock (`PlayerVideo`, `PlayerSound`,
   `PlayerImageReveal` via `PlayClock`) and the video is blurred until it first starts. After a wrong answer
   media stays paused until the host resumes it. Godot plays MP3/OGG/WAV and `.ogv` video only (no MP4/WebM) —
