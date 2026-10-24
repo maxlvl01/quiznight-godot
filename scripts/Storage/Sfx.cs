@@ -140,6 +140,12 @@ public static class Sfx
 	/// <summary>A ▶ preview (Settings, host lobby) is what's playing: it's stopped when the screen changes.</summary>
 	public static bool Previewing;
 
+	/// <summary>Stops the podium sound (leaving the podium).</summary>
+	public static void StopPodium()
+	{
+		if (_musicPlayer != null && GodotObject.IsInstanceValid(_musicPlayer)) _musicPlayer.Stop();
+	}
+
 	/// <summary>Stops the buzzer and podium sounds: only one preview plays at a time.</summary>
 	public static void StopAll()
 	{

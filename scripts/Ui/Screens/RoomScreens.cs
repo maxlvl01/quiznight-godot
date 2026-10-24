@@ -256,6 +256,9 @@ public partial class PodiumScreen : Control, IRoomScreen
 
 	public PodiumScreen() : this(false, null, null) { }
 
+	// (the podium song stops with the screen: back to the lobby, home, or the game closing)
+	public override void _ExitTree() => Storage.Sfx.StopPodium();
+
 	public PodiumScreen(bool isHost, string? myId, Action? backToLobby)
 	{
 		_isHost = isHost;

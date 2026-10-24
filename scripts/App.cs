@@ -316,8 +316,9 @@ public partial class App : Control
 	void UpdateBanners()
 	{
 		_banners.Clear();
+		// (Leave works while it tries: nobody is stuck waiting for a host that's gone)
 		if (Client is { Reconnecting: true })
-			_banners.AddChild(Banner("Connection lost — reconnecting…", C.Accent, null));
+			_banners.AddChild(Banner("Connection lost — reconnecting…", C.Accent, null, ("Leave", LeaveRoom)));
 		if (_bannerError != null)
 			_banners.AddChild(Banner(_bannerError, C.Coral, () =>
 			{
@@ -326,9 +327,11 @@ public partial class App : Control
 			}));
 	}
 
-	static Control Banner(string text, Color color, Action? onClose)
+	static Control Banner(string text, Color color, Action? onClose, (string Label, Action Press)? button = null)
 	{
-		var row = U.H(12, U.Text(text, 15, C.Bg, Fonts.Bold, true));
+		var row = U.H(12, U.Text(text, 15, C.Bg, Fonts.Bold, true).Grow());
+		if (button is { } b)
+			row.AddChild(U.Btn(b.Label, "SmallButton", b.Press, 14).Tip("Back to the home screen"));
 		if (onClose != null) row.AddChild(U.Btn("×", "LinkButton2", onClose, 18).With(b => b.AddThemeColorOverride("font_color", C.Bg)));
 		var p = U.Panel(row, "Clear");
 		p.AddThemeStyleboxOverride("panel", UiTheme.Box(color, 0, null, 0, 20, 8));

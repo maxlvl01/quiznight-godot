@@ -733,6 +733,7 @@ public static class LangDe
 		["The Fast Pass is only for buzzer questions."] = "Der Fast Pass gilt nur für Buzzer-Fragen.",
 		["You · double-click your name to change it"] = "Du · Doppelklick auf deinen Namen, um ihn zu ändern",
 		["Skin"] = "Skin",
+		["Back to the home screen"] = "Zurück zur Startseite",
 		["picture"] = "Bild",
 		["{0} pictures"] = "{0} Bilder",
 		["Show a picture (e.g. a Steam review) or a slideshow you flip through. Answered like a classic question."] = "Zeig ein Bild (z. B. eine Steam-Rezension) oder eine Diashow, durch die du blätterst. Beantwortet wie eine klassische Frage.",
