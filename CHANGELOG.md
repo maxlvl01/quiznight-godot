@@ -11,7 +11,7 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
-## [Unreleased]
+## [0.8.9b] — Quiznight? and picture questions
 
 ### Added
 - New question type **Picture**: show one picture (e.g. a Steam review to read) or several as a slideshow. You flip through them with ◀ ▶ or the arrow keys, and every player's screen follows; players only ever see the pictures you've shown so far. Answered like a classic question: buzzer, everyone types, A B C D or multiple choice, and a bonus works too. Drop several screenshots on the editor at once, or paste them one after another, to build a slideshow.
