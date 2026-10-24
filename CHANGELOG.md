@@ -11,7 +11,7 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
-## [Unreleased]
+## [0.9.1b] — map corner, peek and step by step fixes
 
 ### Changed
 - Map pin: while your mouse isn't on it, the map in the corner is see-through, so the screenshot shows through. The pin button keeps it big, and "Hide" folds it away into a small "Map" button to look at the whole screenshot.
