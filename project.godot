@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="QuizNight!"
-config/version="0.8.11b"
+config/version="0.8.12b"
 run/main_scene="res://scenes/Main.tscn"
 config/use_custom_user_dir=true
 config/custom_user_dir_name="Quiznight"

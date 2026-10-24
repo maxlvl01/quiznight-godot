@@ -11,7 +11,7 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
-## [Unreleased]
+## [0.8.12b] — download percent fix
 
 ### Fixed
 - The lobby's download percent went negative (around 30–40 %) on quizzes with big videos, so Start never unlocked. The download itself was fine.
