@@ -70,10 +70,11 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 		var grid = new GridContainer { Columns = 6 };
 		grid.AddThemeConstantOverride("h_separation", 10);
 		grid.AddThemeConstantOverride("v_separation", 10);
+		var tags = U.AnyClanTag(room.Players.Select(p => p.Name));
 		foreach (var p in room.Players)
 		{
 			var id = p.Id;
-			var seat = U.V(4, new Avatar(p, 44).Center(), U.PlayerName(p.Name, 15),
+			var seat = U.V(4, new Avatar(p, 44).Center(), U.PlayerName(p.Name, 15, HorizontalAlignment.Center, tags),
 				U.H(4, GameParts.SeatStatus(p, room, false), U.Link("×", () => _host.Kick(id), 15).Tip(Lang.F("Remove {0}", p.Name))).Center());
 			grid.AddChild(U.Panel(seat, "Card2").Grow());
 		}
@@ -163,12 +164,13 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 		var grid = new GridContainer { Columns = 4 };
 		grid.AddThemeConstantOverride("h_separation", 12);
 		grid.AddThemeConstantOverride("v_separation", 12);
+		var tags = U.AnyClanTag(room.Players.Select(p => p.Name));
 		foreach (var p in room.Players)
 		{
 			var me = p.Id == _client.MyId;
-			var seat = U.V(6, new Avatar(p, 56).Center(), me ? MyName(p, room) : U.PlayerName(p.Name, 16),
+			var seat = U.V(6, new Avatar(p, 56).Center(), me ? MyName(p, room, tags) : U.PlayerName(p.Name, 16, HorizontalAlignment.Center, tags),
 				me && room.Downloads.GetValueOrDefault(p.Id, 100) >= 100 ? U.Muted("You · double-click your name to change it", 13, true, HorizontalAlignment.Center)
-					: GameParts.SeatStatus(p, room, true));
+					: GameParts.SeatStatus(p, room, true).Center());
 			if (me && _renameError != null) seat.AddChild(U.Text(_renameError, 12, C.Coral, null, true, HorizontalAlignment.Center));
 			grid.AddChild(U.Panel(seat, me ? "Scored" : "Card2").Grow());
 		}
@@ -208,10 +210,10 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 public partial class WaitingRoomScreen
 {
 	/// <summary>Your name; double-click it to change it (Enter keeps it, Esc goes back).</summary>
-	Control MyName(PublicPlayer me, RoomState room)
+	Control MyName(PublicPlayer me, RoomState room, bool reserveTag)
 	{
 		if (_rename != null) return _rename;
-		var name = U.PlayerName(me.Name, 16);
+		var name = U.PlayerName(me.Name, 16, HorizontalAlignment.Center, reserveTag);
 		name.MouseFilter = MouseFilterEnum.Stop;
 		name.MouseDefaultCursorShape = CursorShape.Ibeam;
 		name.TooltipText = Lang.T("Double-click to change your name");
@@ -316,7 +318,7 @@ public partial class PodiumScreen : Control, IRoomScreen
 					p.AddThemeStyleboxOverride("panel", box);
 				}).MinSize(170, height);
 			// (a wide name is cut off with "…" instead of widening its step)
-			var name = U.PlayerName(r.P.Name, 18);
+			var name = U.PlayerName(r.P.Name, 18, HorizontalAlignment.Center, U.AnyClanTag(top.Select(t => t.P.Name)));
 			var step = U.V(6, new Avatar(r.P, 64).Center(), name, U.Mono(Lang.F("{0} pts", r.Score), 15, C.Muted).Center());
 			if (GameParts.SeatNote(r.P, room) is { } note) step.AddChild(note.Center());
 			step.AddChild(block);

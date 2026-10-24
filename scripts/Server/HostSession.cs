@@ -202,6 +202,9 @@ public sealed class HostSession : IDisposable
 			case Msg.Joker when playerId != null && Playing():
 				if (Msg.Read<JokerRequest>(msg.Data) is { } jr && Room.Game!.PlayJoker(playerId, jr.Kind, jr.On).Ok) Broadcast();
 				break;
+			case Msg.Recording when playerId != null:
+				if (Msg.Read<RecordingPart>(msg.Data) is { } rp) ReceiveRecording(peer, playerId, rp);
+				break;
 			case Msg.AssetRequest when playerId != null:
 				if (Msg.Read<AssetRequest>(msg.Data) is { } ar) SendAsset(peer, ar.Key);
 				break;
@@ -339,6 +342,38 @@ public sealed class HostSession : IDisposable
 	/// <summary>Someone left and the game waits: go on without them.</summary>
 	public void Continue() => GameAction(g => g.Continue());
 	public void SetBuzzers(bool open) => GameAction(g => g.SetBuzzers(open));
+	public void EndRecording() => GameAction(g => g.EndRecordingNow());
+	public void NextHint() => GameAction(g => g.NextHint());
+	public void SetClip(int clip) => GameAction(g => g.SetClip(clip));
+	public void PlayClip() => GameAction(g => g.PlayClip());
+	public void StartVoting() => GameAction(g => g.StartVoting());
+	public void PickFavourite(string playerId) => GameAction(g => g.PickFavourite(playerId));
+
+	/// <summary>Interactive recordings come in parts; the whole one goes to the game, and the player hears back once.</summary>
+	readonly Dictionary<string, (int Index, string?[] Parts)> _recordingParts = new();
+
+	void ReceiveRecording(string peer, string playerId, RecordingPart part)
+	{
+		if (part.Parts < 1 || part.Parts > 64 || part.Part < 0 || part.Part >= part.Parts) return;
+		if (!_recordingParts.TryGetValue(playerId, out var entry) || entry.Index != part.Index || entry.Parts.Length != part.Parts)
+			_recordingParts[playerId] = entry = (part.Index, new string?[part.Parts]);
+		entry.Parts[part.Part] = part.Data;
+		if (Array.Exists(entry.Parts, p => p == null)) return;
+		_recordingParts.Remove(playerId);
+		Result result;
+		try
+		{
+			result = !Playing() ? Result.Fail("The quiz is not running.")
+				: Room.Game!.SubmitRecording(playerId, part.Index, Convert.FromBase64String(string.Concat(entry.Parts)));
+		}
+		catch (FormatException)
+		{
+			result = Result.Fail("That recording didn't arrive properly.");
+		}
+		_net.Send(peer, Msg.Encode(Msg.AnswerResult, result));
+		if (result.Ok) Broadcast();
+	}
+	public void ReopenBuzzers() => GameAction(g => g.ReopenBuzzers());
 	public void SkipTurn() => GameAction(g => g.SkipTurn());
 	public void PlaceForFree() => GameAction(g => g.PlaceCurrentForFree());
 	public void RevealPlacement() => GameAction(g => g.RevealPlacement());

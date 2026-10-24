@@ -55,6 +55,8 @@ public sealed class Game
 	// Insertion order matters: it is the order answers are listed in.
 	readonly List<(string PlayerId, AnswerValue Value)> _answers = new();
 	readonly List<Buzz> _buzzes = new();
+	/// <summary>Earlier rounds of buzzes on this question (the host let everyone buzz again): kept for the reveal.</summary>
+	readonly List<Buzz> _pastBuzzes = new();
 	long? _answeringSince;
 	/// <summary>Sound/video play clock: only counts while the host's player is actually playing.</summary>
 	long _playedMs;
@@ -77,6 +79,16 @@ public sealed class Game
 	int? _tlPending;
 	/// <summary>Result phase: whether the last turn placed the item (else it passes on).</summary>
 	bool _tlResultRight;
+
+	// Interactive: everyone's recording (a WAV data URL), in the order they came in; then votes or the host's favourite.
+	string _iaPhase = InteractivePhase.Recording;
+	readonly Dictionary<string, (string DataUrl, double Sec)> _recordings = new();
+	readonly List<string> _clipOrder = new();
+	int _clip;
+	int _clipPlays;
+	/// <summary>Voter → the clip (index into _clipOrder) they voted for.</summary>
+	readonly Dictionary<string, int> _votes = new();
+	string? _favourite;
 
 	/// <summary>Every joker played this match (each player plays each kind once).</summary>
 	readonly List<JokerPlay> _jokers = new();
@@ -164,9 +176,13 @@ public sealed class Game
 		Index = index;
 		Stage = Shared.Stage.Open;
 		Slide = 0;
+		_slidesSeen = 1;
+		Hint = 0;
+		_stepsWorth = null;
 		_openedAt = now;
 		_answers.Clear();
 		_buzzes.Clear();
+		_pastBuzzes.Clear();
 		_answeringSince = null;
 		_playedMs = 0;
 		_playingSince = null;
@@ -186,6 +202,13 @@ public sealed class Game
 		_tlPhase = TimelinePhase.Choosing;
 		_tlPending = null;
 		_tlResultRight = false;
+		_iaPhase = InteractivePhase.Recording;
+		_recordings.Clear();
+		_clipOrder.Clear();
+		_clip = 0;
+		_clipPlays = 0;
+		_votes.Clear();
+		_favourite = null;
 		_late.Clear();
 		Shown = false;
 		BuzzersOpen = false;
@@ -219,6 +242,21 @@ public sealed class Game
 		return true;
 	}
 
+	/// <summary>
+	/// Everyone may buzz again (all who buzzed were wrong, nobody is waiting): this round's buzzes are put aside and the
+	/// buzzers open.
+	/// </summary>
+	public bool ReopenBuzzers()
+	{
+		if (Stage != Shared.Stage.Open || !Shown || !Question.IsBuzzer || Paused || _buzzes.Count == 0
+			|| _buzzes.Any(b => b.Status is BuzzStatus.Answering or BuzzStatus.Waiting)) return false;
+		_pastBuzzes.AddRange(_buzzes);
+		_buzzes.Clear();
+		_answeringSince = null;
+		BuzzersOpen = true;
+		return true;
+	}
+
 	/// <summary>Runs timers. Returns true if something changed (the time ran out).</summary>
 	public bool Tick()
 	{
@@ -230,7 +268,8 @@ public sealed class Game
 			return true;
 		}
 		if (Stage != Shared.Stage.Open || _endsAt is not { } ends || _hooks.Now() < ends) return false;
-		DoReveal();
+		if (Question.IsInteractive && _iaPhase == InteractivePhase.Recording) EndRecording();
+		else DoReveal();
 		return true;
 	}
 
@@ -248,6 +287,13 @@ public sealed class Game
 		if (playing && _playingSince == null)
 		{
 			_playingSince = now;
+			// Pressing play opens the buzzers (no need to remember Unlock), and once everyone has had a wrong go,
+			// resuming gives them all another one.
+			if (Shown && Question.IsBuzzer && !Paused && _buzzes.All(b => b.Status is BuzzStatus.Wrong or BuzzStatus.Correct))
+			{
+				if (_buzzes.Count > 0 && Active().All(id => _buzzes.Any(b => b.PlayerId == id))) ReopenBuzzers();
+				BuzzersOpen = true;
+			}
 			return true;
 		}
 		if (!playing && _playingSince is { } since)
@@ -289,6 +335,7 @@ public sealed class Game
 		if (correct)
 		{
 			current.Status = BuzzStatus.Correct;
+			if (Question.IsSteps) _stepsWorth = StepsWorth;
 			DoReveal();
 			return true;
 		}
@@ -307,6 +354,7 @@ public sealed class Game
 		if (Paused) return Result.Fail("The game is paused until everyone is back.");
 		if (_late.Contains(playerId)) return Result.Fail("You joined during this question: you play from the next one.");
 		if (q.IsBuzzer) return Result.Fail("This is a buzzer question.");
+		if (q.IsInteractive) return Vote(playerId, raw?.Num);
 		if (q.IsTimeline)
 		{
 			if (raw?.Num is not { } gap || gap != Math.Floor(gap)) return Result.Fail("Pick a spot on the timeline.");
@@ -369,6 +417,7 @@ public sealed class Game
 			MissTurn(TimelineEventKind.Skipped);
 			return true;
 		}
+		if (Stage == Shared.Stage.Open && Question.IsInteractive && Shown) return CheckInteractiveDone();
 		if (Stage != Shared.Stage.Open || Question.IsBuzzer || _answers.Count == 0) return false;
 		if (!Active().All(id => _answers.Any(a => a.PlayerId == id))) return false;
 		DoReveal();
@@ -401,6 +450,133 @@ public sealed class Game
 		}
 		foreach (var e in _reveal.Entries.Where(e => e.Points > 0)) _hooks.NoteScored(e.PlayerId);
 	}
+
+	// ---------- interactive ----------
+
+	public static string RecordingKey(int index, int clip) => $"q{index}/rec{clip}";
+
+	/// <summary>A player sends their recording (a WAV file); a new one replaces theirs until recording is over.</summary>
+	public Result SubmitRecording(string playerId, int index, byte[] wav)
+	{
+		var q = Question;
+		if (index != Index || Stage != Shared.Stage.Open || !q.IsInteractive) return Result.Fail("This question is already closed.");
+		if (!Shown) return Result.Fail("The host hasn't shown this question yet.");
+		if (Paused) return Result.Fail("The game is paused until everyone is back.");
+		if (_late.Contains(playerId)) return Result.Fail("You joined during this question: you play from the next one.");
+		if (_iaPhase != InteractivePhase.Recording) return Result.Fail("Time's up: the recordings are being played.");
+		if (WavSeconds(wav) is not { } sec || sec > QuestionLimits.RecordingMaxSec + 1) return Result.Fail("That recording didn't arrive properly.");
+		_recordings[playerId] = ("data:audio/wav;base64," + Convert.ToBase64String(wav), sec);
+		if (!_clipOrder.Contains(playerId)) _clipOrder.Add(playerId);
+		_hooks.NoteAnswerTime(playerId, _hooks.Now() - _openedAt);
+		CheckInteractiveDone();
+		return Result.Success();
+	}
+
+	/// <summary>How long a 16-bit PCM WAV file plays, or null if it isn't one (or is too big).</summary>
+	public static double? WavSeconds(byte[] wav)
+	{
+		if (wav.Length < 44 || wav.Length > 4 * 1024 * 1024 || System.Text.Encoding.ASCII.GetString(wav, 0, 4) != "RIFF"
+			|| System.Text.Encoding.ASCII.GetString(wav, 8, 4) != "WAVE") return null;
+		var byteRate = BitConverter.ToInt32(wav, 28);
+		return byteRate <= 0 ? null : (wav.Length - 44) / (double)byteRate;
+	}
+
+	/// <summary>Everyone has sent a recording, or everyone who can has voted: on to the next step.</summary>
+	bool CheckInteractiveDone()
+	{
+		if (Paused || Stage != Shared.Stage.Open) return false;
+		var active = Active();
+		if (_iaPhase == InteractivePhase.Recording && active.Count > 0 && active.All(_recordings.ContainsKey))
+		{
+			EndRecording();
+			return true;
+		}
+		if (_iaPhase == InteractivePhase.Voting && Voters().All(_votes.ContainsKey))
+		{
+			DoReveal();
+			return true;
+		}
+		return false;
+	}
+
+	/// <summary>Who can vote: everyone here who has someone else's recording to vote for.</summary>
+	List<string> Voters() => Active().Where(id => _clipOrder.Any(c => c != id)).ToList();
+
+	/// <summary>Recording is over (time's up, everyone sent one, or the host ends it): the host plays them one by one.</summary>
+	void EndRecording()
+	{
+		_iaPhase = InteractivePhase.Listening;
+		_endsAt = null;
+		_clip = 0;
+		if (_clipOrder.Count == 0) DoReveal();
+	}
+
+	/// <summary>The host ends recording early (who hasn't sent one is left out).</summary>
+	public bool EndRecordingNow()
+	{
+		if (Stage != Shared.Stage.Open || !Question.IsInteractive || !Shown || _iaPhase != InteractivePhase.Recording || Paused) return false;
+		EndRecording();
+		return true;
+	}
+
+	/// <summary>The host goes to another recording.</summary>
+	public bool SetClip(int clip)
+	{
+		if (!Question.IsInteractive || _iaPhase == InteractivePhase.Recording || clip == _clip || clip < 0 || clip >= _clipOrder.Count) return false;
+		_clip = clip;
+		return true;
+	}
+
+	/// <summary>The host plays the current recording: on their screen and on every player's PC.</summary>
+	public bool PlayClip()
+	{
+		if (!Question.IsInteractive || _iaPhase == InteractivePhase.Recording || _clipOrder.Count == 0) return false;
+		_clipPlays++;
+		return true;
+	}
+
+	/// <summary>Everyone has heard them: players vote now.</summary>
+	public bool StartVoting()
+	{
+		if (Stage != Shared.Stage.Open || !Question.IsInteractive || Question.Judging != Judging.Vote || _iaPhase != InteractivePhase.Listening || Paused) return false;
+		_iaPhase = InteractivePhase.Voting;
+		if (Voters().Count == 0) DoReveal();
+		return true;
+	}
+
+	/// <summary>The host picks a favourite (judged by the host): they get the question's points.</summary>
+	public bool PickFavourite(string playerId)
+	{
+		if (Stage != Shared.Stage.Open || !Question.IsInteractive || Question.Judging != Judging.Host || _iaPhase != InteractivePhase.Listening
+			|| !_clipOrder.Contains(playerId)) return false;
+		_favourite = playerId;
+		DoReveal();
+		return true;
+	}
+
+	Result Vote(string playerId, double? clip)
+	{
+		if (_iaPhase != InteractivePhase.Voting) return Result.Fail("Voting hasn't started yet.");
+		if (clip is not { } c || c != Math.Floor(c) || c < 0 || c >= _clipOrder.Count) return Result.Fail("Pick a recording.");
+		if (_clipOrder[(int)c] == playerId) return Result.Fail("You can't vote for your own recording.");
+		if (_votes.ContainsKey(playerId)) return Result.Fail("You already voted.");
+		_votes[playerId] = (int)c;
+		CheckInteractiveDone();
+		return Result.Success();
+	}
+
+	InteractiveView InteractiveView(string viewer) => new()
+	{
+		Phase = _iaPhase,
+		Judging = Question.Judging,
+		// (everyone's recordings, once recording is over)
+		Clips = _iaPhase == InteractivePhase.Recording && Stage == Shared.Stage.Open ? new()
+			: _clipOrder.Select((id, i) => new InteractiveClip { PlayerId = id, Key = RecordingKey(Index, i), Sec = _recordings[id].Sec }).ToList(),
+		Clip = _clip,
+		Plays = _clipPlays,
+		DoneIds = _iaPhase == InteractivePhase.Recording ? _clipOrder.ToList() : _iaPhase == InteractivePhase.Voting ? _votes.Keys.ToList() : new(),
+		MyVote = _votes.TryGetValue(viewer, out var mine) ? mine : null,
+	};
 
 	// ---------- timeline ----------
 
@@ -633,6 +809,25 @@ public sealed class Game
 	RevealView ComputeReveal()
 	{
 		var q = Question;
+		if (q.IsInteractive)
+		{
+			var byHost = q.Judging == Judging.Host;
+			var votes = _clipOrder.ToDictionary(id => id, id => _votes.Values.Count(c => _clipOrder[c] == id));
+			var most = votes.Count > 0 ? votes.Values.Max() : 0;
+			return new RevealView
+			{
+				AnswerText = Lang.T(byHost ? (_favourite != null ? "The host's favourite" : "The host picked no favourite") : most > 0 ? "Most votes" : "No votes"),
+				WinnerIds = byHost ? (_favourite != null ? new List<string> { _favourite } : new()) : votes.Where(v => most > 0 && v.Value == most).Select(v => v.Key).ToList(),
+				Entries = _clipOrder.Select(id => new RevealEntry
+				{
+					PlayerId = id,
+					Text = byHost ? Lang.T(id == _favourite ? "Favourite" : "Recorded") : votes[id] == 1 ? Lang.T("1 vote") : Lang.F("{0} votes", votes[id]),
+					Correct = byHost ? id == _favourite : votes[id] > 0,
+					// (a point per vote; the host's favourite gets the question's points)
+					Points = byHost ? (id == _favourite ? q.Points : 0) : votes[id],
+				}).OrderByDescending(e => e.Points).ToList(),
+			};
+		}
 		if (q.IsBuzzer)
 		{
 			var winner = _buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Correct);
@@ -641,12 +836,13 @@ public sealed class Game
 				AnswerText = q.AnswerText,
 				WinnerIds = winner != null ? new List<string> { winner.PlayerId } : new List<string>(),
 				GuessTimeSec = q.HasPlayClock && winner != null ? winner.AtMs / 1000.0 : null,
-				Entries = _buzzes.Select(b => new RevealEntry
+				// (one line per player: their last buzz, over every round)
+				Entries = _pastBuzzes.Concat(_buzzes).GroupBy(b => b.PlayerId).Select(g => g.Last()).Select(b => new RevealEntry
 				{
 					PlayerId = b.PlayerId,
 					Text = Lang.T(b.Status == BuzzStatus.Correct ? "Correct" : b.Status == BuzzStatus.Wrong ? "Wrong" : "Buzzed, no turn"),
 					Correct = b.Status == BuzzStatus.Correct,
-					Points = b.Status == BuzzStatus.Correct ? q.Points : 0,
+					Points = b.Status == BuzzStatus.Correct ? (q.IsSteps ? _stepsWorth ?? 1 : q.Points) : 0,
 				}).ToList(),
 			};
 		}
@@ -841,12 +1037,38 @@ public sealed class Game
 	/// <summary>Picture questions: the picture showing now (the host flips through them).</summary>
 	public int Slide { get; private set; }
 
+	/// <summary>Picture slideshows: how many pictures the host has shown so far (once all, players may flip them themselves).</summary>
+	int _slidesSeen = 1;
+
+	/// <summary>Step by step: the hint showing now (0 = the first); flipped by the host.</summary>
+	public int Hint { get; private set; }
+	/// <summary>Step by step: what the right answer was worth when it was given.</summary>
+	int? _stepsWorth;
+
+	/// <summary>Step by step: a right answer now gets as many points as there are hints left (5, 4, … 1 with five).</summary>
+	int StepsWorth => Math.Max(1, Question.FilledHints.Count - Hint);
+
+	/// <summary>The host flips the next hint: everyone who isn't in line gets another go at buzzing.</summary>
+	public bool NextHint()
+	{
+		var q = Question;
+		if (Stage != Shared.Stage.Open || !q.IsSteps || !Shown || Paused || Hint + 1 >= q.FilledHints.Count) return false;
+		Hint++;
+		if (_buzzes.Count > 0 && _buzzes.All(b => b.Status == BuzzStatus.Wrong))
+		{
+			_pastBuzzes.AddRange(_buzzes);
+			_buzzes.Clear();
+		}
+		return true;
+	}
+
 	/// <summary>The host shows another picture of a picture question (any time during the question and its reveal).</summary>
 	public bool SetSlide(int slide)
 	{
 		var q = Question;
 		if (q.Type != QuestionType.Picture || Finished || slide == Slide || slide < 0 || slide >= q.Slides.Count) return false;
 		Slide = slide;
+		_slidesSeen = Math.Max(_slidesSeen, slide + 1);
 		return true;
 	}
 
@@ -870,6 +1092,7 @@ public sealed class Game
 			pq.ImageKey = SlideKey(Index, Slide);
 			pq.Slide = Slide;
 			pq.SlideCount = q.Slides.Count;
+			pq.AllSlidesShown = _slidesSeen >= q.Slides.Count || Stage == Shared.Stage.Reveal;
 		}
 		if (q.IsClassicLike)
 		{
@@ -910,6 +1133,16 @@ public sealed class Game
 			pq.TimeLimitSec = q.TimeLimitSec;
 		}
 		if (q.IsMedia) pq.StartSec = q.StartSec;
+		if (q.IsInteractive) pq.TimeLimitSec = q.TimeLimitSec;
+		if (q.IsSteps)
+		{
+			var hints = q.FilledHints;
+			// (players see the flipped ones; all of them at the reveal)
+			pq.Hints = Stage == Shared.Stage.Reveal ? hints : hints.Take(Hint + 1).ToList();
+			pq.HintCount = hints.Count;
+			pq.WorthNow = StepsWorth;
+			pq.Points = hints.Count;
+		}
 		if (q.Type == QuestionType.Image)
 		{
 			// Players reveal the picture on their own screen, in step with the host's (the play clock).
@@ -925,6 +1158,9 @@ public sealed class Game
 				files[key] = new SharedFileRef { Id = f.Id, Key = Convert.ToBase64String(f.Key), Mime = f.Mime };
 		}
 		Unlock(pq.ImageKey, null);
+		// (every picture the host has shown, so players can flip back through them)
+		if (q.Type == QuestionType.Picture)
+			for (var s = 0; s < Math.Min(q.Slides.Count, pq.AllSlidesShown ? q.Slides.Count : _slidesSeen); s++) Unlock(SlideKey(Index, s), null);
 		if (pq.Map?.AssetKey is { } mapKey && _quiz.MapById(q.MapId) is { } usedMap) Unlock(mapKey, "map:" + usedMap.Id);
 		if (files.Count > 0) pq.Files = files;
 		if (CurrentMedia is { } video)
@@ -943,6 +1179,8 @@ public sealed class Game
 		if (q.Type == QuestionType.Order) return OrderText(q);
 		if (q.Type == QuestionType.Estimation) return $"{Fmt(q.AnswerNumber ?? 0)}{(q.Unit != "" ? " " + q.Unit : "")}";
 		if (q.Type == QuestionType.MapPin) return Lang.T("The marked spot on the map (shown at the reveal).");
+		if (q.IsSteps) return $"{q.AnswerText}  ·  {Lang.T("next hint")}: {(Hint + 1 < q.FilledHints.Count ? q.FilledHints[Hint + 1] : "–")}";
+		if (q.IsInteractive) return Lang.T(q.Judging == Judging.Host ? "You pick your favourite recording." : "The players vote for the best recording.");
 		return q.AnswerText;
 	}
 
@@ -961,7 +1199,10 @@ public sealed class Game
 			BuzzersOpen = BuzzersOpen,
 			EndsAt = open ? _endsAt : null,
 			AnswerEndsAt = open && _answeringSince is { } since ? since + _hooks.AnswerTimeSec() * 1000L : null,
-			AnsweredIds = _answers.Select(a => a.PlayerId).ToList(),
+			// (interactive: who has sent a recording, then who has voted)
+			AnsweredIds = Question.IsInteractive
+				? (_iaPhase == InteractivePhase.Voting ? _votes.Keys.ToList() : _clipOrder.ToList())
+				: _answers.Select(a => a.PlayerId).ToList(),
 			Buzzes = _buzzes.Select(b => new BuzzEntry { PlayerId = b.PlayerId, Status = b.Status, AtSec = b.AtMs / 1000.0, FastPass = b.FastPass }).ToList(),
 			MediaPlaying = _playingSince != null,
 			MediaPlayedMs = PlayTimeMs(_hooks.Now()),
@@ -969,6 +1210,7 @@ public sealed class Game
 			Reveal = _reveal,
 			// (the timeline only exists once the question is shown)
 			Timeline = Question.IsTimeline && Shown ? TimelineView() : null,
+			Interactive = Question.IsInteractive && (Shown || !open) ? InteractiveView(viewer) : null,
 			Paused = Paused,
 			WaitingFor = _waitingFor.ToList(),
 			LateIds = _late.ToList(),
@@ -1081,9 +1323,13 @@ public sealed class Game
 		var q = _quiz.Questions[index];
 		if (parts[1] == "image" && q.HasImageField && q.Image != null) return q.Image.DataUrl;
 		if (parts[1] == "map" && q.Type == QuestionType.MapPin) return _quiz.MapById(q.MapId)?.Image.DataUrl;
+		// (recordings: once recording is over, while the question and its reveal are on)
+		if (parts[1].StartsWith("rec") && int.TryParse(parts[1].AsSpan(3), out var clip) && q.IsInteractive && index == Index
+			&& (host || _iaPhase != InteractivePhase.Recording || Stage != Shared.Stage.Open) && clip >= 0 && clip < _clipOrder.Count)
+			return _recordings[_clipOrder[clip]].DataUrl;
 		// (players get the pictures shown so far, never the ones the host hasn't flipped to yet)
 		if (parts[1].StartsWith("slide") && int.TryParse(parts[1].AsSpan(5), out var slide) && q.Type == QuestionType.Picture
-			&& slide >= 0 && slide < q.Slides.Count && (host || index < Index || Stage != Shared.Stage.Open || slide <= Slide))
+			&& slide >= 0 && slide < q.Slides.Count && (host || index < Index || Stage != Shared.Stage.Open || slide < _slidesSeen))
 			return q.Slides[slide].DataUrl;
 		return null;
 	}

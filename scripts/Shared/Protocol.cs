@@ -225,6 +225,12 @@ public sealed class PublicQuestion
 	/// <summary>Picture questions: which picture shows (0-based) and how many there are.</summary>
 	public int? Slide;
 	public int? SlideCount;
+	/// <summary>The host has shown every picture: players can flip through them on their own screen.</summary>
+	public bool AllSlidesShown;
+	/// <summary>Step by step: the hints flipped so far (all of them at the reveal), how many there are, and what a right answer is worth now.</summary>
+	public List<string>? Hints;
+	public int? HintCount;
+	public int? WorthNow;
 	public string? Mode;
 	/// <summary>Choice mode: answers by letter index; empty answers are null.</summary>
 	public List<string?>? Choices;
@@ -253,6 +259,38 @@ public sealed class PublicQuestion
 	public bool IsMedia => Type is QuestionType.Sound or QuestionType.Video;
 	public bool HasPlayClock => IsMedia || Type == QuestionType.Image;
 	public bool IsTimeline => Type == QuestionType.Order && OrderMode == Shared.OrderMode.Timeline;
+}
+
+/// <summary>Where an interactive question is: players record, then the host plays the recordings, then (maybe) everyone votes.</summary>
+public static class InteractivePhase
+{
+	public const string Recording = "recording";
+	public const string Listening = "listening";
+	public const string Voting = "voting";
+}
+
+/// <summary>A player's recording: fetched by its asset key ("q3/rec0") like a picture.</summary>
+public sealed class InteractiveClip
+{
+	public string PlayerId = "";
+	public string Key = "";
+	public double Sec;
+}
+
+/// <summary>A running interactive question.</summary>
+public sealed class InteractiveView
+{
+	public string Phase = InteractivePhase.Recording;
+	public string Judging = Shared.Judging.Vote;
+	/// <summary>Everyone's recordings, once recording is over.</summary>
+	public List<InteractiveClip> Clips = new();
+	/// <summary>The recording the host is on, and how often the host pressed play (each press plays it everywhere).</summary>
+	public int Clip;
+	public int Plays;
+	/// <summary>Who has sent a recording (recording), or voted (voting).</summary>
+	public List<string> DoneIds = new();
+	/// <summary>Only in the state sent to that player: the clip they voted for.</summary>
+	public int? MyVote;
 }
 
 /// <summary>A running timeline (put in order, taking turns): what's placed, what comes next, whose turn it is.</summary>
@@ -383,6 +421,8 @@ public sealed class GameView
 	public RevealView? Reveal;
 	/// <summary>Timeline questions, once shown.</summary>
 	public TimelineView? Timeline;
+	/// <summary>Interactive questions, once shown.</summary>
+	public InteractiveView? Interactive;
 	/// <summary>Only in the state sent to that player.</summary>
 	public AnswerValue? MyAnswer;
 	/// <summary>Only in the host's state: the correct answer, before the reveal.</summary>
@@ -425,6 +465,8 @@ public static class Msg
 	public const string MediaProgress = "mediaProgress";
 	public const string Joker = "joker";
 	public const string Rename = "rename";
+	/// <summary>Part of an interactive question's recording (RecordingPart).</summary>
+	public const string Recording = "recording";
 
 	// host → player
 	public const string Joined = "joined";
@@ -513,6 +555,15 @@ public sealed class AnswerRequest
 }
 
 /// <summary>How much of a sound/video file a player has (the host waits for everyone before starting it).</summary>
+/// <summary>A player's recording for an interactive question, in parts (a WAV file, base64; Steam messages are limited).</summary>
+public sealed class RecordingPart
+{
+	public int Index;
+	public int Part;
+	public int Parts;
+	public string Data = "";
+}
+
 public sealed class MediaProgress
 {
 	public string Id = "";

@@ -19,9 +19,13 @@ public static class QuestionType
 	public const string Write = "write";
 	/// <summary>One picture or a slideshow the host flips through, answered like a classic question.</summary>
 	public const string Picture = "picture";
+	/// <summary>A task players do with their microphone (e.g. imitate a sound); then everyone votes, or the host picks.</summary>
+	public const string Interactive = "interactive";
+	/// <summary>Up to 5 hints, hardest first, that the host flips one by one; the earlier someone buzzes in right, the more points.</summary>
+	public const string Steps = "steps";
 
 	/// <summary>Order the editor shows them in.</summary>
-	public static readonly string[] All = { MapPin, Estimation, Classic, Picture, Sound, Video, Image, Order, Write };
+	public static readonly string[] All = { MapPin, Estimation, Classic, Picture, Sound, Video, Image, Order, Write, Steps, Interactive };
 
 	/// <summary>Help: what it does, then its variants and options (the "?" on the type cards).</summary>
 	public record Info(string Label, string Short, string Blurb, string Intro = "", string[]? Details = null);
@@ -100,6 +104,23 @@ public static class QuestionType
 				"Accepted answers: list several, separated by / (e.g. \"Canberra / ACT\"). Small typos are forgiven, and capitals and accents don't matter.",
 				"Matching answers are ticked for you. At the reveal you can tick or untick any answer, and give a bonus.",
 			}),
+		[Steps] = new("Step by step", "step by step", "Up to 5 hints, hardest first, flipped one by one. The earlier someone buzzes in right, the more points.",
+			"Players guess something (a historical event, a Bundesliga season, an F1 driver…) from hints you flip over one by one.",
+			new[]
+			{
+				"Up to 5 hints, the hardest first. Players buzz in when they know it and say the answer; you judge Correct or Wrong.",
+				"Right on the first hint gets as many points as there are hints (5 with five), each hint later one less.",
+				"Every new hint gives everyone another go, also who was wrong before.",
+			}),
+		[Interactive] = new("Interactive", "interactive", "Give everyone a task, like imitating a sound. They record it with their microphone; then everyone votes, or you pick your favourite.",
+			"Give everyone a task they do with their microphone, e.g. \"Imitate the Super Mario jump sound\".",
+			new[]
+			{
+				"Players record themselves within the time you set (each recording up to 15 seconds), listen back and send it.",
+				"Then you play the recordings one by one, on your screen and on every player's PC.",
+				"Players vote: every vote is a point for that recording (not your own). Or you pick your favourite, who gets the question's points.",
+				"Double points doubles what a player gets.",
+			}),
 	};
 
 	public static bool IsKnown(string type) => Infos.ContainsKey(type);
@@ -126,6 +147,21 @@ public static class OrderMode
 	{
 		(All, "Everyone at once"),
 		(Timeline, "Timeline — take turns"),
+	};
+}
+
+/// <summary>How an interactive question's recordings are judged.</summary>
+public static class Judging
+{
+	/// <summary>Players vote for the best (not their own): a point per vote.</summary>
+	public const string Vote = "vote";
+	/// <summary>The host picks a favourite, who gets the question's points.</summary>
+	public const string Host = "host";
+
+	public static readonly (string Id, string Label)[] All =
+	{
+		(Vote, "Players vote"),
+		(Host, "I pick my favourite"),
 	};
 }
 
@@ -292,6 +328,14 @@ public sealed class Question
 	/// <summary>Players buzz first and only then place their pin.</summary>
 	public bool BuzzFirst;
 
+	// step by step: the hints, hardest first
+	public List<string> Hints = new() { "", "", "", "", "" };
+	public bool IsSteps => Type == QuestionType.Steps;
+
+	// interactive
+	public string Judging = Shared.Judging.Vote;
+	public bool IsInteractive => Type == QuestionType.Interactive;
+
 	public bool IsMedia => Type is QuestionType.Sound or QuestionType.Video;
 	/// <summary>Sound, video and image reveal: buzz times count on a clock that only runs while it plays.</summary>
 	public bool HasPlayClock => IsMedia || Type == QuestionType.Image;
@@ -312,13 +356,15 @@ public sealed class Question
 	public bool CanBeTyped => HasPlayClock || (IsClassicLike && !IsChoice);
 	public bool IsTyped => Typed && CanBeTyped;
 	/// <summary>Players buzz in (classic buzzer, sound, video, image reveal) instead of everyone answering.</summary>
-	public bool IsBuzzer => CanBeTyped && !Typed;
+	public bool IsBuzzer => CanBeTyped && !Typed || IsSteps;
+	/// <summary>Step by step: the hints that are filled in, in order.</summary>
+	public List<string> FilledHints => Hints.Where(h => !string.IsNullOrWhiteSpace(h)).ToList();
 	/// <summary>Everyone types an answer that is checked against AnswerText (write the answer, or a typed question).</summary>
 	public bool IsWritten => Type == QuestionType.Write || IsTyped;
 	/// <summary>Has a bonus the host can give at the reveal.</summary>
 	public bool HasBonus => BonusPoints > 0;
 	/// <summary>Everyone answers within a time limit (instead of buzzing in).</summary>
-	public bool HasTimeLimit => IsCloseness || IsChoice || IsWritten || (Type == QuestionType.Order && !IsTimeline);
+	public bool HasTimeLimit => IsCloseness || IsChoice || IsWritten || (Type == QuestionType.Order && !IsTimeline) || IsInteractive;
 	public bool HasImageField => Type is QuestionType.Classic or QuestionType.Estimation or QuestionType.MapPin or QuestionType.Image or QuestionType.Write;
 
 	// Through text: in-memory JsonValues don't convert between number types when read back.
@@ -362,6 +408,13 @@ public static class QuestionLimits
 	public const int BonusTextMaxLength = 60;
 	/// <summary>Picture questions: at most this many pictures in a slideshow.</summary>
 	public const int SlidesMax = 12;
+	/// <summary>Interactive questions: how long one recording can be, and the default time to do the task.</summary>
+	public const int RecordingMaxSec = 15;
+	/// <summary>Step by step: how many hints (the first is worth this many points).</summary>
+	public const int HintsMin = 2;
+	public const int HintsMax = 5;
+	public const int HintMaxLength = 160;
+	public const int InteractiveTimeDefault = 90;
 }
 
 public static class QuizRules
@@ -372,8 +425,9 @@ public static class QuizRules
 	/// 4: put in order can be played as a timeline (orderMode, itemLabels, timelineStart, keepGoing).
 	/// 5: buzzer questions can be typed by everyone (typed); every question can have a bonus (bonusPoints, bonusText).
 	/// 6: picture questions (type "picture": slides, answered like classic).
+	/// 7: interactive questions (type "interactive": judging) and step by step (type "steps": hints).
 	/// </summary>
-	public const int FormatVersion = 6;
+	public const int FormatVersion = 7;
 
 	public static readonly string[] ChoiceLetters = { "A", "B", "C", "D" };
 
@@ -485,6 +539,14 @@ public static class QuizRules
 			case QuestionType.MapPin:
 				q.Prompt = "Where is this?";
 				q.TimeLimitSec = QuestionLimits.MapTimeLimitSec;
+				// (map pins: the closest three score 3, 2 and 1 by default)
+				q.Scoring = Scoring.Top3;
+				break;
+			case QuestionType.Interactive:
+				q.TimeLimitSec = QuestionLimits.InteractiveTimeDefault;
+				break;
+			case QuestionType.Steps:
+				q.Prompt = "What are we looking for?";
 				break;
 		}
 		return q;
@@ -498,6 +560,8 @@ public static class QuizRules
 		if (q.IsClassicLike)
 			return q.IsMulti ? $"{kind} · {Lang.T("several correct")} · {q.TimeLimitSec} s"
 				: q.IsChoice ? $"{kind} · A–D · {q.TimeLimitSec} s" : q.IsTyped ? $"{kind} · {Lang.T("everyone types")} · {q.TimeLimitSec} s" : $"{kind} · {Lang.T("buzzer")}";
+		if (q.IsSteps) return $"{kind} · {Lang.F("{0} hints", q.FilledHints.Count)}";
+		if (q.IsInteractive) return $"{kind} · {Lang.T(q.Judging == Judging.Host ? "host picks" : "vote")} · {q.TimeLimitSec} s";
 		if (q.Type == QuestionType.Order)
 			return $"{kind} · {(q.IsTimeline ? Lang.T("timeline") + " · " : "")}{Lang.F("{0} items", q.Items.Count(i => !string.IsNullOrWhiteSpace(i)))} · {q.TimeLimitSec} s";
 		if (q.IsTyped) return $"{kind} · {Lang.T("everyone types")} · {q.TimeLimitSec} s";
@@ -509,7 +573,7 @@ public static class QuizRules
 	public static List<string> QuestionIssues(Question q, IReadOnlyList<MapAsset> maps)
 	{
 		var issues = new List<string>();
-		if (string.IsNullOrWhiteSpace(q.Prompt)) issues.Add(Lang.T("Question text is missing."));
+		if (string.IsNullOrWhiteSpace(q.Prompt)) issues.Add(Lang.T(q.IsInteractive ? "Say what the task is." : "Question text is missing."));
 		if (q.Type == QuestionType.Picture && q.Slides.Count == 0) issues.Add(Lang.T("Add at least one picture."));
 		if (q.IsClassicLike)
 		{
@@ -531,6 +595,11 @@ public static class QuizRules
 		if (q.Type == QuestionType.Order && q.Items.Count(i => !string.IsNullOrWhiteSpace(i)) < QuestionLimits.OrderItemsMin)
 			issues.Add(Lang.F("Fill in at least {0} items.", QuestionLimits.OrderItemsMin));
 		if (q.Type == QuestionType.Write && string.IsNullOrWhiteSpace(q.AnswerText)) issues.Add(Lang.T("The correct answer is missing."));
+		if (q.IsSteps)
+		{
+			if (string.IsNullOrWhiteSpace(q.AnswerText)) issues.Add(Lang.T("The correct answer is missing."));
+			if (q.FilledHints.Count < QuestionLimits.HintsMin) issues.Add(Lang.F("Fill in at least {0} hints.", QuestionLimits.HintsMin));
+		}
 		if (q.Type == QuestionType.Image)
 		{
 			if (q.Image == null) issues.Add(Lang.T("Upload a picture."));

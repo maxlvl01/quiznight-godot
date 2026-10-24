@@ -8,12 +8,13 @@ using QuizNight.Shared;
 
 namespace QuizNight.Ui;
 
-/// <summary>A coloured circle with the player's initials.</summary>
+/// <summary>The player's Steam picture in a circle ringed with their colour, or a coloured circle with their initials.</summary>
 public partial class Avatar : Control
 {
 	readonly Color _color;
 	readonly string _initials;
 	readonly bool _offline;
+	readonly string _id;
 
 	public Avatar() : this(new PublicPlayer()) { }
 
@@ -22,10 +23,19 @@ public partial class Avatar : Control
 		_color = new Color(player.Color);
 		_initials = U.Initials(player.Name);
 		_offline = !player.Connected;
+		_id = player.Id;
+		TextureFilter = TextureFilterEnum.LinearWithMipmaps;
 		CustomMinimumSize = new Vector2(size, size);
 		SizeFlagsVertical = SizeFlags.ShrinkCenter;
 		TooltipText = player.Name;
 		MouseFilter = MouseFilterEnum.Pass;
+	}
+
+	public override void _EnterTree() => SteamAvatars.Loaded += OnLoaded;
+	public override void _ExitTree() => SteamAvatars.Loaded -= OnLoaded;
+	void OnLoaded(string id)
+	{
+		if (id == _id) QueueRedraw();
 	}
 
 	public override void _Draw()
@@ -34,6 +44,22 @@ public partial class Avatar : Control
 		var center = Size / 2;
 		var alpha = _offline ? 0.35f : 1f;
 		DrawCircle(center, r, new Color(_color, alpha), true, -1, true);
+		if (SteamAvatars.Get(_id) is { } picture)
+		{
+			// (the picture as a circle inside a thin ring of the player's colour)
+			var inner = r - Mathf.Max(1.5f, r * 0.08f);
+			const int n = 48;
+			var points = new Vector2[n];
+			var uvs = new Vector2[n];
+			for (var i = 0; i < n; i++)
+			{
+				var dir = Vector2.FromAngle(Mathf.Tau * i / n);
+				points[i] = center + dir * inner;
+				uvs[i] = new Vector2(0.5f, 0.5f) + dir * 0.5f;
+			}
+			DrawPolygon(points, new[] { new Color(1, 1, 1, alpha) }, uvs, picture);
+			return;
+		}
 		var fontSize = (int)(r * 0.8f);
 		var font = Fonts.Bold;
 		var ascent = font.GetAscent(fontSize);
@@ -110,6 +136,18 @@ public partial class TypeIcon : Control
 				DrawRect(new Rect2(P(3, 7), P(15, 13)), color, false, w, true);
 				DrawLine(P(6, 11), P(15, 11), color, w, true);
 				DrawLine(P(6, 15), P(12, 15), color, w, true);
+				break;
+			case QuestionType.Steps:
+				// (steps going up)
+				DrawPolyline(new[] { P(3, 20), P(3, 16), P(8, 16), P(8, 11), P(13, 11), P(13, 6), P(18, 6), P(18, 2.5f) }, color, w, true);
+				DrawLine(P(3, 20), P(21, 20), color, w, true);
+				break;
+			case QuestionType.Interactive:
+				// (a microphone)
+				DrawRect(new Rect2(P(9, 2.5f), P(6, 11)), color, false, w, true);
+				DrawArc(P(12, 11), 6 * k, 0, Mathf.Pi, 20, color, w, true);
+				DrawLine(P(12, 17), P(12, 21), color, w, true);
+				DrawLine(P(8, 21), P(16, 21), color, w, true);
 				break;
 			case QuestionType.Image:
 				DrawRect(new Rect2(P(3, 4), P(18, 16)), color, false, w, true);

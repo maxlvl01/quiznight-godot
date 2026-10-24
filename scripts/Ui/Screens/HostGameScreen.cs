@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Godot;
 using QuizNight.Net;
@@ -20,6 +21,9 @@ public partial class HostGameScreen : Control, IRoomScreen
 	readonly VBoxContainer _side = U.V(10);
 	HostMedia? _player;
 	HostImageReveal? _imageReveal;
+	/// <summary>Interactive questions: plays the recording when the host presses play (players' PCs play it too).</summary>
+	readonly ClipPlayer _clips;
+	readonly HintTracker _hints = new();
 
 	public HostGameScreen() : this(null!, null!) { }
 
@@ -27,6 +31,8 @@ public partial class HostGameScreen : Control, IRoomScreen
 	{
 		_host = host;
 		_assets = assets;
+		_clips = new ClipPlayer(assets);
+		AddChild(_clips);
 		SetAnchorsPreset(LayoutPreset.FullRect);
 
 		_content.AddThemeConstantOverride("separation", 14);
@@ -64,8 +70,12 @@ public partial class HostGameScreen : Control, IRoomScreen
 		var reveal = game.Stage == Stage.Reveal ? game.Reveal : null;
 		HostNotes.Update(game);
 		_game = game;
+		_clips.Update(game);
+		var ia = game.Interactive;
+		var iaKey = ia == null ? "" : $"|{ia.Phase}|{ia.Clip}|{ia.Clips.Count}|{string.Join(",", ia.DoneIds)}";
 		// (picture questions: the shown picture is part of it, so flipping redraws the picture)
-		var key = $"{game.Index}|{game.Stage}|{q.Slide}";
+		var key = $"{game.Index}|{game.Stage}|{q.Slide}|{q.Hints?.Count}";
+		var flipHint = _hints.JustFlipped(game);
 		var tl = game.Stage == Stage.Open ? game.Timeline : null;
 		// Timeline: rebuilt on every move.
 		var tlKey = tl == null ? "" : $"|{tl.Phase}|{tl.PendingGap}|{tl.Placed.Count}|{tl.TurnPlayerId}|{string.Join(",", tl.WrongGaps)}|{tl.Last?.Kind}{tl.Last?.PlayerId}{tl.Last?.Item}";
@@ -83,7 +93,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 			return U.Panel(row, "Bar");
 		});
 
-		_head.Set(key, () => GameParts.Row(16,
+		_head.Set(key + ia?.Phase, () => GameParts.Row(16,
 			U.Text(q.Prompt, 34, C.Text, Fonts.Black, true).Raw(),
 			game.Stage == Stage.Open ? new Countdown(game.EndsAt, null, 34) : U.Gap(0)));
 
@@ -105,13 +115,19 @@ public partial class HostGameScreen : Control, IRoomScreen
 		_imageReveal?.Update(game);
 
 		// (rebuilt when the host ticks an answer or gives a bonus)
-		_content.Set(reveal != null ? $"{key}|{string.Join(",", reveal.Entries.Select(e => $"{e.PlayerId}:{e.Points}:{e.Bonus}"))}" : key + tlKey, () =>
+		_content.Set((reveal != null ? $"{key}|{string.Join(",", reveal.Entries.Select(e => $"{e.PlayerId}:{e.Points}:{e.Bonus}"))}" : key + tlKey) + iaKey, () =>
 		{
 			var box = U.V(14);
+			if (ia != null) Interactive(box, room, ia, reveal != null);
 			if (reveal == null && GameParts.BonusLine(q, 18) is { } bonusLine) box.AddChild(bonusLine);
 			if (q.ImageKey != null && q.Type != QuestionType.Image && !(q.Type == QuestionType.MapPin && reveal != null))
 				box.AddChild(new AssetImage(_assets, q.ImageKey, U.Flexible) { Zoomable = true });
 			if (q is { SlideCount: > 1, Slide: { } slide }) box.AddChild(SlideControls(slide, q.SlideCount.Value));
+			if (q.HintCount != null)
+			{
+				box.AddChild(StepsParts.Cards(q, flipHint, 24));
+				if (reveal == null) box.AddChild(StepsParts.Worth(q, 20));
+			}
 			if (q.Choices != null) box.AddChild(GameParts.ChoiceGrid(game));
 			if (reveal == null && q.Mode == ClassicMode.Multi) box.AddChild(U.Muted("Several answers can be right — players pick all they think are.", 16));
 			if (reveal == null && q.Type == QuestionType.Estimation)
@@ -160,7 +176,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 
 		var answering = game.Buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Answering);
 		var last = game.Index + 1 >= game.Total;
-		_controls.Set($"{key}|{answering?.PlayerId}|{answering?.AtSec}|{game.Shown}|{game.BuzzersOpen}|{tl?.TurnPlayerId}|{tl?.Current}|{tl?.Phase}|{GameParts.PausedText(room)}", () =>
+		_controls.Set($"{key}{iaKey}|{answering?.PlayerId}|{answering?.AtSec}|{game.Buzzes.Count}|{game.Buzzes.Count(b => b.Status == BuzzStatus.Wrong)}|{game.Shown}|{game.BuzzersOpen}|{tl?.TurnPlayerId}|{tl?.Current}|{tl?.Phase}|{GameParts.PausedText(room)}", () =>
 		{
 			var row = GameParts.Row(10);
 			row.Alignment = BoxContainer.AlignmentMode.End;
@@ -188,6 +204,12 @@ public partial class HostGameScreen : Control, IRoomScreen
 			}
 			if (game.Stage == Stage.Open && q.Buzzer && answering == null)
 			{
+				// (everyone who buzzed was wrong: they can all have another go, or the host reveals)
+				if (game.Buzzes.Count > 0 && game.Buzzes.All(b => b.Status == BuzzStatus.Wrong))
+					row.AddChild(U.Btn("Let everyone buzz again", "", _host.ReopenBuzzers).Tip("Clears the buzzes so far: everyone, also who was wrong, can buzz again"));
+				// (step by step: flip the next hint; who was wrong can buzz again)
+				if (q.HintCount is { } hintCount && (q.Hints?.Count ?? 0) < hintCount)
+					row.AddChild(U.Btn("Next hint  (→)", "AccentButton", _host.NextHint, 20).Tip("Flips the next hint; everyone can buzz again"));
 				if (game.BuzzersOpen) row.AddChild(U.Btn("Lock buzzers", "", () => _host.SetBuzzers(false)));
 				else row.AddChild(U.Btn("Unlock buzzers  (Space)", "AccentButton", () => _host.SetBuzzers(true), 20));
 			}
@@ -195,6 +217,11 @@ public partial class HostGameScreen : Control, IRoomScreen
 				row.AddChild(U.Btn(Lang.F("Skip {0}", room.Player(turnId).Name), "", _host.SkipTurn).Tip("The next player tries the same item"));
 			if (tl is { Current: not null, Phase: not TimelinePhase.Locked })
 				row.AddChild(U.Btn("Place it for free", "", _host.PlaceForFree).Tip("Puts the item in its place without points; the next player gets the next one"));
+			if (game.Stage == Stage.Open && ia != null)
+			{
+				InteractiveControls(row, room, ia);
+				return row;
+			}
 			if (game.Stage == Stage.Open)
 			{
 				if (game.HostAnswer != null) row.AddChild(new PeekButton(game.HostAnswer));
@@ -230,9 +257,80 @@ public partial class HostGameScreen : Control, IRoomScreen
 		return row;
 	}
 
+	/// <summary>Interactive: who has sent a recording; then the recording the host is on, with ◀ ▶ and play.</summary>
+	void Interactive(VBoxContainer box, RoomState room, InteractiveView ia, bool revealed)
+	{
+		if (ia.Phase == InteractivePhase.Recording && !revealed)
+		{
+			var active = room.Players.Where(p => p.Connected && !_game!.LateIds.Contains(p.Id)).ToList();
+			box.AddChild(U.Muted("Everyone records themselves doing the task with their microphone, on their own PC.", 17));
+			var done = GameParts.Row(8, U.Bold(Lang.F("{0} / {1} sent", ia.DoneIds.Count, active.Count), 18));
+			foreach (var id in ia.DoneIds) done.AddChild(new Avatar(room.Player(id), 30));
+			box.AddChild(done);
+			return;
+		}
+		if (ia.Clips.Count == 0)
+		{
+			box.AddChild(U.Muted("Nobody sent a recording.", 17));
+			return;
+		}
+		box.AddChild(U.Panel(U.V(12, InteractiveParts.ClipCard(room, ia), ClipControls(ia)), "Card2"));
+		if (ia.Phase == InteractivePhase.Voting && !revealed)
+			box.AddChild(U.Bold(Lang.F("{0} have voted", ia.DoneIds.Count), 18).Center());
+	}
+
+	Control ClipControls(InteractiveView ia)
+	{
+		var back = U.Btn("◀", "SmallButton", () => _host.SetClip(ia.Clip - 1), 18).MinSize(56, 0).Tip("Previous recording (←)");
+		back.Disabled = ia.Clip == 0;
+		var next = U.Btn("▶▶", "SmallButton", () => _host.SetClip(ia.Clip + 1), 18).MinSize(56, 0).Tip("Next recording (→)");
+		next.Disabled = ia.Clip >= ia.Clips.Count - 1;
+		var row = GameParts.Row(14, back, U.Btn("▶ Play  (Space)", "AccentButton", _host.PlayClip, 20).Tip("Plays it here and on every player's PC"), next);
+		row.Alignment = BoxContainer.AlignmentMode.Center;
+		return row;
+	}
+
+	void InteractiveControls(HBoxContainer row, RoomState room, InteractiveView ia)
+	{
+		if (ia.Phase == InteractivePhase.Recording)
+		{
+			row.AddChild(U.Btn("End recording now", "", _host.EndRecording).Tip("Whoever hasn't sent a recording yet is left out"));
+			return;
+		}
+		if (ia.Phase == InteractivePhase.Voting)
+		{
+			row.AddChild(U.Btn("End voting", "AccentButton", _host.Reveal, 20).Tip("Shows the result with the votes so far"));
+			return;
+		}
+		if (ia.Judging == Judging.Host && ia.Clips.Count > 0)
+		{
+			var clip = ia.Clips[Math.Clamp(ia.Clip, 0, ia.Clips.Count - 1)];
+			var name = room.Player(clip.PlayerId).Name;
+			row.AddChild(U.Btn(Lang.F("{0} is my favourite", name), "AccentButton", () => _host.PickFavourite(clip.PlayerId), 20)
+				.Tip("They get the question's points"));
+			row.AddChild(U.Btn("Reveal answer", "", _host.Reveal).Tip("No favourite: nobody scores"));
+			return;
+		}
+		row.AddChild(U.Btn("Start voting", "AccentButton", _host.StartVoting, 20).Tip("Once you've played them all: everyone votes on their PC"));
+	}
+
 	/// <summary>Space: show the hidden question, then unlock the buzzers. ← →: flip a picture slideshow.</summary>
 	public override void _UnhandledKeyInput(InputEvent e)
 	{
+		if (e is InputEventKey { Pressed: true, Keycode: Key.Left or Key.Right or Key.Space } k && _game?.Interactive is { Phase: not InteractivePhase.Recording } ia
+			&& _game.Shown && ia.Clips.Count > 0)
+		{
+			if (k.Keycode == Key.Space) _host.PlayClip();
+			else _host.SetClip(ia.Clip + (k.Keycode == Key.Right ? 1 : -1));
+			GetViewport().SetInputAsHandled();
+			return;
+		}
+		if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Right } && _game?.Question.HintCount != null)
+		{
+			_host.NextHint();
+			GetViewport().SetInputAsHandled();
+			return;
+		}
 		if (e is InputEventKey { Pressed: true, Keycode: Key.Left or Key.Right } arrow && _game?.Question is { SlideCount: > 1, Slide: { } slide })
 		{
 			_host.SetSlide(slide + (arrow.Keycode == Key.Right ? 1 : -1));

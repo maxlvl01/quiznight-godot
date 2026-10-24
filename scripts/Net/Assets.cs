@@ -15,6 +15,11 @@ namespace QuizNight.Net;
 public abstract class AssetSource
 {
 	protected readonly Dictionary<string, Texture2D?> Cache = new();
+	/// <summary>Sounds by asset key (interactive questions' recordings).</summary>
+	protected readonly Dictionary<string, AudioStream?> Sounds = new();
+
+	/// <summary>A recording if it's here; otherwise starts fetching it and returns null (watch Loaded).</summary>
+	public abstract AudioStream? GetSound(string key);
 
 	/// <summary>An asset finished loading.</summary>
 	public event Action<string>? Loaded;
@@ -39,6 +44,14 @@ public sealed class HostAssets(Func<Room?> room) : AssetSource
 		tex = Images.TextureFromDataUrl(dataUrl);
 		Cache[key] = tex;
 		return tex;
+	}
+
+	public override AudioStream? GetSound(string key)
+	{
+		if (Sounds.TryGetValue(key, out var sound)) return sound;
+		var dataUrl = room()?.Game?.AssetDataUrl(key, host: true);
+		if (dataUrl == null || DataUrl.Bytes(dataUrl, out var mime) is not { } bytes) return null;
+		return Sounds[key] = Media.LoadSound(bytes, mime);
 	}
 }
 
@@ -80,6 +93,13 @@ public sealed class ClientAssets(Action<string> request, ClientMedia media) : As
 		return null;
 	}
 
+	public override AudioStream? GetSound(string key)
+	{
+		if (Sounds.TryGetValue(key, out var sound)) return sound;
+		if (_requested.Add(key)) request(key);
+		return null;
+	}
+
 	Texture2D? Unlocked(string key, SharedFileRef file)
 	{
 		if (media.GetImage(file.Id, file.Key, file.Mime) is not { } tex) return null;
@@ -107,7 +127,7 @@ public sealed class ClientAssets(Action<string> request, ClientMedia media) : As
 	public void RetryMissing()
 	{
 		foreach (var key in _requested)
-			if (!Cache.ContainsKey(key)) request(key);
+			if (!Cache.ContainsKey(key) && !Sounds.ContainsKey(key)) request(key);
 	}
 
 	public void Receive(AssetPart part)
@@ -122,9 +142,15 @@ public sealed class ClientAssets(Action<string> request, ClientMedia media) : As
 		if (Array.Exists(entry.Parts, p => p == null)) return;
 		_incoming.Remove(part.Key);
 		if (Cache.ContainsKey(part.Key)) return; // (unlocked from the downloaded file in the meantime)
-		GD.Print($"Picture {part.Key}: arrived from the host directly");
 		var sb = new StringBuilder();
 		foreach (var p in entry.Parts) sb.Append(p);
+		if (entry.Mime.StartsWith("audio/"))
+		{
+			Sounds[part.Key] = Media.LoadSound(Convert.FromBase64String(sb.ToString()), entry.Mime);
+			RaiseLoaded(part.Key);
+			return;
+		}
+		GD.Print($"Picture {part.Key}: arrived from the host directly");
 		Cache[part.Key] = Images.TextureFromDataUrl($"data:{entry.Mime};base64,{sb}");
 		RaiseLoaded(part.Key);
 	}

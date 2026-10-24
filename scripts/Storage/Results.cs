@@ -1,6 +1,7 @@
 // Results of finished quiz nights, as CSV (one row per player). The host's game uploads each one to Max's results repo
 // (ResultsUpload; only if that fails, it keeps the file in Documents/Quiznight/Results). Max ships them with the game
-// (assets/results/*.csv, imported as "keep"): the eternal table adds them all up.
+// (assets/results/*.csv, imported as "keep"): the eternal table adds them all up. Nights played during the beta are in
+// assets/results/beta: the beta table, its own (the real one starts with 1.0).
 
 using System;
 using System.Collections.Generic;
@@ -171,11 +172,15 @@ public static class Results
 		return careers.Values.OrderByDescending(c => c.Points).ThenBy(c => c.AvgAnswerS ?? double.MaxValue).ThenBy(c => c.Name).ToList();
 	}
 
-	/// <summary>The results shipped with the game.</summary>
-	public static List<string> BundledCsvs()
+	/// <summary>
+	/// The results shipped with the game: from 1.0 on (assets/results), or the beta's (beta: assets/results/beta, its own
+	/// table, kept to look back at).
+	/// </summary>
+	public static List<string> BundledCsvs(bool beta = false)
 	{
-		if (!DirAccess.DirExistsAbsolute(Bundled)) return new();
-		var files = DirAccess.GetFilesAt(Bundled);
-		return files.Where(f => f.EndsWith(".csv")).Select(f => Godot.FileAccess.GetFileAsString($"{Bundled}/{f}")).ToList();
+		var dir = beta ? Bundled + "/beta" : Bundled;
+		if (!DirAccess.DirExistsAbsolute(dir)) return new();
+		var files = DirAccess.GetFilesAt(dir);
+		return files.Where(f => f.EndsWith(".csv")).Select(f => Godot.FileAccess.GetFileAsString($"{dir}/{f}")).ToList();
 	}
 }

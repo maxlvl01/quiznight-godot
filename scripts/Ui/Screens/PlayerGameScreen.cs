@@ -20,6 +20,11 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 	readonly Keyed _question = new();
 	readonly Keyed _panel = new();
 	readonly VBoxContainer _side = U.V(10);
+	/// <summary>Interactive questions: plays the recordings when the host does.</summary>
+	readonly ClipPlayer _clips;
+	readonly HintTracker _hints = new();
+	/// <summary>Slideshows: the picture this player looks at once they may flip themselves (question index, picture).</summary>
+	(int Index, int Slide)? _mySlide;
 	RoomState _room = new();
 
 	public PlayerGameScreen() : this(null!) { }
@@ -27,6 +32,8 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 	public PlayerGameScreen(ClientSession client)
 	{
 		_client = client;
+		_clips = new ClipPlayer(client.Assets);
+		AddChild(_clips);
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		// The card fills the column; pictures and maps in it take the height that's left.
 		var card = U.Panel(U.V(14, _notice, _question, _panel).GrowV()).GrowV();
@@ -57,6 +64,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		if (_heardIndex >= 0 && game.Buzzes.Count > heard) Sfx.PlayRoomBuzzer(room.Settings.BuzzerSound);
 		_heardIndex = game.Index;
 		_heardBuzzes = game.Buzzes.Count;
+		_clips.Update(game);
 		_bar.Set($"{game.Index}|{me.Name}|{room.Score(MyId)}|{game.JokerIndex}", () =>
 		{
 			var row = GameParts.Row(12,
@@ -87,17 +95,38 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			: U.Panel(U.Text(notice, 16, C.Accent, Fonts.Bold, true).Raw(), "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(C.Accent, 0.1f), 12, C.Accent, 1, 14, 10))));
 
 		var key = $"{game.Index}|{game.Stage}|{game.Shown}|{q.Slide}";
-		_question.Set(key, () =>
+		var flipHint = _hints.JustFlipped(game);
+		// (a slideshow the host has shown all of: this player flips through it on their own, starting where the host is)
+		var ownSlide = q is { AllSlidesShown: true, SlideCount: > 1 } && game.Stage == Stage.Open ? (_mySlide is { } ms && ms.Index == game.Index ? ms.Slide : q.Slide ?? 0) : (int?)null;
+		if (ownSlide is { } own) _mySlide = (game.Index, own);
+		_question.Set($"{key}|{game.Interactive?.Phase}|{q.Hints?.Count}|{ownSlide}", () =>
 		{
 			var box = U.V(14, GameParts.Row(16,
 				U.Text(game.Shown || game.Stage == Stage.Reveal ? q.Prompt : "", 30, C.Text, Fonts.Black, true).Raw(),
 				game.Stage == Stage.Open && game.Shown ? new Countdown(game.EndsAt, null, 30) : U.Gap(0)));
 			if (game.Stage == Stage.Open && game.Shown && GameParts.BonusLine(q) is { } bonusLine) box.AddChild(bonusLine);
+			if (q.HintCount != null && (game.Shown || game.Stage == Stage.Reveal))
+			{
+				box.AddChild(StepsParts.Cards(q, flipHint, 20));
+				if (game.Stage == Stage.Open) box.AddChild(StepsParts.Worth(q));
+			}
 			// What the host's screen shows plays here too, in step with it (bots without a window skip it).
 			var open = game.Stage == Stage.Open && game.Shown;
 			var window = DisplayServer.GetName() != "headless";
 			if (q.ImageKey != null && q.Type == QuestionType.Image && open)
 				box.AddChild(new PlayerImageReveal(_client.Assets, () => _room, q.ImageKey));
+			else if (ownSlide is { } mine)
+			{
+				box.AddChild(new AssetImage(_client.Assets, Server.Game.SlideKey(game.Index, mine), U.Flexible) { Zoomable = true });
+				var back = U.Btn("◀", "SmallButton", () => FlipOwn(-1), 18).MinSize(56, 0);
+				back.Disabled = mine == 0;
+				var next = U.Btn("▶", "SmallButton", () => FlipOwn(1), 18).MinSize(56, 0);
+				next.Disabled = mine >= q.SlideCount!.Value - 1;
+				var row = GameParts.Row(14, back, U.Text(Lang.F("Picture {0} / {1}", mine + 1, q.SlideCount.Value), 16, C.Text, Fonts.Bold), next,
+					U.Muted("All shown: flip through them yourself", 14, false));
+				row.Alignment = BoxContainer.AlignmentMode.Center;
+				box.AddChild(row);
+			}
 			else if (q.ImageKey != null && q.Type != QuestionType.MapPin && game.Stage == Stage.Open)
 			{
 				box.AddChild(new AssetImage(_client.Assets, q.ImageKey, U.Flexible) { Zoomable = true });
@@ -126,6 +155,11 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		if (late)
 		{
 			_panel.Set($"{key}|late", () => Status(U.Bold("Watch along", 26), U.Muted("You're in from the next question.", 16)));
+			return;
+		}
+		if (game.Interactive is { } ia)
+		{
+			_panel.Set($"{key}|ia|{ia.Phase}|{(ia.Phase == InteractivePhase.Recording ? "" : ia.Clip.ToString())}|{ia.MyVote}", () => Interactive(room, ia));
 			return;
 		}
 		if (q.Buzzer)
@@ -187,6 +221,33 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			box.AddChild(U.Muted(hint, 12));
 		}
 		return box;
+	}
+
+	/// <summary>Flips this player's own view of a fully shown slideshow.</summary>
+	void FlipOwn(int by)
+	{
+		if (_mySlide is not { } ms || _room.Game?.Question.SlideCount is not { } count) return;
+		_mySlide = (ms.Index, Math.Clamp(ms.Slide + by, 0, count - 1));
+		Refresh(_room);
+	}
+
+	/// <summary>Interactive: record the task, then listen along while the host plays everyone's, then vote.</summary>
+	Control Interactive(RoomState room, InteractiveView ia)
+	{
+		var game = room.Game!;
+		if (ia.Phase == InteractivePhase.Recording)
+			return U.Panel(new RecorderPanel(_client, game.Index, ia.DoneIds.Contains(MyId)), "Card2");
+		if (ia.Phase == InteractivePhase.Voting && ia.MyVote == null && ia.Clips.Any(c => c.PlayerId != MyId))
+		{
+			var error = U.Error();
+			return U.V(8, InteractiveParts.VoteList(room, ia, MyId, _clips, n => Submit(game.Index, AnswerValue.Number(n), error)), error);
+		}
+		if (ia.Phase == InteractivePhase.Voting)
+			return Status(U.Bold(ia.MyVote is { } v && v < ia.Clips.Count ? Lang.F("You voted for {0}", room.Player(ia.Clips[v].PlayerId).Name) : Lang.T("Voting"), 26),
+				U.Muted("Waiting for the others to vote…", 16));
+		if (ia.Clips.Count == 0) return Status(U.Muted("Nobody sent a recording.", 16));
+		return Status(InteractiveParts.ClipCard(room, ia, 22),
+			U.Muted(ia.Judging == Judging.Host ? "The host plays everyone's recording and picks a favourite." : "The host plays everyone's recording. Then everyone votes for the best.", 16));
 	}
 
 	static Control Status(params Control[] kids)
@@ -523,16 +584,13 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			_client.Assets.Loaded += OnLoaded;
 		}
 		var box = U.V(10);
+		// Like GeoGuessr: the screenshot big, the map in the corner (grows on hover).
 		if (q.ImageKey != null)
 		{
 			var shot = new AssetImage(_client.Assets, q.ImageKey, U.Flexible) { Zoomable = true };
-			map.Visible = false;
-			box.AddChild(U.Segmented(new[] { ("shot", "Screenshot"), ("map", "Map") }, "shot", id =>
-			{
-				shot.Visible = id == "shot";
-				map.Visible = id == "map";
-			}));
-			box.AddChild(shot);
+			box.AddChild(new GeoLayout(shot, map, lockIn));
+			box.AddChild(error);
+			return box;
 		}
 		box.AddChild(map);
 		box.AddChild(lockIn);

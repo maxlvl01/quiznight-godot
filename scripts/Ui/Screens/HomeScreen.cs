@@ -54,7 +54,7 @@ public partial class HomeScreen : Control
 		_target = U.Input("", "", _ => Validate(), 0, "CodeInput");
 		// (Steam names can be longer than names in a room may be: the field starts with the part that fits)
 		var name = Settings.PlayerName != "" ? Settings.PlayerName : SteamService.PlayerName;
-		_name = U.Input(Server.Room.CleanName(name), "e.g. Max", _ => Validate(), Limits.NameInputMax);
+		_name = U.Input(Server.Room.CleanName(name), SteamService.PlayerName != "" ? Server.Room.CleanName(SteamService.PlayerName) : "e.g. Max", _ => Validate(), Limits.NameInputMax);
 		_name.TextSubmitted += _ => Join();
 		_target.TextSubmitted += _ => Join();
 		_target.TextChanged += t =>
@@ -160,16 +160,20 @@ public partial class HomeScreen : Control
 	void Validate()
 	{
 		var targetOk = _mode == NetMode.Steam ? _target.Text.Length == Limits.CodeLength : _target.Text.Trim() != "";
-		_join.Disabled = !targetOk || _name.Text.Trim() == "";
+		_join.Disabled = !targetOk || PlayerName() == "";
 	}
+
+	/// <summary>The name to join with: what's typed, or the Steam name if the field is left empty.</summary>
+	string PlayerName() => _name.Text.Trim() is { Length: > 0 } typed ? typed : Server.Room.CleanName(SteamService.PlayerName);
 
 	void Join()
 	{
 		Validate();
 		if (_join.Disabled) return;
+		// (an empty field keeps following the Steam name)
 		Settings.PlayerName = _name.Text.Trim();
 		if (_mode == NetMode.Lan) Settings.LanAddress = _target.Text.Trim();
-		App.I.JoinRoom(_mode, _target.Text.Trim(), _name.Text.Trim());
+		App.I.JoinRoom(_mode, _target.Text.Trim(), PlayerName());
 	}
 
 	// The last keys typed anywhere on this screen, for the developer code.

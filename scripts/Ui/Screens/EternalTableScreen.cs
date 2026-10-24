@@ -14,19 +14,31 @@ public partial class EternalTableScreen : Control
 {
 	static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
+	/// <summary>The beta table is shown (nights before 1.0); until 1.0 has nights of its own, that's the one that opens.</summary>
+	static bool? _beta;
+
 	public EternalTableScreen()
 	{
 		SetAnchorsPreset(LayoutPreset.FullRect);
-		var table = Results.Table(Results.BundledCsvs());
+		var beta = _beta ?? Results.BundledCsvs().Count == 0;
+		var table = Results.Table(Results.BundledCsvs(beta));
+		var switcher = U.Segmented(new[] { ("main", "Ewige Tabelle"), ("beta", "Beta table") }, beta ? "beta" : "main", id =>
+		{
+			_beta = id == "beta";
+			App.I.GoEternalTable();
+		});
+		switcher.SizeFlagsHorizontal = SizeFlags.ShrinkEnd;
 		var page = U.V(14,
 			U.Link("← Home", () => App.I.GoHome()).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin),
-			U.Heading("🏆 Ewige Tabelle", 34),
-			U.Muted("Every quiz night added up: most points first, then the faster average answer time.", 15));
+			U.H(12, U.Heading(beta ? "🏆 Ewige Tabelle · Beta" : "🏆 Ewige Tabelle", 34).Grow(), switcher),
+			U.Muted(beta ? "Every quiz night of the beta added up (before 1.0): most points first, then the faster average answer time."
+				: "Every quiz night added up: most points first, then the faster average answer time.", 15));
 		if (table.Count == 0)
 		{
 			page.AddChild(U.Card(8,
 				U.Heading("No quiz nights yet", 22).With(l => l.HorizontalAlignment = HorizontalAlignment.Center),
-				U.Muted("After each quiz night the results go to Max. With the next update they show up here.", 15, true, HorizontalAlignment.Center)));
+				U.Muted(beta ? "After each quiz night the results go to Max. With the next update they show up here."
+					: "The Ewige Tabelle starts with version 1.0. Until then, the nights count for the beta table.", 15, true, HorizontalAlignment.Center)));
 			AddChild(U.Page(page, 980, 20));
 			return;
 		}

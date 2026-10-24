@@ -96,6 +96,15 @@ public static class SampleQuiz
 					Picture(1280, 720, new Color("#66c0f4"), new Color("#1b2838"), "REVIEW 3"),
 				},
 			},
+			new()
+			{
+				Id = "q14", Type = QuestionType.Steps, Prompt = "Which season are we looking for?", AnswerText = "Bundesliga 2008/09 (VfL Wolfsburg)",
+				Hints = new() { "The champion had never won the league before.", "Its two top scorers scored 54 goals together.", "Felix Magath was the coach.", "Grafite and Džeko.", "VfL Wolfsburg." },
+			},
+			new()
+			{
+				Id = "q15", Type = QuestionType.Interactive, Prompt = "Imitate the Super Mario jump sound!", TimeLimitSec = 40, Judging = Judging.Vote, Points = 1,
+			},
 		};
 		return new Quiz
 		{

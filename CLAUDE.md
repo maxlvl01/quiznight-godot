@@ -50,6 +50,17 @@ the original design decisions; most still apply.
   answered like classic (`Question.IsClassicLike` covers both). The host flips with `HostSession.SetSlide`
   (`Game.Slide`, ◀ ▶ / arrow keys); `PublicQuestion.ImageKey` is the shown slide's key (`q3/slide1`), and players can
   only fetch slides up to the shown one while the question is open.
+  Once the host has shown every slide (`PublicQuestion.AllSlidesShown`), players flip through them on their own.
+- **Step by step** (`QuestionType.Steps`, format 7): `Question.Hints` (2–5, hardest first), played as a buzzer question.
+  The host flips with `Game.NextHint` (→); a new hint clears an all-wrong round of buzzes. Right is worth
+  `hints − hint index` points (`PublicQuestion.WorthNow`). Cards: `StepsParts`/`HintCard` (flip tween, `HintTracker`).
+- **Interactive** (`QuestionType.Interactive`, format 7): players record the task with their mic (`Ui/MicRecorder`: a muted
+  "QuizMic" bus with `AudioEffectCapture` → 16 kHz mono WAV, ≤ `RecordingMaxSec`; needs `audio/driver/enable_input`), sent in
+  parts (`Msg.Recording`, `HostSession.ReceiveRecording` → `Game.SubmitRecording`). Phases (`InteractivePhase`): recording
+  (timer) → listening (host `SetClip`/`PlayClip`; every screen's `ClipPlayer` plays when `InteractiveView.Plays` goes up;
+  recordings are fetched like pictures, asset key `q3/rec0`) → voting (`Judging.Vote`: votes are `Answer`s with the clip
+  index, a point each, not your own) or the host's `PickFavourite` (`Judging.Host`, the question's points).
+- **Steam avatars** (`Net/SteamAvatars`): every app asks Steam for the picture of "steam:<id>" players; `Avatar` draws it.
 - **The host runs the pace.** Questions open hidden (`Game.Shown`) until the host shows them; buzzers stay
   locked (`BuzzersOpen`) until unlocked — both lobby rules. Players get no content of a hidden question, and
   an image reveal's picture revealed in step with the host's. Choice answers and order items are shuffled per game
@@ -71,8 +82,8 @@ the original design decisions; most still apply.
   exported build uploads a CSV to the private repo `maxlvl01/quiznight-results` (`results/`), using the
   fine-grained token in `results-token.txt` (repo root, gitignored, shipped via the export include_filter; it can only
   write that repo). Only if the upload fails is the CSV kept in Documents/Quiznight/Results. Editor runs and LAN games
-  never upload. To update the table: copy the repo's CSVs into `assets/results/` with a 3-line `importer="keep"`
-  .import each (else Godot imports CSVs as translations); `EternalTableScreen` adds them up per player id (the same
+  never upload. To update the table: copy the repo's CSVs into `assets/results/` (nights before 1.0: `assets/results/beta/`,
+  the Beta table) with a 3-line `importer="keep"` .import each (else Godot imports CSVs as translations); `EternalTableScreen` adds them up per player id (the same
   night twice counts once). Never ship test results there.
 - **Game state is per viewer** (`Room.ToState(viewer)`): players never get answers before the
   reveal. Question images/custom maps are fetched by asset key (`q3/image`, `q3/map`) only for

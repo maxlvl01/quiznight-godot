@@ -199,6 +199,25 @@ public sealed class ClientSession : IDisposable
 		_net.Send(Msg.Encode(Msg.Answer, new AnswerRequest { Index = index, Value = value }));
 	}
 
+	/// <summary>Sends an interactive question's recording (a WAV file) in parts; the host answers once it has all of them.</summary>
+	public void SendRecording(int index, byte[] wav, Action<Result> onResult)
+	{
+		if (_net == null)
+		{
+			onResult(Result.Fail("Not connected right now. Try again in a moment."));
+			return;
+		}
+		_pendingAnswers.Enqueue(onResult);
+		var data = Convert.ToBase64String(wav);
+		const int partSize = 200_000;
+		var parts = Math.Max(1, (data.Length + partSize - 1) / partSize);
+		for (var i = 0; i < parts; i++)
+			_net.Send(Msg.Encode(Msg.Recording, new RecordingPart
+			{
+				Index = index, Part = i, Parts = parts, Data = data.Substring(i * partSize, Math.Min(partSize, data.Length - i * partSize)),
+			}));
+	}
+
 	public void Leave()
 	{
 		_net?.Send(Msg.Encode(Msg.Leave));

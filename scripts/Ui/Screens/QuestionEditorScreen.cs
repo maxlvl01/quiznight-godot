@@ -80,6 +80,8 @@ public partial class QuestionEditorScreen : Control
 			QuestionType.Image => ImageRevealForm(),
 			QuestionType.Order => OrderForm(),
 			QuestionType.Write => WriteForm(),
+			QuestionType.Interactive => InteractiveForm(),
+			QuestionType.Steps => StepsForm(),
 			_ => MediaForm(),
 		});
 		// Maps and previews take the height that's left, so the form fits without scrolling.
@@ -467,6 +469,66 @@ public partial class QuestionEditorScreen : Control
 				RoundSettings.Points(_draft, () => Changed()),
 				RoundSettings.Bonus(_draft, () => Changed()),
 				U.Muted("Everyone puts the items in order on their own screen. Only a perfect order gets the points; the reveal shows how many each player had in the right place.", 13));
+		return Columns((left, 1.6f), (settings, 1));
+	}
+
+	// ---------- step by step ----------
+
+	Control StepsForm()
+	{
+		while (_draft.Hints.Count < QuestionLimits.HintsMax) _draft.Hints.Add("");
+		var hints = U.V(8);
+		for (var i = 0; i < QuestionLimits.HintsMax; i++)
+		{
+			var n = i;
+			hints.AddChild(GameParts.Row(10, U.Bold($"{i + 1}.", 16).MinSize(24, 0),
+				U.Input(_draft.Hints[i], i == 0 ? "The hardest hint, e.g. It ended in Leipzig." : i == QuestionLimits.HintsMax - 1 ? "The easiest one (optional)" : "", t =>
+				{
+					_draft.Hints[n] = t;
+					Changed();
+				}, QuestionLimits.HintMaxLength).Grow()));
+		}
+		var left = U.V(14, PromptLine(),
+			U.Field("Answer", U.Input(_draft.AnswerText, "e.g. The Battle of the Nations 1813", t =>
+			{
+				_draft.AnswerText = t;
+				Changed();
+			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold)), "Only you see it, to judge what players say."),
+			U.Field("Hints, the hardest first", hints, Lang.F("{0}–{1} hints. You flip them over one by one.", QuestionLimits.HintsMin, QuestionLimits.HintsMax)));
+		var settings = RoundSettings.Panel(
+			U.Muted("Players buzz in when they know it and say the answer out loud; you judge Correct or Wrong.", 13),
+			U.Muted("Points: right on the first hint gets as many points as there are hints (5 with five), each hint after one less. Double points doubles them.", 13),
+			U.Muted("Every new hint gives everyone another go, also who was wrong before.", 13));
+		return Columns((left, 1.6f), (settings, 1));
+	}
+
+	// ---------- interactive ----------
+
+	Control InteractiveForm()
+	{
+		var left = U.V(14,
+			U.Field("Task", U.Area(_draft.Prompt, "e.g. Imitate the Super Mario jump sound!", t =>
+			{
+				_draft.Prompt = t;
+				Changed();
+			}, 2, QuestionLimits.PromptMaxLength), "What players do with their microphone. They see it on their screen and record themselves."),
+			U.Muted(Lang.F("Players record themselves on their own PC (each recording up to {0} seconds), listen back and send it. When the time is up, you play everyone's recording one by one, on your screen and on every player's PC.", QuestionLimits.RecordingMaxSec), 14));
+		var vote = _draft.Judging == Judging.Vote;
+		var settings = RoundSettings.Panel(
+			U.Field("Time to record (seconds)", new NumberField(_draft.TimeLimitSec, v =>
+			{
+				_draft.TimeLimitSec = (int)Math.Clamp(Math.Round(v ?? QuestionLimits.TimeLimitMin), QuestionLimits.TimeLimitMin, QuestionLimits.TimeLimitMax);
+				Changed();
+			}, QuestionLimits.TimeLimitMin, QuestionLimits.TimeLimitMax, true)),
+			U.Field("Who decides", U.Segmented(Judging.All, _draft.Judging, id =>
+			{
+				_draft.Judging = id;
+				Changed();
+				BuildForm();
+			})),
+			vote ? U.Muted("Everyone votes for the best recording (not their own). Every vote is a point; Double points doubles it.", 13)
+				: RoundSettings.Points(_draft, () => Changed()),
+			vote ? U.Gap(0) : U.Muted("You pick your favourite recording: they get the points (doubled with Double points).", 13));
 		return Columns((left, 1.6f), (settings, 1));
 	}
 

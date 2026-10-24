@@ -135,6 +135,14 @@ public static class QuizJson
 				o["unit"] = q.Unit;
 				WriteCloseness(o, q);
 				break;
+			case QuestionType.Steps:
+				o["answer"] = q.AnswerText;
+				o["hints"] = new JsonArray(q.Hints.Select(h => (JsonNode)JsonValue.Create(h)!).ToArray());
+				break;
+			case QuestionType.Interactive:
+				o["timeLimitSec"] = q.TimeLimitSec;
+				o["judging"] = q.Judging;
+				break;
 			case QuestionType.MapPin:
 				o["image"] = WriteImage(q.Image);
 				o["mapId"] = q.MapId;
@@ -200,6 +208,12 @@ public static class QuizJson
 		q.Scoring = Str(o, "scoring", Scoring.ClosestWins) == Scoring.Top3 ? Scoring.Top3 : Scoring.ClosestWins;
 		q.MapId = o["mapId"] is JsonValue mid && mid.TryGetValue<string>(out var mapId) ? mapId : null;
 		q.Target = ReadPoint(o["target"]);
+		if (o["hints"] is JsonArray hints)
+		{
+			q.Hints = hints.Select(h => h is JsonValue v && v.TryGetValue<string>(out var s) ? s : "").Take(QuestionLimits.HintsMax).ToList();
+			while (q.Hints.Count < QuestionLimits.HintsMax) q.Hints.Add("");
+		}
+		q.Judging = Str(o, "judging", Judging.Vote) == Judging.Host ? Judging.Host : Judging.Vote;
 		q.BuzzFirst = o["buzzFirst"] is JsonValue bf && bf.TryGetValue<bool>(out var b) && b;
 		q.Typed = o["typed"] is JsonValue ty && ty.TryGetValue<bool>(out var typed) && typed;
 		q.BonusPoints = Math.Clamp((int)Num(o, "bonusPoints", 0), 0, QuestionLimits.BonusPointsMax);

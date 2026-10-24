@@ -407,7 +407,7 @@ public sealed class DevTools
 		var s = host.State;
 		var g = s.Game;
 		var answering = g?.Buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Answering);
-		var key = $"{s.Phase}|{g?.Index}|{g?.Stage}|{g?.Shown}|{g?.BuzzersOpen}|{answering?.PlayerId}|{g?.Buzzes.Count}|{s.Players.Count(p => p.Connected)}|{g?.Timeline?.Placed.Count}|{g?.Timeline?.TurnPlayerId}|{g?.Timeline?.WrongGaps.Count}|{g?.Timeline?.Phase}|{g?.Question.Slide}";
+		var key = $"{s.Phase}|{g?.Index}|{g?.Stage}|{g?.Shown}|{g?.BuzzersOpen}|{answering?.PlayerId}|{g?.Buzzes.Count}|{s.Players.Count(p => p.Connected)}|{g?.Timeline?.Placed.Count}|{g?.Timeline?.TurnPlayerId}|{g?.Timeline?.WrongGaps.Count}|{g?.Timeline?.Phase}|{g?.Question.Slide}|{g?.Question.Hints?.Count}|{g?.Interactive?.Phase}|{g?.Interactive?.Clip}|{g?.Interactive?.Plays}|{g?.Interactive?.DoneIds.Count}";
 		if (key != _pilotKey)
 		{
 			_pilotKey = key;
@@ -445,9 +445,28 @@ public sealed class DevTools
 					if (waited > 1.5) host.SetSlide(slide + 1);
 					break;
 				}
+				// Interactive: wait for the recordings, play each one, then let everyone vote (or pick the first as favourite).
+				if (g.Interactive is { } ia)
+				{
+					if (ia.Phase == InteractivePhase.Listening && waited > 2)
+					{
+						if (ia.Plays <= ia.Clip) host.PlayClip();
+						else if (ia.Clip < ia.Clips.Count - 1) host.SetClip(ia.Clip + 1);
+						else if (ia.Judging == Judging.Host) host.PickFavourite(ia.Clips[0].PlayerId);
+						else host.StartVoting();
+					}
+					else if (ia.Phase == InteractivePhase.Voting && waited > 12) host.Reveal();
+					break;
+				}
 				if (g.Question.Buzzer && !g.BuzzersOpen && answering == null)
 				{
 					if (waited > 1.2) host.SetBuzzers(true);
+					break;
+				}
+				// Step by step: flip the next hint when nobody is answering for a while.
+				if (g.Question is { HintCount: { } hints } && (g.Question.Hints?.Count ?? 0) < hints && answering == null)
+				{
+					if (waited > 3) host.NextHint();
 					break;
 				}
 				// Timeline: reveal the locked-in spot, then go on to the next turn.
@@ -527,9 +546,25 @@ public sealed class DevTools
 					_action = drag ? () => DragAndLockIn(gaps[0], gap) : () => client.Answer(index, AnswerValue.Number(gap), _ => { });
 				}
 			}
-			else if (client.State?.Phase == Phase.Playing && g is { Stage: Stage.Open, Shown: true, Timeline: null } && (!g.Question.Buzzer || g.BuzzersOpen) && _handled != $"{g.Index}")
+			// Interactive: a bot sends a beep as its recording, then votes for someone else's.
+			else if (client.State?.Phase == Phase.Playing && g is { Stage: Stage.Open, Shown: true, Interactive: { } ia })
 			{
-				_handled = $"{g.Index}";
+				var iaKey = $"{g.Index}|ia|{ia.Phase}";
+				if (_handled != iaKey)
+				{
+					_handled = iaKey;
+					_actAt = now + 1 + _rng.NextDouble() * 2;
+					var index = g.Index;
+					var others = Enumerable.Range(0, ia.Clips.Count).Where(i => ia.Clips[i].PlayerId != client.MyId).ToList();
+					_action = ia.Phase == InteractivePhase.Recording ? () => client.SendRecording(index, SampleQuiz.Beep(1 + _rng.NextDouble() * 2), _ => { })
+						: ia.Phase == InteractivePhase.Voting && others.Count > 0 ? () => client.Answer(index, AnswerValue.Number(others[_rng.Next(others.Count)]), _ => { })
+						: null;
+				}
+			}
+			// (step by step: every new hint is another chance to buzz)
+			else if (client.State?.Phase == Phase.Playing && g is { Stage: Stage.Open, Shown: true, Timeline: null } && (!g.Question.Buzzer || g.BuzzersOpen) && _handled != $"{g.Index}|{g.Question.Hints?.Count}")
+			{
+				_handled = $"{g.Index}|{g.Question.Hints?.Count}";
 				_actAt = now + 0.8 + _rng.NextDouble() * 2.5;
 				var q = g.Question;
 				var index = g.Index;

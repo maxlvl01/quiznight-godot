@@ -2,6 +2,7 @@
 // grey with yellow and teal) and small helpers for building screens in code.
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using QuizNight.Shared;
@@ -65,6 +66,8 @@ public static class C
 		QuestionType.Order => Lime,
 		QuestionType.Write => Orange,
 		QuestionType.Picture => Blue,
+		QuestionType.Interactive => Gold,
+		QuestionType.Steps => Teal,
 		_ => Muted,
 	};
 }
@@ -558,9 +561,10 @@ public static class U
 
 	/// <summary>
 	/// A player's name for seats and the podium: a clan tag ("[OTB] maxlvl") on its own small line above the name, so
-	/// long tags don't crowd the name.
+	/// long tags don't crowd the name. reserveTag: keep that line's room even without a tag, so names (and what's under
+	/// them) line up with seats that have one.
 	/// </summary>
-	public static Control PlayerName(string name, int size, HorizontalAlignment align = HorizontalAlignment.Center)
+	public static Control PlayerName(string name, int size, HorizontalAlignment align = HorizontalAlignment.Center, bool reserveTag = false)
 	{
 		var (tag, rest) = Limits.SplitClanTag(name);
 		var label = Bold(rest, size, null, false, align).Raw();
@@ -568,11 +572,16 @@ public static class U
 		label.ClipText = true;
 		label.TooltipText = name;
 		label.MouseFilter = Control.MouseFilterEnum.Pass;
-		if (tag == null) return label;
-		var box = V(0, Text($"[{tag}]", Math.Max(10, size - 4), C.Accent, Fonts.Mono, false, align).Raw(), label);
+		if (tag == null && !reserveTag) return label;
+		var tagLine = Text($"[{tag}]", Math.Max(10, size - 4), C.Accent, Fonts.Mono, false, align).Raw();
+		if (tag == null) tagLine.Modulate = Colors.Transparent;
+		var box = V(0, tagLine, label);
 		box.MouseFilter = Control.MouseFilterEnum.Ignore;
 		return box;
 	}
+
+	/// <summary>True if any of these names has a clan tag (then every seat keeps room for one: PlayerName's reserveTag).</summary>
+	public static bool AnyClanTag(IEnumerable<string> names) => names.Any(n => Limits.SplitClanTag(n).Tag != null);
 
 	public static string Plural(int n, string one, string many) => $"{n} {Lang.T(n == 1 ? one : many)}";
 

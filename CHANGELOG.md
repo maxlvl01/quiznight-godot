@@ -11,6 +11,25 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
+## [0.9.0b] — "Mic Drop": two new question types and everything from the first real round
+
+### Added
+- New question type **Interactive**: give everyone a task like "Imitate the Super Mario jump sound". Players record themselves with their microphone (up to 15 seconds), listen back and send it. Then the host plays every recording one by one, on the host's screen and on every player's PC. Players vote for the best (a point per vote, not for yourself), or the host picks a favourite, who gets the question's points. Double points doubles it.
+- New question type **Step by step**: up to 5 hints, the hardest first, that the host flips over like cards. Players buzz in when they know it. Right on the first hint is worth 5 points (as many as there are hints), each hint later one less. Every new hint gives everyone another go.
+- Steam profile pictures: avatars in the lobby, the game and on the podium now show everyone's Steam picture.
+- Map pin questions look like GeoGuessr for players: the screenshot is big, and the map sits in the bottom-right corner. It grows while your mouse is over it, ⤢ keeps it big, "Full" puts it over the whole picture.
+- Picture slideshows: once the host has shown every picture, players can flip through them on their own screen.
+- Ewige Tabelle: our first quiz night is in! Nights before 1.0 count for the **Beta table**; the real Ewige Tabelle starts with 1.0, and you can always switch to the Beta table there.
+- "Let everyone buzz again" for the host when everyone who buzzed was wrong.
+
+### Changed
+- Pressing play on a sound or video, and the start of an image reveal, unlock the buzzers by themselves. Resuming after everyone guessed wrong gives everyone another go.
+- New map pin questions score the top 3 (3, 2 and 1 points, doubled with Double points) instead of only the closest. Existing ones can switch under "Round settings" in the editor.
+- Leave the name field empty to join with your Steam name.
+
+### Fixed
+- Clan tags pushed the "Ready" line of that seat lower than the others.
+
 ## [0.8.12b] — download percent fix
 
 ### Fixed

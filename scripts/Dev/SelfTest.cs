@@ -439,11 +439,55 @@ public static class SelfTest
 		Check(g.SetSlide(1) && g.View("ann").Question.ImageKey == Game.SlideKey(g.Index, 1) && g.AssetDataUrl(Game.SlideKey(g.Index, 1)) != null, "the host flips; everyone sees the next picture");
 		Check(!g.SetSlide(3) && !g.SetSlide(-1) && g.Slide == 1, "no flipping past the ends");
 		Check(room.SharedFiles.Count(f => f.Asset is { } a && a.StartsWith($"q{g.Index}/slide")) == 3, "a slideshow's pictures are sent to players ahead of time");
-		Check(g.View("ann").Question.Files is { } shownFiles && shownFiles.ContainsKey(Game.SlideKey(g.Index, 1)) && shownFiles.Count == 1,
-			"a shown picture comes with the key to its downloaded copy (only the shown one)");
+		Check(g.View("ann").Question.Files is { } shownFiles && shownFiles.ContainsKey(Game.SlideKey(g.Index, 1)) && shownFiles.Count == 2,
+			"shown pictures come with the keys to their downloaded copies (only the ones shown so far)");
+		Check(!g.View("ann").Question.AllSlidesShown && g.SetSlide(2) && g.SetSlide(0) && g.View("ann").Question is { AllSlidesShown: true, Files.Count: 3 }
+			&& g.AssetDataUrl(Game.SlideKey(g.Index, 2)) != null, "once all are shown, players may flip through them all themselves");
+		g.SetSlide(1);
 		Check(g.CurrentFiles().Count() == 3, "the current question's files are its three pictures");
+		g.SetBuzzers(true);
+		Check(g.BuzzIn("ann") && g.Judge(false) && !g.BuzzIn("ann"), "wrong: no second buzz");
+		Check(g.ReopenBuzzers() && g.BuzzIn("ann") && g.View("host").Buzzes.Count == 1, "the host lets everyone buzz again");
 		room.Next(); // (open: reveals first)
 		Check(g.SetSlide(2), "the host can still flip at the reveal");
+
+		// Step by step: hints flip one by one; the earlier someone is right, the more points.
+		room.Next();
+		Eq(g.Question.Type, QuestionType.Steps, "step by step question");
+		g.SetBuzzers(true);
+		var sv = g.View("ann").Question;
+		Check(sv.Buzzer && sv.Hints!.Count == 1 && sv.HintCount == 5 && sv.WorthNow == 5, "only the first hint shows, worth 5");
+		Check(g.BuzzIn("ann") && g.Judge(false) && !g.BuzzIn("ann"), "wrong: no second buzz on the same hint");
+		Check(g.NextHint() && g.View("ann").Question is { Hints.Count: 2, WorthNow: 4 }, "the host flips the next hint: worth one less");
+		Check(g.BuzzIn("ann"), "a new hint is a new chance");
+		var stepsBefore = room.Scores["ann"];
+		g.Judge(true);
+		Eq(room.Scores["ann"] - stepsBefore, 4, "right on the second of five hints: 4 points");
+		Eq(g.View("bob").Question.Hints!.Count, 5, "the reveal shows every hint");
+
+		// Interactive: everyone records, the host plays them, everyone votes (not for themselves).
+		room.Next();
+		Eq(g.Question.Type, QuestionType.Interactive, "interactive question");
+		var wav = SampleQuiz.Beep(1);
+		Check(!g.SubmitRecording("ann", g.Index, new byte[100]).Ok, "something that isn't a WAV isn't a recording");
+		Check(g.SubmitRecording("ann", g.Index, wav).Ok && g.SubmitRecording("bob", g.Index, wav).Ok, "players send recordings");
+		Check(g.View("ann").Interactive is { Phase: InteractivePhase.Recording, Clips.Count: 0 } && g.AssetDataUrl(Game.RecordingKey(g.Index, 0)) == null,
+			"nobody hears the recordings while recording");
+		Check(g.SubmitRecording("cat", g.Index, wav).Ok && g.View("ann").Interactive is { Phase: InteractivePhase.Listening, Clips.Count: 3 },
+			"everyone has sent one: the host plays them");
+		Check(g.AssetDataUrl(Game.RecordingKey(g.Index, 2)) is { } rec && rec.StartsWith("data:audio/wav"), "players can fetch the recordings now");
+		Check(g.PlayClip() && g.View("cat").Interactive!.Plays == 1 && g.SetClip(1) && !g.SetClip(3), "the host plays one and flips to the next");
+		Check(!g.Answer("ann", g.Index, AnswerValue.Number(1)).Ok && g.StartVoting(), "no votes before voting starts");
+		Check(!g.Answer("ann", g.Index, AnswerValue.Number(0)).Ok, "nobody votes for their own recording");
+		var votesBefore = (Ann: room.Scores["ann"], Bob: room.Scores["bob"]);
+		g.Answer("ann", g.Index, AnswerValue.Number(1));
+		g.Answer("bob", g.Index, AnswerValue.Number(0));
+		g.Answer("cat", g.Index, AnswerValue.Number(0));
+		Eq(g.Stage, Stage.Reveal, "everyone voted: reveal");
+		Check(room.Scores["ann"] - votesBefore.Ann == 2 && room.Scores["bob"] - votesBefore.Bob == 1, "a point per vote");
+		Check(g.View("host").Reveal!.WinnerIds.SequenceEqual(new[] { "ann" }), "most votes wins");
+		Check(Game.WavSeconds(wav) is > 0.9 and < 1.1, "a recording's length comes from its WAV header");
+
 		room.Next();
 		Eq(room.Phase, Phase.Finished, "podium after the last question");
 
