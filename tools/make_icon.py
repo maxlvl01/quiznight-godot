@@ -30,19 +30,31 @@ image.paste(gradient, (0, 0), mask)
 draw = ImageDraw.Draw(image)
 draw.rounded_rectangle(box, radius=s(54), outline=BLUE, width=s(8))
 
-# "Q?" as one word, centred on its ink (not on the font's line box), like the logo's last letter and "?".
-font = ImageFont.truetype(FONT, s(190))
-q_box = draw.textbbox((0, 0), "Q", font=font)
-mark_box = draw.textbbox((0, 0), "?", font=font)
-q_advance = draw.textlength("Q", font=font)
-left = min(q_box[0], q_advance + mark_box[0])
-right = max(q_box[2], q_advance + mark_box[2])
-top = min(q_box[1], mark_box[1])
-bottom = max(q_box[3], mark_box[3])
-x = (SIZE - (right - left)) / 2 - left
-y = (SIZE - (bottom - top)) / 2 - top
-draw.text((x, y), "Q", font=font, fill=WHITE)
-draw.text((x + q_advance, y), "?", font=font, fill=ORANGE)
+# "Q?": the "?" overlaps the Q's tail and leans a little, outlined in the dark purple so it reads where they cross.
+# Both are drawn on their own layers, then the pair is centred on its ink, well inside the blue edge.
+font = ImageFont.truetype(FONT, s(178))
+OVERLAP = 0.3   # how far the "?" reaches into the Q (share of the Q's width)
+TILT = -12      # degrees (negative leans it to the right)
+
+def glyph(text, fill, outline):
+    box = draw.textbbox((0, 0), text, font=font, stroke_width=outline)
+    layer = Image.new("RGBA", (box[2] - box[0] + 2, box[3] - box[1] + 2), (0, 0, 0, 0))
+    ImageDraw.Draw(layer).text((-box[0] + 1, -box[1] + 1), text, font=font, fill=fill, stroke_width=outline, stroke_fill=PURPLE_BOTTOM + (255,))
+    return layer
+
+q = glyph("Q", WHITE, 0)
+mark = glyph("?", ORANGE, s(9)).rotate(TILT, resample=Image.BICUBIC, expand=True)
+mark_x = int(q.width * (1 - OVERLAP))
+pair = Image.new("RGBA", (mark_x + mark.width, max(q.height, mark.height)), (0, 0, 0, 0))
+pair.alpha_composite(q, (0, pair.height - q.height))
+pair.alpha_composite(mark, (mark_x, 0))
+ink = pair.getbbox()
+pair = pair.crop(ink)
+room = SIZE - 2 * s(28)   # keep clear of the rounded blue edge
+if pair.width > room or pair.height > room:
+    k = min(room / pair.width, room / pair.height)
+    pair = pair.resize((int(pair.width * k), int(pair.height * k)), Image.LANCZOS)
+image.alpha_composite(pair, ((SIZE - pair.width) // 2, (SIZE - pair.height) // 2))
 
 out = Path(__file__).resolve().parent.parent / "assets" / "icon"
 out.mkdir(exist_ok=True)
