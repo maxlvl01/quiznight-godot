@@ -33,7 +33,7 @@ draw.rounded_rectangle(box, radius=s(54), outline=BLUE, width=s(8))
 # "Q?": the "?" overlaps the Q's tail and leans a little, outlined in the dark purple so it reads where they cross.
 # Both are drawn on their own layers, then the pair is centred on its ink, well inside the blue edge.
 font = ImageFont.truetype(FONT, s(178))
-OVERLAP = 0.3   # how far the "?" reaches into the Q (share of the Q's width)
+OVERLAP = 0.42  # how far the "?" reaches into the Q (share of the Q's width)
 TILT = -12      # degrees (negative leans it to the right)
 
 def glyph(text, fill, outline):
