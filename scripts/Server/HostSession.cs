@@ -56,10 +56,11 @@ public sealed class HostSession : IDisposable
 		double total = 0, got = 0;
 		foreach (var f in files)
 		{
+			// (as double: size × percent overflows an int for files over ~20 MB)
 			total += f.DataUrl.Length;
-			got += f.DataUrl.Length * MediaPercent(playerId, f.Id) / 100.0;
+			got += (double)f.DataUrl.Length * MediaPercent(playerId, f.Id) / 100.0;
 		}
-		return total <= 0 ? 100 : (int)Math.Floor(got * 100 / total);
+		return total <= 0 ? 100 : Math.Clamp((int)Math.Floor(got * 100 / total), 0, 100);
 	}
 
 	string? CurrentMediaId() => Playing() ? Room.Game!.CurrentMedia?.Id : null;
