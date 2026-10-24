@@ -1,65 +1,56 @@
-# Draws Quiznight?'s icon: "Q?" in the home screen logo's font (Segoe UI Black: the logo asks for Sora, which isn't
-# installed, so Godot falls back to it), a white Q and the logo's orange "?", on the purple with a blue edge.
-# Writes assets/icon/icon.png (the window icon, project.godot's config/icon) and assets/icon/icon.ico (the Windows
-# .exe, each size drawn from a 4x larger picture):
-#   py tools/make_icon.py
+# Makes Quiznight?'s icons from the artwork tools/icon-source.png (1254 px, the neon "Q? Quiznight?" picture):
+#   assets/icon/icon.ico  the Windows .exe: the whole artwork at 48 px and up (Explorer, desktop); at 16-32 px
+#                         (file lists, taskbar) only its Q?, since the word "Quiznight?" can't be read that small
+#   assets/icon/icon.png  the window icon (project.godot's config/icon, shown small by the OS): the Q? version
+# The artwork's dark corners outside the rounded frame become transparent.
+#   py tools/make_icon.py [PREVIEW_DIR]   (PREVIEW_DIR: also saves each size as a PNG to look at)
+import sys
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
-FONT = r"C:\Windows\Fonts\seguibl.ttf"
-SCALE = 4
-SIZE = 256 * SCALE
-PURPLE_TOP, PURPLE_BOTTOM = (0x2E, 0x0F, 0x4A), (0x15, 0x00, 0x23)
-BLUE, WHITE, ORANGE = (0x00, 0xC9, 0xF6), (0xEF, 0xEA, 0xF6), (0xFF, 0x82, 0x01)
+ROOT = Path(__file__).resolve().parent.parent
+art = Image.open(ROOT / "tools" / "icon-source.png").convert("RGBA")
+SIZE = art.width
+DARK, BLUE = (7, 1, 23, 255), (0, 201, 246, 255)
+# The Q? (with the crown and sparks above it), without the word underneath.
+Q_BOX = (165, 150, 1120, 772)
 
-def s(v):
-    return int(v * SCALE)
+def rounded_mask(size, radius, inset=0):
+    # drawn 4x bigger and shrunk, for smooth edges
+    big = Image.new("L", (size * 4, size * 4), 0)
+    ImageDraw.Draw(big).rounded_rectangle((inset * 4, inset * 4, (size - inset) * 4 - 1, (size - inset) * 4 - 1), radius=radius * 4, fill=255)
+    return big.resize((size, size), Image.LANCZOS)
 
-image = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+def full(n):
+    icon = art.copy()
+    icon.putalpha(rounded_mask(SIZE, 300))
+    return icon.resize((n, n), Image.LANCZOS)
 
-# The rounded square: a purple gradient, cut to shape by a mask, with the blue edge drawn on top.
-gradient = Image.new("RGBA", (SIZE, SIZE))
-pixels = ImageDraw.Draw(gradient)
-for y in range(SIZE):
-    t = y / (SIZE - 1)
-    pixels.line([(0, y), (SIZE, y)], fill=tuple(round(a + (b - a) * t) for a, b in zip(PURPLE_TOP, PURPLE_BOTTOM)) + (255,))
-mask = Image.new("L", (SIZE, SIZE), 0)
-box = (s(6), s(6), SIZE - s(6), SIZE - s(6))
-ImageDraw.Draw(mask).rounded_rectangle(box, radius=s(54), fill=255)
-image.paste(gradient, (0, 0), mask)
-draw = ImageDraw.Draw(image)
-draw.rounded_rectangle(box, radius=s(54), outline=BLUE, width=s(8))
+def small(n):
+    # A dark rounded square with the blue edge and the Q? inside it (worked out at 256 px, then shrunk).
+    big = 256
+    icon = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    ImageDraw.Draw(icon).rounded_rectangle((4, 4, big - 5, big - 5), radius=58, fill=DARK, outline=BLUE, width=14)
+    q = art.crop(Q_BOX)
+    room = big - 2 * 22
+    k = room / max(q.width, q.height)
+    q = q.resize((round(q.width * k), round(q.height * k)), Image.LANCZOS)
+    layer = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    layer.paste(q, ((big - q.width) // 2, (big - q.height) // 2))
+    # (the crop's own background stays inside the blue frame)
+    layer.putalpha(Image.composite(layer.getchannel("A"), Image.new("L", (big, big), 0), rounded_mask(big, 48, 16)))
+    icon.alpha_composite(layer)
+    return icon.resize((n, n), Image.LANCZOS)
 
-# "Q?": the "?" overlaps the Q's tail and leans a little, outlined in the dark purple so it reads where they cross.
-# Both are drawn on their own layers, then the pair is centred on its ink, well inside the blue edge.
-font = ImageFont.truetype(FONT, s(178))
-OVERLAP = 0.42  # how far the "?" reaches into the Q (share of the Q's width)
-TILT = -12      # degrees (negative leans it to the right)
+def icon(n):
+    return small(n) if n <= 32 else full(n)
 
-def glyph(text, fill, outline):
-    box = draw.textbbox((0, 0), text, font=font, stroke_width=outline)
-    layer = Image.new("RGBA", (box[2] - box[0] + 2, box[3] - box[1] + 2), (0, 0, 0, 0))
-    ImageDraw.Draw(layer).text((-box[0] + 1, -box[1] + 1), text, font=font, fill=fill, stroke_width=outline, stroke_fill=PURPLE_BOTTOM + (255,))
-    return layer
-
-q = glyph("Q", WHITE, 0)
-mark = glyph("?", ORANGE, s(9)).rotate(TILT, resample=Image.BICUBIC, expand=True)
-mark_x = int(q.width * (1 - OVERLAP))
-pair = Image.new("RGBA", (mark_x + mark.width, max(q.height, mark.height)), (0, 0, 0, 0))
-pair.alpha_composite(q, (0, pair.height - q.height))
-pair.alpha_composite(mark, (mark_x, 0))
-ink = pair.getbbox()
-pair = pair.crop(ink)
-room = SIZE - 2 * s(28)   # keep clear of the rounded blue edge
-if pair.width > room or pair.height > room:
-    k = min(room / pair.width, room / pair.height)
-    pair = pair.resize((int(pair.width * k), int(pair.height * k)), Image.LANCZOS)
-image.alpha_composite(pair, ((SIZE - pair.width) // 2, (SIZE - pair.height) // 2))
-
-out = Path(__file__).resolve().parent.parent / "assets" / "icon"
-out.mkdir(exist_ok=True)
-image.resize((256, 256), Image.LANCZOS).save(out / "icon.png")
+out = ROOT / "assets" / "icon"
+small(256).save(out / "icon.png")
 sizes = [16, 24, 32, 48, 64, 128, 256]
-frames = [image.resize((n, n), Image.LANCZOS) for n in sizes]
+frames = [icon(n) for n in sizes]
 frames[-1].save(out / "icon.ico", format="ICO", sizes=[(n, n) for n in sizes], append_images=frames[:-1])
+if len(sys.argv) > 1:
+    for n in sizes:
+        icon(n).save(Path(sys.argv[1]) / f"icon-{n}.png")
 print("wrote", out / "icon.png", "and", out / "icon.ico")
