@@ -11,6 +11,7 @@ public partial class HintCard : PanelContainer
 {
 	readonly Control _front;
 	readonly Control _back;
+	readonly int _size;
 
 	public HintCard() : this(1, null, 1, false) { }
 
@@ -18,6 +19,7 @@ public partial class HintCard : PanelContainer
 	/// <param name="flip">Turn it over now (it was just flipped).</param>
 	public HintCard(int number, string? text, int worth, bool flip, int size = 22)
 	{
+		_size = size;
 		SizeFlagsHorizontal = SizeFlags.ExpandFill;
 		MouseFilter = MouseFilterEnum.Ignore;
 		var badge = U.Text(number.ToString(), size, C.Bg, Fonts.Black, false, HorizontalAlignment.Center).MinSize(size * 1.8f, 0);
@@ -43,9 +45,11 @@ public partial class HintCard : PanelContainer
 	{
 		_front.Visible = front;
 		_back.Visible = !front;
+		// (padding follows the text size: the players' cards are smaller, so the buzzer fits below them)
+		var padY = Mathf.Max(4, _size * 0.4f);
 		AddThemeStyleboxOverride("panel", front
-			? UiTheme.Box(C.Panel2, 12, C.Accent, 2, 16, 12)
-			: UiTheme.Box(new Color(C.Panel, 0.6f), 12, C.Border, 1, 16, 12));
+			? UiTheme.Box(C.Panel2, 12, C.Accent, 2, 16, padY)
+			: UiTheme.Box(new Color(C.Panel, 0.6f), 12, C.Border, 1, 16, padY));
 	}
 
 	/// <summary>Turns over like a card: the back folds away, the hint unfolds.</summary>
@@ -65,7 +69,7 @@ public static class StepsParts
 	/// <summary>All the hint cards: flipped ones face up, the rest face down. flipLast: the newest one turns over now.</summary>
 	public static Control Cards(PublicQuestion q, bool flipLast, int size = 22)
 	{
-		var box = U.V(8);
+		var box = U.V(size >= 20 ? 8 : 5);
 		var count = q.HintCount ?? 0;
 		var shown = q.Hints?.Count ?? 0;
 		for (var i = 0; i < count; i++)

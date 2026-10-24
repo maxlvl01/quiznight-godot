@@ -224,7 +224,8 @@ public partial class HostGameScreen : Control, IRoomScreen
 			}
 			if (game.Stage == Stage.Open)
 			{
-				if (game.HostAnswer != null) row.AddChild(new PeekButton(game.HostAnswer));
+				// (not on a timeline: the order is right there on the cards as they are placed)
+				if (game.HostAnswer != null && tl == null) row.AddChild(new PeekButton(game.HostAnswer));
 				row.AddChild(U.Btn("Reveal answer", "", _host.Reveal).Tip(tl != null ? "Ends the timeline now and shows the right order" : null));
 				// The timeline waits for the host: reveal the locked-in spot, then start the next turn.
 				if (tl?.Phase == TimelinePhase.Locked) row.AddChild(U.Btn("Reveal  (Space)", "AccentButton", _host.RevealPlacement, 20));
@@ -363,9 +364,38 @@ public partial class PeekButton : Button
 		Text = HiddenText;
 		ThemeTypeVariation = "SmallButton";
 		MouseDefaultCursorShape = CursorShape.PointingHand;
-		ButtonDown += () => Text = _answer;
-		ButtonUp += () => Text = HiddenText;
-		MouseExited += () => Text = HiddenText;
+		// (the answer shows in a box above the button: a long one would stretch the whole row)
+		ButtonDown += Show;
+		ButtonUp += Hide;
+		MouseExited += Hide;
+	}
+
+	PanelContainer? _box;
+
+	void Show()
+	{
+		Hide();
+		var label = U.Text(_answer, 17, C.Text, Fonts.Bold, true).Raw();
+		label.CustomMinimumSize = new Vector2(Mathf.Min(560, _answer.Length * 9 + 20), 0);
+		_box = U.Panel(label, "Clear");
+		_box.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel2, 10, C.Accent, 2, 14, 10));
+		_box.TopLevel = true;
+		_box.MouseFilter = MouseFilterEnum.Ignore;
+		AddChild(_box);
+		Callable.From(() =>
+		{
+			if (_box == null || !IsInstanceValid(_box)) return;
+			var at = GlobalPosition + new Vector2(0, -_box.Size.Y - 8);
+			// (kept inside the window)
+			at.X = Mathf.Clamp(at.X, 8, GetViewportRect().Size.X - _box.Size.X - 8);
+			_box.GlobalPosition = at;
+		}).CallDeferred();
+	}
+
+	void Hide()
+	{
+		_box?.QueueFree();
+		_box = null;
 	}
 }
 

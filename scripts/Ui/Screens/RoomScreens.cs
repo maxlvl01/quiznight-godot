@@ -75,7 +75,8 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 		{
 			var id = p.Id;
 			var seat = U.V(4, new Avatar(p, 44).Center(), U.PlayerName(p.Name, 15, HorizontalAlignment.Center, tags),
-				U.H(4, GameParts.SeatStatus(p, room, false), U.Link("×", () => _host.Kick(id), 15).Tip(Lang.F("Remove {0}", p.Name))).Center());
+				U.H(4, GameParts.SeatStatus(p, room, false).With(s => s.SizeFlagsVertical = SizeFlags.ShrinkCenter),
+					U.Link("×", () => _host.Kick(id), 15).Tip(Lang.F("Remove {0}", p.Name)).With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter)).Center());
 			grid.AddChild(U.Panel(seat, "Card2").Grow());
 		}
 		for (var i = room.Players.Count; i < Math.Min(room.Players.Count + 1, Limits.MaxPlayers); i++)

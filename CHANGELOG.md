@@ -11,6 +11,16 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
+## [Unreleased]
+
+### Changed
+- Map pin: while your mouse isn't on it, the map in the corner is see-through, so the screenshot shows through. The pin button keeps it big, and "Hide" folds it away into a small "Map" button to look at the whole screenshot.
+- The host's "Hold to peek at the answer" shows the answer in a box above the button instead of stretching the row, and is gone on timeline questions (the order is right there on the cards).
+
+### Fixed
+- Step by step: the hint cards on players' screens are smaller, so the buzzer fits without scrolling.
+- Host lobby: "Ready" and the × to remove someone are lined up again.
+
 ## [0.9.0b] — "Mic Drop": two new question types and everything from the first real round
 
 ### Added

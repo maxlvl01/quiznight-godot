@@ -107,8 +107,8 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			if (game.Stage == Stage.Open && game.Shown && GameParts.BonusLine(q) is { } bonusLine) box.AddChild(bonusLine);
 			if (q.HintCount != null && (game.Shown || game.Stage == Stage.Reveal))
 			{
-				box.AddChild(StepsParts.Cards(q, flipHint, 20));
-				if (game.Stage == Stage.Open) box.AddChild(StepsParts.Worth(q));
+				box.AddChild(StepsParts.Cards(q, flipHint, 16));
+				if (game.Stage == Stage.Open) box.AddChild(StepsParts.Worth(q, 15));
 			}
 			// What the host's screen shows plays here too, in step with it (bots without a window skip it).
 			var open = game.Stage == Stage.Open && game.Shown;
