@@ -8,6 +8,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Godot;
 using QuizNight.Shared;
+using QuizNight.Storage;
 
 namespace QuizNight.Net;
 
@@ -90,6 +91,13 @@ public sealed class ClientMedia : IDisposable
 	/// <summary>The playable video once it's all here and unlocked; null until then (call again next frame).</summary>
 	public VideoStream? GetVideo(string id, string key) =>
 		Get(id, key, ".ogv", path => new VideoStreamTheora { File = path }) as VideoStream;
+
+	/// <summary>A picture (question image, slide or map), the same way.</summary>
+	public Texture2D? GetImage(string id, string key, string mime) =>
+		Get(id, key, ".img", path => Images.TextureFromBytes(System.IO.File.ReadAllBytes(path), mime)) as Texture2D;
+
+	/// <summary>The file is all here but couldn't be unlocked or read (then it's fetched another way).</summary>
+	public bool Failed(string id) => _ready.TryGetValue(id, out var res) && res == null;
 
 	/// <summary>The sound, the same way (mime: its file type, from the question).</summary>
 	public AudioStream? GetSound(string id, string key, string mime) =>

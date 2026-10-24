@@ -24,6 +24,20 @@ public static class GameParts
 	/// <summary>Where each player's row was on each scoreboard (by viewer), so a rebuilt board can slide the ones that moved.</summary>
 	static readonly Dictionary<string, Dictionary<string, (int Slot, SlideRow Row)>> _lastSlots = new();
 
+	/// <summary>
+	/// Under a name in the lobby: "Joined", "Offline"/"Reconnecting…", or while the quiz's files come in a ring with
+	/// "Downloading 45 %" (ready = everything is here).
+	/// </summary>
+	public static Control SeatStatus(PublicPlayer p, RoomState room, bool playerView)
+	{
+		if (!p.Connected) return U.Muted(playerView ? "Reconnecting…" : "Offline", 12, false);
+		var percent = room.Downloads.GetValueOrDefault(p.Id, 100);
+		if (percent >= 100) return U.Muted(room.Downloads.Count > 0 ? "Ready" : "Joined", 12, false);
+		var row = U.H(5, new DownloadRing(percent, 14), U.Muted(Lang.F("Downloading {0} %", percent), 12, false));
+		row.TooltipText = Lang.T("Getting the quiz's pictures, sounds and videos, so nothing has to load during the game");
+		return row;
+	}
+
 	/// <summary>"left at Q 4/13" / "joined at Q 3/13" under a name (or null).</summary>
 	public static Label? SeatNote(PublicPlayer p, RoomState room) =>
 		!p.Connected && p.LeftAt is { } left ? U.Text(Lang.F("left at Q {0}/{1}", left, room.Quiz.QuestionCount), 12, C.Coral)

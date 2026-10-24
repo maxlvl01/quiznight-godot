@@ -150,6 +150,8 @@ public sealed class RoomState
 	public Dictionary<string, int> Places = new();
 	/// <summary>Average buzz/answer time per player (ms), shown with the scores.</summary>
 	public Dictionary<string, double> AvgAnswerMs = new();
+	/// <summary>How much of the quiz's pictures, sounds and videos each player has, 0–100 (all of it, ahead of time).</summary>
+	public Dictionary<string, int> Downloads = new();
 
 	public int Score(string playerId) => Scores.TryGetValue(playerId, out var s) ? s : 0;
 
@@ -192,6 +194,14 @@ public sealed class PublicMap
 	public string? AssetKey;
 }
 
+/// <summary>A file a player was sent ahead of time (MediaChunk), and the key that unlocks it.</summary>
+public sealed class SharedFileRef
+{
+	public string Id = "";
+	public string Key = "";
+	public string Mime = "";
+}
+
 /// <summary>What players may know about the current question (never the answer before the reveal).</summary>
 public sealed class PublicQuestion
 {
@@ -207,6 +217,11 @@ public sealed class PublicQuestion
 	public string? BonusText;
 	/// <summary>Asset key of the question image, if it has one (picture questions: the slide showing now).</summary>
 	public string? ImageKey;
+	/// <summary>
+	/// The shown question's pictures (asset key → file): players got them ahead of time, encrypted; this unlocks them.
+	/// A picture not listed (or not downloaded yet) is fetched by its asset key instead.
+	/// </summary>
+	public Dictionary<string, SharedFileRef>? Files;
 	/// <summary>Picture questions: which picture shows (0-based) and how many there are.</summary>
 	public int? Slide;
 	public int? SlideCount;

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using QuizNight.Net;
@@ -73,7 +74,7 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 		{
 			var id = p.Id;
 			var seat = U.V(4, new Avatar(p, 44).Center(), U.PlayerName(p.Name, 15),
-				U.H(4, U.Muted(p.Connected ? "Joined" : "Offline", 12, false), U.Link("×", () => _host.Kick(id), 15).Tip(Lang.F("Remove {0}", p.Name))).Center());
+				U.H(4, GameParts.SeatStatus(p, room, false), U.Link("×", () => _host.Kick(id), 15).Tip(Lang.F("Remove {0}", p.Name))).Center());
 			grid.AddChild(U.Panel(seat, "Card2").Grow());
 		}
 		for (var i = room.Players.Count; i < Math.Min(room.Players.Count + 1, Limits.MaxPlayers); i++)
@@ -105,14 +106,21 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 		_content.AddChild(U.Panel(U.V(8, U.Eyebrow("Game rules for tonight"), U.H(24, left.Grow(), right.Grow())), "Inset"));
 
 		if (_error != null) _content.AddChild(U.Error(_error));
-		var start = U.Btn("Start quiz", "AccentButton", () =>
+		void StartQuiz()
 		{
 			var result = _host.Start();
 			_error = result.Ok ? null : result.Error;
 			if (!result.Ok) Refresh(_host.State);
-		});
-		start.Disabled = connected < Limits.MinPlayersToStart;
-		var needs = connected < Limits.MinPlayersToStart ? U.Muted(Lang.F("Needs at least {0} players.", Limits.MinPlayersToStart), 13, false) : U.Fill();
+		}
+		var start = U.Btn("Start quiz", "AccentButton", StartQuiz);
+		// Everyone gets the quiz's pictures, sounds and videos first, so nothing has to load mid-question.
+		var loading = room.Players.Where(p => p.Connected && room.Downloads.GetValueOrDefault(p.Id, 100) < 100).ToList();
+		start.Disabled = connected < Limits.MinPlayersToStart || loading.Count > 0;
+		Control needs = connected < Limits.MinPlayersToStart ? U.Muted(Lang.F("Needs at least {0} players.", Limits.MinPlayersToStart), 13, false)
+			: loading.Count > 0 ? U.H(10,
+				U.Muted(loading.Count == 1 ? Lang.F("{0} is still downloading the quiz…", loading[0].Name) : Lang.F("{0} players are still downloading the quiz…", loading.Count), 13, false),
+				U.Link("Start anyway", StartQuiz, 13).Tip("Whoever isn't done gets each question's pictures when it comes up"))
+			: U.Fill();
 		_content.AddChild(U.H(12, U.Link("Close room", () => Dialogs.Confirm(this, "Close the room? Everyone in it is sent back to the home screen.", "Close room", App.I.CloseRoom)),
 			U.Fill(), needs, start));
 	}
@@ -159,7 +167,8 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 		{
 			var me = p.Id == _client.MyId;
 			var seat = U.V(6, new Avatar(p, 56).Center(), me ? MyName(p, room) : U.PlayerName(p.Name, 16),
-				U.Muted(me ? "You · double-click your name to change it" : p.Connected ? "Joined" : "Reconnecting…", 13, true, HorizontalAlignment.Center));
+				me && room.Downloads.GetValueOrDefault(p.Id, 100) >= 100 ? U.Muted("You · double-click your name to change it", 13, true, HorizontalAlignment.Center)
+					: GameParts.SeatStatus(p, room, true));
 			if (me && _renameError != null) seat.AddChild(U.Text(_renameError, 12, C.Coral, null, true, HorizontalAlignment.Center));
 			grid.AddChild(U.Panel(seat, me ? "Scored" : "Card2").Grow());
 		}

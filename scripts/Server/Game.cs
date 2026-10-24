@@ -86,7 +86,8 @@ public sealed class Game
 	readonly HashSet<string> _waitingFor = new();
 	long? _pausedAt;
 
-	public Game(Quiz quiz, IGameHooks hooks, Random? rng = null)
+	/// <param name="shared">The files players get ahead of time (Room.SharedFiles, sent from the lobby on); made here if null.</param>
+	public Game(Quiz quiz, IGameHooks hooks, Random? rng = null, IReadOnlyList<SharedMedia>? shared = null)
 	{
 		// Choice answers get a new random order every game (the quiz itself isn't changed).
 		rng ??= new Random();
@@ -97,23 +98,58 @@ public sealed class Game
 			Questions = quiz.Questions.Select(q => q.IsChoice ? QuizRules.ShuffleChoices(q, rng) : q.Type == QuestionType.Order ? QuizRules.ShuffleOrder(q, rng) : q).ToList(),
 		};
 		_hooks = hooks;
-		// Every sound and playable video also plays on the players' screens: a random id and key per game (see SharedMedia).
-		SharedFiles = _quiz.Questions
-			.Select((q, i) => (q, i))
-			.Where(x => x.q.Media is { DataUrl: not "" } m && (x.q.Type == QuestionType.Sound || x.q.Type == QuestionType.Video && Storage.Media.CanPlayVideo(m)))
-			.Select(x => new SharedMedia(x.i, Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(8)),
-				System.Security.Cryptography.RandomNumberGenerator.GetBytes(32), x.q.Media!.DataUrl,
-				DataUrl.TryParse(x.q.Media.DataUrl, out var mime, out _) && mime != "" ? mime : x.q.Media.Mime))
-			.ToList();
+		SharedFiles = shared ?? ShareFiles(_quiz);
 		Open(0);
 	}
 
 	/// <summary>
-	/// A sound or video question's file, for the players' screens. HostSession sends it to everyone ahead of time,
-	/// encrypted with Key; the id and key only reach players with the question, once it's shown.
+	/// A file the players' screens need: a sound or video (Asset null), or a picture (Asset: its asset key, like
+	/// "q3/image", "q3/slide1", or "map:ID" for a custom map). HostSession sends them all to everyone ahead of time, from
+	/// the lobby on, encrypted with Key; the id and key only reach players with the question, once it's shown, so
+	/// nobody can look ahead. Index: the (first) question that uses it, so files go out in the order they're needed.
 	/// </summary>
-	public sealed record SharedMedia(int Index, string Id, byte[] Key, string DataUrl, string Mime);
+	public sealed record SharedMedia(int Index, string Id, byte[] Key, string DataUrl, string Mime, string? Asset = null)
+	{
+		public bool IsPicture => Asset != null;
+	}
 	public readonly IReadOnlyList<SharedMedia> SharedFiles;
+
+	/// <summary>Every file of a quiz the players need, each with a random id and key (see SharedMedia).</summary>
+	public static List<SharedMedia> ShareFiles(Quiz quiz)
+	{
+		var files = new List<SharedMedia>();
+		SharedMedia Make(int index, string dataUrl, string mime, string? asset) =>
+			new(index, Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(8)),
+				System.Security.Cryptography.RandomNumberGenerator.GetBytes(32), dataUrl,
+				DataUrl.TryParse(dataUrl, out var m, out _) && m != "" ? m : mime, asset);
+		var maps = new HashSet<string>();
+		for (var i = 0; i < quiz.Questions.Count; i++)
+		{
+			var q = quiz.Questions[i];
+			// (pictures first: they're small and needed the moment a question is shown)
+			if (q.HasImageField && q.Image is { DataUrl: not "" } image) files.Add(Make(i, image.DataUrl, "image/webp", ImageKey(i)));
+			if (q.Type == QuestionType.Picture)
+				for (var s = 0; s < q.Slides.Count; s++)
+					if (q.Slides[s].DataUrl != "") files.Add(Make(i, q.Slides[s].DataUrl, "image/webp", SlideKey(i, s)));
+			if (q.Type == QuestionType.MapPin && quiz.MapById(q.MapId) is { PresetId: null, Image.DataUrl: not "" } map && maps.Add(map.Id))
+				files.Add(Make(i, map.Image.DataUrl, "image/webp", "map:" + map.Id));
+			if (q.Media is { DataUrl: not "" } media && (q.Type == QuestionType.Sound || q.Type == QuestionType.Video && Storage.Media.CanPlayVideo(media)))
+				files.Add(Make(i, media.DataUrl, media.Mime, null));
+		}
+		return files;
+	}
+
+	/// <summary>The current question's sound or video file, if it has one.</summary>
+	public SharedMedia? CurrentMedia => SharedFiles.FirstOrDefault(v => v.Index == Index && !v.IsPicture);
+
+	/// <summary>Every file the current question shows (its pictures, its map, its sound or video).</summary>
+	public IEnumerable<SharedMedia> CurrentFiles()
+	{
+		var q = Question;
+		var mapAsset = q.Type == QuestionType.MapPin && _quiz.MapById(q.MapId) is { PresetId: null } m ? "map:" + m.Id : null;
+		return SharedFiles.Where(f => f.Index == Index && f.Asset is not { } a || f.Asset is { } asset
+			&& (asset.StartsWith($"q{Index}/") || asset == mapAsset));
+	}
 
 	public Question Question => _quiz.Questions[Index];
 
@@ -881,7 +917,17 @@ public sealed class Game
 			pq.RevealSec = q.RevealSec;
 			pq.Focus = q.Focus;
 		}
-		if (SharedFiles.FirstOrDefault(v => v.Index == Index) is { } video)
+		// (the shown question's pictures: the id and key to unlock the copy players already have)
+		var files = new Dictionary<string, SharedFileRef>();
+		void Unlock(string? key, string? asset)
+		{
+			if (key != null && SharedFiles.FirstOrDefault(f => f.Asset == (asset ?? key)) is { } f)
+				files[key] = new SharedFileRef { Id = f.Id, Key = Convert.ToBase64String(f.Key), Mime = f.Mime };
+		}
+		Unlock(pq.ImageKey, null);
+		if (pq.Map?.AssetKey is { } mapKey && _quiz.MapById(q.MapId) is { } usedMap) Unlock(mapKey, "map:" + usedMap.Id);
+		if (files.Count > 0) pq.Files = files;
+		if (CurrentMedia is { } video)
 		{
 			pq.MediaId = video.Id;
 			pq.MediaKey = Convert.ToBase64String(video.Key);

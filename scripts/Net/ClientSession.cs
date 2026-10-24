@@ -49,7 +49,7 @@ public sealed class ClientSession : IDisposable
 		_name = name;
 		_clientId = clientId;
 		_connect = connect;
-		Assets = new ClientAssets(key => _net?.Send(Msg.Encode(Msg.AssetRequest, new AssetRequest { Key = key })));
+		Assets = new ClientAssets(key => _net?.Send(Msg.Encode(Msg.AssetRequest, new AssetRequest { Key = key })), Media);
 		Media.ProgressChanged += (id, percent) => _net?.Send(Msg.Encode(Msg.MediaProgress, new MediaProgress { Id = id, Percent = percent }));
 	}
 
@@ -112,6 +112,7 @@ public sealed class ClientSession : IDisposable
 	{
 		if (_ended) return;
 		_net?.Poll();
+		Assets.Poll();
 		if (_lostAt is { } lost && _net == null && !_connecting)
 		{
 			if (Now() - lost > ReconnectForSec) End("Lost the connection to the host.");
@@ -149,6 +150,7 @@ public sealed class ClientSession : IDisposable
 				if (Msg.Read<RoomState>(msg.Data) is not { } state) return;
 				ServerClock.Sync(state.ServerNow);
 				State = state;
+				Assets.Learn(state.Game?.Question.Files);
 				Changed?.Invoke();
 				break;
 			case Msg.AnswerResult:

@@ -42,6 +42,14 @@ public static class Images
 		return null;
 	}
 
+	public static Texture2D? TextureFromBytes(byte[] bytes, string mime)
+	{
+		var img = Decode(bytes, mime);
+		if (img == null) return null;
+		img.GenerateMipmaps();
+		return ImageTexture.CreateFromImage(img);
+	}
+
 	public static Texture2D? TextureFromDataUrl(string dataUrl)
 	{
 		var bytes = DataUrl.Bytes(dataUrl, out var mime);

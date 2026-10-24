@@ -11,6 +11,18 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
+## [0.8.11b] — downloads in the lobby
+
+### Added
+- Players get the whole quiz (pictures, maps, sounds and videos) while they wait in the lobby. Each seat shows "Downloading 45 %" or "Ready", and Start waits until everyone is ready ("Start anyway" if someone's download is stuck). Nobody can peek: each file stays locked until its question is shown.
+- The rings next to the names during a question now count its pictures too, not just sound and video.
+- Clan tags: a tag in square brackets before your name ("[OTB] maxlvl01") doesn't count toward the name's length and shows as its own small line above the name.
+- "Leave" on the "Connection lost — reconnecting…" bar, so nobody is stuck when the host is gone.
+
+### Fixed
+- Over Steam, pictures could stay on "Loading image…" while the timer ran, and "End quiz early" could leave players stuck in the question. The game's own messages got lost while sound and video files were being sent; now nothing is lost and game messages always go first.
+- The podium song stops when you leave the podium screen.
+
 ## [0.8.10b] — joining fix
 
 ### Fixed

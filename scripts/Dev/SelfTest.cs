@@ -438,6 +438,10 @@ public static class SelfTest
 		Check(g.AssetDataUrl(Game.SlideKey(g.Index, 1)) == null && g.AssetDataUrl(Game.SlideKey(g.Index, 1), host: true) != null, "players can't get a picture before the host shows it");
 		Check(g.SetSlide(1) && g.View("ann").Question.ImageKey == Game.SlideKey(g.Index, 1) && g.AssetDataUrl(Game.SlideKey(g.Index, 1)) != null, "the host flips; everyone sees the next picture");
 		Check(!g.SetSlide(3) && !g.SetSlide(-1) && g.Slide == 1, "no flipping past the ends");
+		Check(room.SharedFiles.Count(f => f.Asset is { } a && a.StartsWith($"q{g.Index}/slide")) == 3, "a slideshow's pictures are sent to players ahead of time");
+		Check(g.View("ann").Question.Files is { } shownFiles && shownFiles.ContainsKey(Game.SlideKey(g.Index, 1)) && shownFiles.Count == 1,
+			"a shown picture comes with the key to its downloaded copy (only the shown one)");
+		Check(g.CurrentFiles().Count() == 3, "the current question's files are its three pictures");
 		room.Next(); // (open: reveals first)
 		Check(g.SetSlide(2), "the host can still flip at the reveal");
 		room.Next();

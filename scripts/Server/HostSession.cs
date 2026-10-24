@@ -37,28 +37,55 @@ public sealed class HostSession : IDisposable
 
 	public RoomState State => StateFor("host");
 
-	/// <summary>The room as one viewer sees it, with everyone's download progress on a sound/video question.</summary>
+	/// <summary>
+	/// The room as one viewer sees it, with everyone's downloads: of the whole quiz (lobby), and of the current question's
+	/// pictures, sound or video (the rings next to the names during the game).
+	/// </summary>
 	RoomState StateFor(string viewer)
 	{
 		var state = Room.ToState(viewer);
-		if (state.Game is { Stage: Stage.Open } view && CurrentMediaId() is { } mediaId)
-			view.MediaProgress = Room.Players.ToDictionary(p => p.Id, p => MediaPercent(p.Id, mediaId));
+		if (Room.SharedFiles.Count > 0) state.Downloads = Room.Players.ToDictionary(p => p.Id, p => DownloadPercent(p.Id, Room.SharedFiles));
+		if (state.Game is { Stage: Stage.Open } view && Playing() && Room.Game!.CurrentFiles().ToList() is { Count: > 0 } current)
+			view.MediaProgress = Room.Players.ToDictionary(p => p.Id, p => DownloadPercent(p.Id, current));
 		return state;
 	}
 
-	string? CurrentMediaId() => Playing() ? Room.Game!.SharedFiles.FirstOrDefault(v => v.Index == Room.Game.Index)?.Id : null;
+	/// <summary>How much of these files a player has, 0–100, weighted by size.</summary>
+	int DownloadPercent(string playerId, IReadOnlyCollection<Game.SharedMedia> files)
+	{
+		double total = 0, got = 0;
+		foreach (var f in files)
+		{
+			total += f.DataUrl.Length;
+			got += f.DataUrl.Length * MediaPercent(playerId, f.Id) / 100.0;
+		}
+		return total <= 0 ? 100 : (int)Math.Floor(got * 100 / total);
+	}
+
+	string? CurrentMediaId() => Playing() ? Room.Game!.CurrentMedia?.Id : null;
+
+	/// <summary>Download progress came in: everyone's rings update, a few times a second at most.</summary>
+	bool _progressChanged;
+	double _progressSentAt;
 
 	public void Poll()
 	{
 		_net.Poll();
 		if (Room.Tick()) Broadcast();
 		SendMedia();
+		var now = Godot.Time.GetTicksMsec() / 1000.0;
+		if (_progressChanged && now - _progressSentAt > 0.4)
+		{
+			_progressChanged = false;
+			_progressSentAt = now;
+			Broadcast();
+		}
 	}
 
-	// ---------- videos for the players' screens ----------
-	// From the start of a game, every player gets the game's sound and video files (Game.SharedFiles), encrypted, in question
-	// order, from the current question on: as fast as their connection takes them (TrySend), in the
-	// background. The key comes with the question once it's shown, so nobody can watch ahead.
+	// ---------- the quiz's files for the players' screens ----------
+	// From the lobby on, every player gets the quiz's pictures, sounds and videos (Room.SharedFiles), encrypted, in
+	// question order (during the game: from the current question on), as fast as their connection takes them (TrySend),
+	// in the background. The key comes with the question once it's shown, so nobody can look ahead.
 
 	/// <summary>What players said they have: player id → file id → percent.</summary>
 	readonly Dictionary<string, Dictionary<string, int>> _mediaProgress = new();
@@ -67,30 +94,25 @@ public sealed class HostSession : IDisposable
 	public int MediaPercent(string playerId, string mediaId) =>
 		_mediaProgress.TryGetValue(playerId, out var got) && got.TryGetValue(mediaId, out var p) ? p : 0;
 
-	Game? _videoGame;
 	readonly Dictionary<string, Task<byte[]>> _encrypted = new();
-	/// <summary>Per connection: how far each video has been sent.</summary>
+	/// <summary>Per connection: how far each file has been sent.</summary>
 	readonly Dictionary<string, Dictionary<string, long>> _videoSent = new();
 
 	void SendMedia()
 	{
-		var game = Playing() ? Room.Game : null;
-		if (game != _videoGame)
-		{
-			_videoGame = game;
-			_encrypted.Clear();
-			_videoSent.Clear();
-			_mediaProgress.Clear();
-			foreach (var v in game?.SharedFiles ?? Array.Empty<Game.SharedMedia>()) _encrypted[v.Id] = Task.Run(() => Encrypt(v));
-		}
-		if (game == null || game.SharedFiles.Count == 0) return;
+		var files = Room.SharedFiles;
+		if (files.Count == 0) return;
+		// (encrypted once, in the background, as soon as the room opens)
+		if (_encrypted.Count == 0)
+			foreach (var v in files) _encrypted[v.Id] = Task.Run(() => Encrypt(v));
+		var from = Playing() ? Room.Game!.Index : 0;
 		foreach (var peer in _peerPlayer.Keys)
 		{
 			if (!_videoSent.TryGetValue(peer, out var sent)) _videoSent[peer] = sent = new();
 			// (at most 8 MB per frame and connection; usually the connection says "full" much sooner)
 			for (var n = 0; n < 32; n++)
 			{
-				var next = game.SharedFiles.Where(v => v.Index >= game.Index)
+				var next = files.Where(v => v.Index >= from)
 					.Select(v => (v.Id, Data: _encrypted[v.Id] is { IsCompletedSuccessfully: true } t ? t.Result : null))
 					.FirstOrDefault(v => v.Data != null && sent.GetValueOrDefault(v.Id) < v.Data.Length);
 				if (next.Data == null) break;
@@ -169,9 +191,8 @@ public sealed class HostSession : IDisposable
 				{
 					if (!_mediaProgress.TryGetValue(playerId, out var got)) _mediaProgress[playerId] = got = new();
 					got[mp.Id] = Math.Clamp(mp.Percent, 0, 100);
-					// (everyone sees the current question's download rings fill up)
-					if (mp.Id == CurrentMediaId()) Broadcast();
-					else Changed?.Invoke();
+					// (everyone sees the download rings fill up: in the lobby, and on the current question)
+					_progressChanged = true;
 				}
 				break;
 			case Msg.Rename when playerId != null:

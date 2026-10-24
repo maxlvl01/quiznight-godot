@@ -58,10 +58,14 @@ public sealed class Room : IGameHooks
 	public readonly Quiz Quiz;
 	readonly Func<long> _clock;
 
+	/// <summary>The files players get ahead of time, from the lobby on (see Game.SharedMedia).</summary>
+	public readonly IReadOnlyList<Game.SharedMedia> SharedFiles;
+
 	public Room(string code, Quiz quiz, Func<long>? clock = null)
 	{
 		Code = code;
 		Quiz = quiz;
+		SharedFiles = Game.ShareFiles(quiz);
 		_clock = clock ?? (() => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
 	}
 
@@ -257,7 +261,7 @@ public sealed class Room : IGameHooks
 			Scores[p.Id] = 0;
 			p.JoinedAt = p.LeftAt = null;
 		}
-		Game = new Game(Quiz, this);
+		Game = new Game(Quiz, this, null, SharedFiles);
 		return Result.Success();
 	}
 
