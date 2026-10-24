@@ -146,7 +146,10 @@ public sealed class Room : IGameHooks
 	public static string CleanName(string raw)
 	{
 		var name = string.Join(' ', raw.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
-		return name.Length > Limits.NameMaxLength ? name[..Limits.NameMaxLength].TrimEnd() : name;
+		static string Cut(string s, int max) => s.Length > max ? s[..max].TrimEnd() : s;
+		// (a clan tag in front has its own room: "[OTB] maxlvl01" is fine)
+		var (tag, rest) = Limits.SplitClanTag(name);
+		return tag is { Length: > 0 } t ? $"[{Cut(t, Limits.ClanTagMaxLength)}] {Cut(rest, Limits.NameMaxLength)}" : Cut(name, Limits.NameMaxLength);
 	}
 
 	bool Playing => Phase == Shared.Phase.Playing && Game != null;

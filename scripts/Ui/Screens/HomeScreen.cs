@@ -54,7 +54,7 @@ public partial class HomeScreen : Control
 		_target = U.Input("", "", _ => Validate(), 0, "CodeInput");
 		// (Steam names can be longer than names in a room may be: the field starts with the part that fits)
 		var name = Settings.PlayerName != "" ? Settings.PlayerName : SteamService.PlayerName;
-		_name = U.Input(Server.Room.CleanName(name), "e.g. Max", _ => Validate(), Limits.NameMaxLength);
+		_name = U.Input(Server.Room.CleanName(name), "e.g. Max", _ => Validate(), Limits.NameInputMax);
 		_name.TextSubmitted += _ => Join();
 		_target.TextSubmitted += _ => Join();
 		_target.TextChanged += t =>

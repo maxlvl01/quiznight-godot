@@ -14,6 +14,17 @@ public static class Limits
 {
 	public const int CodeLength = 4;
 	public const int NameMaxLength = 12;
+	/// <summary>A clan tag in square brackets before the name ("[OTB] maxlvl") doesn't count: up to this many inside the brackets.</summary>
+	public const int ClanTagMaxLength = 6;
+	/// <summary>Name fields: a name and a clan tag with its brackets and space.</summary>
+	public const int NameInputMax = NameMaxLength + ClanTagMaxLength + 3;
+
+	/// <summary>"[OTB] maxlvl" → ("OTB", "maxlvl"); a name without a tag → (null, name).</summary>
+	public static (string? Tag, string Name) SplitClanTag(string name)
+	{
+		var m = System.Text.RegularExpressions.Regex.Match(name.Trim(), @"^\[([^\[\]]{1,24})\]\s*(\S.*)$");
+		return m.Success ? (m.Groups[1].Value.Trim(), m.Groups[2].Value) : (null, name);
+	}
 	public const int MinPlayersToStart = 2;
 	/// <summary>Seats in a room (no setting: big enough for big nights; one colour each in PlayerColors).</summary>
 	public const int MaxPlayers = 24;

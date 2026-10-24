@@ -556,11 +556,30 @@ public static class U
 		return scroll;
 	}
 
+	/// <summary>
+	/// A player's name for seats and the podium: a clan tag ("[OTB] maxlvl") on its own small line above the name, so
+	/// long tags don't crowd the name.
+	/// </summary>
+	public static Control PlayerName(string name, int size, HorizontalAlignment align = HorizontalAlignment.Center)
+	{
+		var (tag, rest) = Limits.SplitClanTag(name);
+		var label = Bold(rest, size, null, false, align).Raw();
+		label.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+		label.ClipText = true;
+		label.TooltipText = name;
+		label.MouseFilter = Control.MouseFilterEnum.Pass;
+		if (tag == null) return label;
+		var box = V(0, Text($"[{tag}]", Math.Max(10, size - 4), C.Accent, Fonts.Mono, false, align).Raw(), label);
+		box.MouseFilter = Control.MouseFilterEnum.Ignore;
+		return box;
+	}
+
 	public static string Plural(int n, string one, string many) => $"{n} {Lang.T(n == 1 ? one : many)}";
 
 	public static string Initials(string name)
 	{
-		// Letters and digits only, so "[OTB] maxlvl" is "OM", not "[M".
+		// A clan tag doesn't count ("[OTB] maxlvl" is "MA"); letters and digits only.
+		name = Limits.SplitClanTag(name).Name;
 		var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
 			.Select(w => new string(w.Where(char.IsLetterOrDigit).ToArray())).Where(w => w != "").ToArray();
 		var s = parts.Length > 1 ? $"{parts[0][0]}{parts[1][0]}" : parts.Length == 1 ? parts[0][..Math.Min(2, parts[0].Length)] : name.Trim()[..Math.Min(2, name.Trim().Length)];

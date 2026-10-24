@@ -72,7 +72,7 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 		foreach (var p in room.Players)
 		{
 			var id = p.Id;
-			var seat = U.V(4, new Avatar(p, 44).Center(), U.Bold(p.Name, 15, null, false, HorizontalAlignment.Center).Raw(),
+			var seat = U.V(4, new Avatar(p, 44).Center(), U.PlayerName(p.Name, 15),
 				U.H(4, U.Muted(p.Connected ? "Joined" : "Offline", 12, false), U.Link("×", () => _host.Kick(id), 15).Tip(Lang.F("Remove {0}", p.Name))).Center());
 			grid.AddChild(U.Panel(seat, "Card2").Grow());
 		}
@@ -158,7 +158,7 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 		foreach (var p in room.Players)
 		{
 			var me = p.Id == _client.MyId;
-			var seat = U.V(6, new Avatar(p, 56).Center(), me ? MyName(p, room) : U.Bold(p.Name, 16, null, false, HorizontalAlignment.Center).Raw(),
+			var seat = U.V(6, new Avatar(p, 56).Center(), me ? MyName(p, room) : U.PlayerName(p.Name, 16),
 				U.Muted(me ? "You · double-click your name to change it" : p.Connected ? "Joined" : "Reconnecting…", 13, true, HorizontalAlignment.Center));
 			if (me && _renameError != null) seat.AddChild(U.Text(_renameError, 12, C.Coral, null, true, HorizontalAlignment.Center));
 			grid.AddChild(U.Panel(seat, me ? "Scored" : "Card2").Grow());
@@ -202,14 +202,14 @@ public partial class WaitingRoomScreen
 	Control MyName(PublicPlayer me, RoomState room)
 	{
 		if (_rename != null) return _rename;
-		var name = U.Bold(me.Name, 16, null, false, HorizontalAlignment.Center).Raw();
+		var name = U.PlayerName(me.Name, 16);
 		name.MouseFilter = MouseFilterEnum.Stop;
 		name.MouseDefaultCursorShape = CursorShape.Ibeam;
 		name.TooltipText = Lang.T("Double-click to change your name");
 		name.GuiInput += e =>
 		{
 			if (e is not InputEventMouseButton { DoubleClick: true, ButtonIndex: MouseButton.Left }) return;
-			_rename = U.Input(me.Name, "", null, Limits.NameMaxLength);
+			_rename = U.Input(me.Name, "", null, Limits.NameInputMax);
 			_rename.Alignment = HorizontalAlignment.Center;
 			var field = _rename;
 			field.TextSubmitted += _ => Done(true);
@@ -307,13 +307,7 @@ public partial class PodiumScreen : Control, IRoomScreen
 					p.AddThemeStyleboxOverride("panel", box);
 				}).MinSize(170, height);
 			// (a wide name is cut off with "…" instead of widening its step)
-			var name = U.Bold(r.P.Name, 18, null, false, HorizontalAlignment.Center).Raw().With(l =>
-			{
-				l.ClipText = true;
-				l.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
-				l.TooltipText = r.P.Name;
-				l.MouseFilter = MouseFilterEnum.Pass;
-			});
+			var name = U.PlayerName(r.P.Name, 18);
 			var step = U.V(6, new Avatar(r.P, 64).Center(), name, U.Mono(Lang.F("{0} pts", r.Score), 15, C.Muted).Center());
 			if (GameParts.SeatNote(r.P, room) is { } note) step.AddChild(note.Center());
 			step.AddChild(block);

@@ -549,6 +549,10 @@ public static class SelfTest
 		var starts = Enumerable.Range(0, 40).Select(seed => QuizRules.ShuffleOrder(timelineQ, new Random(seed))).Select(s => s.Items[s.TimelineStart]).Distinct().Count();
 		Eq(starts, 4, "the timeline starts with a random item");
 		Eq(shuffledTl.ItemLabel(shuffledTl.Items.IndexOf("Portal")), "2007", "labels move with their items");
+		Eq(Room.CleanName("  [OTB]   maxlvl0123456789 "), "[OTB] maxlvl012345", "a clan tag doesn't count toward the name's length");
+		Eq(Room.CleanName("[TOOLONGTAG] Ann"), "[TOOLON] Ann", "a clan tag is cut to its own length");
+		Check(Limits.SplitClanTag("[OTB] maxlvl") == ("OTB", "maxlvl") && Limits.SplitClanTag("Ann [x]") == (null, "Ann [x]"), "clan tags are found at the front only");
+		Eq(Ui.U.Initials("[OTB] maxlvl"), "MA", "initials skip the clan tag");
 		var pictureQ = Dev.SampleQuiz.Build().Questions.First(x => x.Type == QuestionType.Picture).Clone();
 		Check(pictureQ.Slides.Count == 3 && pictureQ.Slides.All(i => i.DataUrl.StartsWith("data:image")) && pictureQ.IsBuzzer && pictureQ.IsClassicLike, "picture questions keep their pictures and play like classic");
 		Check(QuizRules.QuestionIssues(new Question { Type = QuestionType.Picture, Prompt = "x", AnswerText = "y" }, new List<MapAsset>()).Contains(Lang.T("Add at least one picture.")), "a picture question needs a picture");
