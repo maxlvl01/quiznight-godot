@@ -42,8 +42,10 @@ public static class SteamService
 			SteamNetworkingUtils.SendBufferSize = 4 * 1024 * 1024;
 			var set = typeof(SteamNetworkingUtils).GetMethod("SetConfigInt", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
 			var config = typeof(SteamNetworkingUtils).Assembly.GetType("Steamworks.NetConfig");
+			// (and a higher floor: Steam starts every connection slow and only speeds up after a while)
 			if (set != null && config != null)
-				GD.Print($"Steam send rate cap raised: {set.Invoke(null, new[] { Enum.Parse(config, "SendRateMax"), (object)(16 * 1024 * 1024) })}");
+				GD.Print($"Steam send rate cap raised: {set.Invoke(null, new[] { Enum.Parse(config, "SendRateMax"), (object)(16 * 1024 * 1024) })}, "
+					+ $"floor raised: {set.Invoke(null, new[] { Enum.Parse(config, "SendRateMin"), (object)(1024 * 1024) })}");
 		}
 		catch (Exception e)
 		{
@@ -214,30 +216,113 @@ public sealed class SteamHostTransport : IHostTransport
 	void OnPeerDisconnected(Connection conn)
 	{
 		var id = conn.Id.ToString();
+		_outbox.Remove(id);
 		if (_peers.Remove(id)) PeerDisconnected?.Invoke(id);
 	}
 
 	/// <summary>The Steam ID behind a connection, or null if Steam didn't say (never "0").</summary>
 	public string? PeerSteamId(string peer) => _peers.TryGetValue(peer, out var p) && p.SteamId != 0 ? p.SteamId.ToString() : null;
 
-	public void Send(string peer, byte[] data)
+	// ---------- sending ----------
+	// Steam refuses a message (LimitExceeded) once a connection's send buffer is full, and then it's simply gone. So:
+	// game messages (state, pictures, answers) that Steam refuses wait in a queue of ours and go out first, in order;
+	// background files (TrySend: sound, video and pictures for later questions) only go out while nothing waits, at a
+	// speed that halves whenever the buffer runs full and slowly grows again, so game messages never wait behind
+	// seconds of video.
+
+	sealed class Outbox
 	{
-		if (_peers.TryGetValue(peer, out var p)) p.Conn.SendMessage(data, SendType.Reliable);
+		public readonly Queue<byte[]> Waiting = new();
+		/// <summary>Background bytes per second this connection gets (adapts).</summary>
+		public double Rate = 1024 * 1024;
+		public double WindowStart;
+		public long WindowBytes;
+		public double LastFull;
 	}
 
-	// (Steam refuses a message with LimitExceeded once the connection's send buffer is full)
-	public bool TrySend(string peer, byte[] data) =>
-		_peers.TryGetValue(peer, out var p) && p.Conn.SendMessage(data, SendType.Reliable) == Steamworks.Result.OK;
+	const double MinRate = 64 * 1024, MaxRate = 16 * 1024 * 1024, Window = 0.25;
+	readonly Dictionary<string, Outbox> _outbox = new();
+
+	static double Now => Godot.Time.GetTicksMsec() / 1000.0;
+
+	Outbox OutboxOf(string peer) => _outbox.TryGetValue(peer, out var o) ? o : _outbox[peer] = new Outbox { WindowStart = Now };
+
+	void Full(Outbox o)
+	{
+		o.Rate = Math.Max(MinRate, o.Rate / 2);
+		o.LastFull = Now;
+	}
+
+	public void Send(string peer, byte[] data)
+	{
+		if (!_peers.TryGetValue(peer, out var p)) return;
+		var o = OutboxOf(peer);
+		if (o.Waiting.Count > 0)
+		{
+			o.Waiting.Enqueue(data);
+			return;
+		}
+		if (p.Conn.SendMessage(data, SendType.Reliable) == Steamworks.Result.LimitExceeded)
+		{
+			o.Waiting.Enqueue(data);
+			Full(o);
+		}
+	}
+
+	public bool TrySend(string peer, byte[] data)
+	{
+		if (!_peers.TryGetValue(peer, out var p)) return false;
+		var o = OutboxOf(peer);
+		if (o.Waiting.Count > 0 || o.WindowBytes + data.Length > o.Rate * Window) return false;
+		var result = p.Conn.SendMessage(data, SendType.Reliable);
+		if (result == Steamworks.Result.LimitExceeded) Full(o);
+		if (result != Steamworks.Result.OK) return false;
+		o.WindowBytes += data.Length;
+		return true;
+	}
+
+	/// <summary>Sends what waited, and moves each connection's background speed on.</summary>
+	void Pump()
+	{
+		var now = Now;
+		foreach (var (peer, o) in _outbox)
+		{
+			if (!_peers.TryGetValue(peer, out var p)) continue;
+			while (o.Waiting.Count > 0)
+			{
+				var result = p.Conn.SendMessage(o.Waiting.Peek(), SendType.Reliable);
+				if (result == Steamworks.Result.LimitExceeded) break;
+				o.Waiting.Dequeue(); // (sent, or refused for good: a closed connection)
+			}
+			if (now - o.WindowStart >= Window)
+			{
+				o.WindowStart = now;
+				o.WindowBytes = 0;
+				// (2 s without the buffer running full: a quarter faster)
+				if (now - o.LastFull > 2 && o.Rate < MaxRate)
+				{
+					o.Rate = Math.Min(MaxRate, o.Rate * 1.25);
+					o.LastFull = now - 1.5;
+				}
+			}
+		}
+	}
 
 	public void Disconnect(string peer)
 	{
+		Pump();
+		_outbox.Remove(peer);
 		if (!_peers.Remove(peer, out var p)) return;
 		p.Conn.Flush();
 		p.Conn.Close(true, 0, "Closed by host");
 		PeerDisconnected?.Invoke(peer);
 	}
 
-	public void Poll() => _socket.Receive();
+	public void Poll()
+	{
+		_socket.Receive();
+		Pump();
+	}
 
 	public void Dispose()
 	{
