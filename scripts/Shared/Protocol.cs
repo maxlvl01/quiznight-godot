@@ -453,7 +453,10 @@ public static class Msg
 public sealed class JoinRequest
 {
 	public string Name = "";
-	/// <summary>LAN mode only: who this is, so a dropped connection gets the same seat back. Steam uses the Steam ID.</summary>
+	/// <summary>
+	/// Who this is, so a dropped connection gets the same seat back. LAN: an id per app run. Steam: "steam-" + the
+	/// player's Steam ID, used only if Steam itself doesn't tell the host who connected.
+	/// </summary>
 	public string ClientId = "";
 }
 

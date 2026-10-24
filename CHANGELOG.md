@@ -11,6 +11,11 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
+## [0.8.10b] — joining fix
+
+### Fixed
+- Over Steam, only one player could join a room: the next one ended up in the same seat (they kept swapping instead of each getting their own). Now everyone gets a seat of their own.
+
 ## [0.8.9b] — Quiznight? and picture questions
 
 ### Added

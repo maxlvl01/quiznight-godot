@@ -57,8 +57,9 @@ public sealed class ClientSession : IDisposable
 		new(NetMode.Lan, address, name, clientId,
 			() => Task.FromResult<(IClientTransport?, string?)>((new LanClientTransport(address, port), null)));
 
+	// (the client id is this player's own Steam ID: the host falls back on it if Steam doesn't tell it who connected)
 	public static ClientSession Steam(string code, string name) =>
-		new(NetMode.Steam, code, name, "", async () =>
+		new(NetMode.Steam, code, name, SteamService.MySteamId is var me and not 0 ? "steam-" + me : "", async () =>
 		{
 			var (t, error) = await SteamClientTransport.Connect(code);
 			return (t, error);

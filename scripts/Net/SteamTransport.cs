@@ -155,8 +155,11 @@ public sealed class SteamHostTransport : IHostTransport
 			Owner.OnPeerDisconnected(connection);
 		}
 
-		public override void OnMessage(Connection connection, NetIdentity identity, IntPtr data, int size, long messageNum, long recvTime, int channel) =>
+		public override void OnMessage(Connection connection, NetIdentity identity, IntPtr data, int size, long messageNum, long recvTime, int channel)
+		{
+			Owner.NoteSender(connection, identity);
 			Owner.Received?.Invoke(connection.Id.ToString(), SteamService.Copy(data, size));
+		}
 	}
 
 	readonly Lobby _lobby;
@@ -197,13 +200,25 @@ public sealed class SteamHostTransport : IHostTransport
 		PeerConnected?.Invoke(id);
 	}
 
+	/// <summary>
+	/// Each message says who sent it. The connected notice's identity can come through empty (0), and then every player
+	/// would get the same id and take each other's seat, so the sender's Steam ID is taken from the messages too.
+	/// </summary>
+	void NoteSender(Connection conn, NetIdentity identity)
+	{
+		var id = conn.Id.ToString();
+		var sender = identity.SteamId.Value;
+		if (sender != 0 && _peers.TryGetValue(id, out var p) && p.SteamId != sender) _peers[id] = (p.Conn, sender);
+	}
+
 	void OnPeerDisconnected(Connection conn)
 	{
 		var id = conn.Id.ToString();
 		if (_peers.Remove(id)) PeerDisconnected?.Invoke(id);
 	}
 
-	public string? PeerSteamId(string peer) => _peers.TryGetValue(peer, out var p) ? p.SteamId.ToString() : null;
+	/// <summary>The Steam ID behind a connection, or null if Steam didn't say (never "0").</summary>
+	public string? PeerSteamId(string peer) => _peers.TryGetValue(peer, out var p) && p.SteamId != 0 ? p.SteamId.ToString() : null;
 
 	public void Send(string peer, byte[] data)
 	{

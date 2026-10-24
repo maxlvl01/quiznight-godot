@@ -19,6 +19,8 @@ public sealed class HostSession : IDisposable
 	readonly IHostTransport _net;
 	/// <summary>Connection → player id, for connections that have joined.</summary>
 	readonly Dictionary<string, string> _peerPlayer = new();
+	/// <summary>What each connection's game said it is (JoinRequest.ClientId), to tell people apart.</summary>
+	readonly Dictionary<string, string> _peerClient = new();
 
 	/// <summary>Something changed: the host screen should redraw.</summary>
 	public event Action? Changed;
@@ -126,6 +128,7 @@ public sealed class HostSession : IDisposable
 	void OnPeerDisconnected(string peer)
 	{
 		_videoSent.Remove(peer);
+		_peerClient.Remove(peer);
 		if (!_peerPlayer.Remove(peer, out var playerId)) return;
 		// A newer connection may already have taken over this seat.
 		if (PeerOf(playerId) != null) return;
@@ -187,10 +190,19 @@ public sealed class HostSession : IDisposable
 
 	void HandleJoin(string peer, JoinRequest req)
 	{
-		// Steam vouches for who is connecting; on LAN the player's app says who it is.
+		// Steam vouches for who is connecting; on LAN the player's app says who it is (over Steam too, if Steam didn't).
+		var cid = req.ClientId.Trim();
 		var id = _net.PeerSteamId(peer) is { } steamId ? "steam:" + steamId
-			: req.ClientId.Trim() is { Length: > 0 and <= 64 } cid ? "lan:" + cid
+			: cid.StartsWith("steam-") && ulong.TryParse(cid.AsSpan(6), out var claimed) && claimed != 0 ? "steam:" + claimed
+			: cid is { Length: > 0 and <= 64 } ? "lan:" + cid
 			: "lan:" + peer;
+		// Two people can't be one player: if this id's seat is held right now by a connection whose game said it is
+		// someone else, the ids came out the same by mistake; this one gets a seat of its own.
+		if (PeerOf(id) is { } holderPeer && holderPeer != peer && _peerClient.TryGetValue(holderPeer, out var holderCid)
+			&& holderCid != "" && cid != "" && holderCid != cid)
+			id = "peer:" + peer;
+		_peerClient[peer] = cid;
+		Godot.GD.Print($"Join: \"{req.Name}\" on connection {peer} (Steam ID {_net.PeerSteamId(peer) ?? "unknown"}, client id \"{cid}\") -> {id}");
 		var (player, error) = Room.Join(id, req.Name);
 		if (player == null)
 		{
