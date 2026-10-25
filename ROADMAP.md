@@ -10,6 +10,22 @@ off (`- [x]`) when they're done, with the version they came in.
 
 ---
 
+## For 0.10.0b — ideas (planned in the 0.10.0b chat, built after 0.9.5b)
+
+- [ ] **Ewige Tabelle per question type (and variant):** a filter (All, Classic, Buzzer, A B C D, Map pin, Estimation,
+  Timeline …, with variants like typed buzzer or "everyone at once" order) that swaps the columns for that type's own
+  stats, the more detailed and pointlessly specific the better. Examples: buzzer — buzzes, right/wrong buzzes, hit rate,
+  Ø buzz time, fastest buzz ever; map pin — Ø km off, best pin ever, pins under 1 km; estimation — Ø % off, closest ever;
+  A B C D — % right, Ø answer time; step by step — Ø hint they got it at; timeline/order — % items placed right;
+  interactive — votes received, host favourites; jokers — Double points gained.
+  - Needs per-question results: today's CSVs have one row per player and night (totals only), so a night would also
+    have to save one row per player and question (type, variant, right/points, time, distance …). Older nights can't
+    be split by type; the filtered views only fill from that version on.
+- [ ] **Question categories (optional):** the host can pick a category for a question (Geography, Music, Film, Sport,
+  History, Science, Games …) or type their own. Showing it helps players, so it's an option: a lobby rule "Show
+  categories" (off by default), plus per question "show category" or "keep it secret". Players see it on the Get ready
+  screen / with the question. A bonus later: stats per category in the Ewige Tabelle ("who's our geography king").
+
 ## For 1.0 — content and bigger things
 
 - [ ] Questions / quizzes for the first proper night
