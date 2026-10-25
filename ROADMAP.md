@@ -67,6 +67,12 @@ off (`- [x]`) when they're done, with the version they came in.
   puppy, the fastest buzzer and the best speller.
 - [x] (0.10.0b) **Step by step as one sentence in parts:** the rest blurred, a buzz stops the reading, earlier = more points.
 - [x] (0.10.0b) **Spelling measured from typos** in typed answers (letters off from the closest accepted answer).
+- [x] (0.10.0b) **Party show look:** chunky outlined theme, Fredoka and Lilita One, stage glow, the logo as an answer field
+  with easter eggs and spotlights, the arcade dome buzzer, bouncing buttons, a splash screen.
+- [x] (0.10.0b) **Music and sounds:** Epidemic Sound songs (Easy Breezy first, pausing for sound, video and interactive
+  questions, a Christmas song in December), "Now playing", a voice line at the start, button clicks.
+- [x] (0.10.0b) **Accessibility:** colour vision modes, OpenDyslexic, screen reader announcements, less motion.
+- [x] (0.10.0b) Metal pipe buzzer cut to start at once; videos without black bars.
 
 ## For 1.0 — content and bigger things
 
