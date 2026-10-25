@@ -50,4 +50,5 @@ Seen in this session's screenshots; all tidied in the next 0.9.x (not released y
 - [x] **Lobby rules:** "Jokers (once per player and match)" is a muted line between checkboxes while the other groups
   have no heading.
 - [x] **Ewige Tabelle "Ø km off"** showed 0.0 km for game maps; under 1 km it now shows metres.
+- [x] **"?" on the question type cards** showed a long tooltip on hover, though clicking opens the full help anyway.
 - [x] **Waiting room jokers** disappeared when the host turned one off (the box jumped); now greyed out, "Off tonight."

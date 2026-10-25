@@ -24,6 +24,7 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - "Hold to peek at the answer" is the same size as the buttons next to it.
 - Lobby rules: the first group has a heading too ("How you run it"), like "Jokers".
 - Ewige Tabelle: "Ø km off" under 1 km shows in metres (game maps are small).
+- New question cards: no more tooltip on the "?" (clicking it shows the full help anyway).
 - Waiting room: a joker the host turns off stays listed, greyed out ("Off tonight."), so the rules box doesn't jump in height.
 
 ## [0.9.1b] — map corner, peek and step by step fixes
