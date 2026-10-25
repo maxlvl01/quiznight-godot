@@ -143,7 +143,7 @@ public partial class EternalTableScreen : Control
 		var placesBefore = before.Count > 0 ? Places(before) : null;
 		var sorted = Sorted(table);
 		var grid = new LinedGrid { Columns = 10 };
-		grid.AddThemeConstantOverride("h_separation", 16);
+		grid.AddThemeConstantOverride("h_separation", 24);
 		grid.AddThemeConstantOverride("v_separation", 12);
 		grid.AddChild(U.Eyebrow("#"));
 		foreach (var (id, label) in Columns)
@@ -160,9 +160,13 @@ public partial class EternalTableScreen : Control
 				App.I.GoEternalTable();
 			}, 12).Tip("Sort by this");
 			head.AddThemeColorOverride("font_color", _sort == id ? C.Accent : C.Muted);
-			head.Alignment = HorizontalAlignment.Left;
+			// (no link padding, and the number columns centred like their numbers, so each heading sits over its column)
+			foreach (var state in new[] { "normal", "hover", "pressed", "focus" }) head.AddThemeStyleboxOverride(state, new StyleBoxEmpty());
+			head.Alignment = id == "player" ? HorizontalAlignment.Left : HorizontalAlignment.Center;
 			grid.AddChild(head);
 		}
+		static Label Num(string text, int size, Color? color = null) =>
+			U.Mono(text, size, color).With(l => l.HorizontalAlignment = HorizontalAlignment.Center);
 		foreach (var c in sorted)
 		{
 			var place = places[c.Id];
@@ -171,14 +175,14 @@ public partial class EternalTableScreen : Control
 			var who = new PublicPlayer { Id = c.Id, Name = c.Name, Connected = true, Color = Limits.PlayerColors[(c.Id.Aggregate(0, (h, ch) => (h * 31 + ch) & 0xffffff)) % Limits.PlayerColors.Length] };
 			// (you in bold, everyone else plain, so you find yourself at a glance)
 			grid.AddChild(GameParts.Row(8, new Avatar(who, 26), U.Text(c.Name, 16, place == 1 ? C.Accent : C.Text, c.Id == MatchHistoryScreen.MyId ? Fonts.Black : null).Raw()).Grow());
-			grid.AddChild(U.Mono($"{c.Nights}", 15));
-			grid.AddChild(U.Mono($"{c.Wins}", 15));
-			grid.AddChild(U.Mono($"{c.Podiums}", 15));
-			grid.AddChild(U.Mono($"{c.Points}", 16, C.Accent));
-			grid.AddChild(U.Mono(c.AvgPoints.ToString("0.0", Inv), 15, C.Muted));
-			grid.AddChild(U.Mono(c.AvgAnswerS is { } s ? s.ToString("0.000", Inv) + " s" : "–", 15, C.Muted));
-			grid.AddChild(U.Mono(c.AvgKm is { } km ? NightStatsView.Distance(km) : "–", 15, C.Muted));
-			grid.AddChild(U.Mono(c.AvgPercentOff is { } pct ? NightStatsView.Percent(pct) : "–", 15, C.Muted));
+			grid.AddChild(Num($"{c.Nights}", 15));
+			grid.AddChild(Num($"{c.Wins}", 15));
+			grid.AddChild(Num($"{c.Podiums}", 15));
+			grid.AddChild(Num($"{c.Points}", 16, C.Accent));
+			grid.AddChild(Num(c.AvgPoints.ToString("0.0", Inv), 15, C.Muted));
+			grid.AddChild(Num(c.AvgAnswerS is { } s ? s.ToString("0.000", Inv) + " s" : "–", 15, C.Muted));
+			grid.AddChild(Num(c.AvgKm is { } km ? NightStatsView.Distance(km) : "–", 15, C.Muted));
+			grid.AddChild(Num(c.AvgPercentOff is { } pct ? NightStatsView.Percent(pct) : "–", 15, C.Muted));
 		}
 		page.AddChild(U.Card(0, grid));
 		AddChild(U.Page(page, 980, 20));

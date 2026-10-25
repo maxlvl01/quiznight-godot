@@ -13,6 +13,9 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+### Fixed
+- **The Ewige Tabelle's column headings line up with their numbers.** The headings are buttons (click one to sort), and buttons have a little space on their left, so every heading sat a few pixels right of the numbers below it ("Nights" started after the "1"). The headings no longer have that space, and the number columns are now centred under their heading, so heading and numbers sit on one line down the column. "Player" stays left, above the pictures.
+
 ## [0.9.5b] — Ewige Tabelle arrows, places by column
 
 ### Added
