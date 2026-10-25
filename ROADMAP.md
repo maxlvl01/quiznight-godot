@@ -74,6 +74,17 @@ off (`- [x]`) when they're done, with the version they came in.
 - [x] (0.10.0b) **Accessibility:** colour vision modes, OpenDyslexic, screen reader announcements, less motion.
 - [x] (0.10.0b) Metal pipe buzzer cut to start at once; videos without black bars.
 
+## 0.10.1b — done
+
+- [x] Escape goes back a screen; crash reports to the results repo; thin outlines on small buttons; drawn Fast Pass bolt;
+  music fades for sound previews; preset dot; "Top 3" folded into Podium; no hover growth on rows; profile Form column.
+
+## 0.10.2b — new maps (planned)
+
+- [ ] Map pin: Sekiro, Dark Souls 1, 2 and 3 (fan maps only, no official top-down map: find good ones and a scale)
+- [ ] Map pin: the three Wardogs maps (Bakurani, Ozeti, Zestafona)
+- [ ] Race tracks, maybe as a Map pin subtype: F1, WEC, DTM and BTCC circuits (scale from each track's official length)
+
 ## For 1.0 — content and bigger things
 
 - [ ] Questions / quizzes for the first proper night
