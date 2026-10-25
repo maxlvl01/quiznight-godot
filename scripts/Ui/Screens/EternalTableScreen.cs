@@ -42,6 +42,28 @@ public partial class EternalTableScreen : Control
 		return sorted.ThenBy(c => c.Name).Concat(table.Where(c => Key(c) == null)).ToList();
 	}
 
+	/// <summary>Which Statistics tab was open last ("table" or "history"), so Statistics opens there again.</summary>
+	public static string LastTab = "table";
+
+	/// <summary>
+	/// The top line of both Statistics screens: back home on the left, and on the right the switch between the
+	/// Ewige Tabelle and the match history.
+	/// </summary>
+	public static Control TopBar(string tab)
+	{
+		LastTab = tab;
+		var tabs = U.Segmented(new[] { ("table", "🏆 Ewige Tabelle"), ("history", "Match history") }, tab, id =>
+		{
+			if (id == "history") App.I.GoMatchHistory();
+			else App.I.GoEternalTable();
+		});
+		tabs.SizeFlagsHorizontal = SizeFlags.ShrinkEnd;
+		var home = U.Link("← Home", () => App.I.GoHome());
+		home.SizeFlagsHorizontal = SizeFlags.ShrinkBegin | SizeFlags.Expand;
+		home.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+		return U.H(12, home, tabs);
+	}
+
 	/// <summary>The beta table is shown (nights before 1.0); until 1.0 has nights of its own, that's the one that opens.</summary>
 	static bool? _beta;
 
@@ -50,14 +72,14 @@ public partial class EternalTableScreen : Control
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		var beta = _beta ?? Results.BundledCsvs().Count == 0;
 		var table = Results.Table(Results.BundledCsvs(beta));
-		var switcher = U.Segmented(new[] { ("main", "Ewige Tabelle"), ("beta", "Beta table") }, beta ? "beta" : "main", id =>
+		var switcher = U.Segmented(new[] { ("main", "From 1.0"), ("beta", "Beta") }, beta ? "beta" : "main", id =>
 		{
 			_beta = id == "beta";
 			App.I.GoEternalTable();
 		});
 		switcher.SizeFlagsHorizontal = SizeFlags.ShrinkEnd;
 		var page = U.V(14,
-			U.Link("← Home", () => App.I.GoHome()).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin),
+			TopBar("table"),
 			U.H(12, U.Heading(beta ? "🏆 Ewige Tabelle · Beta" : "🏆 Ewige Tabelle", 34).Grow(), switcher),
 			U.Muted(beta ? "Every quiz night of the beta added up (before 1.0): most points first, then the faster average answer time."
 				: "Every quiz night added up: most points first, then the faster average answer time.", 15));

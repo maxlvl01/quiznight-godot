@@ -24,7 +24,7 @@ public partial class MatchHistoryScreen : Control
 		var nights = Results.Nights(Results.BundledCsvs()).Concat(Results.Nights(Results.BundledCsvs(true), true))
 			.OrderByDescending(n => n.Date).ToList();
 		var page = U.V(14,
-			U.Link("← Home", () => App.I.GoHome()).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin),
+			EternalTableScreen.TopBar("history"),
 			U.Heading("Match history", 34),
 			U.Muted("Every quiz night so far, newest first.", 15));
 		if (nights.Count == 0)
