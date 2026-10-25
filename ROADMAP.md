@@ -24,6 +24,15 @@ off (`- [x]`) when they're done, with the version they came in.
   - Needs per-question results: today's CSVs have one row per player and night (totals only), so a night would also
     have to save one row per player and question (type, variant, right/points, time, distance …). Older nights can't
     be split by type; the filtered views only fill from that version on.
+- [ ] **Separate Ø answer time and Ø buzz time** (from the 0.9 chat): today `NoteAnswerTime` puts both into one
+  average (`PlayerStats.AnswerMs`, CSV `avg_answer_s`): a buzz counts its time to buzz (~1 s), a typed/picked answer
+  or recording its time to lock in (~10 s+). So whoever buzzes a lot looks fast, and that mixed number breaks ties
+  (night ranking and Ewige Tabelle). Split into Ø answer time (typed/picked answers, recordings) and Ø buzz time
+  (buzzes) with their own counts, a column each in the Ewige Tabelle, a night's table and tonight's Stats; ties by
+  answer time, then buzz time; CSV gains `avg_buzz_s`/`buzzes`. Older nights can't be split: they stay in Ø answer
+  time, buzz time "–". Fits with the per-question results (buzz time per type comes from there).
+  - Where it's recorded: `Game.cs` calls `_hooks.NoteAnswerTime` for buzzes (`Buzz`), answers and recordings
+    (`SubmitRecording`); `Room.NoteAnswerTime` adds them up.
 - [ ] **Player profile pages:** click a name in the Ewige Tabelle or match history (or "My profile") for a detailed,
   nicely designed overview of one player. Big profile picture top left with name, place in the Ewige Tabelle, nights
   played, wins and podiums; below it cards with every average we have (points, answer/buzz time, km off, % off …).
@@ -36,7 +45,8 @@ off (`- [x]`) when they're done, with the version they came in.
     type and category, worked out from how they do against everyone else), an attribute polygon / radar chart, a
     form strip of the last 5 nights (places as coloured pills), "Strengths / Weaknesses" lists, a "best positions"
     pitch-style picture of their favourite question types, a career table (one line per night: quiz, place, points),
-    and a role line under the name ("Speed buzzer", "Map specialist", "Estimation sniper" …) from their best attributes.
+    "Hosted: 4 nights" where FM puts international caps (from the results' host, recorded since 0.9.4b; maybe
+    their hosted nights listed too), and a role line under the name ("Speed buzzer", "Map specialist", "Estimation sniper" …) from their best attributes.
   - Builds on the per-question results above; types and categories only fill from that version on, the totals
     (nights, wins, points, Ø times) work for every night.
 - [ ] **Question categories (optional):** the host can pick a category for a question (Geography, Music, Film, Sport,
