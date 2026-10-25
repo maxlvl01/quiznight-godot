@@ -7,7 +7,7 @@
 //   --quit-at-end                  quit a few seconds after the podium
 //   --bot NAME [--address IP]      join a LAN room and answer on its own
 //   --open TYPE                    open the editor on the sample quiz's question of that type
-//   --screen home|quizzes|quiz|settings|eternal|delete  open that screen (delete: the delete question, deleting nothing)
+//   --screen home|quizzes|quiz|settings|eternal|history|delete  open that screen (delete: the delete question, deleting nothing)
 //   --lang en|de                   use that language this run (not saved)
 //   --video-guide [FILE]           open a new video question with the MP4 → .ogv guide
 //   --shot FILE [--after SEC]      save a screenshot after SEC seconds (default 2) and quit
@@ -214,6 +214,9 @@ public sealed class DevTools
 					break;
 				case "eternal":
 					_app.GoEternalTable();
+					break;
+				case "history":
+					_app.GoMatchHistory();
 					break;
 				// (My quizzes with the mouse over the first trash can)
 				case "trash-hover":

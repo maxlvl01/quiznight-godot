@@ -87,7 +87,8 @@ public partial class HomeScreen : Control
 		updateButton.MouseEntered += () => arrow.Hovered = true;
 		updateButton.MouseExited += () => arrow.Hovered = false;
 		page.AddChild(U.H(6, U.Muted($"v{App.Version}", 12, false), updateButton, U.Muted("·", 12, false), U.Link("What's new", () => WhatsNew.ShowCurrent(this), 12),
-			U.Muted("·", 12, false), U.Link("🏆 Ewige Tabelle", App.I.GoEternalTable, 12)).Center());
+			U.Muted("·", 12, false), U.Link("🏆 Ewige Tabelle", App.I.GoEternalTable, 12),
+			U.Muted("·", 12, false), U.Link("Match history", App.I.GoMatchHistory, 12)).Center());
 		void ShowUpdate()
 		{
 			if (!IsInstanceValid(updateButton)) return;

@@ -22,6 +22,7 @@ public static class Results
 	{
 		"date", "quiz", "questions", "players", "place", "player_id", "player", "points", "questions_scored",
 		"avg_answer_s", "answers", "avg_km_off", "map_answers", "joined_at", "left_at", "avg_pct_off", "estimate_answers",
+		"host", "host_id",
 	};
 
 	/// <summary>Where the host's game keeps results it couldn't upload.</summary>
@@ -31,7 +32,8 @@ public static class Results
 	const string Bundled = "res://assets/results";
 
 	/// <summary>A finished room as CSV: one row per player, in order of their place.</summary>
-	public static string ToCsv(Room room, DateTime when)
+	/// <param name="host">Who hosted (their name and player id, e.g. "steam:…"), for the match history.</param>
+	public static string ToCsv(Room room, DateTime when, (string Name, string Id)? host = null)
 	{
 		var (order, places) = room.Ranking();
 		var sb = new StringBuilder(string.Join(",", Columns) + "\n");
@@ -47,17 +49,18 @@ public static class Results
 				s.AvgKm is { } km ? km.ToString("0.000", Inv) : "", s.KmAnswers.ToString(Inv),
 				p.JoinedAt?.ToString(Inv) ?? "", p.LeftAt?.ToString(Inv) ?? "",
 				s.AvgPercentOff is { } pct ? pct.ToString("0.000", Inv) : "", s.PercentAnswers.ToString(Inv),
+				Quote(host?.Name ?? ""), Quote(host?.Id ?? ""),
 			})).Append('\n');
 		}
 		return sb.ToString();
 	}
 
 	/// <summary>A finished room's results: a file name and the CSV.</summary>
-	public static (string Name, string Csv) Make(Room room)
+	public static (string Name, string Csv) Make(Room room, (string Name, string Id)? host = null)
 	{
 		var now = DateTime.Now;
 		var title = new string(room.Quiz.Title.Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray()).Trim('-');
-		return ($"{now:yyyy-MM-dd_HH-mm} {(title == "" ? "quiz" : title)}.csv", ToCsv(room, now));
+		return ($"{now:yyyy-MM-dd_HH-mm} {(title == "" ? "quiz" : title)}.csv", ToCsv(room, now, host));
 	}
 
 	/// <summary>Keeps a results file in the Results folder; returns its path (null if the disk said no).</summary>
@@ -122,6 +125,43 @@ public static class Results
 			rows.Add(row);
 		}
 		return rows;
+	}
+
+	/// <summary>One quiz night, for the match history: when, which quiz, who hosted, everyone's place and points.</summary>
+	public sealed class Night
+	{
+		public string Date = "";
+		public string Quiz = "";
+		/// <summary>Empty for nights before 0.9.4b (they didn't record the host).</summary>
+		public string Host = "";
+		public string HostId = "";
+		public bool Beta;
+		public readonly List<(int Place, string Id, string Name, int Points)> Players = new();
+	}
+
+	/// <summary>Every night in these results, newest first (the same night twice counts once).</summary>
+	public static List<Night> Nights(IEnumerable<string> csvs, bool beta = false)
+	{
+		var nights = new Dictionary<string, Night>();
+		var seen = new HashSet<string>();
+		foreach (var row in csvs.SelectMany(Parse))
+		{
+			var date = row.GetValueOrDefault("date", "");
+			var quiz = row.GetValueOrDefault("quiz", "");
+			var id = row.GetValueOrDefault("player_id", "");
+			if (date == "" || !seen.Add($"{date}|{quiz}|{id}")) continue;
+			var key = $"{date}|{quiz}";
+			if (!nights.TryGetValue(key, out var night)) nights[key] = night = new Night { Date = date, Quiz = quiz.Trim(), Beta = beta };
+			if (row.GetValueOrDefault("host", "") is { Length: > 0 } host)
+			{
+				night.Host = host;
+				night.HostId = row.GetValueOrDefault("host_id", "");
+			}
+			int I(string k) => int.TryParse(row.GetValueOrDefault(k), NumberStyles.Integer, Inv, out var v) ? v : 0;
+			night.Players.Add((I("place"), id, row.GetValueOrDefault("player", ""), I("points")));
+		}
+		foreach (var n in nights.Values) n.Players.Sort((a, b) => a.Place.CompareTo(b.Place));
+		return nights.Values.OrderByDescending(n => n.Date).ToList();
 	}
 
 	/// <summary>One player across all quiz nights.</summary>

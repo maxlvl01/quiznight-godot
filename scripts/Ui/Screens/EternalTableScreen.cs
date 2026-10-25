@@ -100,7 +100,8 @@ public partial class EternalTableScreen : Control
 			grid.AddChild(GameParts.RankBadge(place, true));
 			// (their Steam picture in front of the name; initials in a colour of their own otherwise)
 			var who = new PublicPlayer { Id = c.Id, Name = c.Name, Connected = true, Color = Limits.PlayerColors[(c.Id.Aggregate(0, (h, ch) => (h * 31 + ch) & 0xffffff)) % Limits.PlayerColors.Length] };
-			grid.AddChild(GameParts.Row(8, new Avatar(who, 26), U.Text(c.Name, 16, place == 1 ? C.Accent : C.Text, place <= 3 ? Fonts.Bold : null).Raw()).Grow());
+			// (you in bold, everyone else plain, so you find yourself at a glance)
+			grid.AddChild(GameParts.Row(8, new Avatar(who, 26), U.Text(c.Name, 16, place == 1 ? C.Accent : C.Text, c.Id == MatchHistoryScreen.MyId ? Fonts.Black : null).Raw()).Grow());
 			grid.AddChild(U.Mono($"{c.Nights}", 15));
 			grid.AddChild(U.Mono($"{c.Wins}", 15));
 			grid.AddChild(U.Mono($"{c.Podiums}", 15));

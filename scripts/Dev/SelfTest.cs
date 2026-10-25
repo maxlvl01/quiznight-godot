@@ -622,6 +622,10 @@ public static class SelfTest
 		costly.WrongCosts = true;
 		Check(QuizJson.ReadQuestion(System.Text.Json.Nodes.JsonNode.Parse(QuizJson.WriteQuestion(costly).ToJsonString())!.AsObject()).WrongCosts, "'wrong answers cost points' is saved");
 		Check(Storage.Results.Columns.Contains("avg_pct_off"), "results record the estimation % off");
+		var nightCsv = "date,quiz,place,player_id,player,points,host,host_id\n2026-11-01 20:00,Quiz A,2,steam:2,Bob,3,Max,steam:9\n2026-11-01 20:00,Quiz A,1,steam:1,Ann,5,Max,steam:9\n2026-10-01 20:00,Quiz B,1,steam:1,Ann,4,,\n";
+		var nights = Storage.Results.Nights(new[] { nightCsv, nightCsv });
+		Check(nights.Count == 2 && nights[0].Quiz == "Quiz A" && nights[0].Host == "Max" && nights[0].Players.Count == 2 && nights[0].Players[0].Name == "Ann" && nights[1].Host == "",
+			"match history: nights newest first, with the host and places (the same night twice counts once)");
 		Eq(Game.Fmt(0.00000034), "0.00000034", "small numbers keep every digit");
 		Eq(Game.Fmt(0.1 + 0.2), "0.3", "no float noise");
 		Eq(Ui.NumberField.Parse("2,5"), 2.5, "a comma reads as the decimal point");

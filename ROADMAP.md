@@ -35,6 +35,7 @@ off (`- [x]`) when they're done, with the version they came in.
 - [x] Tie rule "Faster answer wins" (default for new map pins)
 - [x] Choice questions: optional "Wrong answers cost points"
 - [x] Update check every minute while the game is open; "Update to …" in the editor and quiz screens
+- [x] Match history (quiz, host, date, places) next to the Ewige Tabelle; your name in bold in both
 - [ ] _(add what you find)_
 
 ### Not tested with real people yet

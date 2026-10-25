@@ -160,6 +160,7 @@ public partial class App : Control
 		GoSettings();
 	}
 	public void GoEternalTable() => Show(new EternalTableScreen());
+	public void GoMatchHistory() => Show(new MatchHistoryScreen());
 
 	public void GoQuiz(string id)
 	{

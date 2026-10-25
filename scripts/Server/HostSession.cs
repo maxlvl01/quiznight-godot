@@ -403,7 +403,7 @@ public sealed class HostSession : IDisposable
 		if (Room.Phase != Phase.Finished || _resultsSent) return;
 		_resultsSent = true;
 		if (Mode != NetMode.Steam || !Storage.ResultsUpload.Enabled) return;
-		var (name, csv) = Storage.Results.Make(Room);
+		var (name, csv) = Storage.Results.Make(Room, (SteamService.PlayerName, "steam:" + SteamService.MySteamId));
 		Storage.ResultsUpload.Send(name, csv);
 	}
 
