@@ -65,7 +65,6 @@ public partial class QuizOverviewScreen : Control
 			card.AddChild(U.Pad(inner, 16, 14, 44, 14).With(m => m.MouseFilter = MouseFilterEnum.Ignore));
 			var corner = new Control { MouseFilter = MouseFilterEnum.Ignore };
 			var help = U.Link("?", () => Dialogs.Info(this, TypeHelp(info), info.Label), 20);
-			help.TooltipText = Lang.T(info.Blurb) + "\n\n" + Lang.T("What it does and its variants") + ": ?";
 			help.AnchorLeft = help.AnchorRight = 1;
 			help.AnchorTop = help.AnchorBottom = 0.5f;
 			(help.OffsetLeft, help.OffsetTop, help.OffsetRight, help.OffsetBottom) = (-38, -21, -10, 11);
