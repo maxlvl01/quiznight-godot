@@ -11,7 +11,7 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
-## [Unreleased]
+## [0.9.2b] — scoring per place, units, UI polish
 
 ### Added
 - Scoring per place for estimation and map pin questions: next to "Scoring", "Edit" opens a window where you set the points for 1st, 2nd, 3rd … Pick a preset (F1 today and historical F1 systems, MotoGP, IndyCar, NASCAR, Mario Kart, a podium 3 / 2 / 1) or save your own presets (kept on your PC). The points are saved with the question, so a shared quiz scores the same.
