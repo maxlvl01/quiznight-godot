@@ -498,6 +498,17 @@ public static class QuizRules
 		return false;
 	}
 
+	/// <summary>
+	/// How many letters a typed answer is off from the closest accepted one (case, accents and "the" don't count): 0 is
+	/// spelled perfectly. For the Spelling stat; null if there's nothing to compare with.
+	/// </summary>
+	public static int? Typos(string answer, string accepted)
+	{
+		var a = Normalize(answer);
+		var options = accepted.Split('/', ';', '\n').Select(Normalize).Where(o => o != "").ToList();
+		return a == "" || options.Count == 0 ? null : options.Min(o => Distance(a, o));
+	}
+
 	static string Normalize(string s)
 	{
 		var decomposed = s.Trim().ToLowerInvariant().Normalize(System.Text.NormalizationForm.FormD);

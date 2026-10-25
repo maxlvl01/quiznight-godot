@@ -35,6 +35,14 @@ public sealed class DevTools
 	double _time;
 	double? _shotAt;
 	bool _mapZoomed;
+	bool _scrolled;
+
+	async void SavePoster(string path)
+	{
+		var (_, csvs, from, until, label) = EternalTableScreen.Current();
+		GD.Print("Poster: " + await EternalTableScreen.SavePicture(_app, csvs, from, until, label, path));
+		_app.Quit(0);
+	}
 
 	static Ui.WowMapCanvas? FindWowCanvas(Node node) =>
 		node as Ui.WowMapCanvas ?? node.GetChildren().Select(FindWowCanvas).FirstOrDefault(c => c != null);
@@ -125,6 +133,8 @@ public sealed class DevTools
 		if (Value("--pretend-update") is { } newer) Ui.Screens.UpdatePrompt.Pretend(newer);
 		// (the map grid as if that built-in map had come with this update: its NEW badge)
 		if (Value("--pretend-new-map") is { } newMap) MapPresets.PretendNew = newMap;
+		// (made-up quiz nights for the statistics screens, this run only: --fake-results [N])
+		if (Has("--fake-results")) Storage.Results.Fake = FakeResults.Make(int.TryParse(Value("--fake-results"), out var fake) ? fake : 30);
 		// --press TEXT[#N]: presses the first (or Nth) button whose text starts with TEXT, once, as soon as there is one
 		// (e.g. "⋮" on a scoreboard, "▶#2" for the podium sound in Settings)
 		if (Value("--press") is { } pressArg)
@@ -216,10 +226,27 @@ public sealed class DevTools
 				case "eternal":
 					// (--sort COL [--ascending]: the table sorted by that column)
 					if (Value("--sort") is { } col) EternalTableScreen.SortBy(col, Has("--ascending"));
+					// (--table all|season:N|beta, --ranking quiz|F1…, --kind type:mapPin[/skyrim]|cat:geography, --graph positions|points)
+					EternalTableScreen.View(Value("--table"), Value("--ranking"), Value("--kind"), Value("--graph"));
+					// (--poster FILE: save the standings picture there, then quit)
+					if (Value("--poster") is { } poster)
+						Callable.From(() => SavePoster(poster)).CallDeferred();
 					_app.GoEternalTable();
 					break;
 				case "history":
 					_app.GoMatchHistory();
+					break;
+				// (the newest night on its own screen, with its graphs: --graph points for the other one)
+				case "night":
+					if (Storage.Results.Nights(Storage.Results.BundledCsvs()).FirstOrDefault() is { } newest)
+					{
+						MatchNightScreen.GraphKind = Value("--graph") ?? "positions";
+						_app.GoMatchNight(newest);
+					}
+					break;
+				// (--player ID, e.g. fake:Ann with --fake-results)
+				case "profile":
+					_app.GoProfile(Value("--player") ?? "fake:Ann");
 					break;
 				// (My quizzes with the mouse over the first trash can)
 				case "trash-hover":
@@ -341,6 +368,12 @@ public sealed class DevTools
 	{
 		_time += delta;
 		// --map-zoom Z [--map-at X,Y]: zoom the WoW map (for screenshots of its layers)
+		// (--scroll PX: the screen's page scrolled down, to see what's below the window)
+		if (_time >= 1 && !_scrolled && int.TryParse(Value("--scroll"), out var scroll) && Find<ScrollContainer>(_app) is { } page)
+		{
+			_scrolled = true;
+			page.ScrollVertical = scroll;
+		}
 		if (_time >= 0.5 && !_mapZoomed && float.TryParse(Value("--map-zoom"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var mapZoom))
 		{
 			_mapZoomed = true;

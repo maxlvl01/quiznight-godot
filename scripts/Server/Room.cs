@@ -61,6 +61,8 @@ public sealed class QuestionStat
 	/// <summary>Step by step: the hint (1 = first) they got it right at.</summary>
 	public int? Hint;
 	public string Joker = "";
+	/// <summary>Typed answers: letters off from the closest accepted answer (0 = spelled perfectly).</summary>
+	public int? Typos;
 }
 
 public sealed class Room : IGameHooks
@@ -162,6 +164,8 @@ public sealed class Room : IGameHooks
 	}
 
 	public void NoteWrongBuzz(string playerId) => Q(playerId).WrongBuzzes++;
+
+	public void NoteTypos(string playerId, int typos) => Q(playerId).Typos = typos;
 
 	public void NotePlacement(string playerId, bool right)
 	{

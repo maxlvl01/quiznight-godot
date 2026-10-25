@@ -243,6 +243,9 @@ public static class SelfTest
 		room.AdjustScore("cat", 5);
 		Check(Storage.Results.Questions(new[] { Storage.Results.Make(room).Csv }).First(r => r.PlayerId == "cat").Points == 2, "the host's score changes don't count for a question");
 
+		Check(QuizRules.Typos("canbera", "Canberra / ACT") == 1 && QuizRules.Typos("The Beatles", "beatles") == 0 && QuizRules.Typos("Zürich", "Zurich") == 0,
+			"typos: letters off from the closest accepted answer (case, accents and \"the\" don't count)");
+
 		// Answer and buzz times are separate: a quick buzz doesn't make someone look fast at typing.
 		var (r2, _) = NewRoom(Dev.SampleQuiz.Build(), "ann", "bob");
 		r2.Start();

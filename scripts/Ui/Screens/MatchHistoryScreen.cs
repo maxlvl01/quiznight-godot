@@ -163,8 +163,54 @@ public partial class MatchNightScreen : Control
 		var page = U.V(14,
 			U.Link("← Match history", App.I.GoMatchHistory).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin),
 			MatchHistoryScreen.Head(night, 30),
-			U.Card(10, MatchHistoryScreen.Table(night, MatchHistoryScreen.MyId)),
+			U.Card(10, MatchHistoryScreen.Table(night, MatchHistoryScreen.MyId)));
+		if (Graph(night) is { } graph) page.AddChild(graph);
+		page.AddChild(
 			U.Muted("Ø answer time: until an answer was locked in (before 0.10.0b buzzes counted in it too). Ø buzz time: until someone buzzed in (from 0.10.0b on). Ø map off: how far the pins were on maps with a scale. Ø % off: how far the estimations were, in % of the right number (recorded from 0.9.3b on).", 13));
 		AddChild(U.Page(page, 980, 20));
+	}
+
+	/// <summary>Which graph of the night shows: "positions" or "points" (kept while the game runs).</summary>
+	static string _graph = "positions";
+
+	/// <summary>Dev runs (--graph): which one to open with.</summary>
+	public static string GraphKind { set => _graph = value; }
+
+	/// <summary>
+	/// The night question by question: everyone's place after each one, or their points climbing from 0 (from the
+	/// per-question results, so only nights from 0.10.0b on; null for older ones).
+	/// </summary>
+	static Control? Graph(Results.Night night)
+	{
+		var rows = Results.Questions(Results.BundledCsvs(night.Beta)).Where(r => r.Date == night.Date && r.Quiz == night.Quiz).ToList();
+		if (rows.Count == 0) return null;
+		var questions = rows.Select(r => r.Question).Distinct().OrderBy(q => q).ToList();
+		var positions = _graph == "positions";
+		// (players in their final order; the host's own score changes aren't in any question, so the end can differ a bit)
+		var players = night.Players.Where(p => rows.Any(r => r.PlayerId == p.Id)).ToList();
+		var totals = players.ToDictionary(p => p.Id, _ => 0);
+		var series = players.Select((p, i) => new StandingsChart.Series
+		{
+			Id = p.Id, Name = p.Name, Color = StandingsChart.Colour(i), Values = new double?[questions.Count],
+		}).ToList();
+		for (var k = 0; k < questions.Count; k++)
+		{
+			foreach (var r in rows.Where(r => r.Question == questions[k] && totals.ContainsKey(r.PlayerId))) totals[r.PlayerId] += r.Points;
+			var order = players.Select((p, i) => (p.Id, i)).OrderByDescending(x => totals[x.Id]).ThenBy(x => x.i).Select(x => x.Id).ToList();
+			foreach (var s in series) s.Values[k] = positions ? order.IndexOf(s.Id) + 1 : totals[s.Id];
+		}
+		var labels = questions.Select(q => rows.First(r => r.Question == q) is var r
+			? Lang.F("Question {0} · {1}", q, KindStats.FilterLabel("type:" + QuestionKinds.Key(r.Type, r.Subtype))) : "").ToList();
+		var chart = new StandingsChart(series, labels, positions) { TooltipText = " " };
+		chart.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+		var switcher = U.Segmented(new[] { ("positions", "Positions"), ("points", "Points") }, _graph, id =>
+		{
+			_graph = id;
+			App.I.GoMatchNight(night);
+		});
+		switcher.SizeFlagsHorizontal = SizeFlags.ShrinkEnd;
+		var hint = positions ? "Everyone's place after each question. Click a name to highlight them, hover for the question."
+			: "Everyone's points after each question, from 0. Click a name to highlight them, hover for the question.";
+		return U.Card(10, U.H(12, U.Eyebrow("Question by question").With(l => l.SizeFlagsVertical = SizeFlags.ShrinkCenter).Grow(), switcher), U.Muted(hint, 13), chart);
 	}
 }

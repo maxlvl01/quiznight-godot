@@ -161,6 +161,8 @@ public partial class App : Control
 	}
 	public void GoEternalTable() => Show(new EternalTableScreen());
 	public void GoMatchHistory() => Show(new MatchHistoryScreen());
+	/// <summary>A player's profile page (from a name in the Ewige Tabelle or the match history).</summary>
+	public void GoProfile(string playerId) => Show(new ProfileScreen(playerId));
 	/// <summary>Statistics: the Ewige Tabelle or the match history, whichever was open last.</summary>
 	public void GoStatistics()
 	{

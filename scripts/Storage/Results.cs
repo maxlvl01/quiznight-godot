@@ -27,7 +27,7 @@ public static class Results
 		// (from 0.10.0b: after the players' rows, one row per player and question, with "question" set and the night's
 		// own columns empty but date, quiz and player)
 		"question", "type", "subtype", "category", "q_points", "right", "answered", "q_buzzes", "wrong_buzzes", "buzz_s",
-		"answer_s", "km_off", "pct_off", "hint", "joker", "placements", "placements_right",
+		"answer_s", "km_off", "pct_off", "hint", "joker", "placements", "placements_right", "typos",
 	};
 
 	/// <summary>Where the host's game keeps results it couldn't upload.</summary>
@@ -75,6 +75,7 @@ public static class Results
 				["buzz_s"] = N(q.BuzzMs / 1000.0), ["answer_s"] = N(q.AnswerMs / 1000.0), ["km_off"] = N(q.Km), ["pct_off"] = N(q.PercentOff),
 				["hint"] = q.Hint?.ToString(Inv) ?? "", ["joker"] = q.Joker,
 				["placements"] = q.Placements.ToString(Inv), ["placements_right"] = q.PlacementsRight.ToString(Inv),
+				["typos"] = q.Typos?.ToString(Inv) ?? "",
 			});
 		}
 		return sb.ToString();
@@ -277,7 +278,7 @@ public static class Results
 	/// </summary>
 	public sealed record QuestionRow(string Date, string Quiz, int Question, string PlayerId, string Player, string Type, string Subtype,
 		string Category, int Points, bool Right, bool Answered, int Buzzes, int WrongBuzzes, double? BuzzS, double? AnswerS, double? Km,
-		double? PercentOff, int? Hint, string Joker, int Placements, int PlacementsRight);
+		double? PercentOff, int? Hint, string Joker, int Placements, int PlacementsRight, int? Typos = null);
 
 	/// <summary>Every per-question row in these results (the same night twice counts once), oldest first.</summary>
 	public static List<QuestionRow> Questions(IEnumerable<string> csvs, string? from = null, string? before = null)
@@ -296,7 +297,8 @@ public static class Results
 				row.GetValueOrDefault("subtype", ""), row.GetValueOrDefault("category", ""), I("q_points"), I("right") == 1, I("answered") == 1,
 				I("q_buzzes"), I("wrong_buzzes"), D("buzz_s"), D("answer_s"), D("km_off"), D("pct_off"),
 				int.TryParse(row.GetValueOrDefault("hint"), NumberStyles.Integer, Inv, out var h) ? h : null, row.GetValueOrDefault("joker", ""),
-				I("placements"), I("placements_right")));
+				I("placements"), I("placements_right"),
+				int.TryParse(row.GetValueOrDefault("typos"), NumberStyles.Integer, Inv, out var t) ? t : null));
 		}
 		return rows.OrderBy(r => r.Date).ThenBy(r => r.Question).ToList();
 	}
@@ -323,8 +325,12 @@ public static class Results
 	public static string? LatestDate(IEnumerable<string> csvs) =>
 		csvs.SelectMany(Parse).Where(IsNightRow).Select(r => r.GetValueOrDefault("date", "")).Where(d => d != "").DefaultIfEmpty().Max(StringComparer.Ordinal);
 
+	/// <summary>Dev runs (--fake-results): made-up nights shown as the tables from 1.0 on, instead of the real ones.</summary>
+	public static List<string>? Fake;
+
 	public static List<string> BundledCsvs(bool beta = false)
 	{
+		if (Fake != null) return beta ? new() : Fake;
 		var dir = beta ? Bundled + "/beta" : Bundled;
 		if (!DirAccess.DirExistsAbsolute(dir)) return new();
 		var files = DirAccess.GetFilesAt(dir);

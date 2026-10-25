@@ -30,6 +30,8 @@ public interface IGameHooks
 	/// (Joker kind or null) and, on a step by step question they got right, at which hint (1 = the first, hardest).
 	/// </summary>
 	void NoteTookPart(string playerId, bool answered, string? joker, int? hint);
+	/// <summary>…and a typed answer's typos (letters off from the closest accepted answer), for the Spelling stat.</summary>
+	void NoteTypos(string playerId, int typos);
 	/// <summary>…how far off a map pin was (km, maps with a scale only), and an estimation (% of the right number)…</summary>
 	void NoteDistance(string playerId, double km);
 	void NotePercentOff(string playerId, double percent);
@@ -461,6 +463,9 @@ public sealed class Game
 			if (e.Points != 0) _hooks.Award(e.PlayerId, e.Points);
 		}
 		foreach (var e in _reveal.Entries.Where(e => e.Points > 0)) _hooks.NoteScored(e.PlayerId);
+		if (Question.IsWritten)
+			foreach (var (id, value) in _answers)
+				if (value.Text is { } text && QuizRules.Typos(text, Question.AnswerText) is { } typos) _hooks.NoteTypos(id, typos);
 		// (everyone who played it, for the per-question results: answered or not, joker, the hint a right buzz came at)
 		var hint = Question.IsSteps && _stepsWorth is { } worth ? Question.FilledHints.Count - worth + 1 : (int?)null;
 		var buzzes = _buzzes.Concat(_pastBuzzes).ToList();
