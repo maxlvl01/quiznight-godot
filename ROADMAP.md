@@ -12,9 +12,12 @@ off (`- [x]`) when they're done, with the version they came in.
 
 ## For 0.10.0b — ideas (planned in the 0.10.0b chat, built after 0.9.5b)
 
-- [ ] **Ewige Tabelle per question type (and variant):** a filter (All, Classic, Buzzer, A B C D, Map pin, Estimation,
-  Timeline …, with variants like typed buzzer or "everyone at once" order) that swaps the columns for that type's own
-  stats, the more detailed and pointlessly specific the better. Examples: buzzer — buzzes, right/wrong buzzes, hit rate,
+- [ ] **Ewige Tabelle per question type and subtype** (the main point, not categories): a filter with every question
+  type (Classic, Buzzer, A B C D, Multiple choice, Picture, Sound, Video, Image reveal, Map pin, Estimation, Timeline,
+  Put in order, Write the answer, Step by step, Interactive) and under each its subtypes (e.g. buzzer said out loud /
+  typed; map pin per map — real world, Skyrim, WoW …; order one by one / everyone at once; interactive voted / host's
+  pick). Picking one swaps the table's columns for the stats that matter for that type, averages included, the more
+  detailed and pointlessly specific the better. Examples: buzzer — buzzes, right/wrong buzzes, hit rate,
   Ø buzz time, fastest buzz ever; map pin — Ø km off, best pin ever, pins under 1 km; estimation — Ø % off, closest ever;
   A B C D — % right, Ø answer time; step by step — Ø hint they got it at; timeline/order — % items placed right;
   interactive — votes received, host favourites; jokers — Double points gained.
@@ -24,7 +27,8 @@ off (`- [x]`) when they're done, with the version they came in.
 - [ ] **Question categories (optional):** the host can pick a category for a question (Geography, Music, Film, Sport,
   History, Science, Games …) or type their own. Showing it helps players, so it's an option: a lobby rule "Show
   categories" (off by default), plus per question "show category" or "keep it secret". Players see it on the Get ready
-  screen / with the question. A bonus later: stats per category in the Ewige Tabelle ("who's our geography king").
+  screen / with the question. Extra on top of the type filter: a category filter in the Ewige Tabelle too ("who's
+  our geography king"), only for questions that had a category.
 
 ## For 1.0 — content and bigger things
 
