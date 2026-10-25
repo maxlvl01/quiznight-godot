@@ -38,7 +38,8 @@ public partial class GeoLayout : Control
 		_pin.AddChild(_pinIcon);
 		_full = U.Btn("Full", "SmallButton", () => Keep(_kept == Size4.Full ? Size4.Small : Size4.Full), 15).Tip("Map over the whole picture");
 		var hide = U.Btn("Hide", "SmallButton", () => Keep(Size4.Hidden), 15).Tip("Fold the map away to look at the screenshot");
-		var tools = GameParts.Row(6, U.Muted("Map", 13, false).Grow(), _pin, _full, hide);
+		// (no "Map" header of its own: the map below already says "Map: Skyrim")
+		var tools = GameParts.Row(6, U.Fill(), _pin, _full, hide);
 		_corner = U.Panel(U.V(6, tools, map, lockIn), "Card2");
 		_corner.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel, 12, C.Blue, 2, 8, 8));
 		AddChild(_corner);

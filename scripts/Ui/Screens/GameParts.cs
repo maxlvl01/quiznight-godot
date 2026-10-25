@@ -38,6 +38,11 @@ public static class GameParts
 		return row;
 	}
 
+	/// <summary>"2 points" in the bar; step by step: "up to 5 points" (it's worth less after each hint).</summary>
+	public static string PointsPill(PublicQuestion q) =>
+		q.HintCount != null ? Lang.F("up to {0} points", q.Points)
+		: q.Points == 1 ? Lang.T("1 point") : Lang.F("{0} points", q.Points);
+
 	/// <summary>"left at Q 4/13" / "joined at Q 3/13" under a name (or null).</summary>
 	public static Label? SeatNote(PublicPlayer p, RoomState room) =>
 		!p.Connected && p.LeftAt is { } left ? U.Text(Lang.F("left at Q {0}/{1}", left, room.Quiz.QuestionCount), 12, C.Coral)
@@ -197,7 +202,13 @@ public static class GameParts
 		else if (game.Stage == Stage.Open && game.Shown)
 		{
 			var connected = room.Players.Count(p => p.Connected);
-			side.AddChild(U.Eyebrow(Lang.F("Answers: {0} / {1}", game.AnsweredIds.Count, connected)));
+			var what = game.Interactive?.Phase switch
+			{
+				InteractivePhase.Voting => "Votes: {0} / {1}",
+				not null => "Recordings: {0} / {1}",
+				null => "Answers: {0} / {1}",
+			};
+			side.AddChild(U.Eyebrow(Lang.F(what, game.AnsweredIds.Count, connected)));
 			var chips = U.Flow(6);
 			foreach (var p in room.Players) chips.AddChild(Chips.Player(p, game.AnsweredIds.Contains(p.Id) ? "✓" : null, p.Id == me, !game.AnsweredIds.Contains(p.Id)));
 			side.AddChild(chips);

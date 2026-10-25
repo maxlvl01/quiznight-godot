@@ -184,15 +184,18 @@ public partial class Countdown : HBoxContainer
 {
 	readonly long? _endsAt;
 	readonly Label _time;
+	readonly Color? _ink;
 
 	public Countdown() : this(null) { }
 
-	public Countdown(long? endsAt, string? label = null, int size = 26)
+	/// <param name="ink">Text colour on a coloured panel (e.g. the orange "Your turn!"), instead of the usual light/muted.</param>
+	public Countdown(long? endsAt, string? label = null, int size = 26, Color? ink = null)
 	{
 		_endsAt = endsAt;
+		_ink = ink;
 		AddThemeConstantOverride("separation", 8);
 		SizeFlagsVertical = SizeFlags.ShrinkCenter;
-		if (label != null) AddChild(U.Text(label, 13, C.Muted, Fonts.Bold).With(l => l.SizeFlagsVertical = SizeFlags.ShrinkCenter));
+		if (label != null) AddChild(U.Text(label, 15, ink ?? C.Muted, Fonts.Bold).With(l => l.SizeFlagsVertical = SizeFlags.ShrinkCenter));
 		_time = U.Mono("", size);
 		AddChild(_time);
 		Visible = endsAt != null;
@@ -204,7 +207,7 @@ public partial class Countdown : HBoxContainer
 		if (ServerClock.SecondsLeft(_endsAt) is not { } left) return;
 		var s = (int)Math.Ceiling(left);
 		_time.Text = $"{s / 60}:{s % 60:00}";
-		_time.AddThemeColorOverride("font_color", s <= 5 ? C.Coral : C.Text);
+		_time.AddThemeColorOverride("font_color", _ink ?? (s <= 5 ? C.Coral : C.Text));
 	}
 
 	public override void _Process(double delta) => Update();

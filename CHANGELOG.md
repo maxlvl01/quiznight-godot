@@ -11,6 +11,21 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
+## [Unreleased]
+
+### Changed
+- "Time to answer" on the orange "Your turn!" panel is dark and bigger, so it's readable.
+- The map in the map pin corner no longer says "Map" twice.
+- Score lists show names without their clan tag (it was cut off there anyway); hover a name to see it whole.
+- Step by step: the bar says "up to 5 points", since a right answer is worth less after each hint.
+- Interactive: the side shows "Recordings: 2 / 4", then "Votes: 2 / 4", instead of "Answers".
+- Recordings flip with ◀ ▶ like slideshows; the play button says "Play it".
+- The recorder's microphone is a drawn icon instead of an emoji that didn't always show.
+- "Hold to peek at the answer" is the same size as the buttons next to it.
+- Lobby rules: the first group has a heading too ("How you run it"), like "Jokers".
+- Ewige Tabelle: "Ø km off" under 1 km shows in metres (game maps are small).
+- Waiting room: a joker the host turns off stays listed, greyed out ("Off tonight."), so the rules box doesn't jump in height.
+
 ## [0.9.1b] — map corner, peek and step by step fixes
 
 ### Changed

@@ -112,7 +112,7 @@ public partial class RecorderPanel : VBoxContainer
 		_status = U.Muted("", 14, true, HorizontalAlignment.Center);
 		AddChild(U.Muted(Lang.F("Record yourself doing the task (up to {0} s), listen back and send it. You can send a new one until the time's up.", QuestionLimits.RecordingMaxSec), 15, true, HorizontalAlignment.Center));
 		AddChild(GameParts.Row(12, _record).With(r => r.Alignment = AlignmentMode.Center));
-		AddChild(GameParts.Row(10, U.Muted("🎤", 14, false), _level, _time).With(r => r.Alignment = AlignmentMode.Center));
+		AddChild(GameParts.Row(10, new TypeIcon(QuestionType.Interactive, 20), _level, _time).With(r => r.Alignment = AlignmentMode.Center));
 		AddChild(GameParts.Row(12, _play, _send).With(r => r.Alignment = AlignmentMode.Center));
 		AddChild(_status);
 		AddChild(_error);

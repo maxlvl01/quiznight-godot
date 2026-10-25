@@ -91,6 +91,7 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 
 		// The host's options: rules on the left, time and sounds on the right (details on hover).
 		var left = U.V(2,
+			U.Muted("How you run it", 13),
 			Rule("I show each question myself", "It stays hidden until you press Show (Space).", room.Settings.HostShowsQuestions,
 				on => _host.UpdateSettings(hostShows: on)),
 			Rule("I unlock the buzzers myself", "After reading the question out (Space).", room.Settings.HostUnlocksBuzzers,
@@ -199,11 +200,16 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 			Line(settings.HostUnlocksBuzzers ? "• The host unlocks the buzzers after reading out" : "• Buzzers open as soon as a question shows"),
 			Line(Lang.F("• Answer time per buzz: {0} s", settings.AnswerTimeSec)));
 		var jokers = U.V(6, U.Muted("Jokers (once each per match)", 13));
-		foreach (var kind in Joker.All.Where(settings.Jokers.Contains))
-			jokers.AddChild(U.H(8, U.Pill(Joker.Label(kind), C.Accent), U.Muted(kind == Joker.Double
-				? "The next question counts twice. Anyone can play it."
-				: "Your buzz goes ahead of the line. One player per question.", 13).Grow()));
-		if (settings.Jokers.Count == 0) jokers.AddChild(U.Muted("No jokers tonight.", 14, false));
+		// (every joker stays listed, greyed out when the host turns it off, so the panel doesn't jump in height)
+		foreach (var kind in Joker.All)
+		{
+			var on = settings.Jokers.Contains(kind);
+			var row = U.H(8, U.Pill(Joker.Label(kind), on ? C.Accent : C.Muted), U.Muted(!on ? Lang.T("Off tonight.") : kind == Joker.Double
+				? Lang.T("The next question counts twice. Anyone can play it.")
+				: Lang.T("Your buzz goes ahead of the line. One player per question."), 13).Grow());
+			if (!on) row.Modulate = new Color(1, 1, 1, 0.45f);
+			jokers.AddChild(row);
+		}
 		return U.Panel(U.V(8, U.Eyebrow("Tonight's rules"), U.H(24, general.Grow(), jokers.Grow())), "Inset");
 	}
 }

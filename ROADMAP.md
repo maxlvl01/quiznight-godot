@@ -35,17 +35,19 @@ off (`- [x]`) when they're done, with the version they came in.
 
 ## UI inconsistencies spotted so far
 
-Seen in this session's screenshots; to check and tidy during 0.9.x.
+Seen in this session's screenshots; all tidied in the next 0.9.x (not released yet). Add new ones below.
 
-- [ ] **"Time to answer" on the orange "Your turn!" panel** is tiny and orange-on-orange, almost unreadable.
-- [ ] **Map pin corner says "Map" twice:** its own "Map" header and the map's "Map: Skyrim" line. One is enough.
-- [ ] **Clan tags in score lists** are cut off ("[LCB] BassGami…") while seats show the tag as its own line. Score
+- [x] **"Time to answer" on the orange "Your turn!" panel** is tiny and orange-on-orange, almost unreadable.
+- [x] **Map pin corner says "Map" twice:** its own "Map" header and the map's "Map: Skyrim" line. One is enough.
+- [x] **Clan tags in score lists** are cut off ("[LCB] BassGami…") while seats show the tag as its own line. Score
   rows could leave the tag out or shorten it.
-- [ ] **Step by step bar pill** always says "5 points", though a right answer is worth less after each hint.
-- [ ] **Interactive sidebar** says "Answers: 2 / 4" for recordings sent; "Recordings" (then "Votes") would read better.
-- [ ] **Next buttons differ:** ▶ for the next picture, ▶▶ for the next recording, "Next hint (→)" for hints.
-- [ ] **Emoji glyphs** don't always render in the game font (🎤 in the recorder showed as a pen-like shape). Drawn icons
+- [x] **Step by step bar pill** always says "5 points", though a right answer is worth less after each hint.
+- [x] **Interactive sidebar** says "Answers: 2 / 4" for recordings sent; "Recordings" (then "Votes") would read better.
+- [x] **Next buttons differ:** ▶ for the next picture, ▶▶ for the next recording, "Next hint (→)" for hints.
+- [x] **Emoji glyphs** don't always render in the game font (🎤 in the recorder showed as a pen-like shape). Drawn icons
   (like the type icons and the new pin) are safer.
-- [ ] **Peek button** is a small button while "Reveal answer" next to it is a normal one; the row looks uneven.
-- [ ] **Lobby rules:** "Jokers (once per player and match)" is a muted line between checkboxes while the other groups
+- [x] **Peek button** is a small button while "Reveal answer" next to it is a normal one; the row looks uneven.
+- [x] **Lobby rules:** "Jokers (once per player and match)" is a muted line between checkboxes while the other groups
   have no heading.
+- [x] **Ewige Tabelle "Ø km off"** showed 0.0 km for game maps; under 1 km it now shows metres.
+- [x] **Waiting room jokers** disappeared when the host turned one off (the box jumped); now greyed out, "Off tonight."

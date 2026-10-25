@@ -58,7 +58,8 @@ public partial class EternalTableScreen : Control
 			grid.AddChild(U.Mono($"{c.Points}", 16, C.Accent));
 			grid.AddChild(U.Mono(c.AvgPoints.ToString("0.0", Inv), 15, C.Muted));
 			grid.AddChild(U.Mono(c.AvgAnswerS is { } s ? s.ToString("0.000", Inv) + " s" : "–", 15, C.Muted));
-			grid.AddChild(U.Mono(c.AvgKm is { } km ? km.ToString("0.0", Inv) + " km" : "–", 15, C.Muted));
+			// (game maps are small: under 1 km reads better in metres)
+			grid.AddChild(U.Mono(c.AvgKm is { } km ? km < 1 ? (km * 1000).ToString("0", Inv) + " m" : km.ToString("0.0", Inv) + " km" : "–", 15, C.Muted));
 		}
 		page.AddChild(U.Card(0, grid));
 		AddChild(U.Page(page, 980, 20));

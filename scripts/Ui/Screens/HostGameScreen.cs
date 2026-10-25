@@ -86,7 +86,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 				U.H(0, U.Text("Quiznight", 20, C.Text, Fonts.Black), U.Text("?", 20, C.Accent, Fonts.Black)),
 				U.Pill(Lang.F("Question {0} / {1}", game.Index + 1, game.Total)),
 				Chips.Question(q),
-				U.Pill(q.Points == 1 ? Lang.T("1 point") : Lang.F("{0} points", q.Points)));
+				U.Pill(GameParts.PointsPill(q)));
 			if (GameParts.NextPill(game) is { } next) row.AddChild(next);
 			row.AddChild(U.Fill());
 			row.AddChild(new RoomCodeButton(room.Code));
@@ -284,9 +284,9 @@ public partial class HostGameScreen : Control, IRoomScreen
 	{
 		var back = U.Btn("◀", "SmallButton", () => _host.SetClip(ia.Clip - 1), 18).MinSize(56, 0).Tip("Previous recording (←)");
 		back.Disabled = ia.Clip == 0;
-		var next = U.Btn("▶▶", "SmallButton", () => _host.SetClip(ia.Clip + 1), 18).MinSize(56, 0).Tip("Next recording (→)");
+		var next = U.Btn("▶", "SmallButton", () => _host.SetClip(ia.Clip + 1), 18).MinSize(56, 0).Tip("Next recording (→)");
 		next.Disabled = ia.Clip >= ia.Clips.Count - 1;
-		var row = GameParts.Row(14, back, U.Btn("▶ Play  (Space)", "AccentButton", _host.PlayClip, 20).Tip("Plays it here and on every player's PC"), next);
+		var row = GameParts.Row(14, back, U.Btn("Play it  (Space)", "AccentButton", _host.PlayClip, 20).Tip("Plays it here and on every player's PC"), next);
 		row.Alignment = BoxContainer.AlignmentMode.Center;
 		return row;
 	}
@@ -362,7 +362,6 @@ public partial class PeekButton : Button
 	{
 		_answer = answer;
 		Text = HiddenText;
-		ThemeTypeVariation = "SmallButton";
 		MouseDefaultCursorShape = CursorShape.PointingHand;
 		// (the answer shows in a box above the button: a long one would stretch the whole row)
 		ButtonDown += Show;

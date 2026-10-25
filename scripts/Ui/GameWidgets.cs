@@ -102,7 +102,9 @@ public partial class NameRow : Container
 
 	public NameRow(PublicPlayer p, Label? note, params Control[] after)
 	{
-		_labels = note != null ? new[] { U.Text(p.Name, 15).Raw(), note } : new[] { U.Text(p.Name, 15).Raw() };
+		// (a clan tag is left out here: rows are narrow, and the tag would push the name into "…"; it's in the tooltip)
+		var name = Limits.SplitClanTag(p.Name).Name;
+		_labels = note != null ? new[] { U.Text(name, 15).Raw(), note } : new[] { U.Text(name, 15).Raw() };
 		foreach (var l in _labels)
 		{
 			l.ClipText = true;

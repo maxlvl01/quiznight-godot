@@ -71,7 +71,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 				U.H(0, U.Text("Quiznight", 20, C.Text, Fonts.Black), U.Text("?", 20, C.Accent, Fonts.Black)),
 				U.Pill(Lang.F("Question {0} / {1}", game.Index + 1, game.Total)),
 				Chips.Question(q),
-				U.Pill(q.Points == 1 ? Lang.T("1 point") : Lang.F("{0} points", q.Points)));
+				U.Pill(GameParts.PointsPill(q)));
 			if (GameParts.NextPill(game) is { } next) row.AddChild(next);
 			row.AddChild(U.Fill());
 			row.AddChild(new RoomCodeButton(room.Code));
@@ -279,7 +279,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		if (mine?.Status == BuzzStatus.Answering)
 		{
 			var panel = Status(U.Text("Your turn!", 44, C.AccentInk, Fonts.Black), U.Text("Say your answer out loud.", 18, C.AccentInk),
-				new Countdown(game.AnswerEndsAt, "Time to answer").Center());
+				new Countdown(game.AnswerEndsAt, "Time to answer", 26, C.AccentInk).Center());
 			panel.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Accent, 14, null, 0, 24, 22));
 			return panel;
 		}
