@@ -11,12 +11,6 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
-## [Unreleased]
-
-### Changed
-- **Put in order scores every item in its right place.** An "everyone at once" order question only gave points for a perfect order, so someone with 3 of 4 right got the same as someone with none right, which felt harsh. Now every item in its right place gets the question's points (4 items, 1 point each: 3 right = 3 points). The editor calls it "Points per item in the right place". Existing order questions score this way too, so one that was worth 2 for a perfect order now gives up to 2 per item.
-- **Optional minus points for wrong places.** Tick "Wrong places cost points" in an order question and every item in a wrong place takes the question's points off again. It's off unless you tick it; players see a warning on the question when it's on. (Timeline questions are unchanged: they already score per item.)
-
 ## [0.9.3b] — how it works, tonight's stats, sortable Ewige Tabelle
 
 ### Added
@@ -29,6 +23,8 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **Wrong answers can cost points** in A B C D and multiple choice questions: tick "Wrong answers cost points" in the editor and a wrong answer loses as many points as a right one gets (doubled with Double points, like the win would be). Not answering costs nothing. It's off unless you tick it, and players see a warning on the question when it's on.
 
 ### Changed
+- **Put in order scores every item in its right place.** An "everyone at once" order question only gave points for a perfect order, so someone with 3 of 4 right got the same as someone with none right, which felt harsh. Now every item in its right place gets the question's points (4 items, 1 point each: 3 right = 3 points). The editor calls it "Points per item in the right place". Existing order questions score this way too, so one that was worth 2 for a perfect order now gives up to 2 per item.
+- **Optional minus points for wrong places.** Tick "Wrong places cost points" in an order question and every item in a wrong place takes the question's points off again. It's off unless you tick it; players see a warning on the question when it's on. (Timeline questions are unchanged: they already score per item.)
 - **Map pin ties go by the distance you see.** Two pins were only a tie if their distance was exactly the same down to the last decimal, which basically never happens, while the reveal showed both as, say, "312 m". Now pins at the same shown distance (to the metre, or 0.1 % on maps without a scale) count as a tie, and the tie rule decides.
 
 ## [0.9.2b] — scoring per place, units, UI polish
