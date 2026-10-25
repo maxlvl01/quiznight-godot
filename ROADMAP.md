@@ -85,6 +85,16 @@ off (`- [x]`) when they're done, with the version they came in.
 - [x] Skins: Quiznight Purple (the old one) and a pastel Pinke Geilheit; Olf?; profile bars light up
 - [x] Fixed: Settings with the dyslexia-friendly font; award pack window with examples; volumes 50 %
 
+## 0.10.3b — smaller download (planned, not started)
+
+From the 1.0 chat (also on its branch claude/1-0-roadmap-review-9685d7 and the public roadmap). 0.10.1b is ~193 MB
+zipped (Windows), ~307 MB unpacked; updates already stay small (game packs ~33 MB), this is about the first download.
+- [ ] `Quiznight.exe` 104 MB: stock Godot mono export template → a custom template without unused modules (3D, physics, XR, …)
+- [ ] `data_QuizNight!_windows_x86_64` 78 MB: .NET runtime + assemblies → trim unused ones
+- [ ] `maps/` 63 MB (WoW 17 MB): built-in map WebPs → lower quality/size where nobody zooms that far
+- [ ] `Quiznight.pck` 33 MB: sounds, music, fonts, thumbnails → re-encode audio at a lower bitrate
+- [ ] `AnyConverter/` 28 MB → maybe a separate download only for people who need it
+
 ## Later — maps
 
 - [ ] WARDOGS (Bakurani, Ozeti, Zestafona): skipped in 0.10.2b, the only imagery found (the game's terrain texture,
