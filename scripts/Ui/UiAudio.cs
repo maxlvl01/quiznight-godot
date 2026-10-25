@@ -7,7 +7,8 @@
 //   assets/soundeffects/ui/hover.ogg and click.ogg (or .mp3 / .wav); back.ogg for "←" links, if there is one
 //   assets/soundeffects/voice/intro.ogg: a voice line once the home screen first shows (intro2 … intro9: one at random);
 //     the music ducks under it
-// Music plays on the game music bus ("Game music" in Settings), the button sounds on the SFX bus.
+// Music plays on the game music bus ("Game music" in Settings), the button sounds on the SFX bus. When a new song
+// starts, a "Now playing" card shows its title and artist (from assets/music/CREDITS.md) in the bottom left.
 
 using System;
 using System.Collections.Generic;
@@ -105,6 +106,28 @@ public partial class UiAudio : Node
 		if (_tracks.Count == 0 || GD.Load<AudioStream>(_tracks[_track]) is not { } stream) return;
 		_music.Stream = stream;
 		_music.Play();
+		TrackStarted?.Invoke(_tracks[_track]);
+	}
+
+	/// <summary>A song started (its res:// path): App shows the "Now playing" card.</summary>
+	public event Action<string>? TrackStarted;
+
+	/// <summary>
+	/// Title and artist per music file name ("home.ogg"), from the tables in assets/music/CREDITS.md: rows like
+	/// "| `home.ogg` | Title | Artist | link | where |". Empty rows and the header are skipped.
+	/// </summary>
+	public static Dictionary<string, (string Title, string Artist)> Credits()
+	{
+		var credits = new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase);
+		const string path = "res://assets/music/CREDITS.md";
+		if (!Godot.FileAccess.FileExists(path)) return credits;
+		foreach (var line in Godot.FileAccess.GetFileAsString(path).Split('\n'))
+		{
+			var cells = line.Trim().Trim('|').Split('|').Select(c => c.Trim().Trim('`')).ToArray();
+			if (cells.Length < 3 || cells[0] == "" || cells[0] == "File" || cells[0].StartsWith("-") || cells[1] == "") continue;
+			credits[System.IO.Path.GetFileName(cells[0])] = (cells[1], cells[2]);
+		}
+		return credits;
 	}
 
 	/// <summary>The voice line for opening the game, once per run (on the first home screen, after the splash).</summary>

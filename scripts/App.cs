@@ -58,6 +58,7 @@ public partial class App : Control
 		_banners.MouseFilter = MouseFilterEnum.Ignore;
 		AddChild(_banners);
 		AddChild(_audio);
+		_audio.TrackStarted += path => AddChild(new NowPlaying(path));
 		// (the splash plays out on top of the first screen; not in dev and test runs, which pass arguments after --)
 		SplashIntro? splash = null;
 		if (OS.GetCmdlineUserArgs().Length == 0 && DisplayServer.GetName() != "headless") AddChild(splash = new SplashIntro());

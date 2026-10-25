@@ -1296,5 +1296,6 @@ public static class LangDe
 		["You were ahead {0} of those times."] = "Davon warst du {0}-mal vorne.",
 		["No rival yet"] = "Noch kein Rivale",
 		["Date"] = "Datum",
+		["Now playing"] = "Läuft gerade",
 	};
 }
