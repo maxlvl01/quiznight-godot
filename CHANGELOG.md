@@ -13,6 +13,23 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.10.1b]
+
+### Added
+- **Escape goes back.** On every screen except the home screen, Escape takes you one screen back, like the "← …" link at the top: from a question to the quiz, from the quiz to My quizzes, from Settings or the Ewige Tabelle to the home screen. In a room it does what leaving means there: a player in the waiting room leaves. For things you can't undo, it asks first: closing the lobby, leaving a running game, or (as the host) ending the quiz early. Open windows, drop-downs and the big picture view close first, as before.
+- **Crash reports.** If Quiznight crashes, or runs into an error in its code, the next start sends the end of that run's log (the last 400 lines, plus version, system and date) to Max, so he can see what went wrong and fix it. Your Windows user name is cut out of the file paths in it, and each log is sent only once. Only the real game does this, never test runs. Settings says so under Language. (Quiznight has always written these logs to %APPDATA%\Quiznight\logs; until now nobody ever saw them.)
+
+### Changed
+- **Thinner outlines on small buttons.** The party show look gave every button a thick ink outline and a big solid edge under it. On big buttons that looks great; on small ones like the host's − and + next to the scores, ↑ ↓ × in the question list, or the pills and chips, it looked crowded and heavy. Small buttons, drop-downs and toggles now have a thin outline and only a hint of an edge; pills and chips have no edge at all. Big buttons and cards stay chunky.
+- **A drawn lightning bolt for the Fast Pass.** The Fast Pass joker used the ⚡ emoji, which looked like it came from another app next to the drawn icons. It's now a drawn yellow bolt with an ink outline, on the joker buttons, the lobby rule, the scoreboard and the buzz order.
+- **The music steps back for previews.** When you press ▶ to hear a buzzer or podium sound (in Settings or the lobby), the menu music now fades out, so you actually hear the sound, and fades back in once it's over or you stop it. The same happens while the podium sound plays.
+- **"Top 3 score (3 / 2 / 1)" is gone from the scoring list,** because "Podium (3 / 2 / 1)" under Points per place does the same. Questions that already use it keep it (it still shows for them).
+
+### Fixed
+- **The profile page's "Form" column was squashed.** With fewer than five nights played, the column on the right got only as wide as its few pills, so "First quiz night: 24.10.2026" and "Beta (before 1.0)" broke after every word into a tall, messy stack. The column now always has room for five pills, and those lines fit.
+- **The preset list's dot never moved.** In the Scoring window, "Start from a preset…" always kept the selection dot, whichever preset you picked, because the list jumped back to it after every choice. The dot now stays on the preset your points match (and goes back to "Start from a preset…" once you change them).
+- **Big buttons grew out of their space.** The party show look makes buttons grow a little under the mouse. On wide ones, the question rows in a quiz and the cards in "Add a question", that made them poke out of their list, so their left edge got cut off. Rows and cards that big now keep still (their colour still changes under the mouse).
+
 ## [0.10.0b] — "Season Ticket": a party show look, music, seasons, profiles, awards and sentences in parts
 
 ### Added

@@ -106,7 +106,7 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 			Rule("×2 Double points", "Whatever the next question gives counts twice. Anyone can play it.", room.Settings.Jokers.Contains(Joker.Double),
 				on => _host.UpdateSettings(joker: (Joker.Double, on))),
 			Rule("Fast Pass", "On the next buzzer question, your buzz goes ahead of the line. One player per question.", room.Settings.Jokers.Contains(Joker.FastPass),
-				on => _host.UpdateSettings(joker: (Joker.FastPass, on))).With(b => b.Icon = Bolt.Icon(18)));
+				on => _host.UpdateSettings(joker: (Joker.FastPass, on))).With(b => b.Icon = Bolt.Icon(15)));
 		var right = U.V(8,
 			Stepper.Make("Answer time per buzz", room.Settings.AnswerTimeSec, Limits.AnswerTimeMin, Limits.AnswerTimeMax,
 				v => _host.UpdateSettings(answerTimeSec: v), " s"),
