@@ -13,8 +13,13 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.9.6b] — aligned headings, a peek at 0.10.0b
+
 ### Fixed
 - **The Ewige Tabelle's column headings line up with their numbers.** The headings are buttons (click one to sort), and buttons have a little space on their left, so every heading sat a few pixels right of the numbers below it ("Nights" started after the "1"). The headings no longer have that space, and the number columns are now centred under their heading, so heading and numbers sit on one line down the column. "Player" stays left, above the pictures.
+
+### Coming next
+- **0.10.0b is on its way, and the Ewige Tabelle is about to get very nerdy.** Who's the fastest buzzer of all time? Whose map pin landed closest ever? Who always gets step by step on the very first hint? Soon you can look at the table one question type at a time, with all the stats nobody asked for. And quizmasters might get a way to tell you what a question is about before it starts… if they feel generous. One catch: those stats only start counting with 0.10.0b, so the nights before won't show up there.
 
 ## [0.9.5b] — Ewige Tabelle arrows, places by column
 
