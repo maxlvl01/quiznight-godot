@@ -897,7 +897,8 @@ public sealed class Game
 					Value = a.Value,
 					Text = right == n ? Lang.T("All in the right order!") : Lang.F("{0} of {1} in the right place", right, n),
 					Correct = right == n,
-					Points = right == n ? q.Points : 0,
+					// (the question's points for every item in its right place; with "wrong places cost points" the same off for each other one)
+					Points = right * q.Points - (q.WrongCosts ? (n - right) * q.Points : 0),
 				};
 			}).OrderByDescending(e => e.Correct).ToList();
 			return new RevealView
@@ -1129,6 +1130,7 @@ public sealed class Game
 			pq.OrderBottom = q.OrderBottom;
 			pq.OrderMode = q.OrderMode;
 			pq.TimeLimitSec = q.TimeLimitSec;
+			pq.WrongCosts = !q.IsTimeline && q.WrongCosts;
 		}
 		if (q.IsWritten) pq.TimeLimitSec = q.TimeLimitSec;
 		if (q.Type == QuestionType.Estimation)
@@ -1213,7 +1215,7 @@ public sealed class Game
 			Total = _quiz.Questions.Count,
 			Stage = Stage,
 			// A hidden question: players only learn its number, type and points.
-			Question = Shown || viewer == "host" || !open ? PublicQuestion() : new PublicQuestion { Type = Question.Type, Points = Question.HasRankPoints ? Question.MaxPoints : Question.Points, RankScoring = Question.HasRankPoints, Buzzer = Question.IsBuzzer, Written = Question.IsWritten, Mode = Question.IsClassicLike ? Question.Mode : null, OrderMode = Question.Type == QuestionType.Order ? Question.OrderMode : null, WrongCosts = Question.IsChoice && Question.WrongCosts, Judging = Question.IsInteractive ? Question.Judging : null },
+			Question = Shown || viewer == "host" || !open ? PublicQuestion() : new PublicQuestion { Type = Question.Type, Points = Question.HasRankPoints ? Question.MaxPoints : Question.Points, RankScoring = Question.HasRankPoints, Buzzer = Question.IsBuzzer, Written = Question.IsWritten, Mode = Question.IsClassicLike ? Question.Mode : null, OrderMode = Question.Type == QuestionType.Order ? Question.OrderMode : null, WrongCosts = (Question.IsChoice || Question.Type == QuestionType.Order && !Question.IsTimeline) && Question.WrongCosts, Judging = Question.IsInteractive ? Question.Judging : null },
 			Shown = Shown || !open,
 			BuzzersOpen = BuzzersOpen,
 			EndsAt = open ? _endsAt : null,

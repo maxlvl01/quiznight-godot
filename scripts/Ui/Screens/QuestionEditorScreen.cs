@@ -475,11 +475,24 @@ public partial class QuestionEditorScreen : Control
 				U.Muted("Players take turns, fewest points first. On your turn you pick where the next item goes on the timeline. Right: it's placed with its label, you score and carry on. Wrong: the next player tries the same item. If nobody gets it, it's placed for free and the next player starts the next item.", 13));
 		}
 		else
+		{
+			var costs = new CheckBox { Text = Lang.T("Wrong places cost points"), ButtonPressed = _draft.WrongCosts, MouseDefaultCursorShape = CursorShape.PointingHand };
+			costs.Toggled += on =>
+			{
+				_draft.WrongCosts = on;
+				Changed();
+			};
 			settings = RoundSettings.Panel(
 				RoundSettings.TimeLimit(_draft, () => Changed()),
-				RoundSettings.Points(_draft, () => Changed()),
+				U.Field("Points per item in the right place", new NumberField(_draft.Points, v =>
+				{
+					_draft.Points = (int)Math.Clamp(Math.Round(v ?? QuestionLimits.PointsMin), QuestionLimits.PointsMin, QuestionLimits.PointsMax);
+					Changed();
+				}, QuestionLimits.PointsMin, QuestionLimits.PointsMax, true)),
+				U.V(2, costs, U.Muted("Off by default. On: each item in a wrong place takes the same points off again.", 12)),
 				RoundSettings.Bonus(_draft, () => Changed()),
-				U.Muted("Everyone puts the items in order on their own screen. Only a perfect order gets the points; the reveal shows how many each player had in the right place.", 13));
+				U.Muted("Everyone puts the items in order on their own screen. Every item in its right place gets the points, so 3 of 4 right is still worth something; the reveal shows how many each player had right.", 13));
+		}
 		return Columns((left, 1.6f), (settings, 1));
 	}
 

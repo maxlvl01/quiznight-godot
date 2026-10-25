@@ -396,7 +396,7 @@ public static class SelfTest
 		Eq(g.View("host").Reveal!.GuessTimeSec, 4.0, "guessed after 4 s");
 		Check(g.View("ann").Question.ImageKey != null && g.AssetDataUrl(Game.ImageKey(8)) != null, "everyone gets the picture at the reveal");
 
-		// Put in order: shown shuffled; only the perfect order scores.
+		// Put in order: shown shuffled; every item in its right place scores.
 		room.Next();
 		Eq(g.Question.Type, QuestionType.Order, "order question");
 		var shownItems = g.View("ann").Question.Items!;
@@ -408,8 +408,9 @@ public static class SelfTest
 		g.Answer("bob", 9, AnswerValue.Picked(g.Question.CorrectOrder.AsEnumerable().Reverse()));
 		g.Answer("cat", 9, AnswerValue.Picked(new[] { g.Question.CorrectOrder[1], g.Question.CorrectOrder[0], g.Question.CorrectOrder[2], g.Question.CorrectOrder[3] }));
 		Eq(g.Stage, Stage.Reveal, "order reveals when all answered");
-		Eq(room.Scores["ann"] - before.Ann, 2, "perfect order scores");
-		Eq(room.Scores["cat"] - before.Cat, 0, "almost right doesn't");
+		Eq(room.Scores["ann"] - before.Ann, 8, "perfect order: the points for each of the 4 items");
+		Eq(room.Scores["cat"] - before.Cat, 4, "2 of 4 right still score for those 2");
+		Eq(room.Scores["bob"] - before.Bob, 0, "none right: nothing (no minus unless it's switched on)");
 		Eq(g.View("host").Reveal!.Entries.First(e => e.PlayerId == "cat").Text, "2 of 4 in the right place", "order reveal text");
 		Eq(g.View("host").Reveal!.AnswerText, "Doom → Half-Life → Portal → Elden Ring", "order answer");
 

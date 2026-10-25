@@ -423,6 +423,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		void Build()
 		{
 			rows.Clear();
+			if (q.WrongCosts) rows.AddChild(U.Text(Lang.T("Careful: every item in a wrong place costs points."), 15, C.Coral, Fonts.Bold));
 			if (!string.IsNullOrWhiteSpace(q.OrderTop)) rows.AddChild(U.Muted("▲ " + q.OrderTop, 15).Raw());
 			for (var i = 0; i < order.Count; i++)
 			{

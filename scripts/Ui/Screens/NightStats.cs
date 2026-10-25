@@ -67,7 +67,8 @@ public static class NightStatsView
 			QuestionType.MapPin => Lang.T("Look at the screenshot and place your pin on the map where you think it was taken. The closest pins score."),
 			QuestionType.Order => Lang.T(q.OrderMode == OrderMode.Timeline
 				? "Take turns placing items on the timeline, fewest points first. A right spot scores; a wrong one passes the item on."
-				: "Put the items in the right order on your screen, then lock in. Only a perfect order scores."),
+				: q.WrongCosts ? "Put the items in the right order on your screen, then lock in. Every item in its right place scores, every wrong one costs points."
+				: "Put the items in the right order on your screen, then lock in. Every item in its right place scores."),
 			QuestionType.Write => Lang.T("Type the answer before the time runs out. Small typos are fine."),
 			QuestionType.Sound when q.Buzzer => Lang.T("A song or sound plays. Buzz in as soon as you know it; it pauses while someone answers."),
 			QuestionType.Video when q.Buzzer => Lang.T("A clip plays. Buzz in as soon as you know it; it pauses while someone answers."),

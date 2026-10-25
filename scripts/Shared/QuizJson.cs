@@ -112,6 +112,7 @@ public static class QuizJson
 				o["orderBottom"] = q.OrderBottom;
 				o["timeLimitSec"] = q.TimeLimitSec;
 				o["orderMode"] = q.OrderMode;
+				if (q.WrongCosts && !q.IsTimeline) o["wrongCosts"] = true;
 				if (q.IsTimeline)
 				{
 					o["itemLabels"] = new JsonArray(q.Items.Select((_, i) => (JsonNode)JsonValue.Create(q.ItemLabel(i))!).ToArray());

@@ -94,7 +94,7 @@ public static class QuestionType
 			"Players put a few things in the right order, e.g. oldest to newest.",
 			new[]
 			{
-				"Everyone at once: everyone sorts the list on their own screen within the time limit. All in the right order scores.",
+				"Everyone at once: everyone sorts the list on their own screen within the time limit. Every item in its right place scores (and wrong places can cost points).",
 				"Timeline: players take turns placing one item between the cards already on the timeline (fewest points go first). A right spot scores; a wrong one passes the item on. Labels like years show once an item is placed.",
 			}),
 		[Write] = new("Write the answer", "write", "Everyone types their answer. Matching answers are ticked for you; you can tick or untick any at the reveal.",
@@ -287,7 +287,7 @@ public sealed class Question
 	public int CorrectChoice;
 	/// <summary>Multi mode: every correct answer (indexes into Choices).</summary>
 	public List<int> CorrectChoices = new();
-	/// <summary>A–D and multiple choice: a wrong answer loses the question's points (off by default).</summary>
+	/// <summary>A–D and multiple choice: a wrong answer loses the question's points. Put in order: each item in a wrong place does. Off by default.</summary>
 	public bool WrongCosts;
 
 	/// <summary>Classic choice, estimation and map pin: how long everyone has to answer.</summary>
