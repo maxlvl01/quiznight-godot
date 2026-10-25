@@ -57,6 +57,7 @@ public partial class App : Control
 		_banners.SetAnchorsPreset(LayoutPreset.TopWide);
 		_banners.MouseFilter = MouseFilterEnum.Ignore;
 		AddChild(_banners);
+		AddChild(_audio);
 		// (the splash plays out on top of the first screen; not in dev and test runs, which pass arguments after --)
 		SplashIntro? splash = null;
 		if (OS.GetCmdlineUserArgs().Length == 0 && DisplayServer.GetName() != "headless") AddChild(splash = new SplashIntro());
@@ -128,6 +129,9 @@ public partial class App : Control
 		GetTree().Quit(code);
 	}
 
+	/// <summary>Menu music and the buttons' hover and click sounds.</summary>
+	readonly UiAudio _audio = new();
+
 	void Show(Control screen)
 	{
 		Sfx.StopPreview();
@@ -135,6 +139,7 @@ public partial class App : Control
 		_screen = screen;
 		screen.SetAnchorsPreset(LayoutPreset.FullRect);
 		_screens.AddChild(screen);
+		_audio.ScreenChanged(screen);
 		UpdateBanners();
 	}
 
