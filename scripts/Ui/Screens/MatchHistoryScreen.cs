@@ -118,15 +118,15 @@ public partial class MatchHistoryScreen : Control
 	/// <summary>The night in full: place, picture, name, points, questions scored, Ø answer time, Ø map distance, Ø % off.</summary>
 	public static Control Table(Results.Night night, string? me)
 	{
-		var grid = new GridContainer { Columns = 7 };
+		var grid = new LinedGrid { Columns = 7 };
 		grid.AddThemeConstantOverride("h_separation", 18);
-		grid.AddThemeConstantOverride("v_separation", 6);
+		grid.AddThemeConstantOverride("v_separation", 12);
 		foreach (var h in new[] { "#", "Player", "Points", "Scored", "Ø answer time", "Ø map off", "Ø % off" }) grid.AddChild(U.Eyebrow(h));
 		foreach (var p in night.Players)
 		{
 			var mine = p.Id == me;
 			var who = new PublicPlayer { Id = p.Id, Name = p.Name, Connected = true, Color = Limits.PlayerColors[p.Id.Aggregate(0, (h, ch) => (h * 31 + ch) & 0xffffff) % Limits.PlayerColors.Length] };
-			grid.AddChild(GameParts.RankBadge(p.Place, true));
+			grid.AddChild(GameParts.PlaceBox(p.Place));
 			grid.AddChild(GameParts.Row(8, new Avatar(who, 24), U.Text(p.Name, 15, C.Text, mine ? Fonts.Black : null).Raw()));
 			grid.AddChild(U.Mono($"{p.Points}", 15, C.Accent));
 			grid.AddChild(U.Mono($"{p.Scored}", 14));

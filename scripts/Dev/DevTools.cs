@@ -21,6 +21,7 @@ using Godot;
 using QuizNight.Net;
 using QuizNight.Shared;
 using QuizNight.Storage;
+using QuizNight.Ui.Screens;
 
 namespace QuizNight.Dev;
 
@@ -213,6 +214,8 @@ public sealed class DevTools
 					_app.GoSettings();
 					break;
 				case "eternal":
+					// (--sort COL [--ascending]: the table sorted by that column)
+					if (Value("--sort") is { } col) EternalTableScreen.SortBy(col, Has("--ascending"));
 					_app.GoEternalTable();
 					break;
 				case "history":

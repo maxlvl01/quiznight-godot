@@ -69,6 +69,7 @@ off (`- [x]`) when they're done, with the version they came in.
 ## 0.9.x — polish
 
 ### Bugs
+- [x] Ewige Tabelle: players on the same points could show 3rd above 2nd (0.9.5b)
 - [ ] _(add what you find)_
 
 ### Editor
@@ -85,6 +86,7 @@ off (`- [x]`) when they're done, with the version they came in.
 - [x] Choice questions: optional "Wrong answers cost points"
 - [x] Update check every minute while the game is open; "Update to …" in the editor and quiz screens
 - [x] Statistics: Ewige Tabelle and Match history (quiz, host, date, places) as two tabs; your name in bold in both
+- [x] Ewige Tabelle: places follow the sorted column, ▲/▼ for changes with the newest night, medal boxes and row lines (0.9.5b)
 - [ ] _(add what you find)_
 
 ### Not tested with real people yet

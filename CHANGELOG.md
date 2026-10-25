@@ -13,6 +13,26 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.9.6b] — aligned headings, a peek at 0.10.0b
+
+### Fixed
+- **The Ewige Tabelle's column headings line up with their numbers.** The headings are buttons (click one to sort), and buttons have a little space on their left, so every heading sat a few pixels right of the numbers below it ("Nights" started after the "1"). The headings no longer have that space, and the number columns are now centred under their heading, so heading and numbers sit on one line down the column. "Player" stays left, above the pictures.
+
+### Coming next
+- **0.10.0b is on its way, and the Ewige Tabelle is about to get very nerdy.** Who's the fastest buzzer of all time? Whose map pin landed closest ever? Who always gets step by step on the very first hint? Soon you can look at the table one question type at a time, with all the stats nobody asked for. Then click a name: every player gets a profile page like a Football Manager scout report, with attributes rated 1 to 20, a form guide of the last nights, and a verdict on what kind of quizzer they are. Speed buzzer? Map specialist? Estimation sniper? We'll see. And quizmasters might get a way to tell you what a question is about before it starts… if they feel generous. One catch: those stats only start counting with 0.10.0b, so the nights before won't show up there.
+
+## [0.9.5b] — Ewige Tabelle arrows, places by column
+
+### Added
+- **Arrows in the Ewige Tabelle.** Next to each place you now see how it changed with the newest quiz night: a green ▲2 if you went up two places, a red ▼1 if you dropped one, and a blue "New" if it was your first night. Hover an arrow to see your place before. It works for any column you sort by.
+
+### Changed
+- **The places follow the column you sort by.** In the Ewige Tabelle, # always showed everyone's place by points, so when you sorted by answer time the fastest player could be at the top marked "3rd". Now the best in the sorted column is 1st (whichever way round you sort it), equal values share a place, and only points use the faster answer time to break ties.
+- **Places sit in coloured boxes, with lines between the rows.** In the Ewige Tabelle, a night's full table in the match history and tonight's Stats, the places were plain coloured text that sat higher than the profile pictures next to them. Now each place is a small box: gold, silver and bronze for the top 3, plain after that, centred with the picture. A thin line between the rows makes it easy to read a row across.
+
+### Fixed
+- **Players on the same points were in the wrong order in the Ewige Tabelle.** Two players on 11 points could show "3rd" above "2nd". The places break ties by the faster average answer time, but the rows were put in order by name, so the two didn't match. The rows now follow the places.
+
 ## [0.9.4b] — statistics with a match history, update check while open
 
 ### Added

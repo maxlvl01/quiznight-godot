@@ -71,6 +71,8 @@ public static class WhatsNew
 		"changed" => ("Changed", C.Sky),
 		"fixed" => ("Fixed", C.Accent),
 		"removed" => ("Removed", C.Coral),
+		// (a peek at the next big update, at the end of a release's notes)
+		"coming next" => ("Coming next", C.Purple),
 		_ => (kind, C.Muted),
 	};
 

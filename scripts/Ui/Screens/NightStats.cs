@@ -17,15 +17,15 @@ public static class NightStatsView
 	/// <summary>Place, points, questions scored, average answer time, average distance on maps and % off on estimations.</summary>
 	public static Control Table(RoomState room, string? me = null)
 	{
-		var grid = new GridContainer { Columns = 7 };
+		var grid = new LinedGrid { Columns = 7 };
 		grid.AddThemeConstantOverride("h_separation", 16);
-		grid.AddThemeConstantOverride("v_separation", 6);
+		grid.AddThemeConstantOverride("v_separation", 12);
 		foreach (var h in new[] { "#", "Player", "Points", "Scored", "Ø answer time", "Ø map off", "Ø % off" })
 			grid.AddChild(U.Eyebrow(h));
 		foreach (var p in room.Ranked())
 		{
 			var s = room.Stats.GetValueOrDefault(p.Id) ?? new NightStats();
-			grid.AddChild(GameParts.RankBadge(room.Place(p.Id), true));
+			grid.AddChild(GameParts.PlaceBox(room.Place(p.Id)));
 			grid.AddChild(GameParts.Row(6, new Avatar(p, 22), U.Text(p.Name, 15, p.Id == me ? C.Teal : C.Text, p.Id == me ? Fonts.Bold : null).Raw()));
 			grid.AddChild(U.Mono($"{room.Score(p.Id)}", 15, C.Accent));
 			grid.AddChild(U.Mono($"{s.Scored}", 14));

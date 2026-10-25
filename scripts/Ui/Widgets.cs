@@ -509,3 +509,26 @@ public static class Dialogs
 		d.PopupCentered(new Vector2I(900, 600));
 	}
 }
+
+/// <summary>A grid with a thin line between its rows (stats tables), so a row reads across even when it's sorted.</summary>
+public partial class LinedGrid : GridContainer
+{
+	public override void _Notification(int what)
+	{
+		if (what == NotificationSortChildren) QueueRedraw();
+	}
+
+	public override void _Draw()
+	{
+		// (the line sits in the middle of the gap above each row's first cell; none above the heading row)
+		var gap = GetThemeConstant("v_separation");
+		var color = C.Border with { A = 0.45f };
+		var cells = GetChildren();
+		for (var i = Columns; i < cells.Count; i += Columns)
+			if (cells[i] is Control c && c.Visible)
+			{
+				var y = Mathf.Round(c.Position.Y - gap / 2f);
+				DrawLine(new Vector2(0, y), new Vector2(Size.X, y), color, 1);
+			}
+	}
+}
