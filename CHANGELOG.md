@@ -13,7 +13,12 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+### Added
+- Scoring per place for estimation and map pin questions: next to "Scoring", "Edit" opens a window where you set the points for 1st, 2nd, 3rd … Pick a preset (F1 today and historical F1 systems, MotoGP, IndyCar, NASCAR, Mario Kart, a podium 3 / 2 / 1) or save your own presets (kept on your PC). The points are saved with the question, so a shared quiz scores the same.
+- Estimation units are a drop-down by kind (length, mass, time, speed, area, volume, temperature, energy and power, data, money), with light years, AU, parsecs, horsepower and PS. "Custom…" still lets you type any unit.
+
 ### Changed
+- Numbers in estimations keep every digit you type (0.00000034 AU stays that), with a dot or a comma (2.5 or 2,5); German shows a comma.
 - "Time to answer" on the orange "Your turn!" panel is dark and bigger, so it's readable.
 - The map in the map pin corner no longer says "Map" twice.
 - Score lists show names without their clan tag (it was cut off there anyway); hover a name to see it whole.

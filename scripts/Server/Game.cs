@@ -775,7 +775,18 @@ public sealed class Game
 	static readonly CultureInfo En = CultureInfo.GetCultureInfo("en-GB");
 
 	/// <summary>Like toLocaleString('en-GB', { maximumFractionDigits: 2 }).</summary>
-	public static string Fmt(double n) => n.ToString("#,0.##", En);
+	/// <summary>
+	/// A number as typed, every digit after the point (0.00000034 stays that), without float noise (0.1 + 0.2 shows
+	/// 0.3), in the language's style ("2.5" / German "2,5").
+	/// </summary>
+	public static string Fmt(double n)
+	{
+		var clean = double.Parse(n.ToString("G15", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+		var culture = Godot.TranslationServer.GetLocale() == "de" ? De : En;
+		return clean.ToString("#,0.###############", culture);
+	}
+
+	static readonly CultureInfo De = CultureInfo.GetCultureInfo("de-DE");
 
 	public static string FormatDistance(double? km, double percent)
 	{
@@ -789,7 +800,7 @@ public sealed class Game
 	/// Ties share a rank ("1, 1, 3"); nobodyScores gives tied players nothing at that rank.
 	/// </summary>
 	public static Dictionary<string, (int Rank, int Points)> ClosenessPoints(
-		IReadOnlyList<(string PlayerId, double Dist)> dists, int points, string scoring, string tieRule)
+		IReadOnlyList<(string PlayerId, double Dist)> dists, int points, string scoring, string tieRule, IReadOnlyList<int>? rankPoints = null)
 	{
 		var sorted = dists.OrderBy(d => d.Dist).ToList();
 		var result = new Dictionary<string, (int, int)>();
@@ -798,8 +809,10 @@ public sealed class Game
 			var rank = sorted.FindIndex(o => o.Dist == d.Dist) + 1;
 			var tied = sorted.Count(o => o.Dist == d.Dist) > 1;
 			var pts = 0;
-			if (scoring == Scoring.ClosestWins && rank == 1) pts = points;
-			if (scoring == Scoring.Top3 && rank <= 3) pts = (4 - rank) * points;
+			// (points per place, e.g. F1's 25 / 18 / 15 …; tied players share the better place's points)
+			if (rankPoints is { Count: > 0 }) pts = rank <= rankPoints.Count ? rankPoints[rank - 1] : 0;
+			else if (scoring == Scoring.ClosestWins && rank == 1) pts = points;
+			else if (scoring == Scoring.Top3 && rank <= 3) pts = (4 - rank) * points;
 			if (tied && tieRule == TieRule.NobodyScores) pts = 0;
 			result[d.PlayerId] = (rank, pts);
 		}
@@ -940,7 +953,7 @@ public sealed class Game
 		{
 			var answer = q.AnswerNumber ?? 0;
 			var unit = q.Unit != "" ? " " + q.Unit : "";
-			var ranks = ClosenessPoints(_answers.Select(a => (a.PlayerId, Math.Abs(a.Value.Num!.Value - answer))).ToList(), q.Points, q.Scoring, q.TieRule);
+			var ranks = ClosenessPoints(_answers.Select(a => (a.PlayerId, Math.Abs(a.Value.Num!.Value - answer))).ToList(), q.Points, q.Scoring, q.TieRule, q.RankPoints);
 			var entries = _answers.Select(a =>
 			{
 				var n = a.Value.Num!.Value;
@@ -970,7 +983,7 @@ public sealed class Game
 		var measured = _answers.Select(a => (a.PlayerId, a.Value, D: QuizRules.MapDistance(map, a.Value.Point!.Value, target))).ToList();
 		foreach (var m in measured)
 			if (m.D.Km is { } km) _hooks.NoteDistance(m.PlayerId, km);
-		var mapRanks = ClosenessPoints(measured.Select(m => (m.PlayerId, m.D.Km ?? m.D.Percent)).ToList(), q.Points, q.Scoring, q.TieRule);
+		var mapRanks = ClosenessPoints(measured.Select(m => (m.PlayerId, m.D.Km ?? m.D.Percent)).ToList(), q.Points, q.Scoring, q.TieRule, q.RankPoints);
 		var pinEntries = measured.Select(m =>
 		{
 			var r = mapRanks[m.PlayerId];
@@ -1079,7 +1092,8 @@ public sealed class Game
 		{
 			Type = q.Type,
 			Prompt = q.Prompt,
-			Points = q.Points,
+			Points = q.HasRankPoints ? q.MaxPoints : q.Points,
+			RankScoring = q.HasRankPoints,
 			Buzzer = q.IsBuzzer,
 			Written = q.IsWritten,
 			BonusPoints = q.BonusPoints,

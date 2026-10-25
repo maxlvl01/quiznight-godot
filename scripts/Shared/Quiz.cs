@@ -321,6 +321,11 @@ public sealed class Question
 	// estimation + map pin
 	public string TieRule = Shared.TieRule.AllScore;
 	public string Scoring = Shared.Scoring.ClosestWins;
+	/// <summary>Points per place (1st, 2nd, …), e.g. F1's 25 / 18 / 15. Empty: Scoring and Points decide (ScoringPresets).</summary>
+	public List<int> RankPoints = new();
+	public bool HasRankPoints => IsCloseness && RankPoints.Count > 0;
+	/// <summary>The most a player can get: the question's points, 3× with top 3, or the best place's points.</summary>
+	public int MaxPoints => HasRankPoints ? RankPoints.Max() : IsCloseness && Scoring == Shared.Scoring.Top3 ? Points * 3 : Points;
 
 	// map pin
 	public string? MapId;
@@ -426,8 +431,9 @@ public static class QuizRules
 	/// 5: buzzer questions can be typed by everyone (typed); every question can have a bonus (bonusPoints, bonusText).
 	/// 6: picture questions (type "picture": slides, answered like classic).
 	/// 7: interactive questions (type "interactive": judging) and step by step (type "steps": hints).
+	/// 8: estimation and map pin can score by place (rankPoints, e.g. F1's 25 / 18 / 15 …).
 	/// </summary>
-	public const int FormatVersion = 7;
+	public const int FormatVersion = 8;
 
 	public static readonly string[] ChoiceLetters = { "A", "B", "C", "D" };
 

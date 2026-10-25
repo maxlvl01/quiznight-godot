@@ -601,6 +601,22 @@ public static class SelfTest
 		Eq(Room.CleanName("[TOOLONGTAG] Ann"), "[TOOLON] Ann", "a clan tag is cut to its own length");
 		Check(Limits.SplitClanTag("[OTB] maxlvl") == ("OTB", "maxlvl") && Limits.SplitClanTag("Ann [x]") == (null, "Ann [x]"), "clan tags are found at the front only");
 		Eq(Ui.U.Initials("[OTB] maxlvl"), "MA", "initials skip the clan tag");
+
+		// Scoring by place (F1 and friends), exact numbers, units.
+		var f1 = ScoringPresets.BuiltIn.First(p => p.Name.StartsWith("F1 (since"));
+		var byPlace = Game.ClosenessPoints(new List<(string, double)> { ("a", 1), ("b", 2), ("c", 2), ("d", 9) }, 1, Scoring.ClosestWins, TieRule.AllScore, f1.Points);
+		Check(byPlace["a"].Points == 25 && byPlace["b"].Points == 18 && byPlace["c"].Points == 18 && byPlace["d"].Points == 12,
+			"points per place: 25, tied 2nd both 18, then 4th 12");
+		Check(Game.ClosenessPoints(new List<(string, double)> { ("a", 1), ("b", 2) }, 1, Scoring.ClosestWins, TieRule.AllScore, new[] { 5 })["b"].Points == 0,
+			"places after the last one get nothing");
+		var ranked = QuizRules.NewQuestion(QuestionType.Estimation, "r");
+		ranked.RankPoints = f1.Points.ToList();
+		Check(QuizJson.ReadQuestion(QuizJson.WriteQuestion(ranked)).RankPoints.SequenceEqual(f1.Points) && ranked.MaxPoints == 25, "points per place are saved with the question");
+		Check(QuizJson.ReadQuestion(QuizJson.WriteQuestion(QuizRules.NewQuestion(QuestionType.Estimation, "c"))).RankPoints.Count == 0, "no points per place: the classic way");
+		Eq(Game.Fmt(0.00000034), "0.00000034", "small numbers keep every digit");
+		Eq(Game.Fmt(0.1 + 0.2), "0.3", "no float noise");
+		Eq(Ui.NumberField.Parse("2,5"), 2.5, "a comma reads as the decimal point");
+		Check(Units.Find("km") == "km" && Units.Find("goals") == null && Units.Find("") == null, "units in the list are found, others are custom");
 		var pictureQ = Dev.SampleQuiz.Build().Questions.First(x => x.Type == QuestionType.Picture).Clone();
 		Check(pictureQ.Slides.Count == 3 && pictureQ.Slides.All(i => i.DataUrl.StartsWith("data:image")) && pictureQ.IsBuzzer && pictureQ.IsClassicLike, "picture questions keep their pictures and play like classic");
 		Check(QuizRules.QuestionIssues(new Question { Type = QuestionType.Picture, Prompt = "x", AnswerText = "y" }, new List<MapAsset>()).Contains(Lang.T("Add at least one picture.")), "a picture question needs a picture");

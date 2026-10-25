@@ -40,7 +40,7 @@ public static class GameParts
 
 	/// <summary>"2 points" in the bar; step by step: "up to 5 points" (it's worth less after each hint).</summary>
 	public static string PointsPill(PublicQuestion q) =>
-		q.HintCount != null ? Lang.F("up to {0} points", q.Points)
+		q.HintCount != null || q.RankScoring ? Lang.F("up to {0} points", q.Points)
 		: q.Points == 1 ? Lang.T("1 point") : Lang.F("{0} points", q.Points);
 
 	/// <summary>"left at Q 4/13" / "joined at Q 3/13" under a name (or null).</summary>

@@ -206,6 +206,9 @@ public static class QuizJson
 		q.Unit = Str(o, "unit");
 		q.TieRule = Str(o, "tieRule", TieRule.AllScore) == TieRule.NobodyScores ? TieRule.NobodyScores : TieRule.AllScore;
 		q.Scoring = Str(o, "scoring", Scoring.ClosestWins) == Scoring.Top3 ? Scoring.Top3 : Scoring.ClosestWins;
+		if (o["rankPoints"] is JsonArray rankPoints)
+			q.RankPoints = rankPoints.Select(p => p is JsonValue v && (v.TryGetValue<double>(out var n) || v.TryGetValue<int>(out var i) && (n = i) == i) ? (int)Math.Clamp(n, 0, ScoringPresets.PointsMax) : 0)
+				.Take(ScoringPresets.PlacesMax).ToList();
 		q.MapId = o["mapId"] is JsonValue mid && mid.TryGetValue<string>(out var mapId) ? mapId : null;
 		q.Target = ReadPoint(o["target"]);
 		if (o["hints"] is JsonArray hints)
@@ -254,6 +257,7 @@ public static class QuizJson
 		o["timeLimitSec"] = q.TimeLimitSec;
 		o["tieRule"] = q.TieRule;
 		o["scoring"] = q.Scoring;
+		if (q.RankPoints.Count > 0) o["rankPoints"] = new JsonArray(q.RankPoints.Select(p => (JsonNode)JsonValue.Create(p)!).ToArray());
 	}
 
 	static JsonNode? WriteImage(ImageAsset? img) =>

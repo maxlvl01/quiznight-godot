@@ -23,6 +23,9 @@ off (`- [x]`) when they're done, with the version they came in.
 - [ ] _(add what you find)_
 
 ### Editor
+- [x] Estimation units as a drop-down (SI, light years, AU, horsepower …), custom still possible
+- [x] Decimals with dot or comma, every digit kept
+- [x] Scoring per place with presets (F1 old and new, MotoGP, IndyCar, NASCAR, Mario Kart) and your own
 - [ ] _(add what you find)_
 
 ### Quality of life

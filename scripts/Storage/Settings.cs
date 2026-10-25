@@ -38,6 +38,31 @@ public static class Settings
 		set => Set("last_seen_version", value);
 	}
 
+	/// <summary>The quiz maker's own scoring presets (points per place), saved on this PC.</summary>
+	public static System.Collections.Generic.List<ScoringPreset> ScoringPresets
+	{
+		get
+		{
+			try
+			{
+				var node = System.Text.Json.Nodes.JsonNode.Parse(Get("scoring_presets", "[]")) as System.Text.Json.Nodes.JsonArray;
+				return node?.OfType<System.Text.Json.Nodes.JsonObject>()
+					.Select(o => new ScoringPreset(o["name"]?.GetValue<string>() ?? "",
+						(o["points"] as System.Text.Json.Nodes.JsonArray)?.Select(p => p?.GetValue<int>() ?? 0).ToArray() ?? System.Array.Empty<int>(), false))
+					.Where(p => p.Name != "" && p.Points.Length > 0).ToList() ?? new();
+			}
+			catch (System.Exception)
+			{
+				return new();
+			}
+		}
+		set => Set("scoring_presets", new System.Text.Json.Nodes.JsonArray(value.Select(p => (System.Text.Json.Nodes.JsonNode)new System.Text.Json.Nodes.JsonObject
+		{
+			["name"] = p.Name,
+			["points"] = new System.Text.Json.Nodes.JsonArray(p.Points.Select(n => (System.Text.Json.Nodes.JsonNode)System.Text.Json.Nodes.JsonValue.Create(n)!).ToArray()),
+		}).ToArray()).ToJsonString());
+	}
+
 	public static string PlayerName
 	{
 		get => Get("player_name", "");

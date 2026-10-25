@@ -323,12 +323,12 @@ public partial class QuestionEditorScreen : Control
 				{
 					_draft.AnswerNumber = v;
 					Changed();
-				}, placeholder: "e.g. 42")),
-				U.Field("Unit (optional)", U.Input(_draft.Unit, "e.g. hours", t =>
+				}, placeholder: "e.g. 42 or 2.5"), "Decimals with a dot or a comma, as many digits as you like."),
+				U.Field("Unit (optional)", UnitField.Make(_draft.Unit, t =>
 				{
 					_draft.Unit = t;
 					Changed();
-				}, 20))),
+				}))),
 			U.Field("Image (optional)", OptionalImage()));
 		return Columns((left, 1.6f), (RoundSettings.Closeness(_draft, () => Changed()), 1));
 	}

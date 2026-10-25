@@ -291,12 +291,10 @@ public static class RoundSettings
 			q.TieRule = id;
 			changed();
 		})));
-		kids.Add(U.Field("Scoring", U.Select(Scoring.All, q.Scoring, id =>
-		{
-			q.Scoring = id;
-			changed();
-		})));
-		kids.Add(Points(q, changed));
+		// (points per place, e.g. F1's, or the two classic ways that use the question's points)
+		var points = Points(q, changed);
+		kids.Add(ScoringField.Make(q, changed, points));
+		kids.Add(points);
 		kids.Add(Bonus(q, changed));
 		return Panel(kids.ToArray());
 	}

@@ -212,6 +212,8 @@ public sealed class PublicQuestion
 	public bool Buzzer;
 	/// <summary>Everyone types an answer (write the answer, or a buzzer question played as "everyone types").</summary>
 	public bool Written;
+	/// <summary>Scores by place (e.g. F1 points): Points is then the most the best place gets.</summary>
+	public bool RankScoring;
 	/// <summary>The bonus the host can give at the reveal (0 = none) and what it's for.</summary>
 	public int BonusPoints;
 	public string? BonusText;
