@@ -49,6 +49,7 @@ public partial class App : Control
 		I = this;
 		// (nothing saved yet: the very first start on this PC, which asks for the accessibility settings first)
 		var firstStart = Settings.NothingSaved;
+		var volumesReset = Settings.ResetVolumesOnce(firstStart);
 		// (sends the last run's log if it crashed or hit an error; exported builds only)
 		CrashReports.Start();
 		// (dev runs: --skin ID, --dyslexic and --colour-vision MODE try them without saving)
@@ -94,15 +95,17 @@ public partial class App : Control
 			_afterWelcome = () => Start(args.Length == 0 && window);
 			ShowWelcomeAgain();
 		}
-		else Start(args.Length == 0 && window);
+		else Start(args.Length == 0 && window, volumesReset ? VolumesNotice : null);
 	}
 
+	const string VolumesNotice = "All volume sliders are at 50 % now, the new standard. Turn them up again in Settings if you liked it louder.";
+
 	/// <summary>The splash (not in dev and test runs, which pass arguments after --), then the home screen.</summary>
-	void Start(bool splash)
+	void Start(bool splash, string? notice = null)
 	{
 		SplashIntro? intro = null;
 		if (splash && !Announcer.ReduceMotion) AddChild(intro = new SplashIntro());
-		GoHome();
+		GoHome(notice);
 		// (What's new and the update prompt are windows of their own: they wait until the splash is gone)
 		void Popups()
 		{

@@ -79,11 +79,20 @@ off (`- [x]`) when they're done, with the version they came in.
 - [x] Escape goes back a screen; crash reports to the results repo; thin outlines on small buttons; drawn Fast Pass bolt;
   music fades for sound previews; preset dot; "Top 3" folded into Podium; no hover growth on rows; profile Form column.
 
-## 0.10.2b — new maps (planned)
+## 0.10.2b — done
 
-- [ ] Map pin: Sekiro, Dark Souls 1, 2 and 3 (fan maps only, no official top-down map: find good ones and a scale)
-- [ ] Map pin: the three Wardogs maps (Bakurani, Ozeti, Zestafona)
-- [ ] Race tracks, maybe as a Map pin subtype: F1, WEC, DTM and BTCC circuits (scale from each track's official length)
+- [x] Jukebox, mouse thumb buttons back/forward, Ctrl+S, Quit button, welcome screen with accessibility on the first start
+- [x] Skins: Quiznight Purple (the old one) and a pastel Pinke Geilheit; Olf?; profile bars light up
+- [x] Fixed: Settings with the dyslexia-friendly font; award pack window with examples; volumes 50 %
+- [x] Map pin: the three WARDOGS maps (Bakurani, Ozeti, Zestafona), dark like in the game
+
+## Later — maps
+
+- [ ] Race tracks as a Map pin subtype: F1, WEC, DTM and BTCC circuits. Plan: draw each track from its centre line
+      (F1 tracks: github.com/bacinger/f1-circuits, MIT, with official lengths; Le Mans, Fuji, DTM and BTCC tracks:
+      OpenStreetMap raceways, ODbL), so the scale comes from real coordinates. Norisring has no raceway in OSM.
+- [ ] Sekiro, Dark Souls 1, 2 and 3: no top-down map with a scale exists (only illustrated art, sold as prints, or
+      schematic diagrams; Fextralife's maps may not be republished)
 
 ## For 1.0 — content and bigger things
 

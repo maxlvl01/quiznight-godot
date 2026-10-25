@@ -13,7 +13,10 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.10.2b]
+
 ### Added
+- **Three WARDOGS maps for map pin questions:** Bakurani, Ozeti and Zestafona, darkened like the game's own tactical map. Bakurani is 16.4 km wide, Ozeti and Zestafona 32.8 km (from the game's terrain at one metre per pixel). The map grid marks them NEW.
 - **A jukebox on every screen.** The little note button in the bottom left opens it: switch the music off (it stays off next time you start the game) or on again, skip to the next or previous song, or pick a song from the list of what this screen plays. The "Now playing" card slides in right next to it.
 - **The mouse's thumb buttons go back and forward,** like in a browser. Back works on every screen except the home screen, the same as Escape. Forward opens the screen you just came back from again (from Settings back to the home screen, then forward to Settings again). Going somewhere new by clicking starts the history over, like a browser does.
 - **Ctrl+S** applies your changes in Settings and saves the question in the question editor (the same as pressing Apply or "Save question").
@@ -25,6 +28,7 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 ### Changed
 - **The old Pinke Geilheit skin is now called Quiznight Purple.** Nothing about it changed, and if you had it picked, you still have it; the name now goes to the new pink skin.
 - **Volume sliders renamed.** "Game music" (menus, lobby and the podium sound) is now just **Music**, and the slider that was called "Music" (songs and clips in sound and video questions) is now **Video**, so it's clear which is which.
+- **All volume sliders start at 50 %.** That is the new standard for everyone: if you already played, your volumes are set to 50 % once with this update, and the home screen tells you so (turn them back up in Settings if you liked it louder). New players start at 50 % too.
 - **The F1 Podium sound is 10 dB louder.** It was much quieter than the menu music around it.
 - **The award pack explains itself.** "Save award pack" used to have a long tooltip nobody read. Pressing it now opens a window that says what's in the pack, with two real examples drawn from the table you're looking at (the standings poster and the first award card), and a Generate button that makes it.
 - **The bars under "Points per night" on a profile light up under the mouse** and show that night's place and points above the bar (the tooltip still adds the date and the quiz).

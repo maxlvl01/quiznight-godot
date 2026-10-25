@@ -1021,6 +1021,7 @@ public static class LangDe
 		["Down {0} places with this question"] = "Mit dieser Frage {0} Plätze runter",
 		["Classic"] = "Klassisch",
 		["Quiznight Purple"] = "Quiznight-Lila",
+		["All volume sliders are at 50 % now, the new standard. Turn them up again in Settings if you liked it louder."] = "Alle Lautstärkeregler stehen jetzt auf 50 %, dem neuen Standard. In den Einstellungen kannst du sie wieder lauter stellen.",
 		["Welcome to Quiznight?"] = "Willkommen bei Quiznight?",
 		["Before the show starts: does anything make the game easier for you to see or read?"] = "Bevor die Show losgeht: Macht etwas das Spiel für dich leichter zu sehen oder zu lesen?",
 		["You can change all of this any time in Settings. This only shows on the very first start."] = "Das kannst du jederzeit in den Einstellungen ändern. Das hier kommt nur beim allerersten Start.",

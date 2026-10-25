@@ -90,6 +90,15 @@ public static class MapPresets
 		new("pubg-vikendi", "PUBG – Vikendi", 8.16, "res://assets/maps/pubg-vikendi.webp", "Official map © KRAFTON (PUBG API assets)."),
 		new("pubg-deston", "PUBG – Deston", 8.16, "res://assets/maps/pubg-deston.webp", "Official map © KRAFTON (PUBG API assets)."),
 		new("pubg-sanhok", "PUBG – Sanhok", 4.08, "res://assets/maps/pubg-sanhok.webp", "Official map © KRAFTON (PUBG API assets)."),
+		// WARDOGS: the game's terrain texture, darkened like its tactical map. Scale: 1 px = 1 m on the 16384 px (Bakurani) and
+		// 32768 px (Ozeti, Zestafona) renders (XGamingServer's measuring tool); Bakurani's 16.4 km matches the 256 km² given
+		// before launch.
+		new("wardogs-bakurani", "WARDOGS – Bakurani", 16.384, "res://assets/maps/wardogs-bakurani.webp",
+			"Map: game textures via WARDOGS Tools / XGamingServer, darkened. WARDOGS © Bulkhead / Team17.", "0.10.2b"),
+		new("wardogs-ozeti", "WARDOGS – Ozeti", 32.768, "res://assets/maps/wardogs-ozeti.webp",
+			"Map: game textures via WARDOGS Tools / XGamingServer, darkened. WARDOGS © Bulkhead / Team17.", "0.10.2b"),
+		new("wardogs-zestafona", "WARDOGS – Zestafona", 32.768, "res://assets/maps/wardogs-zestafona.webp",
+			"Map: game textures via WARDOGS Tools / XGamingServer, darkened. WARDOGS © Bulkhead / Team17.", "0.10.2b"),
 		new(WowAtlas.PresetId, "WoW Classic – Azeroth (one seamless map, zoom into any zone)", null, WowAtlas.ImagePath(WowAtlas.World),
 			"Maps © Blizzard Entertainment; zones stitched by the OpenMap addon (MIT). Distances in game yards, exact per zone."),
 	};

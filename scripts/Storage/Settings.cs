@@ -31,6 +31,18 @@ public static class Settings
 		Cfg.Save(FilePath);
 	}
 
+	/// <summary>
+	/// 0.10.2b: every volume starts at 50 %, also for players who had others (once; the home screen says so). Returns
+	/// whether that changed anything someone had (not on the very first start).
+	/// </summary>
+	public static bool ResetVolumesOnce(bool firstStart)
+	{
+		if (Get("volumes_reset", "") == "0.10.2b") return false;
+		foreach (var key in new[] { "volume_master", "volume_music", "volume_game_music", "volume_sfx" }) Cfg.SetValue("app", key, "50");
+		Set("volumes_reset", "0.10.2b");
+		return !firstStart;
+	}
+
 	/// <summary>No settings saved on this PC yet: the very first start (anyone who played before has some, even after an update).</summary>
 	public static bool NothingSaved => !Godot.FileAccess.FileExists(FilePath);
 
@@ -96,7 +108,7 @@ public static class Settings
 	/// <summary>Everything on the settings screen as one value: the screen edits a copy and saves it with Apply.</summary>
 	public sealed record Values(string Language, int Master, int Music, int GameMusic, int Sfx, string Buzzer, string WindowMode, Vector2I WindowSize, int Screen, bool BackgroundMotion, string Background, string Podium, bool PodiumFollowHost);
 
-	public static Values Defaults => new(Lang.SystemDefault, 80, 80, 60, 100, Storage.Sfx.DefaultBuzzer, "windowed", new Vector2I(1600, 900), DisplayServer.GetPrimaryScreen(), true, Backgrounds.Default, Sfx.DefaultPodium, true);
+	public static Values Defaults => new(Lang.SystemDefault, 50, 50, 50, 50, Storage.Sfx.DefaultBuzzer, "windowed", new Vector2I(1600, 900), DisplayServer.GetPrimaryScreen(), true, Backgrounds.Default, Sfx.DefaultPodium, true);
 
 	public static Values Current => new(Language, MasterVolume, MusicVolume, GameMusicVolume, SfxVolume, BuzzerSound, WindowMode, WindowSize, Screen, BackgroundMotion, Background, PodiumSound, PodiumFollowHost);
 
