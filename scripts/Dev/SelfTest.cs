@@ -719,6 +719,7 @@ public static class SelfTest
 		// Versions and the changelog (What's new, updater).
 		Check(AppVersion.Parse("0.5.0") > AppVersion.Parse("0.5.0a")!.Value && AppVersion.Parse("0.5.1a") > AppVersion.Parse("0.5.0")!.Value, "version order");
 		Check(AppVersion.Parse("v0.10.0a") > AppVersion.Parse("0.9.3")!.Value, "tags and two-digit numbers");
+		Check(AppVersion.Parse("0.10.0b") > AppVersion.Parse("0.9.6b")!.Value, "0.10.0b is an update for 0.9.6b");
 		Check(AppVersion.Parse("hello") == null, "not a version");
 		var notes = Changelog.Parse(Godot.FileAccess.GetFileAsString("res://CHANGELOG.md"));
 		var thisVersion = notes.FirstOrDefault(r => r.Version is { } nv && AppVersion.Parse(App.Version) is { } av && nv.CompareTo(av) == 0);

@@ -10,9 +10,9 @@ off (`- [x]`) when they're done, with the version they came in.
 
 ---
 
-## For 0.10.0b — ideas (planned in the 0.10.0b chat, built after 0.9.5b)
+## 0.10.0b "Season Ticket" — done
 
-- [ ] **Ewige Tabelle per question type and subtype** (the main point, not categories): a filter with every question
+- [x] (0.10.0b) **Ewige Tabelle per question type and subtype** (the main point, not categories): a filter with every question
   type (Classic, Buzzer, A B C D, Multiple choice, Picture, Sound, Video, Image reveal, Map pin, Estimation, Timeline,
   Put in order, Write the answer, Step by step, Interactive) and under each its subtypes (e.g. buzzer said out loud /
   typed; map pin per map — real world, Skyrim, WoW …; order one by one / everyone at once; interactive voted / host's
@@ -24,7 +24,7 @@ off (`- [x]`) when they're done, with the version they came in.
   - Needs per-question results: today's CSVs have one row per player and night (totals only), so a night would also
     have to save one row per player and question (type, variant, right/points, time, distance …). Older nights can't
     be split by type; the filtered views only fill from that version on.
-- [ ] **Separate Ø answer time and Ø buzz time** (from the 0.9 chat): today `NoteAnswerTime` puts both into one
+- [x] (0.10.0b) **Separate Ø answer time and Ø buzz time** (from the 0.9 chat): today `NoteAnswerTime` puts both into one
   average (`PlayerStats.AnswerMs`, CSV `avg_answer_s`): a buzz counts its time to buzz (~1 s), a typed/picked answer
   or recording its time to lock in (~10 s+). So whoever buzzes a lot looks fast, and that mixed number breaks ties
   (night ranking and Ewige Tabelle). Split into Ø answer time (typed/picked answers, recordings) and Ø buzz time
@@ -33,11 +33,11 @@ off (`- [x]`) when they're done, with the version they came in.
   time, buzz time "–". Fits with the per-question results (buzz time per type comes from there).
   - Where it's recorded: `Game.cs` calls `_hooks.NoteAnswerTime` for buzzes (`Buzz`), answers and recordings
     (`SubmitRecording`); `Room.NoteAnswerTime` adds them up.
-- [ ] **Points as the last column of the Ewige Tabelle** (from the 0.9 chat): like a football table, the points sit at
+- [x] (0.10.0b) **Points as the last column of the Ewige Tabelle** (from the 0.9 chat): like a football table, the points sit at
   the right end of each row, with the averages before them. Today the order is Nights, Wins, Podiums, Points,
   Ø points, Ø answer time, Ø km off, Ø % off; Points moves to after Ø % off. It's the `Columns` array plus the row
   cells in `EternalTableScreen.cs` (the per-type views follow the same rule: the type's main number last).
-- [ ] **Player profile pages:** click a name in the Ewige Tabelle or match history (or "My profile") for a detailed,
+- [x] (0.10.0b) **Player profile pages:** click a name in the Ewige Tabelle or match history (or "My profile") for a detailed,
   nicely designed overview of one player. Big profile picture top left with name, place in the Ewige Tabelle, nights
   played, wins and podiums; below it cards with every average we have (points, answer/buzz time, km off, % off …).
   Rankings: their 3 best and 3 worst question types / subtypes and categories (compared to everyone else, so "best"
@@ -53,11 +53,20 @@ off (`- [x]`) when they're done, with the version they came in.
     their hosted nights listed too), and a role line under the name ("Speed buzzer", "Map specialist", "Estimation sniper" …) from their best attributes.
   - Builds on the per-question results above; types and categories only fill from that version on, the totals
     (nights, wins, points, Ø times) work for every night.
-- [ ] **Question categories (optional):** the host can pick a category for a question (Geography, Music, Film, Sport,
+- [x] (0.10.0b) **Question categories (optional):** the host can pick a category for a question (Geography, Music, Film, Sport,
   History, Science, Games …) or type their own. Showing it helps players, so it's an option: a lobby rule "Show
   categories" (off by default), plus per question "show category" or "keep it secret". Players see it on the Get ready
   screen / with the question. Extra on top of the type filter: a category filter in the Ewige Tabelle too ("who's
   our geography king"), only for questions that had a category.
+
+- [x] (0.10.0b) **Seasons** (Season 1 = 1.0 to the end of 2027, then one per calendar year) and **championship points**
+  per night's place (F1 and the other scoring presets), as the Ewige Tabelle's "Ranked by".
+- [x] (0.10.0b) **Position and points graphs** for the table (after each night) and for each night (after each question).
+- [x] (0.10.0b) **Points from the host** (bonuses and by hand) and the **"Host's Favourite Puppy"** badge.
+- [x] (0.10.0b) **Award pack:** a ZIP with the standings poster and an award card per question type, category, the
+  puppy, the fastest buzzer and the best speller.
+- [x] (0.10.0b) **Step by step as one sentence in parts:** the rest blurred, a buzz stops the reading, earlier = more points.
+- [x] (0.10.0b) **Spelling measured from typos** in typed answers (letters off from the closest accepted answer).
 
 ## For 1.0 — content and bigger things
 
