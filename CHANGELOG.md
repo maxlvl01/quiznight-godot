@@ -13,6 +13,8 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.9.5b] — Ewige Tabelle arrows, places by column
+
 ### Added
 - **Arrows in the Ewige Tabelle.** Next to each place you now see how it changed with the newest quiz night: a green ▲2 if you went up two places, a red ▼1 if you dropped one, and a blue "New" if it was your first night. Hover an arrow to see your place before. It works for any column you sort by.
 
