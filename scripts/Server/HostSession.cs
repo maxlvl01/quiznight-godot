@@ -296,10 +296,11 @@ public sealed class HostSession : IDisposable
 		}
 	}
 
-	public void UpdateSettings(int? answerTimeSec = null, bool? hostShows = null, bool? hostUnlocks = null, (string Kind, bool On)? joker = null)
+	public void UpdateSettings(int? answerTimeSec = null, bool? hostShows = null, bool? hostUnlocks = null, (string Kind, bool On)? joker = null,
+		bool? categories = null)
 	{
 		if (Room.Phase != Phase.Lobby) return;
-		Room.UpdateSettings(answerTimeSec, hostShows, hostUnlocks, joker);
+		Room.UpdateSettings(answerTimeSec, hostShows, hostUnlocks, joker, categories);
 		Broadcast();
 	}
 

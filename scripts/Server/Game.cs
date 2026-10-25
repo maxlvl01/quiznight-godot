@@ -18,6 +18,8 @@ public interface IGameHooks
 	int AnswerTimeSec();
 	/// <summary>The host allows this joker kind this match.</summary>
 	bool JokerAllowed(string kind);
+	/// <summary>The lobby shows question categories to players.</summary>
+	bool ShowCategories();
 	/// <summary>For the ranking's tiebreaks: how long a player took to lock in an answer or send a recording (ms)…</summary>
 	void NoteAnswerTime(string playerId, long ms);
 	/// <summary>…how long they took to buzz in (ms; its own average, a buzz is much quicker than typing)…</summary>
@@ -30,6 +32,8 @@ public interface IGameHooks
 	/// (Joker kind or null) and, on a step by step question they got right, at which hint (1 = the first, hardest).
 	/// </summary>
 	void NoteTookPart(string playerId, bool answered, string? joker, int? hint);
+	/// <summary>…the host giving (or taking back) a question's bonus…</summary>
+	void NoteHostPoints(string playerId, int points);
 	/// <summary>…and a typed answer's typos (letters off from the closest accepted answer), for the Spelling stat.</summary>
 	void NoteTypos(string playerId, int typos);
 	/// <summary>…how far off a map pin was (km, maps with a scale only), and an estimation (% of the right number)…</summary>
@@ -1056,7 +1060,9 @@ public sealed class Game
 		if (Stage != Shared.Stage.Reveal || !Question.HasBonus || _reveal?.Entries.FirstOrDefault(e => e.PlayerId == playerId) is not { } entry)
 			return false;
 		entry.Bonus = !entry.Bonus;
-		SetPoints(entry, entry.Points + (entry.Bonus ? Question.BonusPoints : -Question.BonusPoints) * Multiplier(playerId));
+		var bonus = (entry.Bonus ? Question.BonusPoints : -Question.BonusPoints) * Multiplier(playerId);
+		SetPoints(entry, entry.Points + bonus);
+		_hooks.NoteHostPoints(playerId, bonus);
 		return true;
 	}
 
@@ -1119,6 +1125,9 @@ public sealed class Game
 		return true;
 	}
 
+	/// <summary>The category players may see (already on the Get ready screen): only if the lobby shows them.</summary>
+	string ShownCategory => _hooks.ShowCategories() && !Question.CategorySecret ? Question.Category : "";
+
 	PublicQuestion PublicQuestion()
 	{
 		var q = Question;
@@ -1126,6 +1135,7 @@ public sealed class Game
 		{
 			Type = q.Type,
 			Prompt = q.Prompt,
+			Category = ShownCategory,
 			Points = q.HasRankPoints ? q.MaxPoints : q.Points,
 			RankScoring = q.HasRankPoints,
 			Buzzer = q.IsBuzzer,
@@ -1244,7 +1254,7 @@ public sealed class Game
 			Total = _quiz.Questions.Count,
 			Stage = Stage,
 			// A hidden question: players only learn its number, type and points.
-			Question = Shown || viewer == "host" || !open ? PublicQuestion() : new PublicQuestion { Type = Question.Type, Points = Question.HasRankPoints ? Question.MaxPoints : Question.Points, RankScoring = Question.HasRankPoints, Buzzer = Question.IsBuzzer, Written = Question.IsWritten, Mode = Question.IsClassicLike ? Question.Mode : null, OrderMode = Question.Type == QuestionType.Order ? Question.OrderMode : null, WrongCosts = (Question.IsChoice || Question.Type == QuestionType.Order && !Question.IsTimeline) && Question.WrongCosts, Judging = Question.IsInteractive ? Question.Judging : null },
+			Question = Shown || viewer == "host" || !open ? PublicQuestion() : new PublicQuestion { Type = Question.Type, Category = ShownCategory, Points = Question.HasRankPoints ? Question.MaxPoints : Question.Points, RankScoring = Question.HasRankPoints, Buzzer = Question.IsBuzzer, Written = Question.IsWritten, Mode = Question.IsClassicLike ? Question.Mode : null, OrderMode = Question.Type == QuestionType.Order ? Question.OrderMode : null, WrongCosts = (Question.IsChoice || Question.Type == QuestionType.Order && !Question.IsTimeline) && Question.WrongCosts, Judging = Question.IsInteractive ? Question.Judging : null },
 			Shown = Shown || !open,
 			BuzzersOpen = BuzzersOpen,
 			EndsAt = open ? _endsAt : null,

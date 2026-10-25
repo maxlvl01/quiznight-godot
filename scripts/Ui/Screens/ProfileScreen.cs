@@ -88,7 +88,8 @@ public partial class ProfileScreen : Control
 		var attributes = TypeAttributes(byPlayer, playerId);
 		var other = OtherAttributes(byPlayer, careers, nights, playerId);
 		var page = U.V(16, back,
-			Header(me, mine, careers.IndexOf(me) + 1, nights.Count(n => n.HostId == playerId), attributes, other, tableLabel),
+			Header(me, mine, careers.IndexOf(me) + 1, nights.Count(n => n.HostId == playerId), attributes, other, tableLabel,
+				Results.FavouritePuppy(careers) == playerId),
 			U.H(16,
 				Section("Attributes", AttributeList(other, attributes)).MinSize(330),
 				Section("Best positions", U.V(14, new ProfileRadar(attributes) { CustomMinimumSize = new Vector2(380, 300) },
@@ -159,7 +160,7 @@ public partial class ProfileScreen : Control
 	}
 
 	static Control Header(Results.Career me, List<(Results.Night Night, Results.NightPlayer Me)> mine, int place, int hosted,
-		List<(string Type, Attribute A)> types, List<Attribute> other, string tableLabel)
+		List<(string Type, Attribute A)> types, List<Attribute> other, string tableLabel, bool puppy)
 	{
 		var who = EternalTableScreen.Who(me.Id, me.Name);
 		var best = types.Where(t => t.A.Rating != null).OrderByDescending(t => t.A.Rating).ToList();
@@ -175,7 +176,9 @@ public partial class ProfileScreen : Control
 			Fact("Ewige Tabelle", Lang.Ordinal(place), C.Medal(place) ?? C.Text),
 			Fact("Nights", $"{me.Nights}"), Fact("Wins", $"{me.Wins}", me.Wins > 0 ? C.Gold : null), Fact("Podiums", $"{me.Podiums}"),
 			Fact("Hosted", $"{hosted}").Tip(Lang.T("Quiz nights they were the quizmaster of (like international caps). Recorded from 0.9.4b on.")),
-			Fact("Points", $"{me.Points}", C.Accent), Fact("Ø points", avg.ToString("0.0", Inv)));
+			Fact("Points", $"{me.Points}", C.Accent), Fact("Ø points", avg.ToString("0.0", Inv)),
+			Fact("From the host", (me.HostPoints > 0 ? "+" : "") + me.HostPoints, me.HostPoints > 0 ? C.Pink : null)
+				.Tip(Lang.T("Points the hosts handed them: bonuses and score changes by hand (recorded from 0.10.0b on).")));
 		// (form: the last five nights' places, newest on the right, like FM)
 		var form = U.H(6);
 		foreach (var (night, p) in mine.TakeLast(5))
@@ -189,8 +192,21 @@ public partial class ProfileScreen : Control
 		var since = mine.Count > 0 ? Lang.F("First quiz night: {0}", EternalTableScreen.Date(mine[0].Night.Date)) : "";
 		var right = U.V(8, U.Eyebrow("Form"), form, U.Muted(since, 13), U.Muted(tableLabel, 12));
 		right.SizeFlagsHorizontal = SizeFlags.ShrinkEnd;
-		var name = U.V(6, U.Text(me.Name, 38, C.Text, Fonts.Black).Raw(), U.Text(role, 18, C.Accent, Fonts.Bold).Raw(), U.Gap(4), facts).Grow();
+		var awards = U.H(8);
+		if (puppy) awards.AddChild(PuppyBadge(15));
+		var name = U.V(6, U.Text(me.Name, 38, C.Text, Fonts.Black).Raw(), U.H(12, U.Text(role, 18, C.Accent, Fonts.Bold).Raw(), awards), U.Gap(4), facts).Grow();
 		return U.Panel(U.Pad(U.H(24, new Avatar(who, 120).With(a => a.SizeFlagsVertical = SizeFlags.ShrinkBegin), name, right), 8));
+	}
+
+	/// <summary>The award for whoever the hosts handed the most points to.</summary>
+	public static Control PuppyBadge(int size)
+	{
+		var badge = U.Panel(U.Text(Lang.T("Host's Favourite Puppy"), size, C.Bg, Fonts.Black).Raw());
+		badge.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Pink, 999, null, 0, 10, 3));
+		badge.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+		badge.TooltipText = Lang.T("Award: the hosts handed them more points than anyone else (bonuses and score changes by hand).");
+		badge.MouseFilter = MouseFilterEnum.Stop;
+		return badge;
 	}
 
 	static StyleBoxFlat UiKitBox(Color bg) => UiTheme.Box(bg, 8, null, 0, 8, 4);

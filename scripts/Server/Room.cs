@@ -37,6 +37,9 @@ public sealed class PlayerStats
 	/// <summary>Questions they scored on.</summary>
 	public int Scored;
 
+	/// <summary>Points the host handed out: bonuses and score changes by hand (taking some away counts against it).</summary>
+	public int HostPoints;
+
 	/// <summary>Estimations: how far off, in % of the right number.</summary>
 	public double PercentOff;
 	public int PercentAnswers;
@@ -123,16 +126,25 @@ public sealed class Room : IGameHooks
 	public bool HostShowsQuestions() => Settings.HostShowsQuestions;
 	public bool HostUnlocksBuzzers() => Settings.HostUnlocksBuzzers;
 	public bool JokerAllowed(string kind) => Settings.Jokers.Contains(kind);
+	public bool ShowCategories() => Settings.ShowCategories;
 	public int Score(string playerId) => Scores.GetValueOrDefault(playerId);
 	/// <summary>Points from the current question (they count for its per-question stats too).</summary>
 	public void Award(string playerId, int points)
 	{
-		AdjustScore(playerId, points);
+		ChangeScore(playerId, points);
 		if (Game != null) Q(playerId).Points += points;
 	}
 
-	/// <summary>The host changes a score by hand: it counts for the night, not for any question.</summary>
+	/// <summary>The host changes a score by hand: it counts for the night (and the host's points), not for any question.</summary>
 	public void AdjustScore(string playerId, int points)
+	{
+		ChangeScore(playerId, points);
+		NoteHostPoints(playerId, points);
+	}
+
+	public void NoteHostPoints(string playerId, int points) => StatsOf(playerId).HostPoints += points;
+
+	void ChangeScore(string playerId, int points)
 	{
 		Scores[playerId] = (Scores.TryGetValue(playerId, out var s) ? s : 0) + points;
 		if (points != 0) StatsOf(playerId).ScoreChangedAt = Now();
@@ -338,8 +350,10 @@ public sealed class Room : IGameHooks
 		Game.CheckAllAnswered();
 	}
 
-	public void UpdateSettings(int? answerTimeSec = null, bool? hostShows = null, bool? hostUnlocks = null, (string Kind, bool On)? joker = null)
+	public void UpdateSettings(int? answerTimeSec = null, bool? hostShows = null, bool? hostUnlocks = null, (string Kind, bool On)? joker = null,
+		bool? categories = null)
 	{
+		if (categories is { } cats) Settings.ShowCategories = cats;
 		if (joker is { } j && Joker.All.Contains(j.Kind))
 		{
 			Settings.Jokers.Remove(j.Kind);

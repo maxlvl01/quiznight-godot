@@ -87,6 +87,8 @@ public partial class HostGameScreen : Control, IRoomScreen
 				U.Pill(Lang.F("Question {0} / {1}", game.Index + 1, game.Total)),
 				Chips.Question(q),
 				U.Pill(GameParts.PointsPill(q)));
+			// (the category, when the lobby shows them)
+			if (q.Category != "") row.AddChild(GameParts.CategoryPill(q.Category));
 			if (GameParts.NextPill(game) is { } next) row.AddChild(next);
 			row.AddChild(U.Fill());
 			row.AddChild(new RoomCodeButton(room.Code));

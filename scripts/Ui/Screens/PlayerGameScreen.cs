@@ -74,6 +74,8 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 				U.Pill(Lang.F("Question {0} / {1}", game.Index + 1, game.Total)),
 				Chips.Question(q),
 				U.Pill(GameParts.PointsPill(q)));
+			// (the category, when the lobby shows them)
+			if (q.Category != "") row.AddChild(GameParts.CategoryPill(q.Category));
 			if (GameParts.NextPill(game) is { } next) row.AddChild(next);
 			row.AddChild(U.Fill());
 			row.AddChild(new RoomCodeButton(room.Code));
@@ -161,7 +163,8 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 				}).With(s => s.SizeFlagsHorizontal = SizeFlags.ShrinkCenter),
 				_readyTab == "stats"
 					? U.Panel(NightStatsView.Table(room, MyId), "Card2")
-					: U.Panel(U.V(8, GameParts.Row(10, new TypeIcon(q.Type, 26), U.Bold(Chips.TypeLabel(q), 20).Raw()),
+					: U.Panel(U.V(8, GameParts.Row(10, new TypeIcon(q.Type, 26), U.Bold(Chips.TypeLabel(q), 20).Raw(),
+							q.Category != "" ? GameParts.CategoryPill(q.Category) : U.Gap(0)),
 						U.Text(NightStatsView.HowItWorks(q), 17, C.Text, null, true).Raw()), "Card2")));
 			return;
 		}

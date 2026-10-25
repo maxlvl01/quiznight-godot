@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using QuizNight.Shared;
 using QuizNight.Storage;
@@ -263,7 +264,46 @@ public static class RoundSettings
 			q.BonusPoints = (int)Math.Clamp(Math.Round(v ?? 0), 0, QuestionLimits.BonusPointsMax);
 			changed();
 		}, 0, QuestionLimits.BonusPointsMax, true).MinSize(84).With(n => n.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin);
-		return U.Field("Bonus points (optional)", U.H(8, points, what), "You give the bonus to players at the reveal. 0 = no bonus.");
+		// (every type's round settings have the bonus, so the category comes along with it)
+		return U.V(12, U.Field("Bonus points (optional)", U.H(8, points, what), "You give the bonus to players at the reveal. 0 = no bonus."),
+			Category(q, changed));
+	}
+
+	/// <summary>
+	/// An optional category: one of the suggestions or your own. Players only see it if the host turns on "Show
+	/// categories" in the lobby (and never if it's kept secret); the results keep it for stats per category.
+	/// </summary>
+	public static VBoxContainer Category(Question q, Action changed)
+	{
+		const string none = "", own = "\u0001own";
+		var preset = Categories.Presets.FirstOrDefault(p => Categories.Key(p) == Categories.Key(q.Category));
+		var items = new List<(string, string)> { (none, Lang.T("No category")) };
+		items.AddRange(Categories.Presets.Select(p => (p, Lang.T(p))));
+		items.Add((own, Lang.T("Your own…")));
+		var custom = U.Input(preset == null ? q.Category : "", "e.g. 90s cartoons", t =>
+		{
+			q.Category = Categories.Clean(t);
+			changed();
+		}, Categories.MaxLength);
+		custom.Visible = q.Category != "" && preset == null;
+		var secret = new CheckBox { Text = Lang.T("Keep it secret"), ButtonPressed = q.CategorySecret, MouseDefaultCursorShape = Control.CursorShape.PointingHand, Disabled = q.Category == "" };
+		secret.TooltipText = Lang.T("Never shown to players, even when the lobby shows categories (when the category would give the answer away). It still counts for the stats.");
+		secret.Toggled += on =>
+		{
+			q.CategorySecret = on;
+			changed();
+		};
+		var select = U.Select(items.ToArray(), q.Category == "" ? none : preset ?? own, id =>
+		{
+			custom.Visible = id == own;
+			q.Category = id == own ? Categories.Clean(custom.Text) : id;
+			secret.Disabled = id == none;
+			if (id == none) q.CategorySecret = secret.ButtonPressed = false;
+			changed();
+			if (id == own) custom.GrabFocus();
+		});
+		return U.Field("Category (optional)", U.V(6, select, custom, secret),
+			"Players only see it if you turn on \"Show categories\" in the lobby: it makes questions easier. It always counts for the stats per category.");
 	}
 
 	/// <summary>Buzzer questions (sound, video, image reveal): buzz in, or everyone types an answer.</summary>

@@ -25,6 +25,10 @@ public static class GameParts
 	/// A place in the stats tables: a small box in the medal's colour for the top 3, a plain one after that, "–" for
 	/// none (centred in its row, so it lines up with the profile pictures).
 	/// </summary>
+	/// <summary>"Category: Geography" (the quiz maker's own categories as they wrote them).</summary>
+	public static Control CategoryPill(string category) =>
+		U.Pill(Lang.F("Category: {0}", Categories.Label(category)), C.Sky).Raw();
+
 	public static Control PlaceBox(int? place)
 	{
 		var medal = place is { } n ? C.Medal(n) : null;

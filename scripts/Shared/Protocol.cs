@@ -109,7 +109,9 @@ public sealed class RoomSettings
 	public bool HostUnlocksBuzzers = true;
 	/// <summary>The jokers players may play this match (Joker kinds).</summary>
 	public List<string> Jokers = new(Joker.All);
-	public RoomSettings Clone() => new() { AnswerTimeSec = AnswerTimeSec, BuzzerSound = BuzzerSound, PodiumSound = PodiumSound, HostShowsQuestions = HostShowsQuestions, HostUnlocksBuzzers = HostUnlocksBuzzers, Jokers = Jokers.ToList() };
+	/// <summary>Players see each question's category (off by default: it makes questions easier).</summary>
+	public bool ShowCategories;
+	public RoomSettings Clone() => new() { AnswerTimeSec = AnswerTimeSec, BuzzerSound = BuzzerSound, PodiumSound = PodiumSound, HostShowsQuestions = HostShowsQuestions, HostUnlocksBuzzers = HostUnlocksBuzzers, Jokers = Jokers.ToList(), ShowCategories = ShowCategories };
 }
 
 public sealed class PublicPlayer
@@ -228,6 +230,8 @@ public sealed class PublicQuestion
 	public bool RankScoring;
 	/// <summary>Choice questions: a wrong answer costs the question's points.</summary>
 	public bool WrongCosts;
+	/// <summary>The question's category, if the lobby shows categories and it isn't kept secret (else empty).</summary>
+	public string Category = "";
 	/// <summary>Interactive questions: players vote, or the host picks (for "how it works" before it's shown).</summary>
 	public string? Judging;
 	/// <summary>The bonus the host can give at the reveal (0 = none) and what it's for.</summary>

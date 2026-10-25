@@ -96,6 +96,8 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 				on => _host.UpdateSettings(hostShows: on)),
 			Rule("I unlock the buzzers myself", "After reading the question out (Space).", room.Settings.HostUnlocksBuzzers,
 				on => _host.UpdateSettings(hostUnlocks: on)),
+			Rule("Show question categories", "Players see each question's category (e.g. Geography) on the Get ready screen. It makes questions easier; secret ones stay hidden.",
+				room.Settings.ShowCategories, on => _host.UpdateSettings(categories: on)),
 			U.Muted("Jokers (once per player and match)", 13).With(l => l.TooltipText = Lang.T("Played before a question starts.")),
 			Rule("×2 Double points", "Whatever the next question gives counts twice. Anyone can play it.", room.Settings.Jokers.Contains(Joker.Double),
 				on => _host.UpdateSettings(joker: (Joker.Double, on))),
@@ -198,6 +200,7 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 		var general = U.V(6,
 			Line(settings.HostShowsQuestions ? "• The host shows each question when ready" : "• Questions show right away"),
 			Line(settings.HostUnlocksBuzzers ? "• The host unlocks the buzzers after reading out" : "• Buzzers open as soon as a question shows"),
+			Line(settings.ShowCategories ? "• You see each question's category" : "• Categories stay hidden"),
 			Line(Lang.F("• Answer time per buzz: {0} s", settings.AnswerTimeSec)));
 		var jokers = U.V(6, U.Muted("Jokers (once each per match)", 13));
 		// (every joker stays listed, greyed out when the host turns it off, so the panel doesn't jump in height)

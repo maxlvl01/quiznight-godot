@@ -23,7 +23,7 @@ public static class Results
 	{
 		"date", "quiz", "questions", "players", "place", "player_id", "player", "points", "questions_scored",
 		"avg_answer_s", "answers", "avg_km_off", "map_answers", "joined_at", "left_at", "avg_pct_off", "estimate_answers",
-		"host", "host_id", "avg_buzz_s", "buzzes",
+		"host", "host_id", "avg_buzz_s", "buzzes", "host_points",
 		// (from 0.10.0b: after the players' rows, one row per player and question, with "question" set and the night's
 		// own columns empty but date, quiz and player)
 		"question", "type", "subtype", "category", "q_points", "right", "answered", "q_buzzes", "wrong_buzzes", "buzz_s",
@@ -59,7 +59,7 @@ public static class Results
 				["joined_at"] = p.JoinedAt?.ToString(Inv) ?? "", ["left_at"] = p.LeftAt?.ToString(Inv) ?? "",
 				["avg_pct_off"] = N(s.AvgPercentOff), ["estimate_answers"] = s.PercentAnswers.ToString(Inv),
 				["host"] = host?.Name ?? "", ["host_id"] = host?.Id ?? "",
-				["avg_buzz_s"] = N(s.AvgBuzzMs / 1000), ["buzzes"] = s.Buzzes.ToString(Inv),
+				["avg_buzz_s"] = N(s.AvgBuzzMs / 1000), ["buzzes"] = s.Buzzes.ToString(Inv), ["host_points"] = s.HostPoints.ToString(Inv),
 			});
 		}
 		foreach (var ((index, id), q) in room.QuestionStats.OrderBy(x => x.Key.Question).ThenBy(x => order.IndexOf(x.Key.Player)))
@@ -205,6 +205,8 @@ public static class Results
 		public string Id = "";
 		public string Name = "";
 		public int Nights, Wins, Podiums, Points, Scored, Answers, MapAnswers, EstimateAnswers, Buzzes;
+		/// <summary>Points the host handed them (bonuses and score changes by hand; from 0.10.0b on).</summary>
+		public int HostPoints;
 		public double AnswerSeconds, Km, PercentOff, BuzzSeconds;
 		/// <summary>Every night's place, oldest first (for championship points and the form).</summary>
 		public readonly List<int> Places = new();
@@ -244,6 +246,7 @@ public static class Results
 			if (place is >= 1 and <= 3) c.Podiums++;
 			c.Places.Add(place);
 			c.Points += I("points");
+			c.HostPoints += I("host_points");
 			c.Scored += I("questions_scored");
 			if (D("avg_answer_s") is { } s && I("answers") is var n and > 0)
 			{
@@ -269,6 +272,13 @@ public static class Results
 		return careers.Values.OrderByDescending(c => c.Points).ThenBy(c => c.AvgAnswerS ?? double.MaxValue)
 			.ThenBy(c => c.AvgBuzzS ?? double.MaxValue).ThenBy(c => c.Name).ToList();
 	}
+
+	/// <summary>
+	/// The "Host's Favourite Puppy": whoever the hosts handed the most points to (bonuses and score changes by hand).
+	/// Null when nobody got any yet; a tie goes to whoever is higher in the table.
+	/// </summary>
+	public static string? FavouritePuppy(IEnumerable<Career> table) =>
+		table.Where(c => c.HostPoints > 0).OrderByDescending(c => c.HostPoints).FirstOrDefault()?.Id;
 
 	static bool InRange(string date, string? from, string? before) =>
 		(from == null || string.CompareOrdinal(date, from) >= 0) && (before == null || string.CompareOrdinal(date, before) < 0);

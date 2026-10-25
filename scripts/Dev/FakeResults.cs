@@ -90,6 +90,8 @@ public static class FakeResults
 						room.Award(Id(p), q.IsInteractive ? rng.Next(1, 3) : q.Points);
 						room.NoteScored(Id(p));
 					}
+				// (now and then the host hands someone a point)
+				if (rng.Next(6) == 0) room.AdjustScore(Id(players[rng.Next(players.Count)]), 1);
 				room.Next();
 				// (a Double now and then, played on this question)
 				foreach (var p in players.Where(_ => rng.Next(12) == 0))

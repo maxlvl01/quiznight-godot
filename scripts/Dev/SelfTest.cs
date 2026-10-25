@@ -109,6 +109,28 @@ public static class SelfTest
 	}
 
 	/// <summary>A buzzer question played as "everyone types", the host's bonus and score changes, and the file format.</summary>
+	static void Categories()
+	{
+		var quiz = Dev.SampleQuiz.Build();
+		quiz.Questions[0].Category = "Geography";
+		quiz.Questions[1].Category = "Music";
+		quiz.Questions[1].CategorySecret = true;
+		var back = QuizJson.Parse(QuizJson.Write(quiz), out _)!;
+		Check(back.Questions[0].Category == "Geography" && back.Questions[1].CategorySecret && !back.Questions[0].CategorySecret, "categories survive saving (secret ones stay secret)");
+		var (room, _) = NewRoom(quiz, "ann", "bob");
+		room.UpdateSettings(hostShows: true);
+		room.Start();
+		Eq(room.Game!.View("ann").Question.Category, "", "categories stay hidden unless the lobby shows them");
+		room.BackToLobby();
+		room.UpdateSettings(categories: true);
+		room.Start();
+		Eq(room.Game!.View("ann").Question.Category, "Geography", "with Show categories, players see it on Get ready");
+		room.Next();
+		room.Next();
+		Eq(room.Game!.View("ann").Question.Category, "", "a secret category is never shown");
+		Check(Storage.Results.Parse(Storage.Results.Make(room).Csv).Any(r => r["question"] == "1" && r["category"] == "Geography"), "the results keep the category");
+	}
+
 	static void TypedAndBonus()
 	{
 		var typed = new Question { Id = "t1", Type = QuestionType.Sound, Prompt = "Name this song!", AnswerText = "Dragonborn", Typed = true, TimeLimitSec = 30, Points = 1,
@@ -241,6 +263,8 @@ public static class SelfTest
 		Check(q1.Count == 4 && q1.All(r => r["type"] == room.Quiz.Questions[0].Type) && q1.First(r => r["player_id"] == "bob")["q_points"] == "3",
 			"results CSV: one row per player and question, with its type and the points from it");
 		room.AdjustScore("cat", 5);
+		Check(room.StatsOf("cat").HostPoints == 5 && Storage.Results.FavouritePuppy(Storage.Results.Table(new[] { Storage.Results.Make(room).Csv })) == "cat",
+			"score changes by hand count as the host's points: the Host's Favourite Puppy");
 		Check(Storage.Results.Questions(new[] { Storage.Results.Make(room).Csv }).First(r => r.PlayerId == "cat").Points == 2, "the host's score changes don't count for a question");
 
 		Check(QuizRules.Typos("canbera", "Canberra / ACT") == 1 && QuizRules.Typos("The Beatles", "beatles") == 0 && QuizRules.Typos("Zürich", "Zurich") == 0,
@@ -259,6 +283,7 @@ public static class SelfTest
 	public static async Task<int> Run(Node node)
 	{
 		RankingAndResults();
+		Categories();
 		Rules();
 		TypedAndBonus();
 		JokersAndSeats();

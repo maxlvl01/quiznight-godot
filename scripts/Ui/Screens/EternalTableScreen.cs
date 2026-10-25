@@ -386,11 +386,14 @@ public partial class EternalTableScreen : Control
 		static Label Num(string text, int size, Color? color = null) =>
 			U.Mono(text, size, color).With(l => l.HorizontalAlignment = HorizontalAlignment.Center);
 		var main = MainColumn;
+		var puppy = _kind == "" ? Results.FavouritePuppy(Results.Table(csvs, until, from)) : null;
 		foreach (var line in Sorted(lines))
 		{
 			var place = places[line.Id];
 			grid.AddChild(GameParts.Row(6, GameParts.PlaceBox(place), Move(place, placesBefore, line.Id)));
-			grid.AddChild(GameParts.Row(8, new Avatar(Who(line.Id, line.Name), 26), NameLink(line.Id, line.Name, 16, place == 1 ? C.Accent : C.Text)).Grow());
+			var who = GameParts.Row(8, new Avatar(Who(line.Id, line.Name), 26), NameLink(line.Id, line.Name, 16, place == 1 ? C.Accent : C.Text)).Grow();
+			if (line.Id == puppy) who.AddChild(ProfileScreen.PuppyBadge(11));
+			grid.AddChild(who);
 			foreach (var c in cols)
 			{
 				var text = line.V.GetValueOrDefault(c.Id) is { } v ? KindStats.Format(c.Format, v) : "–";
