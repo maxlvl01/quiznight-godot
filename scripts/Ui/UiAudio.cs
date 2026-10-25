@@ -5,6 +5,8 @@
 //     statistics (Ewige Tabelle, match history, profiles), settings or lobby (host lobby, waiting room); a place without
 //     its own file plays menu.ogg. More tracks for a place: <place>2 … <place>9 (shuffled, one after another).
 //   assets/soundeffects/ui/hover.ogg and click.ogg (or .mp3 / .wav); back.ogg for "←" links, if there is one
+//   assets/soundeffects/voice/intro.ogg: a voice line once the home screen first shows (intro2 … intro9: one at random);
+//     the music ducks under it
 // Music plays on the game music bus ("Game music" in Settings), the button sounds on the SFX bus.
 
 using System;
@@ -47,6 +49,8 @@ public partial class UiAudio : Node
 	readonly AudioStreamPlayer _music = new() { Bus = Prefs.GameMusicBus };
 	readonly AudioStreamPlayer _hover = new() { Bus = Prefs.SfxBus, MaxPolyphony = 2 };
 	readonly AudioStreamPlayer _click = new() { Bus = Prefs.SfxBus, MaxPolyphony = 3 };
+	readonly AudioStreamPlayer _voice = new() { Bus = Prefs.SfxBus };
+	bool _greeted;
 	readonly AudioStream? _clickSound, _backSound;
 	List<string> _tracks = new();
 	int _track;
@@ -71,6 +75,9 @@ public partial class UiAudio : Node
 		AddChild(_music);
 		AddChild(_hover);
 		AddChild(_click);
+		AddChild(_voice);
+		// (the music comes back up once the voice line is over)
+		_voice.Finished += () => _music.VolumeDb = 0;
 		// (every button, now and later, gets the hover and click sound)
 		GetTree().NodeAdded += Hook;
 	}
@@ -98,6 +105,19 @@ public partial class UiAudio : Node
 		if (_tracks.Count == 0 || GD.Load<AudioStream>(_tracks[_track]) is not { } stream) return;
 		_music.Stream = stream;
 		_music.Play();
+	}
+
+	/// <summary>The voice line for opening the game, once per run (on the first home screen, after the splash).</summary>
+	public void Greet()
+	{
+		if (_greeted) return;
+		_greeted = true;
+		var lines = Enumerable.Range(1, 9).Select(i => Find($"res://assets/soundeffects/voice/intro{(i == 1 ? "" : i.ToString())}")).OfType<string>().ToList();
+		if (lines.Count == 0 || GD.Load<AudioStream>(lines[Random.Shared.Next(lines.Count)]) is not { } line) return;
+		_fade?.Kill();
+		_music.VolumeDb = -12;
+		_voice.Stream = line;
+		_voice.Play();
 	}
 
 	/// <summary>

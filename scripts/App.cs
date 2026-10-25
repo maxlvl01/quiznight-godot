@@ -82,6 +82,7 @@ public partial class App : Control
 			// (What's new and the update prompt are windows of their own: they wait until the splash is gone)
 			void Popups()
 			{
+				if (_screen is HomeScreen) _audio.Greet();
 				WhatsNew.ShowIfUpdated(this);
 				if (Updater.Enabled) Updater.CleanUp();
 				UpdatePrompt.CheckAndInstall(this);
