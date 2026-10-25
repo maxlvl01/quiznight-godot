@@ -352,7 +352,12 @@ public partial class ProfileRadar : Control
 	readonly List<(string Type, ProfileScreen.Attribute A)> _types;
 
 	public ProfileRadar() : this(new()) { }
-	public ProfileRadar(List<(string Type, ProfileScreen.Attribute A)> types) => _types = types;
+	public ProfileRadar(List<(string Type, ProfileScreen.Attribute A)> types)
+	{
+		_types = types;
+		AccessibilityName = Lang.T("Question type attributes");
+		AccessibilityDescription = string.Join(", ", types.Select(t => $"{Lang.T(t.A.Name)} {t.A.Rating?.ToString() ?? "–"}"));
+	}
 
 	public override void _Draw()
 	{
@@ -452,6 +457,8 @@ public partial class ProfileBars : Control
 	public ProfileBars(List<(int Points, int Place, string Quiz, string Date)> nights)
 	{
 		_nights = nights;
+		AccessibilityName = Lang.T("Points per night");
+		AccessibilityDescription = string.Join(", ", nights.Select(n => $"{n.Date}: {Lang.Ordinal(n.Place)}, {n.Points}"));
 		MouseFilter = MouseFilterEnum.Stop;
 	}
 

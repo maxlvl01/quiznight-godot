@@ -62,6 +62,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		App.I.Audio.Quiet(game.Stage == Stage.Open && game.Shown && game.Question.Type is QuestionType.Sound or QuestionType.Video or QuestionType.Interactive);
 		var q = game.Question;
 		var me = room.Player(MyId);
+		App.I.Announcer.Follow(room, MyId);
 		// A new buzz in this question plays the host's buzzer sound, so everyone hears that someone buzzed.
 		// Not on the first state after (re)joining, which may already contain old buzzes.
 		var heard = game.Index == _heardIndex ? _heardBuzzes : 0;
@@ -680,6 +681,8 @@ public partial class BuzzButton : Button
 		_size = size;
 		// (the button is the hit area; everything is drawn in _Draw)
 		CustomMinimumSize = new Vector2(size * 1.3f, size * 1.1f);
+		AccessibilityName = Lang.T("Buzz in");
+		AccessibilityDescription = Lang.T("Click or press Space to buzz in.");
 		MouseDefaultCursorShape = CursorShape.PointingHand;
 		foreach (var state in new[] { "normal", "hover", "pressed", "hover_pressed", "disabled", "focus" }) AddThemeStyleboxOverride(state, new StyleBoxEmpty());
 		ButtonDown += () =>
@@ -754,6 +757,7 @@ public partial class BuzzButton : Button
 	public override void _Notification(int what)
 	{
 		if (what == NotificationResized) QueueRedraw();
+		if (what == NotificationReady && Disabled) AccessibilityName = Lang.T("Buzzers are locked");
 	}
 
 	void Buzz()

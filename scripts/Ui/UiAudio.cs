@@ -145,7 +145,7 @@ public partial class UiAudio : Node
 	/// <summary>The party show bounce: buttons grow a little under the mouse and squash when clicked (links don't move).</summary>
 	static void Bounce(BaseButton button, float to, double time)
 	{
-		if (button.ThemeTypeVariation == "LinkButton2" || button is Ui.Screens.BuzzButton or CheckBox || !button.IsVisibleInTree()) return;
+		if (button.ThemeTypeVariation == "LinkButton2" || button is Ui.Screens.BuzzButton or CheckBox || !button.IsVisibleInTree() || Announcer.ReduceMotion) return;
 		button.PivotOffset = button.Size / 2;
 		var t = button.CreateTween();
 		t.TweenProperty(button, "scale", new Vector2(to, to), time).SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);

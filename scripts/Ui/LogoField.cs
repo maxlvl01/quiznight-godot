@@ -50,6 +50,8 @@ public partial class LogoField : PanelContainer
 		CustomMinimumSize = new Vector2(width, 0);
 		Show(Logo);
 		_wait = 4 + Random.Shared.NextDouble() * 3;
+		AccessibilityName = "Quiznight?";
+		_text.AccessibilityName = _question.AccessibilityName = " ";
 	}
 
 	void Show(string text)
@@ -78,6 +80,7 @@ public partial class LogoField : PanelContainer
 
 	public override void _Process(double delta)
 	{
+		if (Announcer.ReduceMotion) return;
 		// (the cursor blinks while it waits, stays on while it types)
 		_blink += delta;
 		_caret.Modulate = new Color(1, 1, 1, _todo.Count > 0 || (_blink % 1.0) < 0.55 ? 1 : 0);
@@ -116,7 +119,8 @@ public partial class Spotlights : Control
 
 	public override void _Process(double delta)
 	{
-		_t += delta;
+		// (with less motion asked for, the lights stand still)
+		if (!Announcer.ReduceMotion) _t += delta;
 		QueueRedraw();
 	}
 

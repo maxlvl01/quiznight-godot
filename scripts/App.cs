@@ -62,12 +62,13 @@ public partial class App : Control
 		AddChild(_banners);
 		AddChild(_audio);
 		AddChild(_colours);
+		AddChild(Announcer);
 		var cv = Array.IndexOf(devArgs, "--colour-vision");
 		_colours.Use(cv >= 0 && cv + 1 < devArgs.Length ? devArgs[cv + 1] : Settings.ColourVision);
 		_audio.TrackStarted += path => AddChild(new NowPlaying(path));
 		// (the splash plays out on top of the first screen; not in dev and test runs, which pass arguments after --)
 		SplashIntro? splash = null;
-		if (OS.GetCmdlineUserArgs().Length == 0 && DisplayServer.GetName() != "headless") AddChild(splash = new SplashIntro());
+		if (OS.GetCmdlineUserArgs().Length == 0 && DisplayServer.GetName() != "headless" && !Announcer.ReduceMotion) AddChild(splash = new SplashIntro());
 
 		GetTree().AutoAcceptQuit = false;
 		// (the name players see; project.godot keeps "QuizNight!", which names the exported data folder that updates rely on)
@@ -140,6 +141,8 @@ public partial class App : Control
 	/// <summary>Menu music and the buttons' hover and click sounds.</summary>
 	readonly UiAudio _audio = new();
 	public UiAudio Audio => _audio;
+	/// <summary>Speaks game events to screen readers (an invisible live region).</summary>
+	public readonly Announcer Announcer = new();
 	/// <summary>Colour vision help over everything (Settings → Accessibility).</summary>
 	readonly ColourFilter _colours = new();
 

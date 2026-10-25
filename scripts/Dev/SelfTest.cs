@@ -720,6 +720,9 @@ public static class SelfTest
 		Check(AppVersion.Parse("0.5.0") > AppVersion.Parse("0.5.0a")!.Value && AppVersion.Parse("0.5.1a") > AppVersion.Parse("0.5.0")!.Value, "version order");
 		Check(AppVersion.Parse("v0.10.0a") > AppVersion.Parse("0.9.3")!.Value, "tags and two-digit numbers");
 		Check(AppVersion.Parse("0.10.0b") > AppVersion.Parse("0.9.6b")!.Value, "0.10.0b is an update for 0.9.6b");
+		Check(Ui.UiAudio.IsChristmas(new DateTime(2026, 12, 24)) && !Ui.UiAudio.IsChristmas(new DateTime(2026, 12, 27)) && !Ui.UiAudio.IsChristmas(new DateTime(2026, 11, 30)),
+			"Christmas songs: 1 to 26 December");
+		Check(Ui.UiAudio.Describe("res://assets/music/ES_Easy Breezy - Megan Wofford.ogg") == ("Easy Breezy", "Megan Wofford"), "a song's title and artist come from its Epidemic Sound name");
 		Check(AppVersion.Parse("hello") == null, "not a version");
 		var notes = Changelog.Parse(Godot.FileAccess.GetFileAsString("res://CHANGELOG.md"));
 		var thisVersion = notes.FirstOrDefault(r => r.Version is { } nv && AppVersion.Parse(App.Version) is { } av && nv.CompareTo(av) == 0);

@@ -51,6 +51,11 @@ public partial class StandingsChart : Control
 		_nights = nights;
 		_positions = positions;
 		CustomMinimumSize = new Vector2(0, positions ? Math.Max(320, 34 * Math.Max(1, series.Count) + Top + Bottom) : 440);
+		// (for screen readers: the standings after the last night or question)
+		var last = Math.Max(0, (series.FirstOrDefault()?.Values.Length ?? 1) - 1);
+		AccessibilityName = Lang.T(positions ? "Positions graph" : "Points graph");
+		AccessibilityDescription = string.Join(", ", series.Where(s => s.Values.Length > last && s.Values[last] != null)
+			.OrderBy(s => positions ? s.Values[last] : -s.Values[last]).Select(s => $"{s.Name} {s.Values[last]:0}"));
 		MouseFilter = MouseFilterEnum.Stop;
 		MouseDefaultCursorShape = CursorShape.Arrow;
 	}

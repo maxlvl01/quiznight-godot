@@ -29,6 +29,7 @@ public partial class Avatar : Control
 		CustomMinimumSize = new Vector2(size, size);
 		SizeFlagsVertical = SizeFlags.ShrinkCenter;
 		TooltipText = player.Name;
+		AccessibilityName = player.Name;
 		MouseFilter = MouseFilterEnum.Pass;
 	}
 
@@ -80,6 +81,7 @@ public partial class TypeIcon : Control
 	public TypeIcon(string type, float size = 22)
 	{
 		_type = type;
+		AccessibilityName = Lang.T(QuestionType.Infos.TryGetValue(type, out var info) ? info.Label : type);
 		CustomMinimumSize = new Vector2(size, size);
 		SizeFlagsVertical = SizeFlags.ShrinkCenter;
 		MouseFilter = MouseFilterEnum.Ignore;
