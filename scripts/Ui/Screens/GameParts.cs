@@ -21,6 +21,22 @@ public static class GameParts
 	public static Control RankBadge(int rank, bool medal = false) =>
 		U.Mono(Lang.Ordinal(rank), 14, medal ? C.Medal(rank) ?? C.Muted : C.Muted).Raw().MinSize(34).With(l => l.HorizontalAlignment = HorizontalAlignment.Center);
 
+	/// <summary>
+	/// A place in the stats tables: a small box in the medal's colour for the top 3, a plain one after that, "–" for
+	/// none (centred in its row, so it lines up with the profile pictures).
+	/// </summary>
+	public static Control PlaceBox(int? place)
+	{
+		var medal = place is { } n ? C.Medal(n) : null;
+		var label = U.Mono(place is { } m ? Lang.Ordinal(m) : "–", 13, medal != null ? C.Bg : C.Muted).Raw();
+		label.HorizontalAlignment = HorizontalAlignment.Center;
+		var box = U.Panel(label, "Clear").MinSize(44);
+		box.AddThemeStyleboxOverride("panel", UiTheme.Box(medal ?? C.Panel2, 6, null, 0, 6, 2));
+		box.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
+		box.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
+		return box;
+	}
+
 	/// <summary>Where each player's row was on each scoreboard (by viewer), so a rebuilt board can slide the ones that moved.</summary>
 	static readonly Dictionary<string, Dictionary<string, (int Slot, SlideRow Row)>> _lastSlots = new();
 

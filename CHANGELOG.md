@@ -13,6 +13,16 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+### Added
+- **Arrows in the Ewige Tabelle.** Next to each place you now see how it changed with the newest quiz night: a green ▲2 if you went up two places, a red ▼1 if you dropped one, and a blue "New" if it was your first night. Hover an arrow to see your place before. It works for any column you sort by.
+
+### Changed
+- **The places follow the column you sort by.** In the Ewige Tabelle, # always showed everyone's place by points, so when you sorted by answer time the fastest player could be at the top marked "3rd". Now the best in the sorted column is 1st (whichever way round you sort it), equal values share a place, and only points use the faster answer time to break ties.
+- **Places sit in coloured boxes, with lines between the rows.** In the Ewige Tabelle, a night's full table in the match history and tonight's Stats, the places were plain coloured text that sat higher than the profile pictures next to them. Now each place is a small box: gold, silver and bronze for the top 3, plain after that, centred with the picture. A thin line between the rows makes it easy to read a row across.
+
+### Fixed
+- **Players on the same points were in the wrong order in the Ewige Tabelle.** Two players on 11 points could show "3rd" above "2nd". The places break ties by the faster average answer time, but the rows were put in order by name, so the two didn't match. The rows now follow the places.
+
 ## [0.9.4b] — statistics with a match history, update check while open
 
 ### Added

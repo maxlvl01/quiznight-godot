@@ -187,13 +187,15 @@ public static class Results
 	/// The eternal table from result CSVs: everyone's nights added up (by player id, so a renamed player stays one
 	/// player; the newest name shows). Most points first, then the faster average answer time.
 	/// </summary>
-	public static List<Career> Table(IEnumerable<string> csvs)
+	/// <param name="before">Only nights before this date ("yyyy-MM-dd HH:mm"): the table as it was then.</param>
+	public static List<Career> Table(IEnumerable<string> csvs, string? before = null)
 	{
 		var careers = new Dictionary<string, Career>();
 		// (the same night can come in twice: from the host's upload and from a collector's copy)
 		var seen = new HashSet<string>();
 		foreach (var row in csvs.SelectMany(Parse).OrderBy(r => r.GetValueOrDefault("date")))
 		{
+			if (before != null && string.CompareOrdinal(row.GetValueOrDefault("date", ""), before) >= 0) continue;
 			var id = row.GetValueOrDefault("player_id", "");
 			if (id == "" || !seen.Add($"{row.GetValueOrDefault("date")}|{row.GetValueOrDefault("quiz")}|{id}")) continue;
 			if (!careers.TryGetValue(id, out var c)) careers[id] = c = new Career { Id = id };
@@ -229,6 +231,10 @@ public static class Results
 	/// The results shipped with the game: from 1.0 on (assets/results), or the beta's (beta: assets/results/beta, its own
 	/// table, kept to look back at).
 	/// </summary>
+	/// <summary>The date of the newest night in these CSVs (null: none).</summary>
+	public static string? LatestDate(IEnumerable<string> csvs) =>
+		csvs.SelectMany(Parse).Select(r => r.GetValueOrDefault("date", "")).Where(d => d != "").DefaultIfEmpty().Max(StringComparer.Ordinal);
+
 	public static List<string> BundledCsvs(bool beta = false)
 	{
 		var dir = beta ? Bundled + "/beta" : Bundled;
