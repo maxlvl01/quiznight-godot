@@ -16,7 +16,6 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 ## [0.10.2b]
 
 ### Added
-- **Three WARDOGS maps for map pin questions:** Bakurani, Ozeti and Zestafona, darkened like the game's own tactical map. Bakurani is 16.4 km wide, Ozeti and Zestafona 32.8 km (from the game's terrain at one metre per pixel). The map grid marks them NEW.
 - **A jukebox on every screen.** The little note button in the bottom left opens it: switch the music off (it stays off next time you start the game) or on again, skip to the next or previous song, or pick a song from the list of what this screen plays. The "Now playing" card slides in right next to it.
 - **The mouse's thumb buttons go back and forward,** like in a browser. Back works on every screen except the home screen, the same as Escape. Forward opens the screen you just came back from again (from Settings back to the home screen, then forward to Settings again). Going somewhere new by clicking starts the history over, like a browser does.
 - **Ctrl+S** applies your changes in Settings and saves the question in the question editor (the same as pressing Apply or "Save question").

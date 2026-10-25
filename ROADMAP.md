@@ -84,10 +84,11 @@ off (`- [x]`) when they're done, with the version they came in.
 - [x] Jukebox, mouse thumb buttons back/forward, Ctrl+S, Quit button, welcome screen with accessibility on the first start
 - [x] Skins: Quiznight Purple (the old one) and a pastel Pinke Geilheit; Olf?; profile bars light up
 - [x] Fixed: Settings with the dyslexia-friendly font; award pack window with examples; volumes 50 %
-- [x] Map pin: the three WARDOGS maps (Bakurani, Ozeti, Zestafona), dark like in the game
 
 ## Later — maps
 
+- [ ] WARDOGS (Bakurani, Ozeti, Zestafona): skipped in 0.10.2b, the only imagery found (the game's terrain texture,
+      via wardogstools.org / XGamingServer, also darkened) didn't look good enough. Needs the real in-game map.
 - [ ] Race tracks as a Map pin subtype: F1, WEC, DTM and BTCC circuits. Plan: draw each track from its centre line
       (F1 tracks: github.com/bacinger/f1-circuits, MIT, with official lengths; Le Mans, Fuji, DTM and BTCC tracks:
       OpenStreetMap raceways, ODbL), so the scale comes from real coordinates. Norisring has no raceway in OSM.
