@@ -91,6 +91,41 @@ public static class WhatsNew
 	}
 }
 
+/// <summary>
+/// "Update to 0.9.4b" in the top bar of the quiz screens and the question editor, once a newer version is out (hidden
+/// until then). It warns first: the game restarts to update, and a question that isn't saved yet would be lost.
+/// </summary>
+public partial class UpdateBadge : Button
+{
+	public UpdateBadge()
+	{
+		ThemeTypeVariation = "TealButton";
+		AddThemeFontSizeOverride("font_size", 14);
+		MouseDefaultCursorShape = CursorShape.PointingHand;
+		SizeFlagsVertical = SizeFlags.ShrinkCenter;
+		Pressed += () =>
+		{
+			if (UpdatePrompt.Available is not { } release) return;
+			Dialogs.Confirm(this, Lang.F("Quiznight? {0} is out. The game restarts to update: save what you're working on first, unsaved changes are lost.", release.Version),
+				"Update now", () => UpdatePrompt.Install(GetTree().Root, release), "Update");
+		};
+		Show();
+	}
+
+	public override void _EnterTree() => UpdatePrompt.Changed += Show;
+	public override void _ExitTree() => UpdatePrompt.Changed -= Show;
+
+	new void Show()
+	{
+		Visible = UpdatePrompt.Available != null;
+		if (UpdatePrompt.Available is { } release)
+		{
+			Text = Lang.F("Update to {0}", release.Version);
+			TooltipText = Lang.T("A new version is out: click to update (the game restarts)");
+		}
+	}
+}
+
 /// <summary>At startup (exported builds): looks for a newer version and installs it, restarting the game.</summary>
 public static class UpdatePrompt
 {
@@ -128,6 +163,17 @@ public static class UpdatePrompt
 		Set(release ?? Available, false);
 		if (!GodotObject.IsInstanceValid(owner)) return;
 		if (Available == null) Dialogs.Info(owner, Updater.Enabled ? Lang.F("You have the newest version ({0}).", App.Version) : "Updates only work in the installed game.", "Update");
+	}
+
+	/// <summary>
+	/// Every minute while the game is open: is there a newer version? Asks the releases page (no limit), and only when
+	/// it has a newer number GitHub's API for the download. Quiet: no dialog, the home screen and editors show a button.
+	/// </summary>
+	public static async void CheckQuietly()
+	{
+		if (!Updater.Enabled || Checking || Available != null || OS.GetEnvironment("QUIZNIGHT_UPDATE_FEED") != "") return;
+		if (await Updater.LatestVersionAsync() is not { } latest || AppVersion.Parse(App.Version) is not { } current || !(latest > current)) return;
+		if (await Updater.CheckAsync() is { } release) Set(release, false);
 	}
 
 	/// <summary>A test run (dev tools): the home screen as if a newer version were out.</summary>

@@ -81,8 +81,17 @@ public partial class App : Control
 		}
 	}
 
+	/// <summary>Seconds until the next quiet update check (every minute while the game is open).</summary>
+	double _updateCheckIn = 60;
+
 	public override void _Process(double delta)
 	{
+		_updateCheckIn -= delta;
+		if (_updateCheckIn <= 0)
+		{
+			_updateCheckIn = 60;
+			UpdatePrompt.CheckQuietly();
+		}
 		SteamService.RunCallbacks();
 		Host?.Poll();
 		Client?.Poll();

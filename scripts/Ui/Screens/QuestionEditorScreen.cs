@@ -34,6 +34,7 @@ public partial class QuestionEditorScreen : Control
 		var bar = U.Panel(U.H(12,
 			U.Link("← Back to quiz", Back, 14),
 			U.Heading(title, 22, false).Grow().With(l => l.HorizontalAlignment = HorizontalAlignment.Center),
+			new UpdateBadge(),
 			U.Btn("Save question", "AccentButton", Save, 15)), "Bar");
 		var body = U.V(12, _issues, _form);
 		var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.GrowV();

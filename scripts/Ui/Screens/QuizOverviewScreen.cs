@@ -72,7 +72,7 @@ public partial class QuizOverviewScreen : Control
 			card.AddChild(corner);
 			types.AddChild(card);
 		}
-		var main = U.V(10, U.Heading("Add a question", 30), U.Muted("Pick a type, then fill in the blanks. No code needed. The ? on a type tells what it does.", 15), U.Gap(6), types);
+		var main = U.V(10, GameParts.Row(12, U.Heading("Add a question", 30).Grow(), new UpdateBadge()), U.Muted("Pick a type, then fill in the blanks. No code needed. The ? on a type tells what it does.", 15), U.Gap(6), types);
 
 		var layout = U.H(0, side, U.Pad(new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.With(s => s.AddChild(main.Grow())), 32, 28, 32, 28).Grow().GrowV());
 		layout.SetAnchorsPreset(LayoutPreset.FullRect);

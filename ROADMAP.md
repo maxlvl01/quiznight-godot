@@ -34,6 +34,7 @@ off (`- [x]`) when they're done, with the version they came in.
 - [x] Ewige Tabelle: sort by any column, profile pictures, Ø % off for estimations
 - [x] Tie rule "Faster answer wins" (default for new map pins)
 - [x] Choice questions: optional "Wrong answers cost points"
+- [x] Update check every minute while the game is open; "Update to …" in the editor and quiz screens
 - [ ] _(add what you find)_
 
 ### Not tested with real people yet

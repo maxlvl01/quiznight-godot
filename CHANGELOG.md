@@ -11,6 +11,12 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
+## [Unreleased]
+
+### Added
+- **The game looks for updates while it's open.** Until now it only checked once, when you started it, so if a new version came out while you were building a quiz you didn't find out until the next restart. Now it checks every minute in the background. When there's a new version, the home screen shows it like before, and "Update to 0.9.4b" appears in the top bar of "My quizzes", the quiz overview and the question editor. Clicking it first warns you that the game restarts to update, so you can save the question you're working on. It never pops up by itself, and not during a game.
+  - Why it doesn't run out of checks: GitHub only allows 60 checks an hour from one internet connection, which two PCs checking every minute would use up. So the minute check only looks at the address of the newest release page (which has no such limit) and asks GitHub's update service only once that shows a newer version.
+
 ## [0.9.3b] — how it works, tonight's stats, sortable Ewige Tabelle
 
 ### Added

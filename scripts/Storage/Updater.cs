@@ -46,6 +46,25 @@ public static class Updater
 		return http;
 	}
 
+	/// <summary>
+	/// The newest version's number, from the releases page (github.com/…/releases/latest sends you on to the newest one's
+	/// tag). Unlike GitHub's API (60 checks an hour per internet connection) it can be asked every minute. Null if offline.
+	/// </summary>
+	public static async Task<AppVersion?> LatestVersionAsync()
+	{
+		try
+		{
+			using var http = NewClient(TimeSpan.FromSeconds(10));
+			using var response = await http.SendAsync(new HttpRequestMessage(HttpMethod.Head, $"https://github.com/{ReleasesRepo}/releases/latest"));
+			var path = response.RequestMessage?.RequestUri?.AbsolutePath ?? "";
+			return AppVersion.Parse(path[(path.LastIndexOf('/') + 1)..]);
+		}
+		catch (Exception)
+		{
+			return null;
+		}
+	}
+
 	/// <summary>The newest release if it's newer than this game, else null (also when offline).</summary>
 	public static async Task<Release?> CheckAsync()
 	{
