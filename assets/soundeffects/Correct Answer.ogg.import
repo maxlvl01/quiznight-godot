@@ -1,0 +1,19 @@
+[remap]
+
+importer="oggvorbisstr"
+type="AudioStreamOggVorbis"
+uid="uid://dc8ylq00awblf"
+path="res://.godot/imported/Correct Answer.ogg-02882f81d27f7cffec7eb30ffa4c8541.oggvorbisstr"
+
+[deps]
+
+source_file="res://assets/soundeffects/Correct Answer.ogg"
+dest_files=["res://.godot/imported/Correct Answer.ogg-02882f81d27f7cffec7eb30ffa4c8541.oggvorbisstr"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

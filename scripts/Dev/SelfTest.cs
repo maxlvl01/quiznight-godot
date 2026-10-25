@@ -311,6 +311,8 @@ public static class SelfTest
 		Files();
 		// Load, not just Exists: an Opus .ogg exists but Godot can't import it.
 		foreach (var b in Storage.Sfx.Buzzers) Check(ResourceLoader.Load<AudioStream>(b.Path) != null, $"buzzer sound {b.Id} plays");
+		foreach (var f in new[] { "Correct Answer", "Wrong Answer" })
+			Check(ResourceLoader.Load<AudioStream>($"res://assets/soundeffects/{f}.ogg") != null, $"answer sound {f} plays");
 		foreach (var p in Storage.Sfx.Podiums) Check(ResourceLoader.Load<AudioStream>(p.Path) != null, $"podium sound {p.Id} plays (must be Ogg Vorbis, MP3 or WAV — not Opus)");
 		Atlas();
 		Protocol();

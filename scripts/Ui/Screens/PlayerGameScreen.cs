@@ -53,6 +53,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 
 	int _heardIndex = -1;
 	int _heardBuzzes;
+	readonly AnswerSounds _answerSounds = new();
 
 	public void Refresh(RoomState room)
 	{
@@ -69,6 +70,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		if (_heardIndex >= 0 && game.Buzzes.Count > heard) Sfx.PlayRoomBuzzer(room.Settings.BuzzerSound);
 		_heardIndex = game.Index;
 		_heardBuzzes = game.Buzzes.Count;
+		_answerSounds.Update(game, MyId);
 		_clips.Update(game);
 		_bar.Set($"{game.Index}|{me.Name}|{room.Score(MyId)}|{game.JokerIndex}", () =>
 		{

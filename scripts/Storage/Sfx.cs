@@ -122,6 +122,15 @@ public static class Sfx
 	public static void PlayRoomBuzzer(string hostChoice) =>
 		PlayBuzzer(hostChoice == Custom ? Settings.BuzzerSound : hostChoice);
 
+	static AudioStreamPlayer? _answerPlayer;
+
+	/// <summary>A right or wrong answer (Ui.AnswerSounds decides when), on the sound effects bus beside the buzzer.</summary>
+	public static void PlayAnswer(bool right)
+	{
+		var path = $"res://assets/soundeffects/{(right ? "Correct Answer" : "Wrong Answer")}.ogg";
+		if (ResourceLoader.Exists(path) && GD.Load<AudioStream>(path) is { } stream) Play(ref _answerPlayer, Prefs.SfxBus, stream);
+	}
+
 	/// <summary>Plays a podium sound (on the game music bus).</summary>
 	public static void PlayPodium(string id)
 	{

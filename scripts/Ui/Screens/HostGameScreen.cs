@@ -55,6 +55,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 	// Buzzes already heard: a new one in the same question plays the buzzer sound.
 	int _heardIndex = -1;
 	int _heardBuzzes;
+	readonly AnswerSounds _answerSounds = new();
 
 	public void Refresh(RoomState room)
 	{
@@ -69,6 +70,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 		}
 		if (game.Buzzes.Count > _heardBuzzes) Sfx.PlayBuzzer(_host.BuzzerSound);
 		_heardBuzzes = game.Buzzes.Count;
+		_answerSounds.Update(game, null);
 		var reveal = game.Stage == Stage.Reveal ? game.Reveal : null;
 		HostNotes.Update(game);
 		_game = game;
