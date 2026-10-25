@@ -32,44 +32,66 @@ public partial class MatchHistoryScreen : Control
 		var me = MyId;
 		foreach (var night in nights)
 		{
-			var head = GameParts.Row(10,
-				U.Bold(night.Quiz == "" ? Lang.T("Quiz") : night.Quiz, 20).Raw(),
-				night.Host != "" ? U.Muted(Lang.F("by {0}", night.Host), 15, false).Raw() : U.Gap(0),
-				U.Fill(),
-				night.Beta ? U.Pill("Beta", C.Muted) : U.Gap(0),
-				U.Mono(Date(night.Date), 14, C.Muted));
-			// (folded: everyone's place and points in a line; open: the full table with their stats; you in bold)
+			// (a card per night: everyone's place and points in a line; click it for the night's own screen with the full table)
 			var players = U.Flow(14);
-			foreach (var p in night.Players)
-				players.AddChild(GameParts.Row(6,
-					GameParts.RankBadge(p.Place, true),
-					U.Text(p.Name, 15, C.Text, p.Id == me ? Fonts.Black : null).Raw(),
-					U.Mono(Lang.F("{0} pts", p.Points), 13, C.Muted)));
-			var table = Table(night, me);
-			table.Visible = false;
-			var hint = U.Link("Click for the details", null, 12).With(l => l.SizeFlagsHorizontal = SizeFlags.ShrinkBegin);
-			var card = U.Card(8, head, players, table, hint);
+			foreach (var p in night.Players) players.AddChild(Line(p, p.Id == me));
+			var open = U.Link("Details →", () => App.I.GoMatchNight(night), 13).With(l => l.SizeFlagsHorizontal = SizeFlags.ShrinkBegin);
+			var card = U.Card(8, Head(night, 20), players, open);
 			card.MouseDefaultCursorShape = CursorShape.PointingHand;
-			void Toggle()
-			{
-				table.Visible = !table.Visible;
-				players.Visible = !table.Visible;
-				hint.Text = Lang.T(table.Visible ? "Click to fold it up" : "Click for the details");
-			}
-			hint.Pressed += Toggle;
 			card.GuiInput += e =>
 			{
-				if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }) Toggle();
+				if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }) App.I.GoMatchNight(night);
 			};
 			// (clicks on anything inside reach the card)
-			foreach (var c in AllControls(card)) if (c != card && c != hint) c.MouseFilter = MouseFilterEnum.Pass;
+			foreach (var c in AllControls(card)) if (c != card && c != open) c.MouseFilter = MouseFilterEnum.Pass;
 			page.AddChild(card);
 		}
 		AddChild(U.Page(page, 980, 20));
 	}
 
+	/// <summary>Quiz name, "by host", Beta and the date, in one line (centred on each other).</summary>
+	public static Control Head(Results.Night night, int size)
+	{
+		static T Mid<T>(T l) where T : Label
+		{
+			l.VerticalAlignment = VerticalAlignment.Center;
+			l.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+			return l;
+		}
+		return GameParts.Row(10,
+			Mid(U.Bold(night.Quiz == "" ? Lang.T("Quiz") : night.Quiz, size).Raw()),
+			night.Host != "" ? Mid(U.Muted(Lang.F("by {0}", night.Host), size - 5, false).Raw()) : U.Gap(0),
+			U.Fill(),
+			night.Beta ? U.Pill("Beta", C.Muted) : U.Gap(0),
+			Mid(U.Mono(Date(night.Date), 14, C.Muted)));
+	}
+
+	/// <summary>
+	/// "1st  [LCB] BassGaming  10 pts" as one line of text, so place, name and points share a baseline (three separate
+	/// labels in different fonts sat at different heights).
+	/// </summary>
+	static Control Line(Results.NightPlayer p, bool mine)
+	{
+		static string Hex(Color c) => c.ToHtml(false);
+		var name = p.Name.Replace("[", "[lb]");
+		var place = $"[font_size=14][color=#{Hex(C.Medal(p.Place) ?? C.Muted)}][code]{Lang.Ordinal(p.Place)}[/code][/color][/font_size]";
+		var points = $"[font_size=13][color=#{Hex(C.Muted)}][code]{Lang.F("{0} pts", p.Points)}[/code][/color][/font_size]";
+		var label = new RichTextLabel
+		{
+			BbcodeEnabled = true, FitContent = true, ScrollActive = false, AutowrapMode = TextServer.AutowrapMode.Off,
+			AutoTranslateMode = AutoTranslateModeEnum.Disabled, MouseFilter = MouseFilterEnum.Pass,
+			Text = $"{place}  {(mine ? $"[b]{name}[/b]" : name)}  {points}",
+		};
+		label.AddThemeFontSizeOverride("normal_font_size", 15);
+		label.AddThemeFontSizeOverride("bold_font_size", 15);
+		label.AddThemeFontOverride("bold_font", Fonts.Black);
+		label.AddThemeFontOverride("mono_font", Fonts.Mono);
+		label.AddThemeColorOverride("default_color", C.Text);
+		return label;
+	}
+
 	/// <summary>The night in full: place, picture, name, points, questions scored, Ø answer time, Ø map distance, Ø % off.</summary>
-	static Control Table(Results.Night night, string? me)
+	public static Control Table(Results.Night night, string? me)
 	{
 		var grid = new GridContainer { Columns = 7 };
 		grid.AddThemeConstantOverride("h_separation", 18);
@@ -102,4 +124,21 @@ public partial class MatchHistoryScreen : Control
 	/// <summary>"2026-10-24 21:25" → "24.10.2026 21:25" (the date style used everywhere in the game).</summary>
 	static string Date(string date) =>
 		System.DateTime.TryParseExact(date, "yyyy-MM-dd HH:mm", Inv, DateTimeStyles.None, out var d) ? d.ToString("dd.MM.yyyy HH:mm", Inv) : date;
+}
+
+/// <summary>One quiz night on its own screen: the full table of everyone's stats, and back to the match history.</summary>
+public partial class MatchNightScreen : Control
+{
+	public MatchNightScreen() : this(new Results.Night()) { }
+
+	public MatchNightScreen(Results.Night night)
+	{
+		SetAnchorsPreset(LayoutPreset.FullRect);
+		var page = U.V(14,
+			U.Link("← Match history", App.I.GoMatchHistory).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin),
+			MatchHistoryScreen.Head(night, 30),
+			U.Card(10, MatchHistoryScreen.Table(night, MatchHistoryScreen.MyId)),
+			U.Muted("Ø map off: how far the pins were on maps with a scale. Ø % off: how far the estimations were, in % of the right number (recorded from 0.9.3b on).", 13));
+		AddChild(U.Page(page, 980, 20));
+	}
 }

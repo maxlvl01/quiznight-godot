@@ -161,6 +161,7 @@ public partial class App : Control
 	}
 	public void GoEternalTable() => Show(new EternalTableScreen());
 	public void GoMatchHistory() => Show(new MatchHistoryScreen());
+	public void GoMatchNight(Storage.Results.Night night) => Show(new MatchNightScreen(night));
 
 	public void GoQuiz(string id)
 	{
