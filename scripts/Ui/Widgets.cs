@@ -2,6 +2,7 @@
 
 using System;
 using System.Globalization;
+using System.Linq;
 using Godot;
 using QuizNight.Net;
 using QuizNight.Shared;
@@ -109,9 +110,20 @@ public partial class TypeIcon : Control
 				}
 				break;
 			case QuestionType.Classic:
-				DrawArc(P(12, 12), 8.5f * k, 0, Mathf.Tau, 40, color, w, true);
-				DrawArc(P(12, 12), 4 * k, 0, Mathf.Tau, 24, color, w, true);
+			{
+				// (a little arcade buzzer: a dome on a base, like the big BUZZ! button)
+				var dome = new Vector2[21];
+				for (var i = 0; i <= 20; i++)
+				{
+					var a = Mathf.Pi + Mathf.Pi * i / 20;
+					dome[i] = P(12 + Mathf.Cos(a) * 7.5f, 15 + Mathf.Sin(a) * 9);
+				}
+				DrawColoredPolygon(dome, color);
+				DrawPolyline(dome.Append(dome[0]).ToArray(), C.Ink, 1.4f * k, true);
+				DrawRect(new Rect2(P(3, 15.5f), P(18, 4.5f)), C.Ink);
+				DrawPolyline(new[] { P(8, 11.5f), P(9.2f, 8.6f), P(11.6f, 7.2f) }, new Color(1, 1, 1, 0.7f), 1.6f * k, true);
 				break;
+			}
 			case QuestionType.Sound:
 				DrawPolyline(new[] { P(9, 18), P(9, 5), P(20, 3), P(20, 16) }, color, w, true);
 				DrawArc(P(6, 18), 3 * k, 0, Mathf.Tau, 20, color, w, true);

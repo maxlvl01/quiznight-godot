@@ -3,7 +3,8 @@
 Fill in one row per file you put in `assets/music/` or `assets/soundeffects/`. Claude turns this into the in-game
 credits later, so keep the columns as they are (leave a cell empty if you don't know it yet).
 
-- **File**: the file name as it is in the folder, e.g. `home.ogg` or `lobby2.ogg`.
+- **File**: the file name as it is in the folder, e.g. `home.ogg` or `lobby2.ogg`. (The original downloads are named
+  "ES_Title - Artist.wav"; the game uses converted .ogg copies under these names.)
 - **Title / Artist**: as Epidemic Sound lists them.
 - **Link**: the track's page on Epidemic Sound (https://www.epidemicsound.com/track/…).
 - **Where it plays**: home, editor, statistics, settings, lobby, menu (the default), UI click/hover, voice line, …
@@ -12,9 +13,11 @@ credits later, so keep the columns as they are (leave a cell empty if you don't 
 
 | File | Title | Artist | Link | Where it plays |
 |------|-------|--------|------|----------------|
-| `menu.ogg` | | | | default for every menu |
-| `home.ogg` | | | | home screen |
-| `lobby.ogg` | | | | host lobby and waiting room |
+| `intro.ogg` | Easy Breezy | Megan Wofford | | first song when the game opens, then with the others |
+| `menu.ogg` | Lavender Sky | Megan Wofford | | menus, lobby and quizzes (shuffled) |
+| `menu2.ogg` | Magic of December | Hara Noda | | menus, lobby and quizzes (shuffled) |
+| `menu3.ogg` | Seth | Martin Landstrom | | menus, lobby and quizzes (shuffled) |
+| `menu4.ogg` | Sugarsnaps | Ennio Mano | | menus, lobby and quizzes (shuffled) |
 | | | | | |
 
 ## Sound effects (assets/soundeffects/ui, voice)
@@ -23,7 +26,7 @@ credits later, so keep the columns as they are (leave a cell empty if you don't 
 |------|-------|--------|------|----------------|
 | `ui/hover.ogg` | | | | mouse over a button |
 | `ui/click.ogg` | | | | clicking a button |
-| `voice/intro.ogg` | | | | voice line when the game opens |
+| `voice/intro.ogg` | Intro voice line | [who recorded it] | | when the game opens (with a little reverb) |
 | | | | | |
 
 ## Licence

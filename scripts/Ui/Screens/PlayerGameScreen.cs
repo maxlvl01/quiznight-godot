@@ -661,35 +661,99 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 	}
 }
 
-/// <summary>The big round BUZZ! button. Space works too.</summary>
+/// <summary>
+/// The big BUZZ! button, an arcade dome: a red dome with a shine on a chrome ring and a purple base, drawn (so it stays
+/// sharp at any size). It squashes down when pressed and is grey while the buzzers are locked. Space works too.
+/// </summary>
 public partial class BuzzButton : Button
 {
 	readonly Action _onBuzz;
 	bool _sent;
+	float _press;
+	readonly float _size;
 
 	public BuzzButton() : this(() => { }) { }
 
 	public BuzzButton(Action onBuzz, float size = 240)
 	{
 		_onBuzz = onBuzz;
-		Text = "BUZZ!";
-		CustomMinimumSize = new Vector2(size, size);
+		_size = size;
+		// (the button is the hit area; everything is drawn in _Draw)
+		CustomMinimumSize = new Vector2(size * 1.3f, size * 1.1f);
 		MouseDefaultCursorShape = CursorShape.PointingHand;
-		AddThemeFontOverride("font", Fonts.Black);
-		AddThemeFontSizeOverride("font_size", (int)(46 * size / 240));
-		foreach (var (state, color) in new[] { ("normal", C.Coral), ("hover", C.Coral.Lightened(0.08f)), ("pressed", C.Coral.Darkened(0.12f)), ("focus", C.Coral) })
+		foreach (var state in new[] { "normal", "hover", "pressed", "hover_pressed", "disabled", "focus" }) AddThemeStyleboxOverride(state, new StyleBoxEmpty());
+		ButtonDown += () =>
 		{
-			var box = UiTheme.Box(color, 999, new Color("#a33a46"), 0);
-			box.BorderWidthBottom = state == "pressed" ? 4 : 12;
-			AddThemeStyleboxOverride(state, box);
+			Buzz();
+			Squash();
+		};
+		MouseEntered += QueueRedraw;
+		MouseExited += QueueRedraw;
+	}
+
+	/// <summary>Down and back up, with a little bounce.</summary>
+	void Squash()
+	{
+		var t = CreateTween();
+		t.TweenMethod(Callable.From<float>(v => { _press = v; QueueRedraw(); }), 0f, 1f, 0.06);
+		t.TweenMethod(Callable.From<float>(v => { _press = v; QueueRedraw(); }), 1f, 0f, 0.35).SetTrans(Tween.TransitionType.Elastic).SetEase(Tween.EaseType.Out);
+	}
+
+	static Vector2[] Ellipse(Vector2 c, float rx, float ry, int n = 48, float from = 0, float to = Mathf.Tau)
+	{
+		var pts = new Vector2[n + 1];
+		for (var i = 0; i <= n; i++)
+		{
+			var a = from + (to - from) * i / n;
+			pts[i] = c + new Vector2(Mathf.Cos(a) * rx, Mathf.Sin(a) * ry);
 		}
-		foreach (var c in new[] { "font_color", "font_hover_color", "font_pressed_color", "font_focus_color" }) AddThemeColorOverride(c, new Color("#2a0a0e"));
-		// Locked: grey, until the host unlocks the buzzers.
-		var locked = UiTheme.Box(C.Panel2, 999, C.Border, 0);
-		locked.BorderWidthBottom = 12;
-		AddThemeStyleboxOverride("disabled", locked);
-		AddThemeColorOverride("font_disabled_color", C.Muted);
-		ButtonDown += Buzz;
+		return pts;
+	}
+
+	public override void _Draw()
+	{
+		var w = Size.X;
+		var k = _size / 240f;
+		var cx = w / 2;
+		var ink = C.Ink;
+		var off = Disabled;
+		var hover = !off && IsHovered();
+		var dome = off ? C.Panel2.Lightened(0.15f) : hover ? new Color("#ff5770") : new Color("#ff3d5a");
+		var shine = off ? new Color(1, 1, 1, 0.12f) : new Color("#ffd0d8", 0.85f);
+		var ringY = Size.Y - 70 * k;
+		// (shadow on the table, the base, the chrome ring)
+		DrawColoredPolygon(Ellipse(new Vector2(cx, ringY + 52 * k), 150 * k, 22 * k), new Color(0, 0, 0, 0.35f));
+		var baseTop = Ellipse(new Vector2(cx, ringY + 6 * k), 140 * k, 36 * k, 48, 0, Mathf.Pi);
+		var basePoly = new System.Collections.Generic.List<Vector2> { new(cx - 140 * k, ringY + 6 * k), new(cx - 140 * k, ringY + 34 * k) };
+		basePoly.AddRange(Ellipse(new Vector2(cx, ringY + 34 * k), 140 * k, 36 * k, 48, Mathf.Pi, 0));
+		basePoly.Add(new Vector2(cx + 140 * k, ringY + 6 * k));
+		DrawColoredPolygon(basePoly.ToArray(), C.Panel.Lightened(0.1f));
+		DrawPolyline(basePoly.Append(basePoly[0]).ToArray(), ink, 5 * k, true);
+		DrawColoredPolygon(Ellipse(new Vector2(cx, ringY + 6 * k), 140 * k, 36 * k), C.Panel2.Lightened(0.2f));
+		DrawPolyline(Ellipse(new Vector2(cx, ringY + 6 * k), 140 * k, 36 * k), ink, 5 * k, true);
+		DrawColoredPolygon(Ellipse(new Vector2(cx, ringY), 118 * k, 28 * k), C.Silver);
+		DrawPolyline(Ellipse(new Vector2(cx, ringY), 118 * k, 28 * k), ink, 4 * k, true);
+		// (the dome: a half ellipse on the ring, squashed by the press)
+		var height = (138 - 70 * _press) * k;
+		var top = Ellipse(new Vector2(cx, ringY - 4 * k), 108 * k, height, 40, Mathf.Pi, Mathf.Tau);
+		var bottom = Ellipse(new Vector2(cx, ringY - 4 * k), 108 * k, 22 * k, 20, 0, Mathf.Pi);
+		var domePoly = top.Concat(bottom.Skip(1)).ToArray();
+		DrawColoredPolygon(domePoly, dome);
+		DrawPolyline(domePoly.Append(domePoly[0]).ToArray(), ink, 6 * k, true);
+		DrawPolyline(Ellipse(new Vector2(cx - 30 * k, ringY - height * 0.55f), 46 * k, height * 0.36f, 16, Mathf.Pi * 1.05f, Mathf.Pi * 1.45f), shine, 13 * k, true);
+		// (the label)
+		var font = Fonts.Black;
+		var size = (int)(50 * k);
+		var text = Lang.T("BUZZ!");
+		var textW = font.GetStringSize(text, HorizontalAlignment.Left, -1, size).X;
+		var pos = new Vector2(cx - textW / 2, ringY - height * 0.38f + size * 0.35f);
+		DrawStringOutline(font, pos, text, HorizontalAlignment.Left, -1, size, (int)(9 * k), ink);
+		DrawString(font, pos, text, HorizontalAlignment.Left, -1, size, off ? C.Muted : C.Text);
+	}
+
+	public override void _Notification(int what)
+	{
+		if (what == NotificationResized) QueueRedraw();
 	}
 
 	void Buzz()

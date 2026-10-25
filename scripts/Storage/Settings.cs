@@ -161,6 +161,20 @@ public static class Settings
 		set => Set("skin", value);
 	}
 
+	/// <summary>Colour vision help (a Ui.ColourFilter mode: "off", "deuteranopia", "protanopia", "tritanopia"). Saved when picked.</summary>
+	public static string ColourVision
+	{
+		get => Get("colour_vision", "off") is var m && Ui.ColourFilter.Modes.Any(x => x.Id == m) ? m : "off";
+		set => Set("colour_vision", value);
+	}
+
+	/// <summary>All text in the dyslexia-friendly font. Saved when ticked.</summary>
+	public static bool DyslexicFont
+	{
+		get => Get("dyslexic_font", "off") == "on";
+		set => Set("dyslexic_font", value ? "on" : "off");
+	}
+
 	public static bool AskBeforeDeletingQuiz
 	{
 		get => Get("ask_delete_quiz", "on") != "off";

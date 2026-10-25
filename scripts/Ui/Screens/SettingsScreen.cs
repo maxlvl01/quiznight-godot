@@ -94,6 +94,21 @@ public partial class SettingsScreen : Control
 			new CheckBox { Text = Lang.T("Ask before deleting a quiz"), ButtonPressed = Settings.AskBeforeDeletingQuiz, MouseDefaultCursorShape = CursorShape.PointingHand }
 				.With(b => b.Toggled += on => Settings.AskBeforeDeletingQuiz = on));
 
+		// (accessibility: both apply and save right away, like the skin)
+		var dyslexic = new CheckBox
+		{
+			Text = Lang.T("Dyslexia-friendly font"), ButtonPressed = Settings.DyslexicFont && Fonts.DyslexicAvailable,
+			Disabled = !Fonts.DyslexicAvailable, MouseDefaultCursorShape = CursorShape.PointingHand,
+		};
+		dyslexic.Toggled += on => Callable.From(() => App.I.UseDyslexicFont(on)).CallDeferred();
+		var accessibility = U.Card(12,
+			U.Eyebrow("Accessibility"),
+			U.Field("Colour vision", U.Select(ColourFilter.Modes, Settings.ColourVision, App.I.UseColourVision),
+				"Shifts the colours of the whole game so the ones you can't tell apart become different: right and wrong, the A–D answers, medals and player colours."),
+			dyslexic,
+			U.Muted(Fonts.DyslexicAvailable ? "All text in OpenDyslexic: letters with heavy bottoms, so they don't flip or swim."
+				: "The dyslexia-friendly font isn't installed with this version yet.", 12));
+
 		var language = U.Card(12,
 			U.Eyebrow("Language"),
 			U.Segmented(Lang.All, d.Language, code =>
@@ -124,7 +139,7 @@ public partial class SettingsScreen : Control
 
 		var page = U.V(14,
 			U.H(16, U.Link("← Home", Leave).With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter), U.Heading("Settings", 34)),
-			U.H(14, audio, U.V(14, video, language).Grow()));
+			U.H(14, U.V(14, audio, accessibility).Grow(), U.V(14, video, language).Grow()));
 		// The buttons stay at the bottom of the screen; the settings scroll above them.
 		var scroll = U.Page(page, 980, 20);
 		scroll.SizeFlagsVertical = SizeFlags.ExpandFill;

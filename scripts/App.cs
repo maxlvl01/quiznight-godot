@@ -47,6 +47,9 @@ public partial class App : Control
 	{
 		I = this;
 		C.Use(Settings.Skin);
+		// (dev runs: --dyslexic and --colour-vision MODE try them without saving)
+		var devArgs = OS.GetCmdlineUserArgs();
+		Fonts.UseDyslexic(Settings.DyslexicFont || devArgs.Contains("--dyslexic"));
 		Theme = UiTheme.Build();
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		_bg.Color = C.Bg;
@@ -58,6 +61,9 @@ public partial class App : Control
 		_banners.MouseFilter = MouseFilterEnum.Ignore;
 		AddChild(_banners);
 		AddChild(_audio);
+		AddChild(_colours);
+		var cv = Array.IndexOf(devArgs, "--colour-vision");
+		_colours.Use(cv >= 0 && cv + 1 < devArgs.Length ? devArgs[cv + 1] : Settings.ColourVision);
 		_audio.TrackStarted += path => AddChild(new NowPlaying(path));
 		// (the splash plays out on top of the first screen; not in dev and test runs, which pass arguments after --)
 		SplashIntro? splash = null;
@@ -134,6 +140,23 @@ public partial class App : Control
 	/// <summary>Menu music and the buttons' hover and click sounds.</summary>
 	readonly UiAudio _audio = new();
 	public UiAudio Audio => _audio;
+	/// <summary>Colour vision help over everything (Settings → Accessibility).</summary>
+	readonly ColourFilter _colours = new();
+
+	public void UseColourVision(string mode)
+	{
+		Settings.ColourVision = mode;
+		_colours.Use(mode);
+	}
+
+	/// <summary>Switches the dyslexia-friendly font: a new theme, and the settings screen built again with it.</summary>
+	public void UseDyslexicFont(bool on)
+	{
+		Settings.DyslexicFont = on;
+		Fonts.UseDyslexic(on);
+		Theme = UiTheme.Build();
+		GoSettings();
+	}
 
 	void Show(Control screen)
 	{

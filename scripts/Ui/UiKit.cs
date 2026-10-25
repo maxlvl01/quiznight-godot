@@ -119,12 +119,35 @@ public static class Fonts
 		return new FontVariation { BaseFont = Fredoka, VariationOpentype = new Godot.Collections.Dictionary { [tag] = weight } };
 	}
 
-	public static readonly Font Regular = Weight(450);
-	public static readonly Font Bold = Weight(600);
-	/// <summary>Headings, names, big numbers and buttons: Lilita One.</summary>
-	public static readonly Font Black = (Font?)Lilita ?? new SystemFont { FontNames = Sans, FontWeight = 800 };
+	static readonly Font PartyRegular = Weight(450);
+	static readonly Font PartyBold = Weight(600);
+	static readonly Font PartyBlack = (Font?)Lilita ?? new SystemFont { FontNames = Sans, FontWeight = 800 };
+
+	// Settings → Accessibility: a dyslexia-friendly font for all text (assets/fonts/OpenDyslexic-Regular / -Bold, .otf or .ttf)
+	static FontFile? Any(string name) => Load($"res://assets/fonts/{name}.otf") ?? Load($"res://assets/fonts/{name}.ttf");
+	/// <summary>OpenDyslexic runs very wide: a bit narrower, so screens laid out for Fredoka still fit.</summary>
+	static Font? Narrow(FontFile? f) => f == null ? null : new FontVariation { BaseFont = f, VariationTransform = new Transform2D(0.86f, 0, 0, 1, 0, 0), SpacingGlyph = -1 };
+	static readonly Font? DyslexicRegular = Narrow(Any("OpenDyslexic-Regular"));
+	static readonly Font? DyslexicBold = Narrow(Any("OpenDyslexic-Bold")) ?? DyslexicRegular;
+	static bool _dyslexic;
+
+	/// <summary>Whether the dyslexia-friendly font came with the game (Settings only offers it then).</summary>
+	public static bool DyslexicAvailable => DyslexicRegular != null;
+
+	/// <summary>Switches all text to the dyslexia-friendly font (or back). Screens and the theme built after this use it.</summary>
+	public static void UseDyslexic(bool on)
+	{
+		_dyslexic = on && DyslexicAvailable;
+		_spaced = null;
+	}
+
+	public static Font Regular => _dyslexic ? DyslexicRegular! : PartyRegular;
+	public static Font Bold => _dyslexic ? DyslexicBold! : PartyBold;
+	/// <summary>Headings, names, big numbers and buttons: Lilita One (the dyslexia font's bold when that's on).</summary>
+	public static Font Black => _dyslexic ? DyslexicBold! : PartyBlack;
+	static Font? _spaced;
 	/// <summary>Small caps labels ("eyebrows") get extra letter spacing.</summary>
-	public static readonly Font Spaced = new FontVariation { BaseFont = Bold, SpacingGlyph = 2 };
+	public static Font Spaced => _spaced ??= new FontVariation { BaseFont = Bold, SpacingGlyph = 2 };
 	public static readonly Font Mono =new SystemFont { FontNames = new[] { "JetBrains Mono", "Consolas", "Courier New" }, FontWeight = 700 };
 }
 

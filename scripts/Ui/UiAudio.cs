@@ -4,8 +4,10 @@
 //   assets/music/<place>.ogg (or .mp3 / .wav), the place being home, editor (my quizzes, a quiz, the question editor),
 //     statistics (Ewige Tabelle, match history, profiles), settings or lobby (host lobby, waiting room); a place without
 //     its own file plays menu.ogg. More tracks for a place: <place>2 … <place>9 (shuffled, one after another).
-//     game.ogg plays during a quiz (no fallback to menu: without it quizzes stay quiet); it pauses while a sound, video
-//     or interactive question is open, so it never covers the clip or the microphone.
+//     game.ogg plays during a quiz (without one, the menu music plays on); it pauses while a sound, video or
+//     interactive question is open, so it never covers the clip or the microphone.
+//     intro.ogg (Easy Breezy) always comes first when the game opens, with the voice line; after that it's one of the
+//     menu songs like the others.
 //   assets/soundeffects/ui/hover.ogg and click.ogg (or .mp3 / .wav); back.ogg for "←" links, if there is one
 //   assets/soundeffects/voice/intro.ogg: a voice line once the home screen first shows (intro2 … intro9: one at random);
 //     the music ducks under it
@@ -28,14 +30,24 @@ public partial class UiAudio : Node
 	static string? Find(string pathWithoutExt) =>
 		Exts.Select(e => $"{pathWithoutExt}.{e}").FirstOrDefault(p => ResourceLoader.Exists(p));
 
+	static bool _introDone;
+
 	/// <summary>A place's tracks (lobby, lobby2 … lobby9), or menu's when it has none of its own.</summary>
 	static List<string> Tracks(string place)
 	{
 		List<string> Of(string name) =>
 			Enumerable.Range(1, 9).Select(i => Find($"res://assets/music/{name}{(i == 1 ? "" : i.ToString())}")).OfType<string>().ToList();
 		var own = Of(place);
-		var list = own.Count > 0 || place == "game" ? own : Of("menu");
-		return list.OrderBy(_ => Random.Shared.Next()).ToList();
+		var list = own.Count > 0 ? own : Of("menu").Concat(Of("intro")).ToList();
+		var shuffled = list.OrderBy(_ => Random.Shared.Next()).ToList();
+		// (the very first music of a run starts with the intro song, if there is one)
+		if (!_introDone && Find("res://assets/music/intro") is { } intro)
+		{
+			_introDone = true;
+			if (own.Count == 0) shuffled.Remove(intro);
+			shuffled.Insert(0, intro);
+		}
+		return shuffled;
 	}
 
 	/// <summary>Where a screen's music comes from (null: no music, e.g. during a quiz).</summary>
@@ -88,9 +100,25 @@ public partial class UiAudio : Node
 
 	public override void _ExitTree() => GetTree().NodeAdded -= Hook;
 
+	/// <summary>The party show bounce: buttons grow a little under the mouse and squash when clicked (links don't move).</summary>
+	static void Bounce(BaseButton button, float to, double time)
+	{
+		if (button.ThemeTypeVariation == "LinkButton2" || button is Ui.Screens.BuzzButton or CheckBox || !button.IsVisibleInTree()) return;
+		button.PivotOffset = button.Size / 2;
+		var t = button.CreateTween();
+		t.TweenProperty(button, "scale", new Vector2(to, to), time).SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+	}
+
 	void Hook(Node node)
 	{
 		if (node is not BaseButton button) return;
+		button.MouseEntered += () =>
+		{
+			if (!button.Disabled) Bounce(button, 1.04f, 0.15);
+		};
+		button.MouseExited += () => Bounce(button, 1f, 0.15);
+		button.ButtonDown += () => Bounce(button, 0.94f, 0.06);
+		button.ButtonUp += () => Bounce(button, button.IsHovered() ? 1.04f : 1f, 0.25);
 		button.MouseEntered += () =>
 		{
 			if (_hover.Stream != null && !button.Disabled && button.IsVisibleInTree()) _hover.Play();
@@ -128,7 +156,8 @@ public partial class UiAudio : Node
 		{
 			var cells = line.Trim().Trim('|').Split('|').Select(c => c.Trim().Trim('`')).ToArray();
 			if (cells.Length < 3 || cells[0] == "" || cells[0] == "File" || cells[0].StartsWith("-") || cells[1] == "") continue;
-			credits[System.IO.Path.GetFileName(cells[0])] = (cells[1], cells[2]);
+			// (music rows are plain file names; "ui/click.ogg" or "voice/intro.ogg" are sound effects, not songs)
+			if (!cells[0].Contains('/')) credits[cells[0]] = (cells[1], cells[2]);
 		}
 		return credits;
 	}
