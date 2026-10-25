@@ -22,6 +22,7 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **A Quit button on the home screen,** next to Settings. Pressing Escape on the home screen now asks whether you want to quit the game, too. Before, there was no way to close Quiznight from inside the game.
 - **A welcome screen on the very first start.** Before the intro and the home screen, a new player can pick their language, colour vision help and the dyslexia-friendly font, so they can read the game from the start. It only shows on a PC that has never run Quiznight before: updating never brings it up.
 - **A new skin: Pinke Geilheit,** soft pastel pink and lavender on dusky rose.
+- **Three new songs** for the menus, the lobby and quizzes: "Before Chill" (Yomoti), "Drive-Through Dinner" (Magnus Ringblom) and "Sunny San Francisco" (Oakwood Station). They're in the jukebox list too.
 - **Olf?** joined the title screen's easter eggs.
 
 ### Changed
