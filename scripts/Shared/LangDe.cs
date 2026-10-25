@@ -733,6 +733,8 @@ public static class LangDe
 		["The Fast Pass is only for buzzer questions."] = "Der Fast Pass gilt nur für Buzzer-Fragen.",
 		["You · double-click your name to change it"] = "Du · Doppelklick auf deinen Namen, um ihn zu ändern",
 		["Skin"] = "Skin",
+		["Click to fold it up"] = "Klick zum Zuklappen",
+		["Click for the details"] = "Klick für die Details",
 		["by {0}"] = "von {0}",
 		["No quiz nights yet. After each one the results go to Max; with the next update they show up here."] = "Noch keine Quizabende. Nach jedem gehen die Ergebnisse an Max; mit dem nächsten Update erscheinen sie hier.",
 		["Every quiz night so far, newest first."] = "Alle Quizabende bisher, der neueste zuerst.",

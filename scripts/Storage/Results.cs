@@ -136,8 +136,11 @@ public static class Results
 		public string Host = "";
 		public string HostId = "";
 		public bool Beta;
-		public readonly List<(int Place, string Id, string Name, int Points)> Players = new();
+		public readonly List<NightPlayer> Players = new();
 	}
+
+	/// <summary>One player's line of a night: place, points and their stats (null where the night didn't record it).</summary>
+	public sealed record NightPlayer(int Place, string Id, string Name, int Points, int Scored, double? AvgAnswerS, double? AvgKm, double? AvgPercentOff);
 
 	/// <summary>Every night in these results, newest first (the same night twice counts once).</summary>
 	public static List<Night> Nights(IEnumerable<string> csvs, bool beta = false)
@@ -158,7 +161,9 @@ public static class Results
 				night.HostId = row.GetValueOrDefault("host_id", "");
 			}
 			int I(string k) => int.TryParse(row.GetValueOrDefault(k), NumberStyles.Integer, Inv, out var v) ? v : 0;
-			night.Players.Add((I("place"), id, row.GetValueOrDefault("player", ""), I("points")));
+			double? D(string k) => double.TryParse(row.GetValueOrDefault(k), NumberStyles.Float, Inv, out var v) ? v : null;
+			night.Players.Add(new NightPlayer(I("place"), id, row.GetValueOrDefault("player", ""), I("points"), I("questions_scored"),
+				D("avg_answer_s"), D("avg_km_off"), D("avg_pct_off")));
 		}
 		foreach (var n in nights.Values) n.Players.Sort((a, b) => a.Place.CompareTo(b.Place));
 		return nights.Values.OrderByDescending(n => n.Date).ToList();

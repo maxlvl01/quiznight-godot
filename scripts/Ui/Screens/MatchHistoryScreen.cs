@@ -38,19 +38,65 @@ public partial class MatchHistoryScreen : Control
 				U.Fill(),
 				night.Beta ? U.Pill("Beta", C.Muted) : U.Gap(0),
 				U.Mono(Date(night.Date), 14, C.Muted));
-			// (everyone's place and points, in a row that wraps; you in bold)
+			// (folded: everyone's place and points in a line; open: the full table with their stats; you in bold)
 			var players = U.Flow(14);
 			foreach (var p in night.Players)
-			{
-				var mine = p.Id == me;
 				players.AddChild(GameParts.Row(6,
 					GameParts.RankBadge(p.Place, true),
-					U.Text(p.Name, 15, C.Text, mine ? Fonts.Black : null).Raw(),
+					U.Text(p.Name, 15, C.Text, p.Id == me ? Fonts.Black : null).Raw(),
 					U.Mono(Lang.F("{0} pts", p.Points), 13, C.Muted)));
+			var table = Table(night, me);
+			table.Visible = false;
+			var hint = U.Link("Click for the details", null, 12).With(l => l.SizeFlagsHorizontal = SizeFlags.ShrinkBegin);
+			var card = U.Card(8, head, players, table, hint);
+			card.MouseDefaultCursorShape = CursorShape.PointingHand;
+			void Toggle()
+			{
+				table.Visible = !table.Visible;
+				players.Visible = !table.Visible;
+				hint.Text = Lang.T(table.Visible ? "Click to fold it up" : "Click for the details");
 			}
-			page.AddChild(U.Card(8, head, players));
+			hint.Pressed += Toggle;
+			card.GuiInput += e =>
+			{
+				if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }) Toggle();
+			};
+			// (clicks on anything inside reach the card)
+			foreach (var c in AllControls(card)) if (c != card && c != hint) c.MouseFilter = MouseFilterEnum.Pass;
+			page.AddChild(card);
 		}
 		AddChild(U.Page(page, 980, 20));
+	}
+
+	/// <summary>The night in full: place, picture, name, points, questions scored, Ø answer time, Ø map distance, Ø % off.</summary>
+	static Control Table(Results.Night night, string? me)
+	{
+		var grid = new GridContainer { Columns = 7 };
+		grid.AddThemeConstantOverride("h_separation", 18);
+		grid.AddThemeConstantOverride("v_separation", 6);
+		foreach (var h in new[] { "#", "Player", "Points", "Scored", "Ø answer time", "Ø map off", "Ø % off" }) grid.AddChild(U.Eyebrow(h));
+		foreach (var p in night.Players)
+		{
+			var mine = p.Id == me;
+			var who = new PublicPlayer { Id = p.Id, Name = p.Name, Connected = true, Color = Limits.PlayerColors[p.Id.Aggregate(0, (h, ch) => (h * 31 + ch) & 0xffffff) % Limits.PlayerColors.Length] };
+			grid.AddChild(GameParts.RankBadge(p.Place, true));
+			grid.AddChild(GameParts.Row(8, new Avatar(who, 24), U.Text(p.Name, 15, C.Text, mine ? Fonts.Black : null).Raw()));
+			grid.AddChild(U.Mono($"{p.Points}", 15, C.Accent));
+			grid.AddChild(U.Mono($"{p.Scored}", 14));
+			grid.AddChild(U.Mono(p.AvgAnswerS is { } s ? s.ToString("0.00", Inv) + " s" : "–", 14, C.Muted));
+			grid.AddChild(U.Mono(p.AvgKm is { } km ? NightStatsView.Distance(km) : "–", 14, C.Muted));
+			grid.AddChild(U.Mono(p.AvgPercentOff is { } pct ? NightStatsView.Percent(pct) : "–", 14, C.Muted));
+		}
+		return U.Pad(grid, 0, 6, 0, 0);
+	}
+
+	static System.Collections.Generic.IEnumerable<Control> AllControls(Node n)
+	{
+		foreach (var child in n.GetChildren())
+		{
+			if (child is Control c) yield return c;
+			foreach (var d in AllControls(child)) yield return d;
+		}
 	}
 
 	/// <summary>"2026-10-24 21:25" → "24.10.2026 21:25" (the date style used everywhere in the game).</summary>

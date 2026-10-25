@@ -19,6 +19,10 @@ config/features=PackedStringArray("4.7", "C#", "GL Compatibility")
 run/max_fps=60
 config/icon="res://assets/icon/icon.png"
 
+[audio]
+
+driver/enable_input=true
+
 [display]
 
 window/size/viewport_width=1280
@@ -27,10 +31,6 @@ window/size/window_width_override=1600
 window/size/window_height_override=900
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-
-[audio]
-
-driver/enable_input=true
 
 [dotnet]
 
