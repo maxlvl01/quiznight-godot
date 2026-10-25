@@ -1,13 +1,12 @@
 // The game's own sounds: music on the menu screens and in the lobby (it fades out when a quiz starts), and a sound when
 // the mouse goes over a button and when one is clicked. All from files in the assets folder, picked up by name; a file
 // that isn't there is simply silent:
-//   assets/music/<place>.ogg (or .mp3 / .wav), the place being home, editor (my quizzes, a quiz, the question editor),
-//     statistics (Ewige Tabelle, match history, profiles), settings or lobby (host lobby, waiting room); a place without
-//     its own file plays menu.ogg. More tracks for a place: <place>2 … <place>9 (shuffled, one after another).
-//     game.ogg plays during a quiz (without one, the menu music plays on); it pauses while a sound, video or
-//     interactive question is open, so it never covers the clip or the microphone.
-//     intro.ogg (Easy Breezy) always comes first when the game opens, with the voice line; after that it's one of the
-//     menu songs like the others.
+//   assets/music/: every song in there plays, shuffled, in the menus, the lobby and during quizzes (where it pauses
+//     while a sound, video or interactive question is open, so it never covers the clip or the microphone). Songs keep
+//     their Epidemic Sound names, "ES_Title - Artist.ogg": the "Now playing" card reads title and artist from that.
+//     IntroSong ("Easy Breezy") always comes first when the game opens, with the voice line.
+//     Optional, for a place of its own: <place>.ogg (<place>2 … <place>9), the place being home, editor, statistics,
+//     settings, lobby or game; that place then plays only those.
 //   assets/soundeffects/ui/hover.ogg and click.ogg (or .mp3 / .wav); back.ogg for "←" links, if there is one
 //   assets/soundeffects/voice/intro.ogg: a voice line once the home screen first shows (intro2 … intro9: one at random);
 //     the music ducks under it
@@ -32,22 +31,55 @@ public partial class UiAudio : Node
 
 	static bool _introDone;
 
-	/// <summary>A place's tracks (lobby, lobby2 … lobby9), or menu's when it has none of its own.</summary>
+	/// <summary>The song that always opens the game (its title, as in the file name).</summary>
+	const string IntroSong = "Easy Breezy";
+
+	static readonly string[] Places = { "home", "editor", "statistics", "settings", "lobby", "game" };
+
+	/// <summary>
+	/// Every song in assets/music (in an exported game the folder lists each one's .import/.remap file; the song is the
+	/// name without that).
+	/// </summary>
+	static List<string> AllSongs()
+	{
+		const string dir = "res://assets/music";
+		if (!DirAccess.DirExistsAbsolute(dir)) return new();
+		return DirAccess.GetFilesAt(dir).Select(f => f.EndsWith(".import") ? f[..^7] : f.EndsWith(".remap") ? f[..^6] : f)
+			.Where(f => Exts.Any(e => f.EndsWith("." + e, StringComparison.OrdinalIgnoreCase))).Distinct()
+			.Select(f => $"{dir}/{f}").Where(f => ResourceLoader.Exists(f)).ToList();
+	}
+
+	/// <summary>A place's own songs (lobby.ogg, lobby2 …), else every other song in the folder.</summary>
 	static List<string> Tracks(string place)
 	{
-		List<string> Of(string name) =>
-			Enumerable.Range(1, 9).Select(i => Find($"res://assets/music/{name}{(i == 1 ? "" : i.ToString())}")).OfType<string>().ToList();
-		var own = Of(place);
-		var list = own.Count > 0 ? own : Of("menu").Concat(Of("intro")).ToList();
+		var all = AllSongs();
+		bool IsPlace(string path, string name) => System.IO.Path.GetFileNameWithoutExtension(path) is var n
+			&& (n == name || n.Length == name.Length + 1 && n.StartsWith(name) && char.IsDigit(n[^1]));
+		var own = all.Where(t => IsPlace(t, place)).ToList();
+		var list = own.Count > 0 ? own : all.Where(t => !Places.Any(pl => IsPlace(t, pl))).ToList();
 		var shuffled = list.OrderBy(_ => Random.Shared.Next()).ToList();
-		// (the very first music of a run starts with the intro song, if there is one)
-		if (!_introDone && Find("res://assets/music/intro") is { } intro)
+		// (the very first music of a run starts with the intro song)
+		if (!_introDone && shuffled.FirstOrDefault(t => t.Contains(IntroSong, StringComparison.OrdinalIgnoreCase)) is { } intro)
 		{
 			_introDone = true;
-			if (own.Count == 0) shuffled.Remove(intro);
+			shuffled.Remove(intro);
 			shuffled.Insert(0, intro);
 		}
 		return shuffled;
+	}
+
+	/// <summary>
+	/// A song's title and artist: from CREDITS.md if it's listed there, else from its Epidemic Sound file name
+	/// ("ES_Easy Breezy - Megan Wofford.ogg" → Easy Breezy, Megan Wofford).
+	/// </summary>
+	public static (string Title, string Artist) Describe(string path)
+	{
+		var file = System.IO.Path.GetFileName(path);
+		if (Credits().TryGetValue(file, out var credit)) return credit;
+		var name = System.IO.Path.GetFileNameWithoutExtension(file);
+		if (name.StartsWith("ES_")) name = name[3..];
+		var dash = name.LastIndexOf(" - ", StringComparison.Ordinal);
+		return dash > 0 ? (name[..dash].Trim(), name[(dash + 3)..].Trim()) : (name, "");
 	}
 
 	/// <summary>Where a screen's music comes from (null: no music, e.g. during a quiz).</summary>

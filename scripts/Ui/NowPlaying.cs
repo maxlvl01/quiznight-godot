@@ -1,5 +1,5 @@
 // "Now playing": when a menu song starts (UiAudio.TrackStarted), a small card slides in at the bottom left with its title
-// and artist from assets/music/CREDITS.md (the file name when it isn't listed there), stays a few seconds and slides out.
+// and artist (from the song's file name, or assets/music/CREDITS.md), stays a few seconds and slides out.
 
 using System.IO;
 using Godot;
@@ -17,10 +17,8 @@ public partial class NowPlaying : PanelContainer
 	public NowPlaying(string trackPath)
 	{
 		MouseFilter = MouseFilterEnum.Ignore;
-		var file = Path.GetFileName(trackPath);
-		var text = UiAudio.Credits().TryGetValue(file, out var credit)
-			? (credit.Artist != "" ? $"{credit.Title} · {credit.Artist}" : credit.Title)
-			: Path.GetFileNameWithoutExtension(file);
+		var (title, artist) = UiAudio.Describe(trackPath);
+		var text = artist != "" ? $"{title} · {artist}" : title;
 		AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel, 14, C.Border, 2, 12, 8));
 		AddChild(U.H(12,
 			new NoteIcon { CustomMinimumSize = new Vector2(34, 34), SizeFlagsVertical = SizeFlags.ShrinkCenter },

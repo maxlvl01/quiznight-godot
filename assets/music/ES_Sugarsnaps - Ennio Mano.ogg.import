@@ -1,0 +1,19 @@
+[remap]
+
+importer="oggvorbisstr"
+type="AudioStreamOggVorbis"
+uid="uid://b8w8ekqv1sc3m"
+path="res://.godot/imported/ES_Sugarsnaps - Ennio Mano.ogg-8cd4f0c4ba1e214152b45827aa7264f2.oggvorbisstr"
+
+[deps]
+
+source_file="res://assets/music/ES_Sugarsnaps - Ennio Mano.ogg"
+dest_files=["res://.godot/imported/ES_Sugarsnaps - Ennio Mano.ogg-8cd4f0c4ba1e214152b45827aa7264f2.oggvorbisstr"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

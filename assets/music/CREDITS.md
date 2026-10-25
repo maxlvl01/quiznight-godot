@@ -3,8 +3,8 @@
 Fill in one row per file you put in `assets/music/` or `assets/soundeffects/`. Claude turns this into the in-game
 credits later, so keep the columns as they are (leave a cell empty if you don't know it yet).
 
-- **File**: the file name as it is in the folder, e.g. `home.ogg` or `lobby2.ogg`. (The original downloads are named
-  "ES_Title - Artist.wav"; the game uses converted .ogg copies under these names.)
+- **File**: the file name as it is in the folder. Songs keep their Epidemic Sound names ("ES_Title - Artist"); the game
+  reads title and artist from them, so a song only needs a row here for its link (or if its name says something else).
 - **Title / Artist**: as Epidemic Sound lists them.
 - **Link**: the track's page on Epidemic Sound (https://www.epidemicsound.com/track/…).
 - **Where it plays**: home, editor, statistics, settings, lobby, menu (the default), UI click/hover, voice line, …
@@ -13,11 +13,11 @@ credits later, so keep the columns as they are (leave a cell empty if you don't 
 
 | File | Title | Artist | Link | Where it plays |
 |------|-------|--------|------|----------------|
-| `intro.ogg` | Easy Breezy | Megan Wofford | | first song when the game opens, then with the others |
-| `menu.ogg` | Lavender Sky | Megan Wofford | | menus, lobby and quizzes (shuffled) |
-| `menu2.ogg` | Magic of December | Hara Noda | | menus, lobby and quizzes (shuffled) |
-| `menu3.ogg` | Seth | Martin Landstrom | | menus, lobby and quizzes (shuffled) |
-| `menu4.ogg` | Sugarsnaps | Ennio Mano | | menus, lobby and quizzes (shuffled) |
+| `ES_Easy Breezy - Megan Wofford.ogg` | Easy Breezy | Megan Wofford | | first song when the game opens, then with the others |
+| `ES_Lavender Sky - Megan Wofford.ogg` | Lavender Sky | Megan Wofford | | menus, lobby and quizzes (shuffled) |
+| `ES_Magic of December - Hara Noda.ogg` | Magic of December | Hara Noda | | menus, lobby and quizzes (shuffled) |
+| `ES_Seth - Martin Landstrom.ogg` | Seth | Martin Landstrom | | menus, lobby and quizzes (shuffled) |
+| `ES_Sugarsnaps - Ennio Mano.ogg` | Sugarsnaps | Ennio Mano | | menus, lobby and quizzes (shuffled) |
 | | | | | |
 
 ## Sound effects (assets/soundeffects/ui, voice)
