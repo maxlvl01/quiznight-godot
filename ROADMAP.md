@@ -24,6 +24,15 @@ off (`- [x]`) when they're done, with the version they came in.
   - Needs per-question results: today's CSVs have one row per player and night (totals only), so a night would also
     have to save one row per player and question (type, variant, right/points, time, distance …). Older nights can't
     be split by type; the filtered views only fill from that version on.
+- [ ] **Player profile pages:** click a name in the Ewige Tabelle or match history (or "My profile") for a detailed,
+  nicely designed overview of one player. Big profile picture top left with name, place in the Ewige Tabelle, nights
+  played, wins and podiums; below it cards with every average we have (points, answer/buzz time, km off, % off …).
+  Rankings: their 3 best and 3 worst question types / subtypes and categories (compared to everyone else, so "best"
+  means where they beat the average most). More ideas: personal records (fastest buzz, closest pin), points per night
+  over time as a little graph, favourite joker and how much it paid off, their nights in the match history, best
+  rival (who they finish just ahead of / behind most).
+  - Builds on the per-question results above; types and categories only fill from that version on, the totals
+    (nights, wins, points, Ø times) work for every night.
 - [ ] **Question categories (optional):** the host can pick a category for a question (Geography, Music, Film, Sport,
   History, Science, Games …) or type their own. Showing it helps players, so it's an option: a lobby rule "Show
   categories" (off by default), plus per question "show category" or "keep it secret". Players see it on the Get ready
