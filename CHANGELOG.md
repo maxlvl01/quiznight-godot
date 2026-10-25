@@ -11,7 +11,7 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
-## [Unreleased]
+## [0.9.3b] — how it works, tonight's stats, sortable Ewige Tabelle
 
 ### Added
 - **"How it works" while you wait.** The "Get ready…" screen players see before the host shows a question used to be mostly empty space. It now says what kind of question is coming and how it works in one sentence, and it knows the variant: a buzzer question tells you to buzz and say it out loud, A B C D to pick one before the time runs out, multiple choice that several can be right, a timeline that you take turns, and so on. It also warns you when wrong answers cost points.
