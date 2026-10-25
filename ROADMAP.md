@@ -31,6 +31,12 @@ off (`- [x]`) when they're done, with the version they came in.
   means where they beat the average most). More ideas: personal records (fastest buzz, closest pin), points per night
   over time as a little graph, favourite joker and how much it paid off, their nights in the match history, best
   rival (who they finish just ahead of / behind most).
+  - **Look: like a Football Manager player profile.** Attributes rated 1–20 in coloured numbers (Buzzer speed,
+    Map sense, Estimating, Music ear, Memory/order, Nerves (Fast Pass/Double payoff), Consistency …, one per question
+    type and category, worked out from how they do against everyone else), an attribute polygon / radar chart, a
+    form strip of the last 5 nights (places as coloured pills), "Strengths / Weaknesses" lists, a "best positions"
+    pitch-style picture of their favourite question types, a career table (one line per night: quiz, place, points),
+    and a role line under the name ("Speed buzzer", "Map specialist", "Estimation sniper" …) from their best attributes.
   - Builds on the per-question results above; types and categories only fill from that version on, the totals
     (nights, wins, points, Ø times) work for every night.
 - [ ] **Question categories (optional):** the host can pick a category for a question (Geography, Music, Film, Sport,
