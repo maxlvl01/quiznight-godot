@@ -733,6 +733,8 @@ public static class LangDe
 		["The Fast Pass is only for buzzer questions."] = "Der Fast Pass gilt nur für Buzzer-Fragen.",
 		["You · double-click your name to change it"] = "Du · Doppelklick auf deinen Namen, um ihn zu ändern",
 		["Skin"] = "Skin",
+		["{0}: {1} · {2} pts"] = "{0}: {1} · {2} Pkt.",
+		["+{0} more"] = "+{0} weitere",
 		["Ø map off: how far the pins were on maps with a scale. Ø % off: how far the estimations were, in % of the right number (recorded from 0.9.3b on)."] = "Ø Karte daneben: wie weit die Pins auf Karten mit Maßstab weg waren. Ø % daneben: wie weit die Schätzungen weg waren, in % der richtigen Zahl (ab 0.9.3b aufgezeichnet).",
 		["← Match history"] = "← Spielverlauf",
 		["Details →"] = "Details →",

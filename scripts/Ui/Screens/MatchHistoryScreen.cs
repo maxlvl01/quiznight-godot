@@ -32,11 +32,10 @@ public partial class MatchHistoryScreen : Control
 		var me = MyId;
 		foreach (var night in nights)
 		{
-			// (a card per night: everyone's place and points in a line; click it for the night's own screen with the full table)
-			var players = U.Flow(14);
-			foreach (var p in night.Players) players.AddChild(Line(p, p.Id == me));
-			var open = U.Link("Details →", () => App.I.GoMatchNight(night), 13).With(l => l.SizeFlagsHorizontal = SizeFlags.ShrinkBegin);
-			var card = U.Card(8, Head(night, 20), players, open);
+			// (a card per night: a small podium of the top 3's pictures; click it for the night's own screen with the full table)
+			var open = U.Link("Details →", () => App.I.GoMatchNight(night), 13).With(l => l.SizeFlagsVertical = SizeFlags.ShrinkEnd);
+			var more = night.Players.Count > 3 ? U.Muted(Lang.F("+{0} more", night.Players.Count - 3), 13, false).With(l => l.SizeFlagsVertical = SizeFlags.ShrinkEnd) : U.Gap(0);
+			var card = U.Card(8, Head(night, 20), GameParts.Row(14, Podium(night, me), more, U.Fill(), open));
 			card.MouseDefaultCursorShape = CursorShape.PointingHand;
 			card.GuiInput += e =>
 			{
@@ -64,6 +63,32 @@ public partial class MatchHistoryScreen : Control
 			U.Fill(),
 			night.Beta ? U.Pill("Beta", C.Muted) : U.Gap(0),
 			Mid(U.Mono(Date(night.Date), 14, C.Muted)));
+	}
+
+	/// <summary>
+	/// The top 3's profile pictures on little podium steps (2nd, 1st, 3rd; gold, silver, bronze), names on hover, you
+	/// ringed in your colour's light.
+	/// </summary>
+	static Control Podium(Results.Night night, string? me)
+	{
+		var row = U.H(6);
+		row.Alignment = BoxContainer.AlignmentMode.Center;
+		foreach (var place in new[] { 2, 1, 3 })
+		{
+			if (night.Players.FirstOrDefault(x => x.Place == place) is not { } p) continue;
+			var who = new PublicPlayer { Id = p.Id, Name = p.Name, Connected = true, Color = Limits.PlayerColors[p.Id.Aggregate(0, (h, ch) => (h * 31 + ch) & 0xffffff) % Limits.PlayerColors.Length] };
+			var avatar = new Avatar(who, place == 1 ? 40 : 32) { TooltipText = Lang.F("{0}: {1} · {2} pts", Lang.Ordinal(place), p.Name, p.Points) };
+			// (steps of clearly different heights: 1st highest, then 2nd, then 3rd)
+			var label = U.Text(Lang.Ordinal(place), 11, C.Bg, Fonts.Black, false, HorizontalAlignment.Center).With(l => l.VerticalAlignment = VerticalAlignment.Center);
+			var step = U.Panel(label, "Clear")
+				.With(x => x.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Medal(place) ?? C.Muted, 5, p.Id == me ? C.Text : null, p.Id == me ? 2 : 0, 2, 0)))
+				.MinSize(46, place == 1 ? 38 : place == 2 ? 28 : 19);
+			var col = U.V(4, avatar.Center(), step);
+			col.Alignment = BoxContainer.AlignmentMode.End;
+			col.SizeFlagsVertical = SizeFlags.Fill;
+			row.AddChild(col);
+		}
+		return row;
 	}
 
 	/// <summary>
