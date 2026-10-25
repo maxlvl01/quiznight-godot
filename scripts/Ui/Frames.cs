@@ -1,6 +1,6 @@
 // Containers that keep things in shape on any screen: the screens at most 16:9 wide (ultrawide monitors
 // get a space picture at the sides instead of stretched-out screens), and videos at their own aspect ratio
-// (letterboxed in black) instead of filling whatever box they're in.
+// (as big as they fit, centred, with nothing painted around them) instead of filling whatever box they're in.
 
 using System;
 using Godot;
@@ -193,7 +193,10 @@ public partial class SpaceBackdrop : Control
 	}
 }
 
-/// <summary>A video player kept at the video's own aspect ratio, centred on black.</summary>
+/// <summary>
+/// A video player kept at the video's own aspect ratio: as big as fits, centred, with an outline around just the video.
+/// Nothing is painted around it (the black bars beside a 16:9 video in a wide box looked like a broken player).
+/// </summary>
 public partial class VideoFrame : Container
 {
 	readonly VideoStreamPlayer? _video;
@@ -204,7 +207,7 @@ public partial class VideoFrame : Container
 	public VideoFrame(VideoStreamPlayer? video)
 	{
 		_video = video;
-		ClipContents = true;
+		// (not clipped: the outline sits just outside the video)
 		if (video == null) return;
 		video.Expand = true;
 		video.CustomMinimumSize = Vector2.Zero;
@@ -221,14 +224,23 @@ public partial class VideoFrame : Container
 		QueueSort();
 	}
 
-	public override void _Draw() => DrawRect(new Rect2(Vector2.Zero, Size), Colors.Black);
+	Rect2 _fit;
+
+	public override void _Draw()
+	{
+		if (_video == null || _fit.Size.X < 1) return;
+		// (black right under the video, for its first frame; the ink outline of the party look around it)
+		DrawRect(_fit, Colors.Black);
+		DrawStyleBox(UiTheme.Box(Colors.Transparent, 14, C.Ink, 4, 0, 0).With(b => b.DrawCenter = false), _fit.Grow(4));
+	}
 
 	public override void _Notification(int what)
 	{
 		if (what != NotificationSortChildren || _video == null) return;
 		var scale = Mathf.Min(Size.X / _videoSize.X, Size.Y / _videoSize.Y);
 		var fit = _videoSize * scale;
-		FitChildInRect(_video, new Rect2((Size - fit) / 2, fit));
+		_fit = new Rect2(((Size - fit) / 2).Round(), fit.Round());
+		FitChildInRect(_video, _fit);
 		QueueRedraw();
 	}
 }

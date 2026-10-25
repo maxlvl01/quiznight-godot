@@ -5,6 +5,7 @@
 //     while a sound, video or interactive question is open, so it never covers the clip or the microphone). Songs keep
 //     their Epidemic Sound names, "ES_Title - Artist.ogg": the "Now playing" card reads title and artist from that.
 //     IntroSong ("Easy Breezy") always comes first when the game opens, with the voice line.
+//     assets/music/christmas/: songs that only join in at Christmas time (1 to 26 December).
 //     Optional, for a place of its own: <place>.ogg (<place>2 … <place>9), the place being home, editor, statistics,
 //     settings, lobby or game; that place then plays only those.
 //   assets/soundeffects/ui/hover.ogg and click.ogg (or .mp3 / .wav); back.ogg for "←" links, if there is one
@@ -42,7 +43,16 @@ public partial class UiAudio : Node
 	/// </summary>
 	static List<string> AllSongs()
 	{
-		const string dir = "res://assets/music";
+		var songs = SongsIn("res://assets/music");
+		if (IsChristmas(DateTime.Now)) songs.AddRange(SongsIn("res://assets/music/christmas"));
+		return songs;
+	}
+
+	/// <summary>Christmas time: 1 to 26 December (the christmas folder's songs join the others then).</summary>
+	public static bool IsChristmas(DateTime day) => day.Month == 12 && day.Day <= 26;
+
+	static List<string> SongsIn(string dir)
+	{
 		if (!DirAccess.DirExistsAbsolute(dir)) return new();
 		return DirAccess.GetFilesAt(dir).Select(f => f.EndsWith(".import") ? f[..^7] : f.EndsWith(".remap") ? f[..^6] : f)
 			.Where(f => Exts.Any(e => f.EndsWith("." + e, StringComparison.OrdinalIgnoreCase))).Distinct()

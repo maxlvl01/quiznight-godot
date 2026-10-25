@@ -18,6 +18,7 @@ credits later, so keep the columns as they are (leave a cell empty if you don't 
 | `ES_Magic of December - Hara Noda.ogg` | Magic of December | Hara Noda | | menus, lobby and quizzes (shuffled) |
 | `ES_Seth - Martin Landstrom.ogg` | Seth | Martin Landstrom | | menus, lobby and quizzes (shuffled) |
 | `ES_Sugarsnaps - Ennio Mano.ogg` | Sugarsnaps | Ennio Mano | | menus, lobby and quizzes (shuffled) |
+| `christmas/ES_Merriest Christmas of All - Martin Landstrom.ogg` | Merriest Christmas of All | Martin Landstrom | | only 1 to 26 December, with the others |
 | | | | | |
 
 ## Sound effects (assets/soundeffects/ui, voice)
