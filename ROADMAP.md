@@ -33,6 +33,10 @@ off (`- [x]`) when they're done, with the version they came in.
   time, buzz time "–". Fits with the per-question results (buzz time per type comes from there).
   - Where it's recorded: `Game.cs` calls `_hooks.NoteAnswerTime` for buzzes (`Buzz`), answers and recordings
     (`SubmitRecording`); `Room.NoteAnswerTime` adds them up.
+- [ ] **Points as the last column of the Ewige Tabelle** (from the 0.9 chat): like a football table, the points sit at
+  the right end of each row, with the averages before them. Today the order is Nights, Wins, Podiums, Points,
+  Ø points, Ø answer time, Ø km off, Ø % off; Points moves to after Ø % off. It's the `Columns` array plus the row
+  cells in `EternalTableScreen.cs` (the per-type views follow the same rule: the type's main number last).
 - [ ] **Player profile pages:** click a name in the Ewige Tabelle or match history (or "My profile") for a detailed,
   nicely designed overview of one player. Big profile picture top left with name, place in the Ewige Tabelle, nights
   played, wins and podiums; below it cards with every average we have (points, answer/buzz time, km off, % off …).
