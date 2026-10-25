@@ -147,7 +147,12 @@ public static class GameParts
 			var ring = progress != null && p.Connected && progress.TryGetValue(p.Id, out var percent) ? new[] { (Control)new DownloadRing(percent, 16) } : Array.Empty<Control>();
 			var row = Row(8, RankBadge(room.Place(p.Id), true), new Avatar(p, 26), new NameRow(p, SeatNote(p, room), ring).Grow());
 			// (what decides between equal scores, on hover)
-			if (room.AvgAnswerMs.TryGetValue(p.Id, out var ms)) row.TooltipText = Lang.F("Average answer time: {0} s", (ms / 1000).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
+			if (room.Stats.GetValueOrDefault(p.Id) is { } st)
+				row.TooltipText = string.Join("\n", new[]
+				{
+					st.AvgAnswerS is { } a ? Lang.F("Average answer time: {0} s", a.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)) : null,
+					st.AvgBuzzS is { } b ? Lang.F("Average buzz time: {0} s", b.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)) : null,
+				}.Where(t => t != null));
 			AddJokers(row, room, p.Id);
 			if (Moved(room, rows, gained, p.Id) is { } moved) row.AddChild(moved);
 			if (gained.TryGetValue(p.Id, out var g) && g != 0) row.AddChild(U.Text($"+{g}", 14, C.Teal, Fonts.Bold));

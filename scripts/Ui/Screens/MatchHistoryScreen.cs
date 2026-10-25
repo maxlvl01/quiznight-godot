@@ -118,10 +118,10 @@ public partial class MatchHistoryScreen : Control
 	/// <summary>The night in full: place, picture, name, points, questions scored, Ø answer time, Ø map distance, Ø % off.</summary>
 	public static Control Table(Results.Night night, string? me)
 	{
-		var grid = new LinedGrid { Columns = 7 };
+		var grid = new LinedGrid { Columns = 8 };
 		grid.AddThemeConstantOverride("h_separation", 18);
 		grid.AddThemeConstantOverride("v_separation", 12);
-		foreach (var h in new[] { "#", "Player", "Points", "Scored", "Ø answer time", "Ø map off", "Ø % off" }) grid.AddChild(U.Eyebrow(h));
+		foreach (var h in new[] { "#", "Player", "Points", "Scored", "Ø answer time", "Ø buzz time", "Ø map off", "Ø % off" }) grid.AddChild(U.Eyebrow(h));
 		foreach (var p in night.Players)
 		{
 			var mine = p.Id == me;
@@ -130,7 +130,8 @@ public partial class MatchHistoryScreen : Control
 			grid.AddChild(GameParts.Row(8, new Avatar(who, 24), U.Text(p.Name, 15, C.Text, mine ? Fonts.Black : null).Raw()));
 			grid.AddChild(U.Mono($"{p.Points}", 15, C.Accent));
 			grid.AddChild(U.Mono($"{p.Scored}", 14));
-			grid.AddChild(U.Mono(p.AvgAnswerS is { } s ? s.ToString("0.00", Inv) + " s" : "–", 14, C.Muted));
+			grid.AddChild(U.Mono(NightStatsView.Seconds(p.AvgAnswerS), 14, C.Muted));
+			grid.AddChild(U.Mono(NightStatsView.Seconds(p.AvgBuzzS), 14, C.Muted));
 			grid.AddChild(U.Mono(p.AvgKm is { } km ? NightStatsView.Distance(km) : "–", 14, C.Muted));
 			grid.AddChild(U.Mono(p.AvgPercentOff is { } pct ? NightStatsView.Percent(pct) : "–", 14, C.Muted));
 		}
@@ -163,7 +164,7 @@ public partial class MatchNightScreen : Control
 			U.Link("← Match history", App.I.GoMatchHistory).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin),
 			MatchHistoryScreen.Head(night, 30),
 			U.Card(10, MatchHistoryScreen.Table(night, MatchHistoryScreen.MyId)),
-			U.Muted("Ø map off: how far the pins were on maps with a scale. Ø % off: how far the estimations were, in % of the right number (recorded from 0.9.3b on).", 13));
+			U.Muted("Ø answer time: until an answer was locked in (before 0.10.0b buzzes counted in it too). Ø buzz time: until someone buzzed in (from 0.10.0b on). Ø map off: how far the pins were on maps with a scale. Ø % off: how far the estimations were, in % of the right number (recorded from 0.9.3b on).", 13));
 		AddChild(U.Page(page, 980, 20));
 	}
 }

@@ -228,10 +228,29 @@ public static class SelfTest
 		room.GetPlayer("ann")!.Name = "Ann, \"the\" Great";
 		room.NoteDistance("ann", 12.5);
 		var (_, csv) = Storage.Results.Make(room);
-		var rows = Storage.Results.Parse(csv);
+		var all = Storage.Results.Parse(csv);
+		var rows = all.Where(r => r["question"] == "").ToList();
 		Check(rows.Count == 4 && rows[1]["player"] == "Ann, \"the\" Great" && rows[1]["avg_km_off"] == "12.500" && rows[0]["place"] == "1", "results CSV: one row per player, in place order, names with commas and quotes survive");
 		var table = Storage.Results.Table(new[] { csv, csv.Replace("2026", "2027"), csv });
 		Check(table.Count == 4 && table.First(c => c.Id == "bob") is { Nights: 2, Wins: 2, Podiums: 2, Points: 6 } && table.Last().Points == 4, "eternal table: nights added up per player (the same night twice counts once), most points first");
+		Eq(table.First(c => c.Id == "bob").ChampionshipPoints(ScoringPresets.BuiltIn[0].Points), 50, "championship points: two F1 wins are 50");
+		Eq(Storage.Results.Table(new[] { csv, csv.Replace("2026", "2028") }, from: "2028-01-01").First().Nights, 1, "a season only counts its own nights");
+
+		// Per-question rows: points from the question, the type and subtype, and the host's score changes left out.
+		var q1 = all.Where(r => r["question"] == "1").ToList();
+		Check(q1.Count == 4 && q1.All(r => r["type"] == room.Quiz.Questions[0].Type) && q1.First(r => r["player_id"] == "bob")["q_points"] == "3",
+			"results CSV: one row per player and question, with its type and the points from it");
+		room.AdjustScore("cat", 5);
+		Check(Storage.Results.Questions(new[] { Storage.Results.Make(room).Csv }).First(r => r.PlayerId == "cat").Points == 2, "the host's score changes don't count for a question");
+
+		// Answer and buzz times are separate: a quick buzz doesn't make someone look fast at typing.
+		var (r2, _) = NewRoom(Dev.SampleQuiz.Build(), "ann", "bob");
+		r2.Start();
+		r2.NoteBuzzTime("ann", 800);
+		r2.NoteAnswerTime("bob", 9000);
+		r2.NoteAnswerTime("ann", 12000);
+		Check(r2.StatsOf("ann") is { Buzzes: 1, Answers: 1, AvgAnswerMs: 12000 } && r2.Ranking().Order[0] == "bob",
+			"buzz time has its own average; ties go by answer time first");
 	}
 
 	public static async Task<int> Run(Node node)

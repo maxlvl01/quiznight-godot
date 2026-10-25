@@ -148,8 +148,6 @@ public sealed class RoomState
 	/// <summary>Player ids by position (points, then the tiebreaks: Room.Ranking), and each one's place (equal ones share).</summary>
 	public List<string> Ranking = new();
 	public Dictionary<string, int> Places = new();
-	/// <summary>Average buzz/answer time per player (ms), shown with the scores.</summary>
-	public Dictionary<string, double> AvgAnswerMs = new();
 	/// <summary>Everyone's numbers for tonight so far (the stats table).</summary>
 	public Dictionary<string, NightStats> Stats = new();
 	/// <summary>How much of the quiz's pictures, sounds and videos each player has, 0–100 (all of it, ahead of time).</summary>
@@ -170,12 +168,14 @@ public sealed class RoomState
 }
 
 /// <summary>A number (estimation), a choice index (A–D), several choice indexes (multi) or a point on the map (map pin).</summary>
-/// <summary>One player's night so far: questions scored, average answer time, how far off on maps and estimations.</summary>
+/// <summary>One player's night so far: questions scored, average answer and buzz time, how far off on maps and estimations.</summary>
 public sealed class NightStats
 {
 	public int Scored;
 	public int Answers;
 	public double? AvgAnswerS;
+	public int Buzzes;
+	public double? AvgBuzzS;
 	public double? AvgKm;
 	public double? AvgPercentOff;
 }

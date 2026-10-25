@@ -270,6 +270,10 @@ public sealed class Question
 	/// <summary>Optional bonus the host can give at the reveal, e.g. "Also name the game" (0 = no bonus).</summary>
 	public int BonusPoints;
 	public string BonusText = "";
+	/// <summary>Optional category ("Geography", or the quiz maker's own): shown to players only if the lobby allows it.</summary>
+	public string Category = "";
+	/// <summary>Never show this question's category, even when the lobby shows categories (it would give it away).</summary>
+	public bool CategorySecret;
 	/// <summary>Classic buzzer, sound, video, image reveal: everyone types their answer instead of buzzing in.</summary>
 	public bool Typed;
 
@@ -437,8 +441,9 @@ public static class QuizRules
 	/// 6: picture questions (type "picture": slides, answered like classic).
 	/// 7: interactive questions (type "interactive": judging) and step by step (type "steps": hints).
 	/// 8: estimation and map pin can score by place (rankPoints, e.g. F1's 25 / 18 / 15 …).
+	/// 9: every question can have a category (category, categorySecret).
 	/// </summary>
-	public const int FormatVersion = 8;
+	public const int FormatVersion = 9;
 
 	public static readonly string[] ChoiceLetters = { "A", "B", "C", "D" };
 

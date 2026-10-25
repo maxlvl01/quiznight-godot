@@ -18,8 +18,18 @@ public interface IGameHooks
 	int AnswerTimeSec();
 	/// <summary>The host allows this joker kind this match.</summary>
 	bool JokerAllowed(string kind);
-	/// <summary>For the ranking's tiebreaks: how long a player took to buzz or lock in an answer (ms)…</summary>
+	/// <summary>For the ranking's tiebreaks: how long a player took to lock in an answer or send a recording (ms)…</summary>
 	void NoteAnswerTime(string playerId, long ms);
+	/// <summary>…how long they took to buzz in (ms; its own average, a buzz is much quicker than typing)…</summary>
+	void NoteBuzzTime(string playerId, long ms);
+	/// <summary>…a buzz the host judged wrong, and a timeline placement (right or not), for the per-question results…</summary>
+	void NoteWrongBuzz(string playerId);
+	void NotePlacement(string playerId, bool right);
+	/// <summary>
+	/// …that they played the question at its reveal: whether they answered at all, the joker they played on it
+	/// (Joker kind or null) and, on a step by step question they got right, at which hint (1 = the first, hardest).
+	/// </summary>
+	void NoteTookPart(string playerId, bool answered, string? joker, int? hint);
 	/// <summary>…how far off a map pin was (km, maps with a scale only), and an estimation (% of the right number)…</summary>
 	void NoteDistance(string playerId, double km);
 	void NotePercentOff(string playerId, double percent);
@@ -323,7 +333,7 @@ public sealed class Game
 		var at = buzz.FastPass ? _buzzes.FindIndex(b => b.Status == BuzzStatus.Waiting && !b.FastPass) : -1;
 		if (at >= 0) _buzzes.Insert(at, buzz);
 		else _buzzes.Add(buzz);
-		_hooks.NoteAnswerTime(playerId, buzz.AtMs);
+		_hooks.NoteBuzzTime(playerId, buzz.AtMs);
 		if (!someoneAnswering) _answeringSince = now;
 		return true;
 	}
@@ -341,6 +351,7 @@ public sealed class Game
 			return true;
 		}
 		current.Status = BuzzStatus.Wrong;
+		_hooks.NoteWrongBuzz(current.PlayerId);
 		var nextUp = _buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Waiting);
 		if (nextUp != null) nextUp.Status = BuzzStatus.Answering;
 		_answeringSince = nextUp != null ? _hooks.Now() : null;
@@ -450,6 +461,17 @@ public sealed class Game
 			if (e.Points != 0) _hooks.Award(e.PlayerId, e.Points);
 		}
 		foreach (var e in _reveal.Entries.Where(e => e.Points > 0)) _hooks.NoteScored(e.PlayerId);
+		// (everyone who played it, for the per-question results: answered or not, joker, the hint a right buzz came at)
+		var hint = Question.IsSteps && _stepsWorth is { } worth ? Question.FilledHints.Count - worth + 1 : (int?)null;
+		var buzzes = _buzzes.Concat(_pastBuzzes).ToList();
+		foreach (var id in Active().Concat(_reveal.Entries.Select(e => e.PlayerId)).Distinct())
+		{
+			// (timeline turns count through NotePlacement)
+			var answered = _answers.Any(a => a.PlayerId == id) || buzzes.Any(b => b.PlayerId == id) || _recordings.ContainsKey(id);
+			var joker = Played(id, Joker.Double, Index) ? Joker.Double : Played(id, Joker.FastPass, Index) ? Joker.FastPass : null;
+			var right = buzzes.Any(b => b.PlayerId == id && b.Status == BuzzStatus.Correct);
+			_hooks.NoteTookPart(id, answered, joker, right ? hint : null);
+		}
 	}
 
 	// ---------- interactive ----------
@@ -667,6 +689,7 @@ public sealed class Game
 			return false;
 		var text = Question.Items[item];
 		_tlResultRight = gap == RightGap(item);
+		_hooks.NotePlacement(player, _tlResultRight);
 		if (_tlResultRight)
 		{
 			PutDown(item, player);
@@ -707,6 +730,7 @@ public sealed class Game
 		_tlLast = new TimelineEvent { Kind = kind, PlayerId = player, Item = Question.Items[item] };
 		if (kind == TimelineEventKind.TimeUp)
 		{
+			_hooks.NotePlacement(player, false);
 			_tlResultRight = false;
 			_tlTurnEnds = null;
 			_tlPhase = TimelinePhase.Result;

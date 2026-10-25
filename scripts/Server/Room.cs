@@ -26,8 +26,12 @@ public sealed class PlayerStats
 {
 	/// <summary>When their score last changed: of two with the same score, the one who got there first is ahead.</summary>
 	public long? ScoreChangedAt;
+	/// <summary>Answers locked in and recordings sent: time from the question's start.</summary>
 	public long AnswerMs;
 	public int Answers;
+	/// <summary>Buzzes: time to buzz in (much quicker than typing, so it's its own average).</summary>
+	public long BuzzMs;
+	public int Buzzes;
 	public double Km;
 	public int KmAnswers;
 	/// <summary>Questions they scored on.</summary>
@@ -38,8 +42,25 @@ public sealed class PlayerStats
 	public int PercentAnswers;
 
 	public double? AvgAnswerMs => Answers > 0 ? (double)AnswerMs / Answers : null;
+	public double? AvgBuzzMs => Buzzes > 0 ? (double)BuzzMs / Buzzes : null;
 	public double? AvgKm => KmAnswers > 0 ? Km / KmAnswers : null;
 	public double? AvgPercentOff => PercentAnswers > 0 ? PercentOff / PercentAnswers : null;
+}
+
+/// <summary>One player's go at one question, for the per-question rows of the saved results (stats per question type).</summary>
+public sealed class QuestionStat
+{
+	/// <summary>Points from the question itself (with Double, bonus and hand-ticked answers; not the host's score changes).</summary>
+	public int Points;
+	public bool Right;
+	/// <summary>Answered, buzzed, recorded or took a timeline turn (else they just let it pass).</summary>
+	public bool Answered;
+	public int Buzzes, WrongBuzzes, Placements, PlacementsRight;
+	public long? BuzzMs, AnswerMs;
+	public double? Km, PercentOff;
+	/// <summary>Step by step: the hint (1 = first) they got it right at.</summary>
+	public int? Hint;
+	public string Joker = "";
 }
 
 public sealed class Room : IGameHooks
@@ -57,6 +78,16 @@ public sealed class Room : IGameHooks
 	public readonly Dictionary<string, PlayerStats> Stats = new();
 
 	public PlayerStats StatsOf(string playerId) => Stats.TryGetValue(playerId, out var s) ? s : Stats[playerId] = new PlayerStats();
+
+	/// <summary>Per question (0-based index) and player: how it went, for the saved results.</summary>
+	public readonly Dictionary<(int Question, string Player), QuestionStat> QuestionStats = new();
+
+	/// <summary>The current question's record for a player.</summary>
+	QuestionStat Q(string playerId)
+	{
+		var key = (Game?.Index ?? 0, playerId);
+		return QuestionStats.TryGetValue(key, out var s) ? s : QuestionStats[key] = new QuestionStat();
+	}
 
 	public readonly string Code;
 	/// <summary>Full quiz including answers and media — never send this to players as-is.</summary>
@@ -91,7 +122,15 @@ public sealed class Room : IGameHooks
 	public bool HostUnlocksBuzzers() => Settings.HostUnlocksBuzzers;
 	public bool JokerAllowed(string kind) => Settings.Jokers.Contains(kind);
 	public int Score(string playerId) => Scores.GetValueOrDefault(playerId);
+	/// <summary>Points from the current question (they count for its per-question stats too).</summary>
 	public void Award(string playerId, int points)
+	{
+		AdjustScore(playerId, points);
+		if (Game != null) Q(playerId).Points += points;
+	}
+
+	/// <summary>The host changes a score by hand: it counts for the night, not for any question.</summary>
+	public void AdjustScore(string playerId, int points)
 	{
 		Scores[playerId] = (Scores.TryGetValue(playerId, out var s) ? s : 0) + points;
 		if (points != 0) StatsOf(playerId).ScoreChangedAt = Now();
@@ -99,9 +138,45 @@ public sealed class Room : IGameHooks
 
 	public void NoteAnswerTime(string playerId, long ms)
 	{
+		ms = Math.Max(0, ms);
 		var s = StatsOf(playerId);
-		s.AnswerMs += Math.Max(0, ms);
-		s.Answers++;
+		var q = Q(playerId);
+		// (a new recording replaces the last one: its time too)
+		if (q.AnswerMs is { } before) s.AnswerMs -= before;
+		else s.Answers++;
+		s.AnswerMs += ms;
+		q.AnswerMs = ms;
+		q.Answered = true;
+	}
+
+	public void NoteBuzzTime(string playerId, long ms)
+	{
+		ms = Math.Max(0, ms);
+		var s = StatsOf(playerId);
+		s.BuzzMs += ms;
+		s.Buzzes++;
+		var q = Q(playerId);
+		q.BuzzMs ??= ms;
+		q.Buzzes++;
+		q.Answered = true;
+	}
+
+	public void NoteWrongBuzz(string playerId) => Q(playerId).WrongBuzzes++;
+
+	public void NotePlacement(string playerId, bool right)
+	{
+		var q = Q(playerId);
+		q.Placements++;
+		if (right) q.PlacementsRight++;
+		q.Answered = true;
+	}
+
+	public void NoteTookPart(string playerId, bool answered, string? joker, int? hint)
+	{
+		var q = Q(playerId);
+		q.Answered |= answered;
+		q.Joker = joker ?? "";
+		q.Hint = hint ?? q.Hint;
 	}
 
 	public void NoteDistance(string playerId, double km)
@@ -109,27 +184,34 @@ public sealed class Room : IGameHooks
 		var s = StatsOf(playerId);
 		s.Km += km;
 		s.KmAnswers++;
+		Q(playerId).Km = km;
 	}
 
-	public void NoteScored(string playerId) => StatsOf(playerId).Scored++;
+	public void NoteScored(string playerId)
+	{
+		StatsOf(playerId).Scored++;
+		Q(playerId).Right = true;
+	}
 
 	public void NotePercentOff(string playerId, double percent)
 	{
 		var s = StatsOf(playerId);
 		s.PercentOff += percent;
 		s.PercentAnswers++;
+		Q(playerId).PercentOff = percent;
 	}
 
 	/// <summary>
 	/// Everyone's position: most points first; same points, whoever got there first; then the faster average
-	/// buzz/answer time; then the closer average map pin; then who joined first. Players equal in all of these share a place.
+	/// answer time, then the faster average buzz time; then the closer average map pin; then who joined first. Players
+	/// equal in all of these share a place.
 	/// </summary>
 	public (List<string> Order, Dictionary<string, int> Places) Ranking()
 	{
-		(int, long, double, double) Key(Player p)
+		(int, long, double, double, double) Key(Player p)
 		{
 			var s = StatsOf(p.Id);
-			return (-Score(p.Id), s.ScoreChangedAt ?? long.MaxValue, s.AvgAnswerMs ?? double.MaxValue, s.AvgKm ?? double.MaxValue);
+			return (-Score(p.Id), s.ScoreChangedAt ?? long.MaxValue, s.AvgAnswerMs ?? double.MaxValue, s.AvgBuzzMs ?? double.MaxValue, s.AvgKm ?? double.MaxValue);
 		}
 		var order = Players.Select((p, joined) => (P: p, Key: Key(p), Joined: joined)).OrderBy(x => x.Key).ThenBy(x => x.Joined).ToList();
 		var places = new Dictionary<string, int>();
@@ -146,10 +228,10 @@ public sealed class Room : IGameHooks
 		{
 			Ranking = order,
 			Places = places,
-			AvgAnswerMs = Stats.Where(s => s.Value.AvgAnswerMs != null).ToDictionary(s => s.Key, s => s.Value.AvgAnswerMs!.Value),
 			Stats = Stats.ToDictionary(s => s.Key, s => new NightStats
 			{
-				Scored = s.Value.Scored, Answers = s.Value.Answers, AvgAnswerS = s.Value.AvgAnswerMs / 1000, AvgKm = s.Value.AvgKm, AvgPercentOff = s.Value.AvgPercentOff,
+				Scored = s.Value.Scored, Answers = s.Value.Answers, AvgAnswerS = s.Value.AvgAnswerMs / 1000, Buzzes = s.Value.Buzzes,
+				AvgBuzzS = s.Value.AvgBuzzMs / 1000, AvgKm = s.Value.AvgKm, AvgPercentOff = s.Value.AvgPercentOff,
 			}),
 			Code = Code,
 			Quiz = new QuizInfo { Id = Quiz.Id, Title = Quiz.Title, QuestionCount = Quiz.Questions.Count },
@@ -272,6 +354,7 @@ public sealed class Room : IGameHooks
 		Phase = Shared.Phase.Playing;
 		Scores.Clear();
 		Stats.Clear();
+		QuestionStats.Clear();
 		foreach (var p in Players)
 		{
 			Scores[p.Id] = 0;
@@ -304,6 +387,7 @@ public sealed class Room : IGameHooks
 		Game = null;
 		Scores.Clear();
 		Stats.Clear();
+		QuestionStats.Clear();
 		foreach (var p in Players) p.JoinedAt = p.LeftAt = null;
 		Phase = Shared.Phase.Lobby;
 	}

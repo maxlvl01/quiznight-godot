@@ -333,7 +333,7 @@ public sealed class HostSession : IDisposable
 	public void AdjustScore(string playerId, int delta)
 	{
 		if (!Playing() || delta == 0 || Room.Players.All(p => p.Id != playerId)) return;
-		Room.Award(playerId, delta);
+		Room.AdjustScore(playerId, delta);
 		Broadcast();
 	}
 	public void ShowQuestion() => GameAction(g => g.ShowQuestion());

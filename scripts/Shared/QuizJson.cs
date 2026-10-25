@@ -75,6 +75,11 @@ public static class QuizJson
 			o["bonusPoints"] = q.BonusPoints;
 			o["bonusText"] = q.BonusText;
 		}
+		if (q.Category != "")
+		{
+			o["category"] = q.Category;
+			if (q.CategorySecret) o["categorySecret"] = true;
+		}
 		if (q.CanBeTyped) o["typed"] = q.Typed;
 		// (typed questions have a time limit; classic writes it anyway)
 		if (q.IsTyped && !q.IsClassicLike) o["timeLimitSec"] = q.TimeLimitSec;
@@ -225,6 +230,8 @@ public static class QuizJson
 		q.BonusPoints = Math.Clamp((int)Num(o, "bonusPoints", 0), 0, QuestionLimits.BonusPointsMax);
 		q.BonusText = Str(o, "bonusText");
 		if (q.BonusText.Length > QuestionLimits.BonusTextMaxLength) q.BonusText = q.BonusText[..QuestionLimits.BonusTextMaxLength];
+		q.Category = Categories.Clean(Str(o, "category"));
+		q.CategorySecret = q.Category != "" && o["categorySecret"] is JsonValue cs && cs.TryGetValue<bool>(out var secret) && secret;
 		return q;
 	}
 
