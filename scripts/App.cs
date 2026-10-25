@@ -57,6 +57,9 @@ public partial class App : Control
 		_banners.SetAnchorsPreset(LayoutPreset.TopWide);
 		_banners.MouseFilter = MouseFilterEnum.Ignore;
 		AddChild(_banners);
+		// (the splash plays out on top of the first screen; not in dev and test runs, which pass arguments after --)
+		SplashIntro? splash = null;
+		if (OS.GetCmdlineUserArgs().Length == 0 && DisplayServer.GetName() != "headless") AddChild(splash = new SplashIntro());
 
 		GetTree().AutoAcceptQuit = false;
 		// (the name players see; project.godot keeps "QuizNight!", which names the exported data folder that updates rely on)
@@ -75,9 +78,15 @@ public partial class App : Control
 		if (_dev?.TakesOver != true)
 		{
 			GoHome();
-			WhatsNew.ShowIfUpdated(this);
-			if (Updater.Enabled) Updater.CleanUp();
-			UpdatePrompt.CheckAndInstall(this);
+			// (What's new and the update prompt are windows of their own: they wait until the splash is gone)
+			void Popups()
+			{
+				WhatsNew.ShowIfUpdated(this);
+				if (Updater.Enabled) Updater.CleanUp();
+				UpdatePrompt.CheckAndInstall(this);
+			}
+			if (splash != null) splash.TreeExited += Popups;
+			else Popups();
 		}
 	}
 

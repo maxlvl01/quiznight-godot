@@ -37,6 +37,12 @@ public sealed class DevTools
 	bool _mapZoomed;
 	bool _scrolled;
 
+	async void MakeSplash(string path)
+	{
+		await Ui.SplashIntro.Save(_app, path);
+		_app.Quit(0);
+	}
+
 	async void SavePoster(string path)
 	{
 		var (_, csvs, from, until, label) = EternalTableScreen.Current();
@@ -160,7 +166,14 @@ public sealed class DevTools
 			_app.AddChild(timer);
 		}
 
-		if (Has("--selftest"))
+		// (--make-splash FILE: the splash as the boot splash picture, then quit; --splash: play the splash in this run)
+		if (Has("--splash")) _app.AddChild(new Ui.SplashIntro());
+		if (Value("--make-splash") is { } splashFile)
+		{
+			TakesOver = true;
+			Callable.From(() => MakeSplash(splashFile)).CallDeferred();
+		}
+		else if (Has("--selftest"))
 		{
 			TakesOver = true;
 			RunSelfTest();
