@@ -722,6 +722,10 @@ public static class SelfTest
 		Check(AppVersion.Parse("0.10.0b") > AppVersion.Parse("0.9.6b")!.Value, "0.10.0b is an update for 0.9.6b");
 		Check(Ui.UiAudio.IsChristmas(new DateTime(2026, 12, 24)) && !Ui.UiAudio.IsChristmas(new DateTime(2026, 12, 27)) && !Ui.UiAudio.IsChristmas(new DateTime(2026, 11, 30)),
 			"Christmas songs: 1 to 26 December");
+		Check(Storage.CrashReports.HasError("ok\nERROR: System.NullReferenceException: Object reference not set\n   at X")
+			&& !Storage.CrashReports.HasError("ERROR: Couldn't load a font\nWARNING: x"), "crash reports: C# errors found in a log, plain Godot errors not");
+		Check(Storage.CrashReports.Anonymise(@"C:\Users\Max\AppData\Roaming\Quiznight", "max") == @"C:\Users\<user>\AppData\Roaming\Quiznight",
+			"crash reports: the user name is left out of paths");
 		Check(Ui.UiAudio.Describe("res://assets/music/ES_Easy Breezy - Megan Wofford.ogg") == ("Easy Breezy", "Megan Wofford"), "a song's title and artist come from its Epidemic Sound name");
 		Check(AppVersion.Parse("hello") == null, "not a version");
 		var notes = Changelog.Parse(Godot.FileAccess.GetFileAsString("res://CHANGELOG.md"));

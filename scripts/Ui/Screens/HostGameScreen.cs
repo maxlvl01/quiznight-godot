@@ -245,9 +245,11 @@ public partial class HostGameScreen : Control, IRoomScreen
 		_side.Clear();
 		GameParts.SideInfo(_side, room, null, _host.AdjustScore);
 		_side.AddChild(U.Gap(6));
-		_side.AddChild(U.Link("End quiz early", () => Dialogs.Confirm(this, "End the quiz now and show the final results?", "End quiz", _host.Finish), 14)
-			.With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin));
+		_side.AddChild(U.Link("End quiz early", AskEnd, 14).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin));
 	}
+
+	/// <summary>"End quiz early" (also Escape): asks first.</summary>
+	public void AskEnd() => Dialogs.Confirm(this, "End the quiz now and show the final results?", "End quiz", _host.Finish);
 
 
 	GameView? _game;

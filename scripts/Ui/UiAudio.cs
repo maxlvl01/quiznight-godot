@@ -142,10 +142,15 @@ public partial class UiAudio : Node
 
 	public override void _ExitTree() => GetTree().NodeAdded -= Hook;
 
+	/// <summary>Meta for a button that shouldn't grow under the mouse (list rows, cards in a grid).</summary>
+	public const string NoBounce = "no_bounce";
+
 	/// <summary>The party show bounce: buttons grow a little under the mouse and squash when clicked (links don't move).</summary>
 	static void Bounce(BaseButton button, float to, double time)
 	{
 		if (button.ThemeTypeVariation == "LinkButton2" || button is Ui.Screens.BuzzButton or CheckBox || !button.IsVisibleInTree() || Announcer.ReduceMotion) return;
+		// (big rows and cards keep still: grown, they'd poke out of their list and get cut off at its edge)
+		if (button.HasMeta(NoBounce) || button.Size.X > 420) return;
 		button.PivotOffset = button.Size / 2;
 		var t = button.CreateTween();
 		t.TweenProperty(button, "scale", new Vector2(to, to), time).SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
@@ -205,6 +210,7 @@ public partial class UiAudio : Node
 	}
 
 	bool _quiet;
+	bool _questionQuiet;
 
 	/// <summary>
 	/// During a quiz: a question that plays its own sound (sound, video) or records the microphone (interactive) wants
@@ -212,6 +218,16 @@ public partial class UiAudio : Node
 	/// </summary>
 	public void Quiet(bool quiet)
 	{
+		_questionQuiet = quiet;
+		Apply();
+	}
+
+	// (a ▶ preview of a buzzer or podium sound, or the podium sound at the end, also wants quiet while it plays)
+	public override void _Process(double delta) => Apply();
+
+	void Apply()
+	{
+		var quiet = _questionQuiet || Storage.Sfx.IsPlaying(true) || (Storage.Sfx.Previewing && Storage.Sfx.IsPlaying(false));
 		if (quiet == _quiet) return;
 		_quiet = quiet;
 		if (_music.Stream == null) return;
@@ -250,6 +266,7 @@ public partial class UiAudio : Node
 	{
 		var tracks = Place(screen) is { } place ? Tracks(place) : new();
 		// (a new screen starts out loud: only a quiz question asks for quiet)
+		_questionQuiet = false;
 		if (_quiet)
 		{
 			_quiet = false;

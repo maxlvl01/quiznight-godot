@@ -192,6 +192,9 @@ public partial class ProfileScreen : Control
 		var since = mine.Count > 0 ? Lang.F("First quiz night: {0}", EternalTableScreen.Date(mine[0].Night.Date)) : "";
 		var right = U.V(8, U.Eyebrow("Form"), form, U.Muted(since, 13), U.Muted(tableLabel, 12));
 		right.SizeFlagsHorizontal = SizeFlags.ShrinkEnd;
+		// (wide enough for five form pills, so the lines under them don't wrap after every word)
+		right.CustomMinimumSize = new Vector2(5 * 46 + 4 * 6, 0);
+		form.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
 		var awards = U.H(8);
 		if (puppy) awards.AddChild(PuppyBadge(15));
 		var name = U.V(6, U.Text(me.Name, 38, C.Text, Fonts.Black).Raw(), U.H(12, U.Text(role, 18, C.Accent, Fonts.Bold).Raw(), awards), U.Gap(4), facts).Grow();

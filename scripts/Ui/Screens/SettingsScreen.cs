@@ -117,7 +117,10 @@ public partial class SettingsScreen : Control
 				// Rebuild so text made from parts (Lang.F) switches too.
 				Callable.From(App.I.GoSettings).CallDeferred();
 			}),
-			U.Muted("Changes all menus and game screens. Quiz questions stay in the language they were written in.", 12));
+			U.Muted("Changes all menus and game screens. Quiz questions stay in the language they were written in.", 12),
+			U.Gap(4),
+			U.Eyebrow("Crash reports"),
+			U.Muted("If Quiznight crashes or runs into an error, the next start sends the end of its log to Max, so he can fix it. Your Windows user name is left out.", 12));
 
 		_reset = U.Btn("↺ Reset to defaults", "", () =>
 		{

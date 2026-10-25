@@ -192,7 +192,10 @@ public static class UiTheme
 		return s;
 	}
 
-	static void ButtonType(Theme t, string type, Color bg, Color ink, Color? border, int radius = 16, float padX = 20, float padY = 9, bool chunky = true)
+	/// <param name="outline">Ink outline width; <paramref name="depth"/> the solid edge under it. Small buttons get thin ones
+	/// (a thick edge on a 30 px button looks crowded), big ones the full party show look.</param>
+	static void ButtonType(Theme t, string type, Color bg, Color ink, Color? border, int radius = 16, float padX = 20, float padY = 9, bool chunky = true,
+		int outline = 3, int depth = 5)
 	{
 		if (!chunky || bg.A == 0)
 		{
@@ -204,11 +207,11 @@ public static class UiTheme
 		}
 		else
 		{
-			t.SetStylebox("normal", type, Chunky(bg, radius, padX, padY));
-			t.SetStylebox("hover", type, Chunky(bg.Lightened(0.1f), radius, padX, padY));
-			t.SetStylebox("pressed", type, Chunky(bg.Darkened(0.08f), radius, padX, padY, pressed: true));
-			t.SetStylebox("hover_pressed", type, Chunky(bg.Darkened(0.04f), radius, padX, padY, pressed: true));
-			var off = Chunky(new Color(bg, 0.45f), radius, padX, padY);
+			t.SetStylebox("normal", type, Chunky(bg, radius, padX, padY, outline, depth));
+			t.SetStylebox("hover", type, Chunky(bg.Lightened(0.1f), radius, padX, padY, outline, depth));
+			t.SetStylebox("pressed", type, Chunky(bg.Darkened(0.08f), radius, padX, padY, outline, depth, true));
+			t.SetStylebox("hover_pressed", type, Chunky(bg.Darkened(0.04f), radius, padX, padY, outline, depth, true));
+			var off = Chunky(new Color(bg, 0.45f), radius, padX, padY, outline, depth);
 			off.BorderColor = new Color(C.Ink, 0.6f);
 			t.SetStylebox("disabled", type, off);
 		}
@@ -242,14 +245,14 @@ public static class UiTheme
 		t.SetTypeVariation("LinkButton2", "Button");
 		ButtonType(t, "LinkButton2", Colors.Transparent, C.Muted, null, 8, 4, 6, false);
 		t.SetTypeVariation("SmallButton", "Button");
-		ButtonType(t, "SmallButton", C.Panel2, C.Text, null, 12, 12, 4);
+		ButtonType(t, "SmallButton", C.Panel2, C.Text, null, 10, 10, 4, outline: 2, depth: 1);
 		t.SetTypeVariation("ToggleOn", "Button");
-		ButtonType(t, "ToggleOn", C.Blue, C.Ink, null, 14, 14, 7);
+		ButtonType(t, "ToggleOn", C.Blue, C.Ink, null, 14, 14, 7, outline: 2, depth: 3);
 		t.SetTypeVariation("ToggleOff", "Button");
-		ButtonType(t, "ToggleOff", C.Panel2, C.Muted, null, 14, 14, 7);
+		ButtonType(t, "ToggleOff", C.Panel2, C.Muted, null, 14, 14, 7, outline: 2, depth: 3);
 
 		// OptionButton has its own theme type.
-		ButtonType(t, "OptionButton", C.Panel2, C.Text, null, 14, 12, 7);
+		ButtonType(t, "OptionButton", C.Panel2, C.Text, null, 14, 12, 7, outline: 2, depth: 3);
 
 		// Cards and panels: outlined in ink, with a drop under the big ones
 		t.SetStylebox("panel", "PanelContainer", Chunky(C.Panel, 24, 24, 22, 4, 7));
@@ -257,10 +260,10 @@ public static class UiTheme
 		{
 			("Card2", Chunky(C.Panel2, 18, 14, 12, 3, 4)),
 			("Inset", Box(C.Bg.Darkened(0.25f), 16, C.Ink, 3, 14, 12)),
-			("Chip", Chunky(C.Panel2, 12, 10, 4, 3, 2)),
-			("ChipMe", Chunky(C.Blue.Darkened(0.45f), 12, 10, 4, 3, 2)),
-			("Pill", Chunky(C.Panel2, 12, 12, 4, 3, 2)),
-			("Notice", Chunky(C.Panel2, 14, 14, 10, 3, 3)),
+			("Chip", Chunky(C.Panel2, 12, 10, 4, 2, 0)),
+			("ChipMe", Chunky(C.Blue.Darkened(0.45f), 12, 10, 4, 2, 0)),
+			("Pill", Chunky(C.Panel2, 12, 12, 4, 2, 0)),
+			("Notice", Chunky(C.Panel2, 14, 14, 10, 2, 2)),
 			("Bar", Box(C.Panel, 0, null, 0, 20, 12)),
 			("Highlight", Chunky(C.Accent.Darkened(0.55f), 16, 14, 10, 3, 4)),
 			("Scored", Chunky(C.Teal.Darkened(0.6f), 16, 14, 10, 3, 4)),

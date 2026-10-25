@@ -546,3 +546,59 @@ public partial class LinedGrid : GridContainer
 			}
 	}
 }
+
+/// <summary>
+/// The Fast Pass joker's lightning bolt, drawn in the party show style (filled, ink outline) instead of the ⚡ emoji,
+/// which looked out of place. As a texture for buttons, or a small picture for pills and rows.
+/// </summary>
+public static class Bolt
+{
+	const string Svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M14.5 1.5 3.5 14h7l-2 8.5 12-13.5h-7.2z' "
+		+ "fill='#{0}' stroke='#{1}' stroke-width='1.8' stroke-linejoin='round'/></svg>";
+
+	static readonly System.Collections.Generic.Dictionary<(int, Color), Texture2D?> Cache = new();
+
+	/// <summary>The bolt, size × size (null in headless runs, which have no renderer for textures).</summary>
+	public static Texture2D? Icon(int size, Color? color = null)
+	{
+		var c = color ?? C.Gold;
+		if (Cache.TryGetValue((size, c), out var cached)) return cached;
+		Texture2D? texture = null;
+		if (DisplayServer.GetName() != "headless")
+		{
+			var image = new Image();
+			// (drawn at 2× and scaled down, for smooth edges at the canvas_items stretch)
+			if (image.LoadSvgFromString(string.Format(Svg, c.ToHtml(false), C.Ink.ToHtml(false)), size * 2 / 24f) == Error.Ok)
+				texture = ImageTexture.CreateFromImage(image);
+		}
+		Cache[(size, c)] = texture;
+		return texture;
+	}
+
+	/// <summary>The bolt as a control (for pills and rows).</summary>
+	public static Control Rect(int size, Color? color = null) => new TextureRect
+	{
+		Texture = Icon(size, color),
+		ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+		StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+		CustomMinimumSize = new Vector2(size, size),
+		SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+		MouseFilter = Control.MouseFilterEnum.Ignore,
+	};
+
+	/// <summary>A joker's pill: "×2 Double points", or the bolt and "Fast Pass" (just the icon with <paramref name="iconOnly"/>).</summary>
+	public static Control JokerPill(string kind, Color color, bool iconOnly = false)
+	{
+		if (kind != Joker.FastPass) return U.Pill(iconOnly ? "×2" : Lang.T(Joker.Label(kind)), color);
+		var row = U.H(4, Rect(16, color == C.Muted ? C.Muted : C.Gold));
+		if (!iconOnly) row.AddChild(U.Text(Lang.T(Joker.Label(kind)), 14, color, Fonts.Bold));
+		return U.Panel(row, "Pill").With(p => p.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter);
+	}
+
+	/// <summary>Puts the bolt on a Fast Pass button.</summary>
+	public static Button On(Button button, string kind)
+	{
+		if (kind == Joker.FastPass) button.Icon = Icon(18);
+		return button;
+	}
+}

@@ -52,6 +52,7 @@ public partial class QuizOverviewScreen : Control
 			// on the right, level with the name, which tells what the type does (hover) and its variants (click).
 			var card = new MarginContainer { MouseFilter = MouseFilterEnum.Ignore }.Grow();
 			var button = new Button { ThemeTypeVariation = "", MouseDefaultCursorShape = CursorShape.PointingHand, CustomMinimumSize = new Vector2(0, 76) };
+			button.SetMeta(UiAudio.NoBounce, true);
 			button.AddThemeStyleboxOverride("normal", UiTheme.Box(C.Panel, 14, C.Border, 1, 16, 14));
 			button.AddThemeStyleboxOverride("hover", UiTheme.Box(C.Panel2, 14, C.ForType(type), 1, 16, 14));
 			button.AddThemeStyleboxOverride("pressed", UiTheme.Box(C.Panel2, 14, C.ForType(type), 1, 16, 14));
@@ -128,6 +129,7 @@ public partial class QuizOverviewScreen : Control
 		if (broken) sub.AddChild(U.Text(" · incomplete", 12, C.Accent));
 		var text = U.V(0, prompt, sub).Grow();
 		var open = new Button { Flat = true, MouseDefaultCursorShape = CursorShape.PointingHand }.Grow();
+		open.SetMeta(UiAudio.NoBounce, true);
 		open.Pressed += () => App.I.GoQuestion(_quiz.Id, q.Id, null);
 		var content = U.H(10, num, text);
 		content.MouseFilter = MouseFilterEnum.Ignore;

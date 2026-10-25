@@ -435,6 +435,9 @@ public static class LangDe
 		["Start quiz"] = "Quiz starten",
 		["Close room"] = "Raum schließen",
 		["Close the room? Everyone in it is sent back to the home screen."] = "Raum schließen? Alle darin kehren zur Startseite zurück.",
+		["Crash reports"] = "Absturzberichte",
+		["If Quiznight crashes or runs into an error, the next start sends the end of its log to Max, so he can fix it. Your Windows user name is left out."] = "Wenn Quiznight abstürzt oder auf einen Fehler stößt, schickt der nächste Start das Ende seines Logs an Max, damit er es beheben kann. Dein Windows-Benutzername wird weggelassen.",
+		["Leave the game? Your seat and points are kept, and you can come back with the room code."] = "Das Spiel verlassen? Dein Platz und deine Punkte bleiben, und mit dem Raumcode kommst du zurück.",
 		["Needs at least {0} players."] = "Braucht mindestens {0} Spieler.",
 		["You need at least {0} connected players."] = "Du brauchst mindestens {0} verbundene Spieler.",
 
@@ -703,7 +706,7 @@ public static class LangDe
 		["left at Q {0}/{1}"] = "weg seit F {0}/{1}",
 		["joined at Q {0}/{1}"] = "dabei seit F {0}/{1}",
 		["Fast Pass · {0}"] = "Fast Pass · {0}",
-		["⚡ Fast Pass"] = "⚡ Fast Pass",
+		["Fast Pass"] = "Fast Pass",
 		["Double points"] = "Doppelte Punkte",
 		["×2 Double points!"] = "×2 Doppelte Punkte!",
 		["Next: buzzer question"] = "Als Nächstes: Buzzer-Frage",

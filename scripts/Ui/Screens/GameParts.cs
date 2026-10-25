@@ -69,13 +69,13 @@ public static class GameParts
 		: p.JoinedAt is { } joined ? U.Muted(Lang.F("joined at Q {0}/{1}", joined, room.Quiz.QuestionCount), 12, false)
 		: null;
 
-	/// <summary>"×2" and "⚡" pills for the jokers a player plays on the current question (once it's shown).</summary>
+	/// <summary>"×2" and lightning bolt pills for the jokers a player plays on the current question (once it's shown).</summary>
 	static void AddJokers(HBoxContainer row, RoomState room, string playerId)
 	{
 		var game = room.Game;
 		if (game == null) return;
 		foreach (var j in game.Jokers.Where(j => j.PlayerId == playerId && j.Index == game.Index && (game.Shown || game.Stage == Stage.Reveal)))
-			row.AddChild(U.Pill(Joker.Icon(j.Kind), C.Accent).Tip(Joker.Label(j.Kind)));
+			row.AddChild(Bolt.JokerPill(j.Kind, C.Accent, true).Tip(Joker.Label(j.Kind)));
 	}
 
 	/// <summary>
@@ -290,9 +290,12 @@ public static class GameParts
 				BuzzStatus.Wrong => "Wrong",
 				_ => "Correct",
 			};
-			var statusText = b.FastPass ? "⚡ " + Lang.F("Fast Pass · {0}", Lang.T(status)) : Lang.T(status);
+			var statusText = b.FastPass ? Lang.F("Fast Pass · {0}", Lang.T(status)) : Lang.T(status);
+			var statusRow = U.H(4, U.Muted(statusText, 12, false).Raw());
+			if (b.FastPass) statusRow.AddChild(Bolt.Rect(13));
+			if (b.FastPass) statusRow.MoveChild(statusRow.GetChild(1), 0);
 			var row = Row(8, RankBadge(i + 1), new Avatar(p, 26),
-				U.V(0, U.Text(p.Name, 15).Raw(), U.Muted(statusText, 12, false).Raw()).Grow(),
+				U.V(0, U.Text(p.Name, 15).Raw(), statusRow).Grow(),
 				U.Mono(game.Question.HasPlayClock ? U.FormatSeconds(b.AtSec) : $"{b.AtSec:0.00} s", 13, C.Muted));
 			var border = b.Status switch { BuzzStatus.Answering => C.Accent, BuzzStatus.Correct => C.Teal, _ => C.Border };
 			var bg = b.Status == BuzzStatus.Answering ? new Color(C.Accent, 0.1f) : C.Panel2;

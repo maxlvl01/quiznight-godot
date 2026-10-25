@@ -32,7 +32,8 @@ public static class ScoringField
 				select.SetItemMetadata(select.ItemCount - 1, id);
 			}
 			Add(Lang.T("Closest wins the round"), ClosestId);
-			Add(Lang.T("Top 3 score (3 / 2 / 1)"), Top3Id);
+			// (Top 3 is the same as the Podium preset; only questions that still use it show it)
+			if (q.Scoring == Scoring.Top3 && !q.HasRankPoints) Add(Lang.T("Top 3 score (3 / 2 / 1)"), Top3Id);
 			select.AddSeparator(Lang.T("Points per place"));
 			foreach (var p in ScoringPresets.BuiltIn) Add(Lang.T(p.Name), "preset:" + p.Name);
 			if (mine.Count > 0)
@@ -117,7 +118,15 @@ public static class ScoringEditor
 			var mine = Settings.ScoringPresets;
 			if (mine.Count > 0) startFrom.AddSeparator(Lang.T("My presets"));
 			foreach (var p in mine) startFrom.AddItem(p.Name);
+			// (the dot sits on the preset these points match, or on "Start from a preset…" once they're changed)
 			startFrom.Selected = 0;
+			for (var i = 1; i < startFrom.ItemCount; i++)
+			{
+				if (startFrom.IsItemSeparator(i)) continue;
+				var label = startFrom.GetItemText(i);
+				var preset = ScoringPresets.BuiltIn.FirstOrDefault(p => Lang.T(p.Name) == label) ?? mine.FirstOrDefault(p => p.Name == label);
+				if (preset != null && preset.Points.SequenceEqual(points)) startFrom.Selected = i;
+			}
 			delete.Visible = mine.Any(p => p.Name == name.Text.Trim());
 		}
 		startFrom.ItemSelected += i =>

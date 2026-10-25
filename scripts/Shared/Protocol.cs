@@ -84,8 +84,8 @@ public static class Joker
 	public const string FastPass = "fastPass";
 	public static readonly string[] All = { Double, FastPass };
 
-	public static string Label(string kind) => kind == Double ? "×2 Double points" : "⚡ Fast Pass";
-	public static string Icon(string kind) => kind == Double ? "×2" : "⚡";
+	/// <summary>The joker's name. The Fast Pass's lightning bolt is drawn next to it (Ui.Bolt), not a ⚡ glyph.</summary>
+	public static string Label(string kind) => kind == Double ? "×2 Double points" : "Fast Pass";
 }
 
 public sealed class JokerPlay

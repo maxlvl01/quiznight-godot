@@ -46,6 +46,8 @@ public partial class App : Control
 	public override void _Ready()
 	{
 		I = this;
+		// (sends the last run's log if it crashed or hit an error; exported builds only)
+		CrashReports.Start();
 		C.Use(Settings.Skin);
 		// (dev runs: --dyslexic and --colour-vision MODE try them without saving)
 		var devArgs = OS.GetCmdlineUserArgs();
@@ -135,6 +137,7 @@ public partial class App : Control
 		Client?.Leave();
 		Client = null;
 		SteamService.Shutdown();
+		CrashReports.Stop();
 		GetTree().Quit(code);
 	}
 
@@ -173,6 +176,66 @@ public partial class App : Control
 	}
 
 	public Control? CurrentScreen => _screen;
+
+	// ---------- Escape: one screen back ----------
+
+	/// <summary>
+	/// Escape goes back one screen everywhere but the home screen: the screen's "← …" link, or what leaving means in a
+	/// room (closing the lobby or ending the quiz ask first). Open dialogs, drop-downs and the picture viewer get the key
+	/// first and close themselves instead.
+	/// </summary>
+	public override void _UnhandledKeyInput(InputEvent e)
+	{
+		if (e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape } || _screen == null) return;
+		if (GetChildren().OfType<SplashIntro>().Any()) return;
+		if (GoBack(_screen)) GetViewport().SetInputAsHandled();
+	}
+
+	bool GoBack(Control screen)
+	{
+		switch (screen)
+		{
+			case HomeScreen:
+				return false;
+			case HostLobbyScreen:
+				Dialogs.Confirm(screen, "Close the room? Everyone in it is sent back to the home screen.", "Close room", CloseRoom);
+				return true;
+			case HostGameScreen game:
+				game.AskEnd();
+				return true;
+			case PlayerGameScreen:
+				Dialogs.Confirm(screen, "Leave the game? Your seat and points are kept, and you can come back with the room code.", "Leave", LeaveRoom);
+				return true;
+			case WaitingRoomScreen:
+				LeaveRoom();
+				return true;
+			case PodiumScreen podium:
+				podium.GoBack();
+				return true;
+			case MessageScreen message:
+				if (message.Escape != null) message.Escape();
+				else GoHome();
+				return true;
+		}
+		// (every other screen has a "← Home", "← My quizzes" … link: Escape presses it)
+		if (BackLink(screen) is { } link)
+		{
+			link.EmitSignal(BaseButton.SignalName.Pressed);
+			return true;
+		}
+		GoHome();
+		return true;
+	}
+
+	static BaseButton? BackLink(Node node)
+	{
+		foreach (var child in node.GetChildren())
+		{
+			if (child is Button { Text: var text } button && text.StartsWith("←") && button.IsVisibleInTree() && !button.Disabled) return button;
+			if (BackLink(child) is { } found) return found;
+		}
+		return null;
+	}
 
 	void OnFilesDropped(string[] files)
 	{

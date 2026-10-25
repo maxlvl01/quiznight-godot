@@ -18,11 +18,15 @@ public partial class MessageScreen : Control
 {
 	public MessageScreen() : this("") { }
 
+	/// <summary>What Escape does here: the button's job (e.g. Cancel), or nothing.</summary>
+	public Action? Escape;
+
 	public MessageScreen(string text, string? button = null, Action? onButton = null)
 	{
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		var box = U.V(16, U.Text(text, 18, C.Muted, null, false, HorizontalAlignment.Center));
 		if (button != null) box.AddChild(U.Btn(button, "", onButton).Center());
+		Escape = onButton;
 		var center = new CenterContainer();
 		center.SetAnchorsPreset(LayoutPreset.FullRect);
 		center.AddChild(box);
@@ -101,8 +105,8 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 			U.Muted("Jokers (once per player and match)", 13).With(l => l.TooltipText = Lang.T("Played before a question starts.")),
 			Rule("×2 Double points", "Whatever the next question gives counts twice. Anyone can play it.", room.Settings.Jokers.Contains(Joker.Double),
 				on => _host.UpdateSettings(joker: (Joker.Double, on))),
-			Rule("⚡ Fast Pass", "On the next buzzer question, your buzz goes ahead of the line. One player per question.", room.Settings.Jokers.Contains(Joker.FastPass),
-				on => _host.UpdateSettings(joker: (Joker.FastPass, on))));
+			Rule("Fast Pass", "On the next buzzer question, your buzz goes ahead of the line. One player per question.", room.Settings.Jokers.Contains(Joker.FastPass),
+				on => _host.UpdateSettings(joker: (Joker.FastPass, on))).With(b => b.Icon = Bolt.Icon(18)));
 		var right = U.V(8,
 			Stepper.Make("Answer time per buzz", room.Settings.AnswerTimeSec, Limits.AnswerTimeMin, Limits.AnswerTimeMax,
 				v => _host.UpdateSettings(answerTimeSec: v), " s"),
@@ -207,7 +211,7 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 		foreach (var kind in Joker.All)
 		{
 			var on = settings.Jokers.Contains(kind);
-			var row = U.H(8, U.Pill(Joker.Label(kind), on ? C.Accent : C.Muted), U.Muted(!on ? Lang.T("Off tonight.") : kind == Joker.Double
+			var row = U.H(8, Bolt.JokerPill(kind, on ? C.Accent : C.Muted), U.Muted(!on ? Lang.T("Off tonight.") : kind == Joker.Double
 				? Lang.T("The next question counts twice. Anyone can play it.")
 				: Lang.T("Your buzz goes ahead of the line. One player per question."), 13).Grow());
 			if (!on) row.Modulate = new Color(1, 1, 1, 0.45f);
@@ -289,6 +293,13 @@ public partial class PodiumScreen : Control, IRoomScreen
 		_content.Alignment = BoxContainer.AlignmentMode.Center;
 		AddChild(U.Page(_content, 860, 48));
 		Ready += () => AddChild(new Confetti());
+	}
+
+	/// <summary>Escape: the host goes back to the lobby, a player leaves.</summary>
+	public void GoBack()
+	{
+		if (_isHost) _backToLobby?.Invoke();
+		else App.I.LeaveRoom();
 	}
 
 	bool _played;

@@ -215,18 +215,18 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			Button button;
 			if (mine != null && (mine.Index < game.Index || mine.Index == game.Index && (game.Shown || game.Stage == Stage.Reveal)))
 			{
-				button = U.Btn(Joker.Label(k), "SmallButton", null, 14);
+				button = Bolt.On(U.Btn(Joker.Label(k), "SmallButton", null, 14), k);
 				button.Disabled = true;
 				hint = Lang.F("Used on question {0}.", mine.Index + 1);
 			}
 			else if (mine != null)
 			{
-				button = U.Btn("✓ " + Lang.T(Joker.Label(k)), "TealButton", () => _client.PlayJoker(k, false), 14);
+				button = Bolt.On(U.Btn("✓ " + Lang.T(Joker.Label(k)), "TealButton", () => _client.PlayJoker(k, false), 14), k);
 				hint = Lang.F("Played on question {0}. Click to take it back.", mine.Index + 1);
 			}
 			else
 			{
-				button = U.Btn(Joker.Label(k), "SmallButton", () => _client.PlayJoker(k, true), 14);
+				button = Bolt.On(U.Btn(Joker.Label(k), "SmallButton", () => _client.PlayJoker(k, true), 14), k);
 				var fastOff = k == Joker.FastPass && !game.JokerBuzzer;
 				var taken = k == Joker.FastPass && game.FastPassTaken;
 				button.Disabled = game.JokerIndex == null || fastOff || taken;
