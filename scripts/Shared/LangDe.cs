@@ -1297,5 +1297,7 @@ public static class LangDe
 		["No rival yet"] = "Noch kein Rivale",
 		["Date"] = "Datum",
 		["Now playing"] = "Läuft gerade",
+		["My quizzes  ▶"] = "Meine Quizze  ▶",
+		["Join!"] = "Beitreten!",
 	};
 }

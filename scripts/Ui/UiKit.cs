@@ -19,6 +19,8 @@ public static class C
 	public static Color Blue;
 	/// <summary>Write the answer (yellow in the purple palette, where orange is the accent).</summary>
 	public static Color Orange;
+	/// <summary>The party show look's thick outlines and the solid drop under buttons and cards (almost black).</summary>
+	public static Color Ink;
 	public static readonly Color Teal = new("#3fd0b0");
 	public static readonly Color TealInk = new("#062019");
 	public static readonly Color Coral = new("#ff6b7a");
@@ -44,13 +46,15 @@ public static class C
 	{
 		if (Skins.Valid(skin) == Skins.Classic)
 		{
-			(Bg, Panel, Panel2, Border, Blue) = (new("#121318"), new("#1b1d26"), new("#232634"), new("#2e3142"), Teal);
+			(Bg, Panel, Panel2, Border, Blue) = (new("#121318"), new("#20232e"), new("#2b2f40"), new("#2e3142"), Teal);
 			(Text, Muted, Accent, AccentInk, Orange) = (new("#ecedf3"), new("#8b8fa3"), new("#f5b942"), new("#1a1408"), new("#ff9f43"));
+			Ink = new("#07080c");
 		}
 		else
 		{
-			(Bg, Panel, Panel2, Border, Blue) = (new("#150023"), new("#1f0833"), new("#2a1042"), new("#1a5a85"), new("#00c9f6"));
+			(Bg, Panel, Panel2, Border, Blue) = (new("#150023"), new("#2b0b47"), new("#3a1260"), new("#1a5a85"), new("#00c9f6"));
 			(Text, Muted, Accent, AccentInk, Orange) = (new("#efeaf6"), new("#a593bd"), new("#ff8201"), new("#2a1200"), new("#ffd23f"));
+			Ink = new("#0d0016");
 		}
 		Choice = new[] { Coral, Sky, Accent, Teal };
 	}
@@ -87,12 +91,38 @@ public static class Skins
 	public static string Valid(string? id) => All.Any(s => s.Id == id) ? id! : Default;
 }
 
+/// <summary>
+/// The party show look's type: Fredoka (rounded, a variable font: one file, any weight) for text, Lilita One (chunky
+/// display) for headings, names and big buttons. Both ship in assets/fonts (OFL); a system font fills in any glyph they
+/// lack (arrows, symbols) and stands in if the files are missing.
+/// </summary>
 public static class Fonts
 {
 	static readonly string[] Sans = { "Sora", "Segoe UI", "Arial" };
-	public static readonly Font Regular = new SystemFont { FontNames = Sans };
-	public static readonly Font Bold = new SystemFont { FontNames = Sans, FontWeight = 700 };
-	public static readonly Font Black = new SystemFont { FontNames = Sans, FontWeight = 800 };
+	static readonly SystemFont System = new() { FontNames = new[] { "Segoe UI", "Segoe UI Symbol", "Arial", "Noto Sans" } };
+
+	static FontFile? Load(string path)
+	{
+		if (!ResourceLoader.Exists(path) || GD.Load<FontFile>(path) is not { } font) return null;
+		font.Fallbacks = new Godot.Collections.Array<Font> { System };
+		return font;
+	}
+
+	static readonly FontFile? Fredoka = Load("res://assets/fonts/Fredoka.ttf");
+	static readonly FontFile? Lilita = Load("res://assets/fonts/LilitaOne-Regular.ttf");
+
+	/// <summary>Fredoka at a weight (300–700), or the system font at that weight.</summary>
+	static Font Weight(int weight)
+	{
+		if (Fredoka == null) return new SystemFont { FontNames = Sans, FontWeight = weight };
+		var tag = (long)TextServerManager.GetPrimaryInterface().NameToTag("wght");
+		return new FontVariation { BaseFont = Fredoka, VariationOpentype = new Godot.Collections.Dictionary { [tag] = weight } };
+	}
+
+	public static readonly Font Regular = Weight(450);
+	public static readonly Font Bold = Weight(600);
+	/// <summary>Headings, names, big numbers and buttons: Lilita One.</summary>
+	public static readonly Font Black = (Font?)Lilita ?? new SystemFont { FontNames = Sans, FontWeight = 800 };
 	/// <summary>Small caps labels ("eyebrows") get extra letter spacing.</summary>
 	public static readonly Font Spaced = new FontVariation { BaseFont = Bold, SpacingGlyph = 2 };
 	public static readonly Font Mono =new SystemFont { FontNames = new[] { "JetBrains Mono", "Consolas", "Courier New" }, FontWeight = 700 };
@@ -124,15 +154,44 @@ public static class UiTheme
 		return s;
 	}
 
-	static void ButtonType(Theme t, string type, Color bg, Color ink, Color? border, int radius = 10, float padX = 20, float padY = 10)
+	/// <summary>
+	/// The party show look's box: a thick ink outline and a solid drop under it (a thicker bottom edge), so it looks like
+	/// it stands up off the screen. pressed: the drop shrinks and the content moves down, as if pushed in.
+	/// </summary>
+	public static StyleBoxFlat Chunky(Color bg, int radius, float padX = 12, float padY = 8, int outline = 3, int depth = 5, bool pressed = false)
 	{
-		t.SetStylebox("normal", type, Box(bg, radius, border, 1, padX, padY));
-		t.SetStylebox("hover", type, Box(bg.A == 0 ? bg : bg.Lightened(0.08f), radius, border, 1, padX, padY));
-		t.SetStylebox("pressed", type, Box(bg.A == 0 ? bg : bg.Darkened(0.08f), radius, border, 1, padX, padY));
-		t.SetStylebox("hover_pressed", type, Box(bg.A == 0 ? bg : bg.Darkened(0.04f), radius, border, 1, padX, padY));
-		var disabled = bg.A == 0 ? bg : new Color(bg, 0.4f);
-		t.SetStylebox("disabled", type, Box(disabled, radius, border is { } b ? new Color(b, 0.4f) : null, 1, padX, padY));
-		t.SetStylebox("focus", type, Outline(C.Blue, radius));
+		var s = Box(bg, radius, C.Ink, outline, padX, padY);
+		var drop = pressed ? Math.Max(outline, depth / 3) : depth;
+		s.BorderWidthBottom = outline + drop;
+		// (pushed in: the text moves down by what the drop lost, so the button's height stays)
+		s.ContentMarginTop = padY + (depth - drop);
+		s.ContentMarginBottom = padY;
+		return s;
+	}
+
+	static void ButtonType(Theme t, string type, Color bg, Color ink, Color? border, int radius = 16, float padX = 20, float padY = 9, bool chunky = true)
+	{
+		if (!chunky || bg.A == 0)
+		{
+			t.SetStylebox("normal", type, Box(bg, radius, border, 1, padX, padY));
+			t.SetStylebox("hover", type, Box(bg, radius, border, 1, padX, padY));
+			t.SetStylebox("pressed", type, Box(bg, radius, border, 1, padX, padY));
+			t.SetStylebox("hover_pressed", type, Box(bg, radius, border, 1, padX, padY));
+			t.SetStylebox("disabled", type, Box(bg, radius, border is { } b0 ? new Color(b0, 0.4f) : null, 1, padX, padY));
+		}
+		else
+		{
+			t.SetStylebox("normal", type, Chunky(bg, radius, padX, padY));
+			t.SetStylebox("hover", type, Chunky(bg.Lightened(0.1f), radius, padX, padY));
+			t.SetStylebox("pressed", type, Chunky(bg.Darkened(0.08f), radius, padX, padY, pressed: true));
+			t.SetStylebox("hover_pressed", type, Chunky(bg.Darkened(0.04f), radius, padX, padY, pressed: true));
+			var off = Chunky(new Color(bg, 0.45f), radius, padX, padY);
+			off.BorderColor = new Color(C.Ink, 0.6f);
+			t.SetStylebox("disabled", type, off);
+		}
+		var focus = Outline(C.Blue, radius + 2, 2);
+		focus.ExpandMarginLeft = focus.ExpandMarginRight = focus.ExpandMarginTop = focus.ExpandMarginBottom = 3;
+		t.SetStylebox("focus", type, focus);
 		t.SetColor("font_color", type, ink);
 		t.SetColor("font_hover_color", type, bg.A == 0 ? C.Text : ink);
 		t.SetColor("font_pressed_color", type, ink);
@@ -146,7 +205,7 @@ public static class UiTheme
 	{
 		var t = new Theme { DefaultFont = Fonts.Regular, DefaultFontSize = BaseFontSize };
 
-		ButtonType(t, "Button", C.Panel2, C.Text, C.Border);
+		ButtonType(t, "Button", C.Panel2, C.Text, null);
 		foreach (var (name, bg, ink) in new[]
 		{
 			("AccentButton", C.Accent, C.AccentInk),
@@ -158,30 +217,30 @@ public static class UiTheme
 			ButtonType(t, name, bg, ink, null);
 		}
 		t.SetTypeVariation("LinkButton2", "Button");
-		ButtonType(t, "LinkButton2", Colors.Transparent, C.Muted, null, 8, 4, 6);
+		ButtonType(t, "LinkButton2", Colors.Transparent, C.Muted, null, 8, 4, 6, false);
 		t.SetTypeVariation("SmallButton", "Button");
-		ButtonType(t, "SmallButton", C.Panel2, C.Text, C.Border, 8, 12, 5);
+		ButtonType(t, "SmallButton", C.Panel2, C.Text, null, 12, 12, 4);
 		t.SetTypeVariation("ToggleOn", "Button");
-		ButtonType(t, "ToggleOn", new Color(C.Blue, 0.18f), C.Blue, C.Blue, 10, 14, 8);
+		ButtonType(t, "ToggleOn", C.Blue, C.Ink, null, 14, 14, 7);
 		t.SetTypeVariation("ToggleOff", "Button");
-		ButtonType(t, "ToggleOff", C.Bg, C.Muted, C.Border, 10, 14, 8);
+		ButtonType(t, "ToggleOff", C.Panel2, C.Muted, null, 14, 14, 7);
 
 		// OptionButton has its own theme type.
-		ButtonType(t, "OptionButton", C.Bg, C.Text, C.Border, 10, 12, 8);
+		ButtonType(t, "OptionButton", C.Panel2, C.Text, null, 14, 12, 7);
 
-		// Cards and panels
-		t.SetStylebox("panel", "PanelContainer", Box(C.Panel, 14, C.Border, 1, 24, 22));
+		// Cards and panels: outlined in ink, with a drop under the big ones
+		t.SetStylebox("panel", "PanelContainer", Chunky(C.Panel, 24, 24, 22, 4, 7));
 		foreach (var (name, box) in new (string, StyleBox)[]
 		{
-			("Card2", Box(C.Panel2, 12, C.Border, 1, 14, 12)),
-			("Inset", Box(C.Bg, 12, C.Border, 1, 14, 12)),
-			("Chip", Box(C.Panel2, 999, C.Border, 1, 10, 5)),
-			("ChipMe", Box(C.Panel2, 999, C.Blue, 1, 10, 5)),
-			("Pill", Box(C.Panel2, 999, C.Border, 1, 12, 5)),
-			("Notice", Box(C.Panel2, 10, C.Border, 1, 14, 10)),
+			("Card2", Chunky(C.Panel2, 18, 14, 12, 3, 4)),
+			("Inset", Box(C.Bg.Darkened(0.25f), 16, C.Ink, 3, 14, 12)),
+			("Chip", Chunky(C.Panel2, 12, 10, 4, 3, 2)),
+			("ChipMe", Chunky(C.Blue.Darkened(0.45f), 12, 10, 4, 3, 2)),
+			("Pill", Chunky(C.Panel2, 12, 12, 4, 3, 2)),
+			("Notice", Chunky(C.Panel2, 14, 14, 10, 3, 3)),
 			("Bar", Box(C.Panel, 0, null, 0, 20, 12)),
-			("Highlight", Box(new Color(C.Accent, 0.1f), 12, C.Accent, 1, 14, 10)),
-			("Scored", Box(new Color(C.Teal, 0.1f), 12, C.Teal, 1, 14, 10)),
+			("Highlight", Chunky(C.Accent.Darkened(0.55f), 16, 14, 10, 3, 4)),
+			("Scored", Chunky(C.Teal.Darkened(0.6f), 16, 14, 10, 3, 4)),
 			("Clear", new StyleBoxEmpty()),
 		})
 		{
@@ -192,16 +251,16 @@ public static class UiTheme
 		// Text inputs
 		foreach (var type in new[] { "LineEdit", "TextEdit" })
 		{
-			t.SetStylebox("normal", type, Box(C.Bg, 10, C.Border, 1, 12, 9));
-			t.SetStylebox("focus", type, Outline(C.Blue, 10, 1));
-			t.SetStylebox("read_only", type, Box(C.Panel2, 10, C.Border, 1, 12, 9));
+			t.SetStylebox("normal", type, Box(C.Bg.Darkened(0.3f), 14, C.Ink, 3, 14, 9));
+			t.SetStylebox("focus", type, Outline(C.Accent, 14, 3));
+			t.SetStylebox("read_only", type, Box(C.Panel2, 14, C.Ink, 3, 14, 9));
 			t.SetColor("font_color", type, C.Text);
 			t.SetColor("font_placeholder_color", type, new Color(C.Muted, 0.7f));
-			t.SetColor("caret_color", type, C.Blue);
+			t.SetColor("caret_color", type, C.Accent);
 			t.SetColor("selection_color", type, new Color(C.Blue, 0.3f));
 		}
 		t.SetTypeVariation("CodeInput", "LineEdit");
-		t.SetFont("font", "CodeInput", Fonts.Mono);
+		t.SetFont("font", "CodeInput", Fonts.Black);
 		t.SetFontSize("font_size", "CodeInput", 30);
 		t.SetTypeVariation("BigInput", "LineEdit");
 		t.SetFont("font", "BigInput", Fonts.Mono);
@@ -233,7 +292,7 @@ public static class UiTheme
 		}
 
 		// Popups and dialogs
-		var popup = Box(C.Panel2, 10, C.Border, 1, 6, 6);
+		var popup = Box(C.Panel2, 14, C.Ink, 3, 6, 6);
 		t.SetStylebox("panel", "PopupMenu", popup);
 		t.SetStylebox("hover", "PopupMenu", Box(new Color(C.Blue, 0.2f), 6, null, 0, 8, 4));
 		t.SetColor("font_color", "PopupMenu", C.Text);
@@ -245,16 +304,16 @@ public static class UiTheme
 		const int titleHeight = 40;
 		foreach (var state in new[] { "embedded_border", "embedded_unfocused_border" })
 		{
-			var frame = Box(C.Panel2, 14, C.Border, 1, 0, 0);
+			var frame = Box(C.Panel2, 18, C.Ink, 4, 0, 0);
 			frame.ExpandMarginTop = titleHeight;
 			frame.ExpandMarginLeft = frame.ExpandMarginRight = frame.ExpandMarginBottom = 6;
 			t.SetStylebox(state, "Window", frame);
 		}
 		t.SetConstant("title_height", "Window", titleHeight);
 		t.SetColor("title_color", "Window", C.Text);
-		t.SetFont("title_font", "Window", Fonts.Bold);
-		t.SetFontSize("title_font_size", "Window", 16);
-		t.SetStylebox("panel", "TooltipPanel", Box(C.Panel2, 8, C.Border, 1, 10, 6));
+		t.SetFont("title_font", "Window", Fonts.Black);
+		t.SetFontSize("title_font_size", "Window", 18);
+		t.SetStylebox("panel", "TooltipPanel", Box(C.Panel2, 12, C.Ink, 3, 10, 6));
 		t.SetColor("font_color", "TooltipLabel", C.Text);
 
 		// Thin scroll bars
@@ -268,9 +327,9 @@ public static class UiTheme
 		t.SetStylebox("panel", "ScrollContainer", new StyleBoxEmpty());
 
 		// Volume sliders: thin track, teal fill.
-		t.SetStylebox("slider", "HSlider", Box(C.Border, 4, null, 0, 0, 3));
-		t.SetStylebox("grabber_area", "HSlider", Box(C.Blue, 4, null, 0, 0, 3));
-		t.SetStylebox("grabber_area_highlight", "HSlider", Box(C.Blue.Lightened(0.15f), 4, null, 0, 0, 3));
+		t.SetStylebox("slider", "HSlider", Box(C.Bg.Darkened(0.3f), 8, C.Ink, 2, 0, 5));
+		t.SetStylebox("grabber_area", "HSlider", Box(C.Accent, 8, C.Ink, 2, 0, 5));
+		t.SetStylebox("grabber_area_highlight", "HSlider", Box(C.Accent.Lightened(0.15f), 8, C.Ink, 2, 0, 5));
 		t.SetConstant("separation", "HSeparator", 12);
 		t.SetStylebox("separator", "HSeparator", new StyleBoxLine { Color = C.Border, Thickness = 1 });
 		return t;

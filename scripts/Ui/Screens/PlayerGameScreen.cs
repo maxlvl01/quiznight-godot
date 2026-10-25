@@ -58,6 +58,8 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 	{
 		_room = room;
 		var game = room.Game!;
+		// (the game music pauses for questions with their own sound: sound, video, interactive)
+		App.I.Audio.Quiet(game.Stage == Stage.Open && game.Shown && game.Question.Type is QuestionType.Sound or QuestionType.Video or QuestionType.Interactive);
 		var q = game.Question;
 		var me = room.Player(MyId);
 		// A new buzz in this question plays the host's buzzer sound, so everyone hears that someone buzzed.

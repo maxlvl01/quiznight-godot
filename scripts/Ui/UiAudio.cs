@@ -4,6 +4,8 @@
 //   assets/music/<place>.ogg (or .mp3 / .wav), the place being home, editor (my quizzes, a quiz, the question editor),
 //     statistics (Ewige Tabelle, match history, profiles), settings or lobby (host lobby, waiting room); a place without
 //     its own file plays menu.ogg. More tracks for a place: <place>2 … <place>9 (shuffled, one after another).
+//     game.ogg plays during a quiz (no fallback to menu: without it quizzes stay quiet); it pauses while a sound, video
+//     or interactive question is open, so it never covers the clip or the microphone.
 //   assets/soundeffects/ui/hover.ogg and click.ogg (or .mp3 / .wav); back.ogg for "←" links, if there is one
 //   assets/soundeffects/voice/intro.ogg: a voice line once the home screen first shows (intro2 … intro9: one at random);
 //     the music ducks under it
@@ -32,7 +34,7 @@ public partial class UiAudio : Node
 		List<string> Of(string name) =>
 			Enumerable.Range(1, 9).Select(i => Find($"res://assets/music/{name}{(i == 1 ? "" : i.ToString())}")).OfType<string>().ToList();
 		var own = Of(place);
-		var list = own.Count > 0 ? own : Of("menu");
+		var list = own.Count > 0 || place == "game" ? own : Of("menu");
 		return list.OrderBy(_ => Random.Shared.Next()).ToList();
 	}
 
@@ -44,6 +46,7 @@ public partial class UiAudio : Node
 		EternalTableScreen or MatchHistoryScreen or MatchNightScreen or ProfileScreen => "statistics",
 		SettingsScreen => "settings",
 		HostLobbyScreen or WaitingRoomScreen => "lobby",
+		HostGameScreen or PlayerGameScreen => "game",
 		_ => null,
 	};
 
@@ -130,6 +133,31 @@ public partial class UiAudio : Node
 		return credits;
 	}
 
+	bool _quiet;
+
+	/// <summary>
+	/// During a quiz: a question that plays its own sound (sound, video) or records the microphone (interactive) wants
+	/// quiet. The music fades and pauses, and carries on from there once that question is over.
+	/// </summary>
+	public void Quiet(bool quiet)
+	{
+		if (quiet == _quiet) return;
+		_quiet = quiet;
+		if (_music.Stream == null) return;
+		_fade?.Kill();
+		_fade = CreateTween();
+		if (quiet)
+		{
+			_fade.TweenProperty(_music, "volume_db", -40f, 0.5);
+			_fade.TweenCallback(Callable.From(() => _music.StreamPaused = true));
+		}
+		else
+		{
+			_music.StreamPaused = false;
+			_fade.TweenProperty(_music, "volume_db", 0f, 1.0);
+		}
+	}
+
 	/// <summary>The voice line for opening the game, once per run (on the first home screen, after the splash).</summary>
 	public void Greet()
 	{
@@ -150,6 +178,13 @@ public partial class UiAudio : Node
 	public void ScreenChanged(Control screen)
 	{
 		var tracks = Place(screen) is { } place ? Tracks(place) : new();
+		// (a new screen starts out loud: only a quiz question asks for quiet)
+		if (_quiet)
+		{
+			_quiet = false;
+			_music.StreamPaused = false;
+			if (tracks.ToHashSet().SetEquals(_tracks)) _music.VolumeDb = 0;
+		}
 		// (same set of tracks as now, playing: nothing to do)
 		if (_music.Playing && tracks.Count > 0 && tracks.ToHashSet().SetEquals(_tracks)) return;
 		// (nothing playing and nothing to play: an empty tween would complain)

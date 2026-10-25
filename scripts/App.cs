@@ -133,6 +133,7 @@ public partial class App : Control
 
 	/// <summary>Menu music and the buttons' hover and click sounds.</summary>
 	readonly UiAudio _audio = new();
+	public UiAudio Audio => _audio;
 
 	void Show(Control screen)
 	{

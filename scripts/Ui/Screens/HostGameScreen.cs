@@ -59,6 +59,8 @@ public partial class HostGameScreen : Control, IRoomScreen
 	public void Refresh(RoomState room)
 	{
 		var game = room.Game!;
+		// (the game music pauses for questions with their own sound: sound, video, interactive)
+		App.I.Audio.Quiet(game.Stage == Stage.Open && game.Shown && game.Question.Type is QuestionType.Sound or QuestionType.Video or QuestionType.Interactive);
 		var q = game.Question;
 		if (game.Index != _heardIndex)
 		{

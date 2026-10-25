@@ -37,6 +37,27 @@ public partial class ScreenFrame : Container
 			for (var i = 1; i <= 12; i++)
 				DrawRect(frame.Grow(i * 2), new Color(0, 0, 0, 0.05f));
 		DrawRect(frame, C.Bg);
+		// (the party show stage: a warm spotlight glow from above the middle)
+		DrawTextureRect(StageGlow(), frame, false);
+	}
+
+	static GradientTexture2D? _glow;
+	static Color _glowFor;
+
+	/// <summary>The stage's glow in the skin's colours (made again when the skin changes).</summary>
+	static GradientTexture2D StageGlow()
+	{
+		if (_glow != null && _glowFor == C.Accent) return _glow;
+		_glowFor = C.Accent;
+		return _glow = new GradientTexture2D
+		{
+			Width = 256, Height = 144, Fill = GradientTexture2D.FillEnum.Radial, FillFrom = new Vector2(0.5f, 0.32f), FillTo = new Vector2(1.05f, 0.95f),
+			Gradient = new Gradient
+			{
+				Colors = new[] { new Color(C.Purple, 0.22f), new Color(C.Accent, 0.05f), new Color(C.Bg, 0) },
+				Offsets = new[] { 0f, 0.55f, 1f },
+			},
+		};
 	}
 }
 

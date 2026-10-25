@@ -22,14 +22,15 @@ public partial class HomeScreen : Control
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		_mode = App.NetMode;
 
-		var brand = U.H(18, U.H(0, U.Text("Quiznight", 64, C.Text, Fonts.Black), U.Text("?", 64, C.Accent, Fonts.Black)));
+		// (the logo is an answer field that now and then types something else: LogoField)
+		var brand = U.H(22, new LogoField(64));
 		// The stamp next to the logo follows the version letter: 0.5.0a = alpha, 0.7.1b = beta, none when finished.
 		var stage = AppVersion.Parse(App.Version)?.Suffix switch { "a" => "ALPHA", "b" => "BETA", _ => null };
 		if (stage != null)
-			brand.AddChild(U.Panel(U.Text(stage, 22, C.Coral, Fonts.Mono), "Clear").With(p =>
+			brand.AddChild(U.Panel(U.Text(stage, 24, C.Ink, Fonts.Black), "Clear").With(p =>
 			{
-				p.AddThemeStyleboxOverride("panel", UiTheme.Box(Colors.Transparent, 10, C.Coral, 3, 12, 2));
-				p.RotationDegrees = -6;
+				p.AddThemeStyleboxOverride("panel", UiTheme.Chunky(C.Coral, 12, 12, 2, 3, 3));
+				p.RotationDegrees = 8;
 				p.SizeFlagsVertical = SizeFlags.ShrinkCenter;
 			}));
 		brand.Center();
@@ -46,10 +47,10 @@ public partial class HomeScreen : Control
 
 		var host = U.Card(10,
 			U.Eyebrow("Quizmaster"),
-			U.Heading("Host a quiz night", 24),
-			U.Muted("Build a quiz, open a lobby, share the code and run the show. You control the pace — players answer on their own PC.", 15),
+			U.Heading("Host a quiz night", 30),
+			U.Muted("Build a quiz, open a lobby, share the code and run the show. You control the pace — players answer on their own PC.", 16),
 			U.Fill(),
-			U.Btn("My quizzes", "AccentButton", App.I.GoQuizzes).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin)).Grow();
+			U.Btn("My quizzes  ▶", "AccentButton", App.I.GoQuizzes, 22).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin)).Grow();
 
 		_target = U.Input("", "", _ => Validate(), 0, "CodeInput");
 		// (Steam names can be longer than names in a room may be: the field starts with the part that fits)
@@ -68,8 +69,8 @@ public partial class HomeScreen : Control
 		};
 		_joinFields = U.V(10);
 		_error = U.Error();
-		_join = U.Btn("Join", "TealButton", Join).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin);
-		var join = U.Card(10, U.Eyebrow("Player"), U.Heading("Join a game", 24), _joinFields, _error, _join).Grow();
+		_join = U.Btn("Join!", "TealButton", Join, 22).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin);
+		var join = U.Card(10, U.Eyebrow("Player"), U.Heading("Join a game", 30), _joinFields, _error, _join).Grow();
 
 		var grid = U.H(16, host, join);
 		page.AddChild(grid);
@@ -101,6 +102,8 @@ public partial class HomeScreen : Control
 		UpdatePrompt.Changed += ShowUpdate;
 		TreeExiting += () => UpdatePrompt.Changed -= ShowUpdate;
 
+		// (two spotlights sweep over the logo, behind the page)
+		AddChild(new Spotlights { Target = 120 });
 		AddChild(U.Page(page, 960, 56));
 		var corner = U.H(8, U.Small("☀ Light mode", LightMode), U.Small("Settings", App.I.GoSettings));
 		corner.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight, LayoutPresetMode.KeepSize, 20);
