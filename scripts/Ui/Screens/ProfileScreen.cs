@@ -30,7 +30,7 @@ public partial class ProfileScreen : Control
 	};
 
 	/// <summary>The role line under the name, from someone's best type ("Map specialist").</summary>
-	static readonly Dictionary<string, string> TypeRole = new()
+	public static readonly Dictionary<string, string> TypeRole = new()
 	{
 		[QuestionType.MapPin] = "Map specialist", [QuestionType.Estimation] = "Estimation sniper", [QuestionType.Classic] = "Know-it-all",
 		[QuestionType.Picture] = "Eagle eye", [QuestionType.Sound] = "Golden ear", [QuestionType.Video] = "Film buff",

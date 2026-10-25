@@ -228,7 +228,7 @@ public sealed class DevTools
 					if (Value("--sort") is { } col) EternalTableScreen.SortBy(col, Has("--ascending"));
 					// (--table all|season:N|beta, --ranking quiz|F1…, --kind type:mapPin[/skyrim]|cat:geography, --graph positions|points)
 					EternalTableScreen.View(Value("--table"), Value("--ranking"), Value("--kind"), Value("--graph"));
-					// (--poster FILE: save the standings picture there, then quit)
+					// (--poster FOLDER: save the award pack's pictures there, then quit)
 					if (Value("--poster") is { } poster)
 						Callable.From(() => SavePoster(poster)).CallDeferred();
 					_app.GoEternalTable();

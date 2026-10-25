@@ -267,7 +267,41 @@ public partial class EternalTableScreen : Control
 		var nights = Results.Nights(csvs).Where(n => (from == null || string.CompareOrdinal(n.Date, from) >= 0) && (until == null || string.CompareOrdinal(n.Date, until) < 0)).ToList();
 		var footer = nights.Count > 0 ? Lang.F("{0} quiz nights · {1} – {2}", nights.Count, Date(nights[^1].Date), Date(nights[0].Date)) : "";
 		var ranking = Ranking is { } s ? Lang.F("Championship points like {0}: {1}", Lang.T(s.Name), ScoringPresets.Describe(s.Points)) : Lang.T("Quiz points added up");
-		return await SeasonPoster.Save(owner, title, ranking, Ranking != null ? "championship points" : "points", standings, footer, to);
+		return await SeasonPoster.Save(owner, title, ranking, Ranking != null ? "championship points" : "points", standings, footer,
+			Awards(csvs, from, until), to);
+	}
+
+	/// <summary>
+	/// The award pack's awards: the best at each question type and category (most points from it, then the better hit
+	/// rate), the Host's Favourite Puppy, the fastest buzzer and the best speller.
+	/// </summary>
+	static List<SeasonPoster.Award> Awards(List<string> csvs, string? from, string? until)
+	{
+		var rows = Results.Questions(csvs, from, until);
+		var awards = new List<SeasonPoster.Award>();
+		List<(string, string, string)> Top(IEnumerable<Results.QuestionRow> of, System.Func<Dictionary<string, double?>, double?> key, bool high,
+			System.Func<Dictionary<string, double?>, string> text, System.Func<List<Results.QuestionRow>, bool>? enough = null) =>
+			of.GroupBy(r => r.PlayerId).Where(g => enough?.Invoke(g.ToList()) ?? true)
+				.Select(g => (Id: g.Key, Name: g.Last().Player, V: KindStats.Values(g.ToList())))
+				.Where(x => key(x.V) != null).OrderBy(x => high ? -key(x.V)!.Value : key(x.V)!.Value).ThenByDescending(x => x.V["rate"])
+				.Take(3).Select(x => (x.Id, x.Name, text(x.V))).ToList();
+		string Pts(Dictionary<string, double?> v) => Lang.F("{0} points · {1} % right", v["points"] ?? 0, System.Math.Round(v["rate"] ?? 0));
+		foreach (var type in QuestionType.All.Where(t => rows.Any(r => r.Type == t)))
+			awards.Add(new(QuestionKinds.TypeLabel(type), Lang.T(ProfileScreen.TypeRole[type]),
+				Lang.F("Most points from {0} questions", Lang.T(QuestionKinds.TypeLabel(type))), Top(rows.Where(r => r.Type == type), v => v["points"], true, Pts)));
+		foreach (var cat in rows.Where(r => r.Category != "").GroupBy(r => Categories.Key(r.Category)))
+		{
+			var label = Categories.Label(cat.First().Category);
+			awards.Add(new("Category " + label, Lang.F("{0} champion", label), Lang.F("Most points in {0}", label), Top(cat, v => v["points"], true, Pts)));
+		}
+		var puppy = Results.Table(csvs, until, from).Where(c => c.HostPoints > 0).OrderByDescending(c => c.HostPoints).Take(3)
+			.Select(c => (c.Id, c.Name, Lang.F("+{0} points from the host", c.HostPoints))).ToList();
+		if (puppy.Count > 0) awards.Add(new("Hosts Favourite Puppy", Lang.T("Host's Favourite Puppy"), Lang.T("The hosts handed them the most points (bonuses and by hand)"), puppy));
+		var buzz = Top(rows, v => v["avgBuzz"], false, v => Lang.F("Ø {0} s per buzz", (v["avgBuzz"] ?? 0).ToString("0.00", Inv)), r => r.Sum(x => x.Buzzes) >= 5);
+		if (buzz.Count > 0) awards.Add(new("Fastest buzzer", Lang.T("Fastest buzzer"), Lang.T("The quickest average buzz (5 buzzes or more)"), buzz));
+		var spell = Top(rows, v => v["perfect"], true, v => Lang.F("{0} % spelled perfectly", System.Math.Round(v["perfect"] ?? 0)), r => r.Count(x => x.Right && x.Typos != null) >= 3);
+		if (spell.Count > 0) awards.Add(new("Spelling bee", Lang.T("Spelling bee"), Lang.T("The most typed answers without a single typo"), spell));
+		return awards;
 	}
 
 	/// <summary>"2026-10-24 21:25" → "24.10.2026".</summary>
@@ -323,7 +357,7 @@ public partial class EternalTableScreen : Control
 			: Ranking is { } sys
 				? Lang.F("Every quiz night scores like a race ({0}: {1}): most championship points first. Click a heading to sort, a name for the profile.", Lang.T(sys.Name), ScoringPresets.Describe(sys.Points))
 				: Lang.T("Every quiz night added up: most points first, then the faster average answer time. Click a heading to sort, a name for the profile.");
-		var save = U.Btn("Save as picture", "", null, 14).Tip("A picture of these standings to share: the champion, the podium and the table (Documents/Quiznight/Pictures)");
+		var save = U.Btn("Save award pack", "", null, 14).Tip("A ZIP of pictures to share: the standings with the champion and the podium, and an award for the best at every question type and category, the Host's Favourite Puppy, the fastest buzzer and the best speller (Documents/Quiznight/Pictures)");
 		save.SizeFlagsVertical = SizeFlags.ShrinkCenter;
 		save.Visible = _kind == "";
 		save.Pressed += () => _ = SavePicture(this, csvs, from, until, beta ? Lang.T("Beta (before 1.0)") : season.Id != null ? season.Label : Lang.T("Ewige Tabelle · all time"));

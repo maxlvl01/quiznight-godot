@@ -1,6 +1,7 @@
-// The Ewige Tabelle's "Save as picture": a 1920×1080 poster of the standings to share at the end of a season, with the
-// champion in the spotlight, the podium below them and the full table beside it. Drawn off-screen (a SubViewport),
-// saved as a PNG in Documents/Quiznight/Pictures and opened.
+// The Ewige Tabelle's "Save award pack": a ZIP of pictures to share at the end of a season. A 1920×1080 poster of the
+// standings (the champion in the spotlight, the podium below them, the full table beside it), and a 1080×1080 card per
+// award: the best at each question type and category, the Host's Favourite Puppy, the fastest buzzer, the best speller.
+// Drawn off-screen (a SubViewport), saved in Documents/Quiznight/Pictures and shown in the file manager.
 
 using System;
 using System.Collections.Generic;
@@ -15,54 +16,115 @@ public static class SeasonPoster
 {
 	public sealed record Standing(string Id, string Name, int Points, int Wins, int Nights);
 
+	/// <summary>An award: its file name, title, what it's for, and the top three (id, name, their number as text).</summary>
+	public sealed record Award(string File, string Title, string For, List<(string Id, string Name, string Value)> Top);
+
 	public static string Folder => Path.Combine(OS.GetSystemDir(OS.SystemDir.Documents), "Quiznight", "Pictures");
 
 	static readonly Vector2I Size = new(1920, 1080);
 
-	/// <summary>Draws the poster, saves it and opens it; returns the file's path (null if it couldn't be saved).</summary>
-	/// <param name="to">Dev runs: save it here and don't open it.</param>
-	public static async System.Threading.Tasks.Task<string?> Save(Control owner, string title, string ranking, string pointsLabel,
-		List<Standing> standings, string footer, string? to = null)
+	static readonly Vector2I CardSize = new(1080, 1080);
+
+	/// <summary>A control drawn off-screen at this size, as an image.</summary>
+	static async System.Threading.Tasks.Task<Image> Render(Control owner, Control content, Vector2I size)
 	{
-		var viewport = new SubViewport { Size = Size, TransparentBg = false, RenderTargetUpdateMode = SubViewport.UpdateMode.Always };
-		var poster = Build(title, ranking, pointsLabel, standings, footer);
-		poster.Theme = App.I.Theme;
-		viewport.AddChild(poster);
+		var viewport = new SubViewport { Size = size, TransparentBg = false, RenderTargetUpdateMode = SubViewport.UpdateMode.Always };
+		content.Theme = App.I.Theme;
+		viewport.AddChild(content);
 		owner.AddChild(viewport);
 		// (a moment for the layout and the Steam pictures)
-		await owner.ToSignal(owner.GetTree().CreateTimer(0.8), SceneTreeTimer.SignalName.Timeout);
+		await owner.ToSignal(owner.GetTree().CreateTimer(0.6), SceneTreeTimer.SignalName.Timeout);
 		await owner.ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
 		var image = viewport.GetTexture().GetImage();
 		viewport.QueueFree();
+		return image;
+	}
+
+	static string Safe(string s) => new string(s.Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray()).Trim('-');
+
+	/// <summary>
+	/// Draws the poster and every award card, zips them and shows the ZIP in the file manager; returns its path (null if
+	/// it couldn't be saved).
+	/// </summary>
+	/// <param name="to">Dev runs: write the pictures into this folder (and the ZIP next to them), open nothing.</param>
+	public static async System.Threading.Tasks.Task<string?> Save(Control owner, string title, string ranking, string pointsLabel,
+		List<Standing> standings, string footer, List<Award> awards, string? to = null)
+	{
+		var pictures = new List<(string Name, byte[] Png)>
+		{
+			("00 Standings.png", (await Render(owner, Build(title, ranking, pointsLabel, standings, footer), Size)).SavePngToBuffer()),
+		};
+		for (var i = 0; i < awards.Count; i++)
+			pictures.Add(($"{i + 1:00} {Safe(awards[i].File)}.png", (await Render(owner, Card(title, awards[i]), CardSize)).SavePngToBuffer()));
 		try
 		{
-			var safe = new string(title.Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray()).Trim('-');
-			var path = to ?? Path.Combine(Folder, $"{DateTime.Now:yyyy-MM-dd_HH-mm} {safe}.png");
-			Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-			if (image.SavePng(path) != Error.Ok) return null;
-			if (to == null) OS.ShellOpen(path);
-			return path;
+			var folder = to ?? Folder;
+			Directory.CreateDirectory(folder);
+			var zip = Path.Combine(folder, $"{DateTime.Now:yyyy-MM-dd_HH-mm} {Safe(title)} awards.zip");
+			using (var archive = System.IO.Compression.ZipFile.Open(zip, System.IO.Compression.ZipArchiveMode.Create))
+				foreach (var (name, png) in pictures)
+				{
+					using var stream = archive.CreateEntry(name).Open();
+					stream.Write(png);
+				}
+			if (to != null) foreach (var (name, png) in pictures) File.WriteAllBytes(Path.Combine(to, name), png);
+			else OS.ShellShowInFileManager(zip);
+			return zip;
 		}
 		catch (Exception e) when (e is IOException or UnauthorizedAccessException)
 		{
-			GD.PrintErr($"Couldn't save the picture: {e.Message}");
+			GD.PrintErr($"Couldn't save the award pack: {e.Message}");
 			return null;
 		}
+	}
+
+	static TextureRect Background(Vector2I size, Color glow) => new()
+	{
+		Texture = new GradientTexture2D
+		{
+			Width = 64, Height = 64, FillFrom = new Vector2(0.5f, 0.3f), FillTo = new Vector2(1.1f, 1.1f), Fill = GradientTexture2D.FillEnum.Radial,
+			Gradient = new Gradient { Colors = new[] { glow.Darkened(0.55f), new Color("#120822"), new Color("#0a0512") }, Offsets = new[] { 0f, 0.6f, 1f } },
+		},
+		ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, Size = size,
+	};
+
+	/// <summary>One award, square: its name, the winner big with their number, and who came 2nd and 3rd.</summary>
+	static Control Card(string season, Award award)
+	{
+		var root = new Control { Size = CardSize, CustomMinimumSize = CardSize };
+		root.AddChild(Background(CardSize, C.Gold));
+		Label Line(string text, int size, Color color, Font? font = null) =>
+			U.Text(text, size, color, font, true).Raw().With(l => l.HorizontalAlignment = HorizontalAlignment.Center);
+		var box = U.V(14,
+			Line("QUIZNIGHT? · " + season, 24, C.Accent, Fonts.Spaced),
+			U.Gap(10),
+			Line(award.Title, 60, C.Gold, Fonts.Black),
+			Line(award.For, 26, C.Muted));
+		if (award.Top.Count > 0)
+		{
+			var (id, name, value) = award.Top[0];
+			box.AddChild(U.Gap(16));
+			box.AddChild(new Avatar(EternalTableScreen.Who(id, name), 260).With(a => a.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter));
+			box.AddChild(Line(name, 64, C.Text, Fonts.Black));
+			box.AddChild(Line(value, 32, C.Gold, Fonts.Mono));
+			var rest = U.H(60);
+			rest.Alignment = BoxContainer.AlignmentMode.Center;
+			foreach (var (r, i) in award.Top.Skip(1).Select((r, i) => (r, i + 2)))
+				rest.AddChild(U.V(6, new Avatar(EternalTableScreen.Who(r.Id, r.Name), 64).With(a => a.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter),
+					Line($"{Lang.Ordinal(i)}  {r.Name}", 24, C.Medal(i) ?? C.Text, Fonts.Bold), Line(r.Value, 20, C.Muted, Fonts.Mono)).MinSize(380));
+			box.AddChild(U.Gap(20));
+			box.AddChild(rest);
+		}
+		var margin = U.Pad(box, 70, 70, 70, 60);
+		margin.Size = CardSize;
+		root.AddChild(margin);
+		return root;
 	}
 
 	static Control Build(string title, string ranking, string pointsLabel, List<Standing> standings, string footer)
 	{
 		var root = new Control { Size = Size, CustomMinimumSize = Size };
-		var bg = new TextureRect
-		{
-			Texture = new GradientTexture2D
-			{
-				Width = 64, Height = 64, FillFrom = new Vector2(0, 0), FillTo = new Vector2(1, 1),
-				Gradient = new Gradient { Colors = new[] { new Color("#1a0b2e"), new Color("#0d0618"), new Color("#2a1035") }, Offsets = new[] { 0f, 0.55f, 1f } },
-			},
-			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, Size = Size,
-		};
-		root.AddChild(bg);
+		root.AddChild(Background(Size, C.Purple));
 
 		var champ = standings.FirstOrDefault();
 		Control Centered(Control c)
