@@ -29,9 +29,8 @@ off (`- [x]`) when they're done, with the version they came in.
 - [ ] _(add what you find)_
 
 ### Not tested with real people yet
-- [ ] Interactive questions: recording with a real microphone (bots only sent a beep). If Windows blocks the game's
-  microphone access, the level bar stays flat.
-- [ ] Steam profile pictures in the avatars (only show over Steam, not in LAN tests)
+- [x] Interactive questions: recording with a real microphone — works (tested 0.9.1b)
+- [x] Steam profile pictures in the avatars — load (tested 0.9.1b)
 - [ ] Steam outbox and lobby downloads with big videos over a slow connection
 
 ## UI inconsistencies spotted so far
