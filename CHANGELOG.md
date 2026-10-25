@@ -14,23 +14,29 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 ## [0.9.2b] — scoring per place, units, UI polish
 
 ### Added
-- Scoring per place for estimation and map pin questions: next to "Scoring", "Edit" opens a window where you set the points for 1st, 2nd, 3rd … Pick a preset (F1 today and historical F1 systems, MotoGP, IndyCar, NASCAR, Mario Kart, a podium 3 / 2 / 1) or save your own presets (kept on your PC). The points are saved with the question, so a shared quiz scores the same.
-- Estimation units are a drop-down by kind (length, mass, time, speed, area, volume, temperature, energy and power, data, money), with light years, AU, parsecs, horsepower and PS. "Custom…" still lets you type any unit.
+- **Scoring per place for estimation and map pin questions.** Until now these questions had two ways to score: only the closest player wins, or the top 3 get 3, 2 and 1 times the question's points. Now there's an "Edit" button next to "Scoring" in the editor. It opens a window where you set the points for every place yourself: 1st, 2nd, 3rd and as many places as you like ("+ Place", "− Place").
+  - Start from a built-in preset: F1 since 2010 (25-18-15-12-10-8-6-4-2-1), the older F1 systems (2003–2009, 1991–2002, 1961–1990, 1950–1959), MotoGP, IndyCar, NASCAR Cup, Mario Kart 8, or a simple podium 3 / 2 / 1.
+  - Change any place, give it a name and "Save as my preset": it's kept on your PC and shows up in the Scoring list of every question from then on. Your own presets can be deleted again in the same window.
+  - The points are saved inside the question itself, so a quiz you share scores exactly the same on someone else's PC, even if they don't have your preset.
+  - Places after the last one get nothing. Players who are exactly as close as each other share the better place's points (unless the question says "Nobody gets the point" for ties). Double points doubles whatever a place gets.
+  - During the game the top bar says "up to 25 points" instead of a fixed number, since what you get depends on your place.
+- **Units are a drop-down.** The unit field of an estimation used to be a free text box with "e.g. hours" in it, which made it easy to type the same unit three different ways across a quiz. Now it's a list grouped by kind: length (mm to light years, AU and parsecs), mass, time, speed, area, volume, temperature, energy and power (including horsepower and PS), data, money and a few others. "Custom…" at the bottom still lets you type any unit, and units from older quizzes that aren't in the list (like "keys") show up there, so nothing changes for existing questions.
 
 ### Changed
-- Numbers in estimations keep every digit you type (0.00000034 AU stays that), with a dot or a comma (2.5 or 2,5); German shows a comma.
-- "Time to answer" on the orange "Your turn!" panel is dark and bigger, so it's readable.
-- The map in the map pin corner no longer says "Map" twice.
-- Score lists show names without their clan tag (it was cut off there anyway); hover a name to see it whole.
-- Step by step: the bar says "up to 5 points", since a right answer is worth less after each hint.
-- Interactive: the side shows "Recordings: 2 / 4", then "Votes: 2 / 4", instead of "Answers".
-- Recordings flip with ◀ ▶ like slideshows; the play button says "Play it".
-- The recorder's microphone is a drawn icon instead of an emoji that didn't always show.
-- "Hold to peek at the answer" is the same size as the buttons next to it.
-- Lobby rules: the first group has a heading too ("How you run it"), like "Jokers".
-- Ewige Tabelle: "Ø km off" under 1 km shows in metres (game maps are small).
-- New question cards: no more tooltip on the "?" (clicking it shows the full help anyway).
-- Waiting room: a joker the host turns off stays listed, greyed out ("Off tonight."), so the rules box doesn't jump in height.
+- **Decimal numbers keep every digit.** Estimation answers were shown with at most two digits after the point, so an answer of 0.00000034 AU showed as "0" at the reveal and a guess that was 0.00000002 off looked like "spot on". Now every digit you type is kept and shown, both in the editor and at the reveal. You can type 2.5 or 2,5 (both work, for the editor and for players' guesses), and the game shows a comma when it's in German. Tiny rounding errors computers make (0.1 + 0.2 = 0.30000000000000004) are hidden, so differences read cleanly.
+- **The answer timer on "Your turn!" is readable.** The small "Time to answer" label was orange text on the orange panel, so you could barely see it. It's now dark like the rest of the panel's text, and a bit bigger.
+- **Score lists don't cut off clan tags any more.** In the narrow score rows a name like "[LCB] BassGaming" became "[LCB] BassGami…", so the actual name was the part that got lost. Score rows now show the name without the tag; hover over it to see the whole name. Seats in the lobby and the podium still show the tag on its own line above the name.
+- **Step by step says "up to 5 points".** The top bar always said "5 points", although a right answer is worth one point less after each hint. It now says "up to", and "Right now: 3 points" under the cards still shows the current value.
+- **Interactive questions count recordings, then votes.** The side panel said "Answers: 2 / 4" while players were recording, which was confusing. It now says "Recordings: 2 / 4", and "Votes: 2 / 4" while voting.
+- **The same arrows everywhere.** Slideshows flipped with ◀ ▶, recordings with ◀ ▶▶. Recordings now use ◀ ▶ too, and the play button between them says "Play it", so it can't be mistaken for "next".
+- **The recorder's microphone is a drawn icon.** It was the 🎤 emoji, which the game's font doesn't have, so some PCs showed a strange pen-like shape instead. It's now drawn like the question type icons.
+- **"Hold to peek at the answer" matches the buttons next to it.** It was a smaller button than "Reveal answer" beside it, so the row looked uneven.
+- **Lobby rules have a heading for each group.** "Jokers" had a little heading, but the two checkboxes above it didn't, so the list looked like it was missing something. They're now under "How you run it".
+- **Ewige Tabelle shows metres for small distances.** The "Ø km off" column showed "0.0 km" for map pin guesses on game maps, because those are only a few hundred metres off. Anything under 1 km now shows in metres, like "29 m".
+- **No tooltip on the "?" of the question type cards.** Hovering it showed a long tooltip with the same text you get when you click it, which covered the cards below. Clicking the "?" still shows the full help.
+
+### Fixed
+- **The waiting room's jokers no longer jump around.** When the host turned a joker off in the lobby, it disappeared from the players' "Tonight's rules" box, which made the box shrink and grow every time. Every joker now stays listed; one that's turned off is greyed out with "Off tonight."
 
 ## [0.9.1b] — map corner, peek and step by step fixes
 
