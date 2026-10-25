@@ -145,6 +145,7 @@ public static class QuizJson
 			case QuestionType.Steps:
 				o["answer"] = q.AnswerText;
 				o["hints"] = new JsonArray(q.Hints.Select(h => (JsonNode)JsonValue.Create(h)!).ToArray());
+				if (q.IsSentence) o["stepsMode"] = q.StepsMode;
 				break;
 			case QuestionType.Interactive:
 				o["timeLimitSec"] = q.TimeLimitSec;
@@ -225,6 +226,7 @@ public static class QuizJson
 			while (q.Hints.Count < QuestionLimits.HintsMax) q.Hints.Add("");
 		}
 		q.Judging = Str(o, "judging", Judging.Vote) == Judging.Host ? Judging.Host : Judging.Vote;
+		q.StepsMode = Str(o, "stepsMode", StepsMode.Hints) == StepsMode.Sentence ? StepsMode.Sentence : StepsMode.Hints;
 		q.BuzzFirst = o["buzzFirst"] is JsonValue bf && bf.TryGetValue<bool>(out var b) && b;
 		q.Typed = o["typed"] is JsonValue ty && ty.TryGetValue<bool>(out var typed) && typed;
 		q.BonusPoints = Math.Clamp((int)Num(o, "bonusPoints", 0), 0, QuestionLimits.BonusPointsMax);

@@ -97,6 +97,14 @@ public sealed class DevTools
 	/// </summary>
 	Quiz WithTestMedia(Quiz sample)
 	{
+		// (--sentence: the step by step question is one sentence in parts instead of hint cards)
+		if (Has("--sentence") && sample.Questions.FirstOrDefault(q => q.IsSteps) is { } steps)
+		{
+			steps.StepsMode = StepsMode.Sentence;
+			steps.Prompt = "Which city are we looking for?";
+			steps.AnswerText = "Berlin";
+			steps.Hints = new() { "This city, founded in 1237,", "was split by a wall from 1961 to 1989", "and is Germany's capital today.", "", "" };
+		}
 		var sq = sample.Questions.FirstOrDefault(q => q.Type == QuestionType.Sound);
 		if (Value("--sound") is { } sound && sq != null)
 		{

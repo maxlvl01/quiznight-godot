@@ -211,7 +211,9 @@ public partial class HostGameScreen : Control, IRoomScreen
 					row.AddChild(U.Btn("Let everyone buzz again", "", _host.ReopenBuzzers).Tip("Clears the buzzes so far: everyone, also who was wrong, can buzz again"));
 				// (step by step: flip the next hint; who was wrong can buzz again)
 				if (q.HintCount is { } hintCount && (q.Hints?.Count ?? 0) < hintCount)
-					row.AddChild(U.Btn("Next hint  (→)", "AccentButton", _host.NextHint, 20).Tip("Flips the next hint; everyone can buzz again"));
+					row.AddChild(q.StepsMode == StepsMode.Sentence
+						? U.Btn("Read on  (→)", "AccentButton", _host.NextHint, 20).Tip("Shows the next part of the question; everyone can buzz again")
+						: U.Btn("Next hint  (→)", "AccentButton", _host.NextHint, 20).Tip("Flips the next hint; everyone can buzz again"));
 				if (game.BuzzersOpen) row.AddChild(U.Btn("Lock buzzers", "", () => _host.SetBuzzers(false)));
 				else row.AddChild(U.Btn("Unlock buzzers  (Space)", "AccentButton", () => _host.SetBuzzers(true), 20));
 			}

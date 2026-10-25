@@ -251,6 +251,8 @@ public sealed class PublicQuestion
 	public bool AllSlidesShown;
 	/// <summary>Step by step: the hints flipped so far (all of them at the reveal), how many there are, and what a right answer is worth now.</summary>
 	public List<string>? Hints;
+	/// <summary>Step by step: "hints" (cards) or "sentence" (the question in parts; the ones to come stay blurred).</summary>
+	public string? StepsMode;
 	public int? HintCount;
 	public int? WorthNow;
 	public string? Mode;

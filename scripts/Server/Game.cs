@@ -1101,11 +1101,15 @@ public sealed class Game
 	/// <summary>Step by step: a right answer now gets as many points as there are hints left (5, 4, … 1 with five).</summary>
 	int StepsWorth => Math.Max(1, Question.FilledHints.Count - Hint);
 
-	/// <summary>The host flips the next hint: everyone who isn't in line gets another go at buzzing.</summary>
+	/// <summary>
+	/// The host flips the next hint (or reads on: the next part of the sentence): everyone who isn't in line gets another
+	/// go at buzzing. A sentence waits while someone has buzzed: the reading stops until they're judged.
+	/// </summary>
 	public bool NextHint()
 	{
 		var q = Question;
 		if (Stage != Shared.Stage.Open || !q.IsSteps || !Shown || Paused || Hint + 1 >= q.FilledHints.Count) return false;
+		if (q.IsSentence && _buzzes.Any(b => b.Status is BuzzStatus.Answering or BuzzStatus.Waiting)) return false;
 		Hint++;
 		if (_buzzes.Count > 0 && _buzzes.All(b => b.Status == BuzzStatus.Wrong))
 		{
@@ -1199,6 +1203,7 @@ public sealed class Game
 			var hints = q.FilledHints;
 			// (players see the flipped ones; all of them at the reveal)
 			pq.Hints = Stage == Shared.Stage.Reveal ? hints : hints.Take(Hint + 1).ToList();
+			pq.StepsMode = q.StepsMode;
 			pq.HintCount = hints.Count;
 			pq.WorthNow = StepsWorth;
 			pq.Points = hints.Count;
@@ -1239,7 +1244,7 @@ public sealed class Game
 		if (q.Type == QuestionType.Order) return OrderText(q);
 		if (q.Type == QuestionType.Estimation) return $"{Fmt(q.AnswerNumber ?? 0)}{(q.Unit != "" ? " " + q.Unit : "")}";
 		if (q.Type == QuestionType.MapPin) return Lang.T("The marked spot on the map (shown at the reveal).");
-		if (q.IsSteps) return $"{q.AnswerText}  ·  {Lang.T("next hint")}: {(Hint + 1 < q.FilledHints.Count ? q.FilledHints[Hint + 1] : "–")}";
+		if (q.IsSteps) return $"{q.AnswerText}  ·  {Lang.T(q.IsSentence ? "next part" : "next hint")}: {(Hint + 1 < q.FilledHints.Count ? q.FilledHints[Hint + 1] : "–")}";
 		if (q.IsInteractive) return Lang.T(q.Judging == Judging.Host ? "You pick your favourite recording." : "The players vote for the best recording.");
 		return q.AnswerText;
 	}

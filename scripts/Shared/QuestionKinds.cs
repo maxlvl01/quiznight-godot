@@ -22,6 +22,7 @@ public static class QuestionKinds
 		QuestionType.Estimation => q.HasRankPoints ? Places : q.Scoring,
 		QuestionType.Order => q.OrderMode,
 		QuestionType.Interactive => q.Judging,
+		QuestionType.Steps => q.StepsMode,
 		_ => "",
 	};
 
@@ -33,6 +34,7 @@ public static class QuestionKinds
 		QuestionType.Estimation => new[] { Scoring.ClosestWins, Scoring.Top3, Places },
 		QuestionType.Order => new[] { OrderMode.All, OrderMode.Timeline },
 		QuestionType.Interactive => new[] { Judging.Vote, Judging.Host },
+		QuestionType.Steps => new[] { StepsMode.Hints, StepsMode.Sentence },
 		_ => System.Array.Empty<string>(),
 	};
 
@@ -54,6 +56,8 @@ public static class QuestionKinds
 		Judging.Vote => "Players vote",
 		Judging.Host => "Host's favourite",
 		CustomMap => "Own map",
+		StepsMode.Hints => "Hints",
+		StepsMode.Sentence => "Sentence in parts",
 		_ when type == QuestionType.MapPin && MapPresets.Get(subtype) is { } map => map.Name.Split(" (")[0],
 		_ => subtype,
 	};

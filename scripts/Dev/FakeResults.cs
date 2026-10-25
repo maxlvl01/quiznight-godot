@@ -30,6 +30,7 @@ public static class FakeResults
 			{
 				q.Category = Categories.Presets[rng.Next(Categories.Presets.Length)];
 				if (q.CanBeTyped && q.Type != QuestionType.Steps) q.Typed = rng.Next(3) == 0;
+				if (q.IsSteps && rng.Next(2) == 0) q.StepsMode = StepsMode.Sentence;
 			}
 			var players = Names.Where(_ => rng.Next(5) > 0).Take(6).ToList();
 			if (players.Count < 3) players = Names.Take(4).ToList();

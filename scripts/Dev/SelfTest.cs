@@ -109,6 +109,26 @@ public static class SelfTest
 	}
 
 	/// <summary>A buzzer question played as "everyone types", the host's bonus and score changes, and the file format.</summary>
+	static void Sentence()
+	{
+		var quiz = new Quiz { Title = "S", Questions = { new Question { Id = "s1", Type = QuestionType.Steps, StepsMode = StepsMode.Sentence, AnswerText = "Berlin",
+			Hints = new() { "This city, founded in 1237,", "was split by a wall", "and is Germany's capital.", "", "" } } } };
+		var back = QuizJson.Parse(QuizJson.Write(quiz), out _)!.Questions[0];
+		Check(back.IsSentence && back.FilledHints.Count == 3, "a sentence in parts survives saving");
+		var (room, _) = NewRoom(quiz, "ann", "bob");
+		room.Start();
+		var g = room.Game!;
+		Check(g.View("bob").Question.Hints!.Count == 1 && g.View("bob").Question.StepsMode == StepsMode.Sentence, "players only get the part read so far");
+		g.BuzzIn("ann");
+		Check(!g.NextHint(), "a buzz stops the reading");
+		g.Judge(false);
+		Check(g.NextHint() && g.View("bob").Question.WorthNow == 2, "after a wrong answer the host reads on: 3 parts, now worth 2");
+		g.BuzzIn("bob");
+		g.Judge(true);
+		Eq(room.Score("bob"), 2, "a right buzz after the second of three parts gets 2 points");
+		Check(Storage.Results.Questions(new[] { Storage.Results.Make(room).Csv }).Any(r => r.Subtype == StepsMode.Sentence && r.Hint == 2), "results: the sentence subtype and the part it was got at");
+	}
+
 	static void Categories()
 	{
 		var quiz = Dev.SampleQuiz.Build();
@@ -284,6 +304,7 @@ public static class SelfTest
 	{
 		RankingAndResults();
 		Categories();
+		Sentence();
 		Rules();
 		TypedAndBonus();
 		JokersAndSeats();

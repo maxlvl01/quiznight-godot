@@ -135,6 +135,21 @@ public static class ClassicMode
 	public const string Multi = "multi";
 }
 
+/// <summary>How a step by step question is played.</summary>
+public static class StepsMode
+{
+	/// <summary>Hints as cards, the hardest first, flipped one by one.</summary>
+	public const string Hints = "hints";
+	/// <summary>The question itself in parts: the rest stays blurred until the host reads on, and a buzz stops the reading.</summary>
+	public const string Sentence = "sentence";
+
+	public static readonly (string Id, string Label)[] All =
+	{
+		(Hints, "Hints, the hardest first"),
+		(Sentence, "One sentence in parts"),
+	};
+}
+
 /// <summary>How a put-in-order question is played.</summary>
 public static class OrderMode
 {
@@ -345,6 +360,9 @@ public sealed class Question
 	// step by step: the hints, hardest first
 	public List<string> Hints = new() { "", "", "", "", "" };
 	public bool IsSteps => Type == QuestionType.Steps;
+	/// <summary>Step by step: hint cards, or the question as one sentence in parts (Hints are then the parts, in order).</summary>
+	public string StepsMode = Shared.StepsMode.Hints;
+	public bool IsSentence => IsSteps && StepsMode == Shared.StepsMode.Sentence;
 
 	// interactive
 	public string Judging = Shared.Judging.Vote;
@@ -441,7 +459,8 @@ public static class QuizRules
 	/// 6: picture questions (type "picture": slides, answered like classic).
 	/// 7: interactive questions (type "interactive": judging) and step by step (type "steps": hints).
 	/// 8: estimation and map pin can score by place (rankPoints, e.g. F1's 25 / 18 / 15 …).
-	/// 9: every question can have a category (category, categorySecret).
+	/// 9: every question can have a category (category, categorySecret); step by step can be one sentence in parts
+	///    (stepsMode "sentence", its parts in hints).
 	/// </summary>
 	public const int FormatVersion = 9;
 
@@ -588,7 +607,7 @@ public static class QuizRules
 		if (q.IsClassicLike)
 			return q.IsMulti ? $"{kind} · {Lang.T("several correct")} · {q.TimeLimitSec} s"
 				: q.IsChoice ? $"{kind} · A–D · {q.TimeLimitSec} s" : q.IsTyped ? $"{kind} · {Lang.T("everyone types")} · {q.TimeLimitSec} s" : $"{kind} · {Lang.T("buzzer")}";
-		if (q.IsSteps) return $"{kind} · {Lang.F("{0} hints", q.FilledHints.Count)}";
+		if (q.IsSteps) return $"{kind} · {(q.IsSentence ? Lang.F("{0} parts", q.FilledHints.Count) : Lang.F("{0} hints", q.FilledHints.Count))}";
 		if (q.IsInteractive) return $"{kind} · {Lang.T(q.Judging == Judging.Host ? "host picks" : "vote")} · {q.TimeLimitSec} s";
 		if (q.Type == QuestionType.Order)
 			return $"{kind} · {(q.IsTimeline ? Lang.T("timeline") + " · " : "")}{Lang.F("{0} items", q.Items.Count(i => !string.IsNullOrWhiteSpace(i)))} · {q.TimeLimitSec} s";
@@ -626,7 +645,8 @@ public static class QuizRules
 		if (q.IsSteps)
 		{
 			if (string.IsNullOrWhiteSpace(q.AnswerText)) issues.Add(Lang.T("The correct answer is missing."));
-			if (q.FilledHints.Count < QuestionLimits.HintsMin) issues.Add(Lang.F("Fill in at least {0} hints.", QuestionLimits.HintsMin));
+			if (q.FilledHints.Count < QuestionLimits.HintsMin)
+				issues.Add(q.IsSentence ? Lang.F("Split the question into at least {0} parts.", QuestionLimits.HintsMin) : Lang.F("Fill in at least {0} hints.", QuestionLimits.HintsMin));
 		}
 		if (q.Type == QuestionType.Image)
 		{

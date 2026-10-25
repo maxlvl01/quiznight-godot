@@ -502,28 +502,45 @@ public partial class QuestionEditorScreen : Control
 	Control StepsForm()
 	{
 		while (_draft.Hints.Count < QuestionLimits.HintsMax) _draft.Hints.Add("");
+		var sentence = _draft.IsSentence;
 		var hints = U.V(8);
+		string[] sentenceHints = { "e.g. This city, founded in 1237,", "was split by a wall from 1961 to 1989", "and is Germany's capital today.", "", "" };
 		for (var i = 0; i < QuestionLimits.HintsMax; i++)
 		{
 			var n = i;
 			hints.AddChild(GameParts.Row(10, U.Bold($"{i + 1}.", 16).MinSize(24, 0),
-				U.Input(_draft.Hints[i], i == 0 ? "The hardest hint, e.g. It ended in Leipzig." : i == QuestionLimits.HintsMax - 1 ? "The easiest one (optional)" : "", t =>
+				U.Input(_draft.Hints[i], sentence ? sentenceHints[i] : i == 0 ? "The hardest hint, e.g. It ended in Leipzig." : i == QuestionLimits.HintsMax - 1 ? "The easiest one (optional)" : "", t =>
 				{
 					_draft.Hints[n] = t;
 					Changed();
 				}, QuestionLimits.HintMaxLength).Grow()));
 		}
-		var left = U.V(14, PromptLine(),
+		var mode = U.Field("How it's played", U.Segmented(StepsMode.All, _draft.StepsMode, id =>
+		{
+			_draft.StepsMode = id;
+			Changed(true);
+		}));
+		var left = U.V(14, mode, sentence ? U.Field("Heading (optional)", U.Input(_draft.Prompt, "e.g. Which city are we looking for?", t =>
+			{
+				_draft.Prompt = t;
+				Changed();
+			}, QuestionLimits.PromptMaxLength)) : PromptLine(),
 			U.Field("Answer", U.Input(_draft.AnswerText, "e.g. The Battle of the Nations 1813", t =>
 			{
 				_draft.AnswerText = t;
 				Changed();
 			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold)), "Only you see it, to judge what players say."),
-			U.Field("Hints, the hardest first", hints, Lang.F("{0}–{1} hints. You flip them over one by one.", QuestionLimits.HintsMin, QuestionLimits.HintsMax)));
+			sentence
+				? U.Field("The question, in parts", hints, Lang.F("{0}–{1} parts, in reading order. Players see the first; the rest stays blurred until you read on.", QuestionLimits.HintsMin, QuestionLimits.HintsMax))
+				: U.Field("Hints, the hardest first", hints, Lang.F("{0}–{1} hints. You flip them over one by one.", QuestionLimits.HintsMin, QuestionLimits.HintsMax)));
 		var settings = RoundSettings.Panel(
 			U.Muted("Players buzz in when they know it and say the answer out loud; you judge Correct or Wrong.", 13),
-			U.Muted("Points: right on the first hint gets as many points as there are hints (5 with five), each hint after one less. Double points doubles them.", 13),
-			U.Muted("Every new hint gives everyone another go, also who was wrong before.", 13));
+			U.Muted(sentence
+				? "Points: a right buzz after the first part gets as many points as there are parts (5 with five), each part after one less. Double points doubles them, a Fast Pass goes ahead of the line."
+				: "Points: right on the first hint gets as many points as there are hints (5 with five), each hint after one less. Double points doubles them.", 13),
+			U.Muted(sentence
+				? "A buzz stops the reading: you can only read on once the answer is judged. Every new part gives everyone another go, also who was wrong before."
+				: "Every new hint gives everyone another go, also who was wrong before.", 13));
 		return Columns((left, 1.6f), (settings, 1));
 	}
 
