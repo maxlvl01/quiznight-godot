@@ -35,7 +35,7 @@ public partial class QuestionEditorScreen : Control
 			U.Link("← Back to quiz", Back, 14),
 			U.Heading(title, 22, false).Grow().With(l => l.HorizontalAlignment = HorizontalAlignment.Center),
 			new UpdateBadge(),
-			U.Btn("Save question", "AccentButton", Save, 15)), "Bar");
+			U.Btn("Save question", "AccentButton", Save, 15).With(b => b.TooltipText = "Ctrl+S")), "Bar");
 		var body = U.V(12, _issues, _form);
 		var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.GrowV();
 		scroll.AddChild(U.Pad(body.Grow().GrowV(), 28, 16, 28, 28).Grow().GrowV());
@@ -935,6 +935,13 @@ public partial class QuestionEditorScreen : Control
 			return;
 		}
 		Dialogs.Confirm(this, "Discard your changes to this question?", "Discard", () => App.I.GoQuiz(_quiz.Id));
+	}
+
+	/// <summary>Ctrl+S: the same as "Save question".</summary>
+	public bool SaveKey()
+	{
+		Save();
+		return true;
 	}
 
 	void Save()

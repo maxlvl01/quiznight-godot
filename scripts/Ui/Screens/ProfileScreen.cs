@@ -481,17 +481,50 @@ public partial class ProfileBars : Control
 		DrawString(Fonts.Mono, new Vector2(0, 14), $"{max}", HorizontalAlignment.Right, 34, 11, C.Muted);
 		DrawString(Fonts.Mono, new Vector2(0, Size.Y - 16), "0", HorizontalAlignment.Right, 34, 11, C.Muted);
 		for (var i = 0; i < _nights.Count; i++)
-			DrawRect(Bar(i), C.Medal(_nights[i].Place) ?? C.Muted with { A = 0.45f });
+		{
+			var color = C.Medal(_nights[i].Place) ?? C.Muted with { A = 0.45f };
+			DrawRect(Bar(i), i == _hover ? color.Lightened(0.35f) with { A = Math.Max(color.A, 0.8f) } : color);
+		}
+		// (the hovered night's place and points above its bar; the tooltip adds the date and quiz)
+		if (_hover is int h && h < _nights.Count)
+		{
+			var r = Bar(h);
+			var label = $"{Lang.Ordinal(_nights[h].Place)} · {Lang.F("{0} pts", _nights[h].Points)}";
+			var x = Math.Clamp(r.GetCenter().X - 60, 0, Math.Max(0, Size.X - 120));
+			DrawString(Fonts.Bold, new Vector2(x, Math.Max(13, r.Position.Y - 6)), label, HorizontalAlignment.Center, 120, 13, C.Text);
+		}
 	}
 
-	public override string _GetTooltip(Vector2 at)
+	int? _hover;
+
+	int? At(Vector2 at)
 	{
 		for (var i = 0; i < _nights.Count; i++)
 		{
 			var r = Bar(i);
-			if (at.X >= r.Position.X - 3 && at.X <= r.End.X + 3)
-				return $"{_nights[i].Date} · {_nights[i].Quiz}\n{Lang.Ordinal(_nights[i].Place)} · {Lang.F("{0} pts", _nights[i].Points)}";
+			if (at.X >= r.Position.X - 3 && at.X <= r.End.X + 3) return i;
 		}
-		return "";
+		return null;
 	}
+
+	public override void _GuiInput(InputEvent e)
+	{
+		if (e is InputEventMouseMotion m && At(m.Position) != _hover)
+		{
+			_hover = At(m.Position);
+			QueueRedraw();
+		}
+	}
+
+	public override void _Notification(int what)
+	{
+		if (what == NotificationMouseExit && _hover != null)
+		{
+			_hover = null;
+			QueueRedraw();
+		}
+	}
+
+	public override string _GetTooltip(Vector2 at) =>
+		At(at) is int i ? $"{_nights[i].Date} · {_nights[i].Quiz}\n{Lang.Ordinal(_nights[i].Place)} · {Lang.F("{0} pts", _nights[i].Points)}" : "";
 }

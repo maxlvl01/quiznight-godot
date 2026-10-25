@@ -31,6 +31,16 @@ public static class Settings
 		Cfg.Save(FilePath);
 	}
 
+	/// <summary>No settings saved on this PC yet: the very first start (anyone who played before has some, even after an update).</summary>
+	public static bool NothingSaved => !Godot.FileAccess.FileExists(FilePath);
+
+	/// <summary>The first start's accessibility screen was shown (and Let's go! pressed): never again.</summary>
+	public static bool AccessibilityAsked
+	{
+		get => Get("accessibility_asked", "off") == "on";
+		set => Set("accessibility_asked", value ? "on" : "off");
+	}
+
 	/// <summary>The version that last showed "What's new" (so it shows once after each update).</summary>
 	public static string LastSeenVersion
 	{
@@ -186,6 +196,13 @@ public static class Settings
 	{
 		get => Get("podium_follow_host", "on") != "off";
 		set => Set("podium_follow_host", value ? "on" : "off");
+	}
+
+	/// <summary>The menu and lobby music (off from the jukebox). Saved when switched.</summary>
+	public static bool MusicOn
+	{
+		get => Get("music_on", "on") != "off";
+		set => Set("music_on", value ? "on" : "off");
 	}
 
 	/// <summary>Whether the space picture beside the screens (wide monitors) moves with the mouse.</summary>

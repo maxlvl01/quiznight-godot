@@ -1,5 +1,5 @@
-// The look (two skins: Pinke Geilheit, dark purple with an orange accent and blue outlines; Classic, the web version's
-// grey with yellow and teal) and small helpers for building screens in code.
+// The look (three skins: Quiznight Purple, dark purple with an orange accent and blue outlines; Pinke Geilheit, pastel
+// pink and lavender on dusky rose; Classic, the web version's grey with yellow and teal) and small helpers for building screens in code.
 
 using System;
 using System.Collections.Generic;
@@ -50,6 +50,12 @@ public static class C
 			(Text, Muted, Accent, AccentInk, Orange) = (new("#ecedf3"), new("#8b8fa3"), new("#f5b942"), new("#1a1408"), new("#ff9f43"));
 			Ink = new("#07080c");
 		}
+		else if (Skins.Valid(skin) == Skins.Pink)
+		{
+			(Bg, Panel, Panel2, Border, Blue) = (new("#26101f"), new("#3f1a37"), new("#532548"), new("#7a4a80"), new("#c9a7ff"));
+			(Text, Muted, Accent, AccentInk, Orange) = (new("#fff0f7"), new("#d6abc7"), new("#ff9fd0"), new("#3a0f26"), new("#ffc9a3"));
+			Ink = new("#14060f");
+		}
 		else
 		{
 			(Bg, Panel, Panel2, Border, Blue) = (new("#150023"), new("#2b0b47"), new("#3a1260"), new("#1a5a85"), new("#00c9f6"));
@@ -79,12 +85,15 @@ public static class C
 /// <summary>The colour skins to choose from in Settings.</summary>
 public static class Skins
 {
+	/// <summary>Quiznight Purple (its id is from when it was called Pinke Geilheit, so saved settings keep it).</summary>
 	public const string Default = "pinke-geilheit";
+	public const string Pink = "pastel-pink";
 	public const string Classic = "classic";
 
 	public static readonly (string Id, string Label)[] All =
 	{
-		(Default, "Pinke Geilheit"),
+		(Default, "Quiznight Purple"),
+		(Pink, "Pinke Geilheit"),
 		(Classic, "Classic"),
 	};
 
@@ -125,8 +134,11 @@ public static class Fonts
 
 	// Settings → Accessibility: a dyslexia-friendly font for all text (assets/fonts/OpenDyslexic-Regular / -Bold, .otf or .ttf)
 	static FontFile? Any(string name) => Load($"res://assets/fonts/{name}.otf") ?? Load($"res://assets/fonts/{name}.ttf");
-	/// <summary>OpenDyslexic runs very wide: a bit narrower, so screens laid out for Fredoka still fit.</summary>
-	static Font? Narrow(FontFile? f) => f == null ? null : new FontVariation { BaseFont = f, VariationTransform = new Transform2D(0.86f, 0, 0, 1, 0, 0), SpacingGlyph = -1 };
+	/// <summary>
+	/// OpenDyslexic runs wide: letters and words a little closer, so screens laid out for Fredoka still fit. (Squashing the glyphs with
+	/// a transform made them thinner but kept their full width, so every word looked letter-spaced.)
+	/// </summary>
+	static Font? Narrow(FontFile? f) => f == null ? null : new FontVariation { BaseFont = f, SpacingGlyph = -2, SpacingSpace = -3 };
 	static readonly Font? DyslexicRegular = Narrow(Any("OpenDyslexic-Regular"));
 	static readonly Font? DyslexicBold = Narrow(Any("OpenDyslexic-Bold")) ?? DyslexicRegular;
 	static bool _dyslexic;
@@ -147,7 +159,7 @@ public static class Fonts
 	public static Font Black => _dyslexic ? DyslexicBold! : PartyBlack;
 	static Font? _spaced;
 	/// <summary>Small caps labels ("eyebrows") get extra letter spacing.</summary>
-	public static Font Spaced => _spaced ??= new FontVariation { BaseFont = Bold, SpacingGlyph = 2 };
+	public static Font Spaced => _spaced ??= _dyslexic ? Bold : new FontVariation { BaseFont = Bold, SpacingGlyph = 2 };
 	public static readonly Font Mono =new SystemFont { FontNames = new[] { "JetBrains Mono", "Consolas", "Courier New" }, FontWeight = 700 };
 }
 

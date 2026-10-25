@@ -727,6 +727,9 @@ public static class SelfTest
 		Check(Storage.CrashReports.Anonymise(@"C:\Users\Max\AppData\Roaming\Quiznight", "max") == @"C:\Users\<user>\AppData\Roaming\Quiznight",
 			"crash reports: the user name is left out of paths");
 		Check(Ui.UiAudio.Describe("res://assets/music/ES_Easy Breezy - Megan Wofford.ogg") == ("Easy Breezy", "Megan Wofford"), "a song's title and artist come from its Epidemic Sound name");
+		Check(Ui.Skins.Valid("pinke-geilheit") == Ui.Skins.Default && Ui.Skins.All.First(s => s.Id == Ui.Skins.Default).Label == "Quiznight Purple"
+			&& Ui.Skins.Valid(Ui.Skins.Pink) == Ui.Skins.Pink, "skins: the old Pinke Geilheit id is Quiznight Purple now, the pastel Pinke Geilheit is its own");
+		Check(Storage.Sfx.Podiums.First(p => p.Id == "f1-podium").Db == 10, "the F1 podium sound plays 10 dB louder");
 		Check(AppVersion.Parse("hello") == null, "not a version");
 		var notes = Changelog.Parse(Godot.FileAccess.GetFileAsString("res://CHANGELOG.md"));
 		var thisVersion = notes.FirstOrDefault(r => r.Version is { } nv && AppVersion.Parse(App.Version) is { } av && nv.CompareTo(av) == 0);

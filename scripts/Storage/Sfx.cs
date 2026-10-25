@@ -11,7 +11,8 @@ namespace QuizNight.Storage;
 
 public static class Sfx
 {
-	public record Sound(string Id, string Label, string Path);
+	/// <summary>A built-in sound; <paramref name="Db"/> evens out quiet recordings.</summary>
+	public record Sound(string Id, string Label, string Path, float Db = 0);
 
 	public static readonly Sound[] Buzzers =
 	{
@@ -26,7 +27,7 @@ public static class Sfx
 	/// <summary>What plays when the final results show. The host picks one for the room; a player can hear their own.</summary>
 	public static readonly Sound[] Podiums =
 	{
-		new("f1-podium", "F1 Podium", "res://assets/soundeffects/Podium2.wav"),
+		new("f1-podium", "F1 Podium", "res://assets/soundeffects/Podium2.wav", 10),
 		new("so-back", "#SoBack", PodiumJingle),
 	};
 
@@ -125,7 +126,7 @@ public static class Sfx
 	public static void PlayPodium(string id)
 	{
 		if (Podiums.FirstOrDefault(p => p.Id == ValidPodium(id)) is { } podium && GD.Load<AudioStream>(podium.Path) is { } stream)
-			Play(ref _musicPlayer, Prefs.GameMusicBus, stream);
+			Play(ref _musicPlayer, Prefs.GameMusicBus, stream, podium.Db);
 	}
 
 	/// <summary>The final results: the host's choice for the room, unless this player picked their own in Settings.</summary>
@@ -162,7 +163,7 @@ public static class Sfx
 
 	static void Play(AudioStream stream) => Play(ref _player, Prefs.SfxBus, stream);
 
-	static void Play(ref AudioStreamPlayer? player, string bus, AudioStream stream)
+	static void Play(ref AudioStreamPlayer? player, string bus, AudioStream stream, float db = 0)
 	{
 		if (player == null || !GodotObject.IsInstanceValid(player))
 		{
@@ -170,6 +171,7 @@ public static class Sfx
 			App.I.AddChild(player);
 		}
 		player.Stream = stream;
+		player.VolumeDb = db;
 		player.Play();
 	}
 }

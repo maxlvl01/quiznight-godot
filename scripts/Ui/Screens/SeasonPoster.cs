@@ -1,4 +1,4 @@
-// The Ewige Tabelle's "Save award pack": a ZIP of pictures to share at the end of a season. A 1920×1080 poster of the
+// The Ewige Tabelle's "Save award pack" (a window explains it with examples, then Generate): a ZIP of pictures to share at the end of a season. A 1920×1080 poster of the
 // standings (the champion in the spotlight, the podium below them, the full table beside it), and a 1080×1080 card per
 // award: the best at each question type and category, the Host's Favourite Puppy, the fastest buzzer, the best speller.
 // Drawn off-screen (a SubViewport), saved in Documents/Quiznight/Pictures and shown in the file manager.
@@ -42,17 +42,86 @@ public static class SeasonPoster
 
 	static string Safe(string s) => new string(s.Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray()).Trim('-');
 
+	/// <summary>Everything an award pack shows: the standings poster's lines and the awards.</summary>
+	public sealed record Pack(string Title, string Ranking, string PointsLabel, List<Standing> Standings, string Footer, List<Award> Awards);
+
+	/// <summary>
+	/// "Save award pack": a window that says what the pack is, with the real standings poster and first award card as
+	/// small examples, and a Generate button that makes it. (No tooltip: it was too long to read in one.)
+	/// </summary>
+	public static void Ask(Control owner, Pack pack)
+	{
+		var d = new ConfirmationDialog { Title = Lang.T("Award pack"), OkButtonText = Lang.T("Generate"), CancelButtonText = Lang.T("Cancel") };
+		d.MinSize = new Vector2I(760, 0);
+		var poster = new TextureRect { CustomMinimumSize = new Vector2(416, 234), ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered };
+		var card = new TextureRect { CustomMinimumSize = new Vector2(234, 234), ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered };
+		var drawing = U.Muted("Drawing the examples…", 13);
+		Control Example(TextureRect picture, string caption) =>
+			U.V(6, U.Panel(picture, "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Bg, 8, C.Border, 2, 4, 4))), U.Muted(caption, 12));
+		var names = string.Join(", ", pack.Awards.Select(a => a.Title));
+		d.AddChild(U.V(12,
+			U.Text("Pictures to share after a season: one ZIP you can post in Discord or WhatsApp.", 15, C.Text, Fonts.Bold, true),
+			U.Muted(pack.Awards.Count > 0
+				? Lang.F("{0} pictures: the standings (1920 × 1080) with the champion in the spotlight, the podium and the full table, and a square card (1080 × 1080) for every award: {1}.", pack.Awards.Count + 1, names)
+				: Lang.T("The standings (1920 × 1080) with the champion in the spotlight, the podium and the full table. Award cards for the best at every question type and category come with nights that have per-question results (recorded from 0.10.0b on)."), 13),
+			pack.Awards.Count > 0 ? U.H(12, Example(poster, "Standings"), Example(card, Lang.F("Award: {0}", pack.Awards[0].Title))) : Example(poster, "Standings"),
+			drawing,
+			U.Muted(Lang.F("Saved in {0}, and the folder opens.", "Documents/Quiznight/Pictures"), 12)).With(v => v.CustomMinimumSize = new Vector2(720, 0)));
+		d.Confirmed += async () =>
+		{
+			d.QueueFree();
+			var wait = Dialogs.Wait(owner, "Drawing the award pack…");
+			var zip = await Save(owner, pack);
+			Dialogs.Close(wait);
+			if (zip == null) Dialogs.Info(owner, "The award pack couldn't be saved. Is Documents/Quiznight/Pictures read-only?", "Couldn't save");
+		};
+		d.Canceled += d.QueueFree;
+		owner.AddChild(d);
+		d.PopupCentered();
+		// (wrapped text first measures as if it were one letter wide: the window shrinks to fit once it's laid out)
+		Callable.From(() =>
+		{
+			d.ResetSize();
+			d.MoveToCenter();
+		}).CallDeferred();
+		_ = ShowExamples();
+
+		async System.Threading.Tasks.Task ShowExamples()
+		{
+			var (posterImage, cardImage) = await Examples(owner, pack);
+			if (!GodotObject.IsInstanceValid(d)) return;
+			if (posterImage != null) poster.Texture = ImageTexture.CreateFromImage(posterImage);
+			if (cardImage != null) card.Texture = ImageTexture.CreateFromImage(cardImage);
+			drawing.Visible = false;
+		}
+	}
+
+	/// <summary>The real poster and first award card, shrunk (none in headless runs, which can't draw).</summary>
+	static async System.Threading.Tasks.Task<(Image? Poster, Image? Card)> Examples(Control owner, Pack pack)
+	{
+		if (DisplayServer.GetName() == "headless") return (null, null);
+		var poster = await Render(owner, Build(pack.Title, pack.Ranking, pack.PointsLabel, pack.Standings, pack.Footer), Size);
+		poster.Resize(Size.X / 3, Size.Y / 3, Image.Interpolation.Lanczos);
+		Image? card = null;
+		if (pack.Awards.Count > 0)
+		{
+			card = await Render(owner, Card(pack.Title, pack.Awards[0]), CardSize);
+			card.Resize(CardSize.X / 3, CardSize.Y / 3, Image.Interpolation.Lanczos);
+		}
+		return (poster, card);
+	}
+
 	/// <summary>
 	/// Draws the poster and every award card, zips them and shows the ZIP in the file manager; returns its path (null if
 	/// it couldn't be saved).
 	/// </summary>
 	/// <param name="to">Dev runs: write the pictures into this folder (and the ZIP next to them), open nothing.</param>
-	public static async System.Threading.Tasks.Task<string?> Save(Control owner, string title, string ranking, string pointsLabel,
-		List<Standing> standings, string footer, List<Award> awards, string? to = null)
+	public static async System.Threading.Tasks.Task<string?> Save(Control owner, Pack pack, string? to = null)
 	{
+		var (title, awards) = (pack.Title, pack.Awards);
 		var pictures = new List<(string Name, byte[] Png)>
 		{
-			("00 Standings.png", (await Render(owner, Build(title, ranking, pointsLabel, standings, footer), Size)).SavePngToBuffer()),
+			("00 Standings.png", (await Render(owner, Build(title, pack.Ranking, pack.PointsLabel, pack.Standings, pack.Footer), Size)).SavePngToBuffer()),
 		};
 		for (var i = 0; i < awards.Count; i++)
 			pictures.Add(($"{i + 1:00} {Safe(awards[i].File)}.png", (await Render(owner, Card(title, awards[i]), CardSize)).SavePngToBuffer()));

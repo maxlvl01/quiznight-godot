@@ -258,7 +258,12 @@ public partial class EternalTableScreen : Control
 	}
 
 	/// <summary>The shown standings as a picture (SeasonPoster): champion, podium, everyone's points and wins.</summary>
-	public static async System.Threading.Tasks.Task<string?> SavePicture(Control owner, List<string> csvs, string? from, string? until, string title, string? to = null)
+	public static System.Threading.Tasks.Task<string?> SavePicture(Control owner, List<string> csvs, string? from, string? until, string title, string? to = null) =>
+		SeasonPoster.Save(owner, AwardPack(csvs, from, until, title), to);
+
+	static bool _devAwardPack;
+
+	static SeasonPoster.Pack AwardPack(List<string> csvs, string? from, string? until, string title)
 	{
 		var lines = Lines(csvs, from, until);
 		var main = MainColumn;
@@ -267,8 +272,7 @@ public partial class EternalTableScreen : Control
 		var nights = Results.Nights(csvs).Where(n => (from == null || string.CompareOrdinal(n.Date, from) >= 0) && (until == null || string.CompareOrdinal(n.Date, until) < 0)).ToList();
 		var footer = nights.Count > 0 ? Lang.F("{0} quiz nights · {1} – {2}", nights.Count, Date(nights[^1].Date), Date(nights[0].Date)) : "";
 		var ranking = Ranking is { } s ? Lang.F("Championship points like {0}: {1}", Lang.T(s.Name), ScoringPresets.Describe(s.Points)) : Lang.T("Quiz points added up");
-		return await SeasonPoster.Save(owner, title, ranking, Ranking != null ? "championship points" : "points", standings, footer,
-			Awards(csvs, from, until), to);
+		return new(title, ranking, Ranking != null ? "championship points" : "points", standings, footer, Awards(csvs, from, until));
 	}
 
 	/// <summary>
@@ -357,10 +361,16 @@ public partial class EternalTableScreen : Control
 			: Ranking is { } sys
 				? Lang.F("Every quiz night scores like a race ({0}: {1}): most championship points first. Click a heading to sort, a name for the profile.", Lang.T(sys.Name), ScoringPresets.Describe(sys.Points))
 				: Lang.T("Every quiz night added up: most points first, then the faster average answer time. Click a heading to sort, a name for the profile.");
-		var save = U.Btn("Save award pack", "", null, 14).Tip("A ZIP of pictures to share: the standings with the champion and the podium, and an award for the best at every question type and category, the Host's Favourite Puppy, the fastest buzzer and the best speller (Documents/Quiznight/Pictures)");
+		var save = U.Btn("Save award pack", "", null, 14);
 		save.SizeFlagsVertical = SizeFlags.ShrinkCenter;
 		save.Visible = _kind == "";
-		save.Pressed += () => _ = SavePicture(this, csvs, from, until, beta ? Lang.T("Beta (before 1.0)") : season.Id != null ? season.Label : Lang.T("Ewige Tabelle · all time"));
+		save.Pressed += () => SeasonPoster.Ask(this, AwardPack(csvs, from, until, beta ? Lang.T("Beta (before 1.0)") : season.Id != null ? season.Label : Lang.T("Ewige Tabelle · all time")));
+		// (dev runs: --award-pack opens the window once, for screenshots)
+		if (!_devAwardPack && save.Visible && OS.GetCmdlineUserArgs().Contains("--award-pack"))
+		{
+			_devAwardPack = true;
+			Callable.From(() => save.EmitSignal(BaseButton.SignalName.Pressed)).CallDeferred();
+		}
 		var page = U.V(14, TopBar("table"), U.H(12, U.Heading(title, 34).Grow(), save), pickers, U.Muted(intro, 15));
 
 		var lines = Lines(csvs, from, until);

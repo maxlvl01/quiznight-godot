@@ -11,7 +11,7 @@
 //   assets/soundeffects/ui/hover.ogg and click.ogg (or .mp3 / .wav); back.ogg for "←" links, if there is one
 //   assets/soundeffects/voice/intro.ogg: a voice line once the home screen first shows (intro2 … intro9: one at random);
 //     the music ducks under it
-// Music plays on the game music bus ("Game music" in Settings), the button sounds on the SFX bus. When a new song
+// Music plays on the game music bus ("Music" in Settings), the button sounds on the SFX bus. When a new song
 // starts, a "Now playing" card shows its title and artist (from assets/music/CREDITS.md) in the bottom left.
 
 using System;
@@ -183,8 +183,49 @@ public partial class UiAudio : Node
 	{
 		if (_tracks.Count == 0 || GD.Load<AudioStream>(_tracks[_track]) is not { } stream) return;
 		_music.Stream = stream;
+		// (music switched off in the jukebox: the song is lined up, and starts when it's switched on again)
+		if (!Settings.MusicOn) return;
 		_music.Play();
 		TrackStarted?.Invoke(_tracks[_track]);
+	}
+
+	// ---------- the jukebox (Ui/Jukebox) ----------
+
+	/// <summary>The songs this screen's place plays, and the one playing (or lined up) now.</summary>
+	public IReadOnlyList<string> Songs => _tracks;
+	public string? CurrentSong => _tracks.Count > 0 ? _tracks[_track] : null;
+
+	/// <summary>Music on or off (saved). Off fades it out; on carries on with the same song.</summary>
+	public void SetMusicOn(bool on)
+	{
+		Settings.MusicOn = on;
+		if (on && !_music.Playing && _tracks.Count > 0)
+		{
+			_music.VolumeDb = -30;
+			StartTrack();
+		}
+		Apply();
+	}
+
+	/// <summary>The next or previous song in this place's list (switching the music on if it was off).</summary>
+	public void Skip(int by)
+	{
+		if (_tracks.Count == 0) return;
+		PlaySong((_track + by + _tracks.Count) % _tracks.Count);
+	}
+
+	public void PlaySong(int index)
+	{
+		if (index < 0 || index >= _tracks.Count) return;
+		_fade?.Kill();
+		_track = index;
+		Settings.MusicOn = true;
+		_music.StreamPaused = false;
+		_music.VolumeDb = 0;
+		_quiet = false;
+		StartTrack();
+		// (fades straight out again if a question or the podium sound wants quiet now)
+		Apply();
 	}
 
 	/// <summary>A song started (its res:// path): App shows the "Now playing" card.</summary>
@@ -227,7 +268,7 @@ public partial class UiAudio : Node
 
 	void Apply()
 	{
-		var quiet = _questionQuiet || Storage.Sfx.IsPlaying(true) || (Storage.Sfx.Previewing && Storage.Sfx.IsPlaying(false));
+		var quiet = !Settings.MusicOn || _questionQuiet || Storage.Sfx.IsPlaying(true) || (Storage.Sfx.Previewing && Storage.Sfx.IsPlaying(false));
 		if (quiet == _quiet) return;
 		_quiet = quiet;
 		if (_music.Stream == null) return;
@@ -267,7 +308,7 @@ public partial class UiAudio : Node
 		var tracks = Place(screen) is { } place ? Tracks(place) : new();
 		// (a new screen starts out loud: only a quiz question asks for quiet)
 		_questionQuiet = false;
-		if (_quiet)
+		if (_quiet && Settings.MusicOn)
 		{
 			_quiet = false;
 			_music.StreamPaused = false;

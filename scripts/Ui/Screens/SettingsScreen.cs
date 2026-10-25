@@ -6,7 +6,7 @@ using QuizNight.Storage;
 namespace QuizNight.Ui.Screens;
 
 /// <summary>
-/// Audio (master, music, game music, sound effects, buzzer), video (window mode, size) and language.
+/// Audio (master, music, video/sound questions, sound effects, buzzer), video (window mode, size) and language.
 /// Changes are a draft until Apply: volumes and the language preview right away, the window changes on
 /// Apply. Discard goes back to what's saved, Reset fills in the defaults (still to be applied).
 /// </summary>
@@ -16,8 +16,18 @@ public partial class SettingsScreen : Control
 	static Settings.Values? _draft;
 	static string? _note;
 
-	static Settings.Values Draft => _draft ??= Settings.Current;
-	static bool Dirty => Draft != Settings.Current;
+	static Settings.Values Draft => _draft ??= Fitted(Settings.Current);
+	// (compared with the saved settings as the screen shows them, so a window size swapped for one that fits this monitor
+	// doesn't count as a change nobody made)
+	static bool Dirty => Draft != Fitted(Settings.Current);
+
+	/// <summary>Only sizes that fit on the chosen monitor (a 1440p screen can't pick 4K): else the biggest one that does.</summary>
+	static Settings.Values Fitted(Settings.Values d)
+	{
+		var fitting = Prefs.SizesFor(d.Screen);
+		if (fitting.Contains(d.WindowSize)) return d;
+		return d with { WindowSize = fitting.Where(s => s.X <= d.WindowSize.X && s.Y <= d.WindowSize.Y).DefaultIfEmpty(fitting[0]).MaxBy(s => s.X * s.Y) };
+	}
 
 	readonly Label _status = U.Muted("", 13, false, HorizontalAlignment.Right);
 	readonly Button _apply;
@@ -32,20 +42,16 @@ public partial class SettingsScreen : Control
 		var audio = U.Card(14,
 			U.Eyebrow("Audio"),
 			Volume("Master volume", "Everything Quiznight plays.", d.Master, v => Change(Draft with { Master = v })),
-			Volume("Music", "Songs and clips in sound and video questions.", d.Music, v => Change(Draft with { Music = v })),
-			Volume("Game music", "Menu music and the podium jingle.", d.GameMusic, v => Change(Draft with { GameMusic = v })),
+			Volume("Music", "Menu music and the podium jingle.", d.GameMusic, v => Change(Draft with { GameMusic = v })),
+			Volume("Video", "Videos, songs and clips in sound and video questions.", d.Music, v => Change(Draft with { Music = v })),
 			Volume("Sound effects", "Buzzer and other sound effects.", d.Sfx, v => Change(Draft with { Sfx = v })),
 			new HSeparator(),
 			BuzzerSection(),
 			new HSeparator(),
 			PodiumSection()).Grow();
 
-		// Only sizes that fit on the chosen monitor (a 1440p screen can't pick 4K).
+		_draft = d = Fitted(d);
 		var fitting = Prefs.SizesFor(d.Screen);
-		if (!fitting.Contains(d.WindowSize))
-		{
-			_draft = d = d with { WindowSize = fitting.Where(s => s.X <= d.WindowSize.X && s.Y <= d.WindowSize.Y).DefaultIfEmpty(fitting[0]).MaxBy(s => s.X * s.Y) };
-		}
 		var native = Prefs.ScreenSize(d.Screen);
 		var sizes = fitting.Select(s => ($"{s.X}x{s.Y}", $"{s.X} × {s.Y}  ·  {Prefs.AspectName(s)}" + (s == native ? "  " + Lang.T("(this screen)") : ""))).ToArray();
 		var size = U.Select(sizes, $"{d.WindowSize.X}x{d.WindowSize.Y}", id =>
@@ -136,7 +142,7 @@ public partial class SettingsScreen : Control
 			Preview();
 			App.I.GoSettings();
 		});
-		_apply = U.Btn("Apply", "AccentButton", Apply);
+		_apply = U.Btn("Apply", "AccentButton", Apply).With(b => b.TooltipText = "Ctrl+S");
 		var bar = U.H(10, _reset, _status.Grow(), _discard, _apply);
 		_status.SizeFlagsVertical = SizeFlags.ShrinkCenter;
 
@@ -169,6 +175,13 @@ public partial class SettingsScreen : Control
 	{
 		Prefs.ApplyAudio(Draft);
 		Lang.Use(Draft.Language);
+	}
+
+	/// <summary>Ctrl+S: Apply (when there's something to apply).</summary>
+	public bool ApplyKey()
+	{
+		if (Dirty) Apply();
+		return true;
 	}
 
 	void Apply()

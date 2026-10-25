@@ -29,34 +29,48 @@ public partial class NowPlaying : PanelContainer
 	{
 		if (_current != null && IsInstanceValid(_current)) _current.QueueFree();
 		_current = this;
-		// (bottom left, out of the way of the screens' own buttons; slides in from the left)
+		// (bottom left, out of the way of the screens' own buttons, beside the jukebox; slides in from the left)
 		Callable.From(() =>
 		{
 			var parent = GetParentControl()?.Size ?? GetViewportRect().Size;
 			var y = parent.Y - Size.Y - 20;
 			Position = new Vector2(-Size.X - 10, y);
 			var t = CreateTween();
-			t.TweenProperty(this, "position:x", 20f, 0.45).SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+			t.TweenProperty(this, "position:x", Jukebox.Right + 10f, 0.45).SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
 			t.TweenInterval(5);
 			t.TweenProperty(this, "position:x", -Size.X - 10, 0.35).SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.In);
 			t.TweenCallback(Callable.From(QueueFree));
 		}).CallDeferred();
 	}
+}
 
-	/// <summary>A rounded square with two music notes, drawn (emoji notes don't render in every font).</summary>
-	partial class NoteIcon : Control
+/// <summary>A rounded square with two music notes, drawn (emoji notes don't render in every font). Off: greyed and struck through.</summary>
+public partial class NoteIcon : Control
+{
+	bool _off;
+	public bool Off
 	{
-		public override void _Draw()
+		get => _off;
+		set
 		{
-			var s = Size;
-			DrawStyleBox(UiTheme.Box(C.Accent, 9, null, 0, 0, 0), new Rect2(Vector2.Zero, s));
-			var ink = C.AccentInk;
-			var w = s.X;
-			DrawCircle(new Vector2(w * 0.34f, s.Y * 0.7f), w * 0.11f, ink);
-			DrawCircle(new Vector2(w * 0.68f, s.Y * 0.62f), w * 0.11f, ink);
-			DrawLine(new Vector2(w * 0.43f, s.Y * 0.7f), new Vector2(w * 0.43f, s.Y * 0.28f), ink, 2.5f);
-			DrawLine(new Vector2(w * 0.77f, s.Y * 0.62f), new Vector2(w * 0.77f, s.Y * 0.2f), ink, 2.5f);
-			DrawLine(new Vector2(w * 0.43f, s.Y * 0.28f), new Vector2(w * 0.77f, s.Y * 0.2f), ink, 3.5f);
+			_off = value;
+			QueueRedraw();
 		}
+	}
+
+	public NoteIcon() => MouseFilter = MouseFilterEnum.Ignore;
+
+	public override void _Draw()
+	{
+		var s = Size;
+		DrawStyleBox(UiTheme.Box(_off ? C.Panel2 : C.Accent, 9, null, 0, 0, 0), new Rect2(Vector2.Zero, s));
+		var ink = _off ? C.Muted : C.AccentInk;
+		var w = s.X;
+		DrawCircle(new Vector2(w * 0.34f, s.Y * 0.7f), w * 0.11f, ink);
+		DrawCircle(new Vector2(w * 0.68f, s.Y * 0.62f), w * 0.11f, ink);
+		DrawLine(new Vector2(w * 0.43f, s.Y * 0.7f), new Vector2(w * 0.43f, s.Y * 0.28f), ink, 2.5f);
+		DrawLine(new Vector2(w * 0.77f, s.Y * 0.62f), new Vector2(w * 0.77f, s.Y * 0.2f), ink, 2.5f);
+		DrawLine(new Vector2(w * 0.43f, s.Y * 0.28f), new Vector2(w * 0.77f, s.Y * 0.2f), ink, 3.5f);
+		if (_off) DrawLine(new Vector2(w * 0.18f, s.Y * 0.18f), new Vector2(w * 0.82f, s.Y * 0.82f), C.Coral, 3f);
 	}
 }

@@ -2,6 +2,7 @@
 // room state to the lobby, game and podium screens.
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using QuizNight.Dev;
@@ -46,11 +47,14 @@ public partial class App : Control
 	public override void _Ready()
 	{
 		I = this;
+		// (nothing saved yet: the very first start on this PC, which asks for the accessibility settings first)
+		var firstStart = Settings.NothingSaved;
 		// (sends the last run's log if it crashed or hit an error; exported builds only)
 		CrashReports.Start();
-		C.Use(Settings.Skin);
-		// (dev runs: --dyslexic and --colour-vision MODE try them without saving)
+		// (dev runs: --skin ID, --dyslexic and --colour-vision MODE try them without saving)
 		var devArgs = OS.GetCmdlineUserArgs();
+		var skinArg = Array.IndexOf(devArgs, "--skin");
+		C.Use(skinArg >= 0 && skinArg + 1 < devArgs.Length ? devArgs[skinArg + 1] : Settings.Skin);
 		Fonts.UseDyslexic(Settings.DyslexicFont || devArgs.Contains("--dyslexic"));
 		Theme = UiTheme.Build();
 		SetAnchorsPreset(LayoutPreset.FullRect);
@@ -63,15 +67,12 @@ public partial class App : Control
 		_banners.MouseFilter = MouseFilterEnum.Ignore;
 		AddChild(_banners);
 		AddChild(_audio);
+		AddChild(new Jukebox());
 		AddChild(_colours);
 		AddChild(Announcer);
 		var cv = Array.IndexOf(devArgs, "--colour-vision");
 		_colours.Use(cv >= 0 && cv + 1 < devArgs.Length ? devArgs[cv + 1] : Settings.ColourVision);
 		_audio.TrackStarted += path => AddChild(new NowPlaying(path));
-		// (the splash plays out on top of the first screen; not in dev and test runs, which pass arguments after --)
-		SplashIntro? splash = null;
-		if (OS.GetCmdlineUserArgs().Length == 0 && DisplayServer.GetName() != "headless" && !Announcer.ReduceMotion) AddChild(splash = new SplashIntro());
-
 		GetTree().AutoAcceptQuit = false;
 		// (the name players see; project.godot keeps "QuizNight!", which names the exported data folder that updates rely on)
 		GetWindow().Title = "Quiznight?";
@@ -86,21 +87,38 @@ public partial class App : Control
 		if (args.Contains("--lan-locked")) LanUnlocked = false;
 		if (!args.Contains("--no-steam") && !args.Contains("--selftest") && !args.Contains("--bot")) SteamService.Init();
 		_dev = DevTools.FromArgs(this, args);
-		if (_dev?.TakesOver != true)
+		if (_dev?.TakesOver == true) return;
+		var window = DisplayServer.GetName() != "headless";
+		if (window && (firstStart && args.Length == 0 || args.Contains("--welcome")) && !Settings.AccessibilityAsked)
 		{
-			GoHome();
-			// (What's new and the update prompt are windows of their own: they wait until the splash is gone)
-			void Popups()
-			{
-				if (_screen is HomeScreen) _audio.Greet();
-				WhatsNew.ShowIfUpdated(this);
-				if (Updater.Enabled) Updater.CleanUp();
-				UpdatePrompt.CheckAndInstall(this);
-			}
-			if (splash != null) splash.TreeExited += Popups;
-			else Popups();
+			_afterWelcome = () => Start(args.Length == 0 && window);
+			ShowWelcomeAgain();
 		}
+		else Start(args.Length == 0 && window);
 	}
+
+	/// <summary>The splash (not in dev and test runs, which pass arguments after --), then the home screen.</summary>
+	void Start(bool splash)
+	{
+		SplashIntro? intro = null;
+		if (splash && !Announcer.ReduceMotion) AddChild(intro = new SplashIntro());
+		GoHome();
+		// (What's new and the update prompt are windows of their own: they wait until the splash is gone)
+		void Popups()
+		{
+			if (_screen is HomeScreen) _audio.Greet();
+			WhatsNew.ShowIfUpdated(this);
+			if (Updater.Enabled) Updater.CleanUp();
+			UpdatePrompt.CheckAndInstall(this);
+		}
+		if (intro != null) intro.TreeExited += Popups;
+		else Popups();
+	}
+
+	Action? _afterWelcome;
+
+	/// <summary>The first start's accessibility screen (again, after a language or font change rebuilt it).</summary>
+	public void ShowWelcomeAgain() => Show(new WelcomeScreen(() => _afterWelcome?.Invoke()));
 
 	/// <summary>Seconds until the next quiet update check (every minute while the game is open).</summary>
 	double _updateCheckIn = 60;
@@ -155,17 +173,24 @@ public partial class App : Control
 		_colours.Use(mode);
 	}
 
-	/// <summary>Switches the dyslexia-friendly font: a new theme, and the settings screen built again with it.</summary>
+	/// <summary>Switches the dyslexia-friendly font: a new theme, and the settings (or first start) screen built again with it.</summary>
 	public void UseDyslexicFont(bool on)
 	{
 		Settings.DyslexicFont = on;
 		Fonts.UseDyslexic(on);
 		Theme = UiTheme.Build();
-		GoSettings();
+		if (_screen is WelcomeScreen) ShowWelcomeAgain();
+		else GoSettings();
 	}
 
-	void Show(Control screen)
+	void Show(Control screen, Action? again = null)
 	{
+		// (history for the mouse's back/forward buttons: a screen left by going back can be opened again with forward;
+		// any other way to a new screen starts over, like a browser)
+		if (_backFrom != null && _backFrom == _screen && _shownAgain != null) _forward.Push(_shownAgain);
+		else if (!_forwarding) _forward.Clear();
+		_backFrom = null;
+		_shownAgain = again;
 		Sfx.StopPreview();
 		_screens.Clear();
 		_screen = screen;
@@ -180,22 +205,72 @@ public partial class App : Control
 	// ---------- Escape: one screen back ----------
 
 	/// <summary>
-	/// Escape goes back one screen everywhere but the home screen: the screen's "← …" link, or what leaving means in a
+	/// Escape goes back one screen (on the home screen it asks to quit): the screen's "← …" link, or what leaving means in a
 	/// room (closing the lobby or ending the quiz ask first). Open dialogs, drop-downs and the picture viewer get the key
 	/// first and close themselves instead.
 	/// </summary>
 	public override void _UnhandledKeyInput(InputEvent e)
 	{
-		if (e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape } || _screen == null) return;
+		if (e is not InputEventKey { Pressed: true, Echo: false } key || _screen == null) return;
 		if (GetChildren().OfType<SplashIntro>().Any()) return;
-		if (GoBack(_screen)) GetViewport().SetInputAsHandled();
+		var handled = key.Keycode switch
+		{
+			Key.Escape => _screen is HomeScreen ? AskQuit() : Back(),
+			// Ctrl+S: Apply in Settings, Save in the question editor
+			Key.S when key.CtrlPressed => _screen switch
+			{
+				SettingsScreen settings => settings.ApplyKey(),
+				QuestionEditorScreen editor => editor.SaveKey(),
+				_ => false,
+			},
+			_ => false,
+		};
+		if (handled) GetViewport().SetInputAsHandled();
+	}
+
+	// The mouse's thumb buttons go back and forward like in a browser. (_Input, not _UnhandledInput: every panel stops
+	// mouse clicks, so they'd never get there. An open dialog gets them first.)
+	public override void _Input(InputEvent e)
+	{
+		if (e is not InputEventMouseButton { Pressed: true } button || _screen == null) return;
+		if (button.ButtonIndex is not (MouseButton.Xbutton1 or MouseButton.Xbutton2)) return;
+		if (GetChildren().OfType<SplashIntro>().Any()) return;
+		if (button.ButtonIndex == MouseButton.Xbutton1 ? _screen is not HomeScreen && Back() : Forward()) GetViewport().SetInputAsHandled();
+	}
+
+	readonly Stack<Action> _forward = new();
+	/// <summary>Opens the shown screen again (null for room screens, which can't be).</summary>
+	Action? _shownAgain;
+	Control? _backFrom;
+	bool _forwarding;
+
+	bool Back()
+	{
+		_backFrom = _screen;
+		return GoBack(_screen!);
+	}
+
+	bool Forward()
+	{
+		if (!_forward.TryPop(out var again)) return false;
+		_forwarding = true;
+		try { again(); }
+		finally { _forwarding = false; }
+		return true;
+	}
+
+	/// <summary>Escape or "Quit" on the home screen: asks first.</summary>
+	public bool AskQuit()
+	{
+		if (_screen != null) Dialogs.Confirm(_screen, "Close Quiznight?", "Quit", () => Quit(), "Quit the game");
+		return true;
 	}
 
 	bool GoBack(Control screen)
 	{
 		switch (screen)
 		{
-			case HomeScreen:
+			case HomeScreen or WelcomeScreen:
 				return false;
 			case HostLobbyScreen:
 				Dialogs.Confirm(screen, "Close the room? Everyone in it is sent back to the home screen.", "Close room", CloseRoom);
@@ -252,9 +327,9 @@ public partial class App : Control
 
 	// ---------- navigation (outside a room) ----------
 
-	public void GoHome(string? notice = null) => Show(new HomeScreen(notice));
-	public void GoQuizzes() => Show(new QuizListScreen());
-	public void GoSettings() => Show(new SettingsScreen());
+	public void GoHome(string? notice = null) => Show(new HomeScreen(notice), () => GoHome());
+	public void GoQuizzes() => Show(new QuizListScreen(), GoQuizzes);
+	public void GoSettings() => Show(new SettingsScreen(), GoSettings);
 
 	/// <summary>Switches the colour skin now: a new theme, and the settings screen built again in its colours.</summary>
 	public void UseSkin(string skin)
@@ -265,21 +340,21 @@ public partial class App : Control
 		_bg.Color = C.Bg;
 		GoSettings();
 	}
-	public void GoEternalTable() => Show(new EternalTableScreen());
-	public void GoMatchHistory() => Show(new MatchHistoryScreen());
+	public void GoEternalTable() => Show(new EternalTableScreen(), GoEternalTable);
+	public void GoMatchHistory() => Show(new MatchHistoryScreen(), GoMatchHistory);
 	/// <summary>A player's profile page (from a name in the Ewige Tabelle or the match history).</summary>
-	public void GoProfile(string playerId) => Show(new ProfileScreen(playerId));
+	public void GoProfile(string playerId) => Show(new ProfileScreen(playerId), () => GoProfile(playerId));
 	/// <summary>Statistics: the Ewige Tabelle or the match history, whichever was open last.</summary>
 	public void GoStatistics()
 	{
 		if (EternalTableScreen.LastTab == "history") GoMatchHistory();
 		else GoEternalTable();
 	}
-	public void GoMatchNight(Storage.Results.Night night) => Show(new MatchNightScreen(night));
+	public void GoMatchNight(Storage.Results.Night night) => Show(new MatchNightScreen(night), () => GoMatchNight(night));
 
 	public void GoQuiz(string id)
 	{
-		if (QuizStore.Get(id) is { } quiz) Show(new QuizOverviewScreen(quiz));
+		if (QuizStore.Get(id) is { } quiz) Show(new QuizOverviewScreen(quiz), () => GoQuiz(id));
 		else GoQuizzes();
 	}
 
@@ -294,7 +369,7 @@ public partial class App : Control
 		var question = questionId != null ? quiz.Questions.FirstOrDefault(q => q.Id == questionId)
 			: newType != null && QuestionType.IsKnown(newType) ? QuizRules.NewQuestion(newType, QuizStore.MakeId()) : null;
 		if (question == null) GoQuiz(quizId);
-		else Show(new QuestionEditorScreen(quiz, question, questionId == null));
+		else Show(new QuestionEditorScreen(quiz, question, questionId == null), questionId != null ? () => GoQuestion(quizId, questionId, null) : null);
 	}
 
 	// ---------- hosting ----------

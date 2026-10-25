@@ -105,7 +105,7 @@ public partial class HomeScreen : Control
 		// (two spotlights sweep over the logo, behind the page)
 		AddChild(new Spotlights { Target = 120 });
 		AddChild(U.Page(page, 960, 56));
-		var corner = U.H(8, U.Small("☀ Light mode", LightMode), U.Small("Settings", App.I.GoSettings));
+		var corner = U.H(8, U.Small("☀ Light mode", LightMode), U.Small("Settings", App.I.GoSettings), U.Small("Quit", () => App.I.AskQuit()));
 		corner.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight, LayoutPresetMode.KeepSize, 20);
 		corner.GrowHorizontal = GrowDirection.Begin;
 		AddChild(corner);
