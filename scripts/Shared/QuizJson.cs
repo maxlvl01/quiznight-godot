@@ -89,6 +89,7 @@ public static class QuizJson
 				o["choices"] = new JsonArray(q.Choices.Select(c => (JsonNode)JsonValue.Create(c)!).ToArray());
 				o["correctChoice"] = q.CorrectChoice;
 				o["correctChoices"] = new JsonArray(q.CorrectChoices.Select(i => (JsonNode)JsonValue.Create(i)!).ToArray());
+				if (q.WrongCosts) o["wrongCosts"] = true;
 				o["timeLimitSec"] = q.TimeLimitSec;
 				break;
 			case QuestionType.Sound:
@@ -204,7 +205,8 @@ public static class QuizJson
 		}
 		q.StartSec = Num(o, "startSec", 0);
 		q.Unit = Str(o, "unit");
-		q.TieRule = Str(o, "tieRule", TieRule.AllScore) == TieRule.NobodyScores ? TieRule.NobodyScores : TieRule.AllScore;
+		q.TieRule = Str(o, "tieRule", TieRule.AllScore) is var tie && TieRule.All.Any(t => t.Id == tie) ? tie : TieRule.AllScore;
+		q.WrongCosts = o["wrongCosts"] is JsonValue wc && wc.TryGetValue<bool>(out var costs) && costs;
 		q.Scoring = Str(o, "scoring", Scoring.ClosestWins) == Scoring.Top3 ? Scoring.Top3 : Scoring.ClosestWins;
 		if (o["rankPoints"] is JsonArray rankPoints)
 			q.RankPoints = rankPoints.Select(p => p is JsonValue v && (v.TryGetValue<double>(out var n) || v.TryGetValue<int>(out var i) && (n = i) == i) ? (int)Math.Clamp(n, 0, ScoringPresets.PointsMax) : 0)

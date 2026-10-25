@@ -150,6 +150,8 @@ public sealed class RoomState
 	public Dictionary<string, int> Places = new();
 	/// <summary>Average buzz/answer time per player (ms), shown with the scores.</summary>
 	public Dictionary<string, double> AvgAnswerMs = new();
+	/// <summary>Everyone's numbers for tonight so far (the stats table).</summary>
+	public Dictionary<string, NightStats> Stats = new();
 	/// <summary>How much of the quiz's pictures, sounds and videos each player has, 0–100 (all of it, ahead of time).</summary>
 	public Dictionary<string, int> Downloads = new();
 
@@ -168,6 +170,16 @@ public sealed class RoomState
 }
 
 /// <summary>A number (estimation), a choice index (A–D), several choice indexes (multi) or a point on the map (map pin).</summary>
+/// <summary>One player's night so far: questions scored, average answer time, how far off on maps and estimations.</summary>
+public sealed class NightStats
+{
+	public int Scored;
+	public int Answers;
+	public double? AvgAnswerS;
+	public double? AvgKm;
+	public double? AvgPercentOff;
+}
+
 public sealed class AnswerValue
 {
 	public double? Num;
@@ -214,6 +226,10 @@ public sealed class PublicQuestion
 	public bool Written;
 	/// <summary>Scores by place (e.g. F1 points): Points is then the most the best place gets.</summary>
 	public bool RankScoring;
+	/// <summary>Choice questions: a wrong answer costs the question's points.</summary>
+	public bool WrongCosts;
+	/// <summary>Interactive questions: players vote, or the host picks (for "how it works" before it's shown).</summary>
+	public string? Judging;
 	/// <summary>The bonus the host can give at the reveal (0 = none) and what it's for.</summary>
 	public int BonusPoints;
 	public string? BonusText;

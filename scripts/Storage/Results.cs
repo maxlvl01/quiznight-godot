@@ -21,7 +21,7 @@ public static class Results
 	public static readonly string[] Columns =
 	{
 		"date", "quiz", "questions", "players", "place", "player_id", "player", "points", "questions_scored",
-		"avg_answer_s", "answers", "avg_km_off", "map_answers", "joined_at", "left_at",
+		"avg_answer_s", "answers", "avg_km_off", "map_answers", "joined_at", "left_at", "avg_pct_off", "estimate_answers",
 	};
 
 	/// <summary>Where the host's game keeps results it couldn't upload.</summary>
@@ -46,6 +46,7 @@ public static class Results
 				s.AvgAnswerMs is { } ms ? (ms / 1000).ToString("0.000", Inv) : "", s.Answers.ToString(Inv),
 				s.AvgKm is { } km ? km.ToString("0.000", Inv) : "", s.KmAnswers.ToString(Inv),
 				p.JoinedAt?.ToString(Inv) ?? "", p.LeftAt?.ToString(Inv) ?? "",
+				s.AvgPercentOff is { } pct ? pct.ToString("0.000", Inv) : "", s.PercentAnswers.ToString(Inv),
 			})).Append('\n');
 		}
 		return sb.ToString();
@@ -128,8 +129,10 @@ public static class Results
 	{
 		public string Id = "";
 		public string Name = "";
-		public int Nights, Wins, Podiums, Points, Scored, Answers, MapAnswers;
-		public double AnswerSeconds, Km;
+		public int Nights, Wins, Podiums, Points, Scored, Answers, MapAnswers, EstimateAnswers;
+		public double AnswerSeconds, Km, PercentOff;
+		/// <summary>Estimations: average % off (only nights from 0.9.3b on recorded it).</summary>
+		public double? AvgPercentOff => EstimateAnswers > 0 ? PercentOff / EstimateAnswers : null;
 		public double? AvgAnswerS => Answers > 0 ? AnswerSeconds / Answers : null;
 		public double? AvgKm => MapAnswers > 0 ? Km / MapAnswers : null;
 		public double AvgPoints => Nights > 0 ? (double)Points / Nights : 0;
@@ -167,6 +170,11 @@ public static class Results
 			{
 				c.Km += km * m;
 				c.MapAnswers += m;
+			}
+			if (D("avg_pct_off") is { } pct && I("estimate_answers") is var e and > 0)
+			{
+				c.PercentOff += pct * e;
+				c.EstimateAnswers += e;
 			}
 		}
 		return careers.Values.OrderByDescending(c => c.Points).ThenBy(c => c.AvgAnswerS ?? double.MaxValue).ThenBy(c => c.Name).ToList();

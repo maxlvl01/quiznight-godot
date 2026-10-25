@@ -33,8 +33,13 @@ public sealed class PlayerStats
 	/// <summary>Questions they scored on.</summary>
 	public int Scored;
 
+	/// <summary>Estimations: how far off, in % of the right number.</summary>
+	public double PercentOff;
+	public int PercentAnswers;
+
 	public double? AvgAnswerMs => Answers > 0 ? (double)AnswerMs / Answers : null;
 	public double? AvgKm => KmAnswers > 0 ? Km / KmAnswers : null;
+	public double? AvgPercentOff => PercentAnswers > 0 ? PercentOff / PercentAnswers : null;
 }
 
 public sealed class Room : IGameHooks
@@ -108,6 +113,13 @@ public sealed class Room : IGameHooks
 
 	public void NoteScored(string playerId) => StatsOf(playerId).Scored++;
 
+	public void NotePercentOff(string playerId, double percent)
+	{
+		var s = StatsOf(playerId);
+		s.PercentOff += percent;
+		s.PercentAnswers++;
+	}
+
 	/// <summary>
 	/// Everyone's position: most points first; same points, whoever got there first; then the faster average
 	/// buzz/answer time; then the closer average map pin; then who joined first. Players equal in all of these share a place.
@@ -135,6 +147,10 @@ public sealed class Room : IGameHooks
 			Ranking = order,
 			Places = places,
 			AvgAnswerMs = Stats.Where(s => s.Value.AvgAnswerMs != null).ToDictionary(s => s.Key, s => s.Value.AvgAnswerMs!.Value),
+			Stats = Stats.ToDictionary(s => s.Key, s => new NightStats
+			{
+				Scored = s.Value.Scored, Answers = s.Value.Answers, AvgAnswerS = s.Value.AvgAnswerMs / 1000, AvgKm = s.Value.AvgKm, AvgPercentOff = s.Value.AvgPercentOff,
+			}),
 			Code = Code,
 			Quiz = new QuizInfo { Id = Quiz.Id, Title = Quiz.Title, QuestionCount = Quiz.Questions.Count },
 			Game = Game != null && Phase == Shared.Phase.Playing ? Game.View(viewer) : null,

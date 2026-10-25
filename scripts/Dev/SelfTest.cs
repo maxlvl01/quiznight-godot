@@ -613,6 +613,14 @@ public static class SelfTest
 		ranked.RankPoints = f1.Points.ToList();
 		Check(QuizJson.ReadQuestion(QuizJson.WriteQuestion(ranked)).RankPoints.SequenceEqual(f1.Points) && ranked.MaxPoints == 25, "points per place are saved with the question");
 		Check(QuizJson.ReadQuestion(QuizJson.WriteQuestion(QuizRules.NewQuestion(QuestionType.Estimation, "c"))).RankPoints.Count == 0, "no points per place: the classic way");
+		var fasterTie = Game.ClosenessPoints(new List<(string, double)> { ("late", 5), ("early", 5) }, 1, Scoring.Top3, TieRule.Faster);
+		Check(fasterTie["late"].Points == 3 && fasterTie["early"].Points == 2, "faster answer wins a tie (the one who locked in first is ahead)");
+		Eq(QuizRules.NewQuestion(QuestionType.MapPin, "m").TieRule, TieRule.Faster, "new map pins break ties by who was faster");
+		var costly = QuizRules.NewQuestion(QuestionType.Classic, "w");
+		costly.Mode = ClassicMode.Choice;
+		costly.WrongCosts = true;
+		Check(QuizJson.ReadQuestion(System.Text.Json.Nodes.JsonNode.Parse(QuizJson.WriteQuestion(costly).ToJsonString())!.AsObject()).WrongCosts, "'wrong answers cost points' is saved");
+		Check(Storage.Results.Columns.Contains("avg_pct_off"), "results record the estimation % off");
 		Eq(Game.Fmt(0.00000034), "0.00000034", "small numbers keep every digit");
 		Eq(Game.Fmt(0.1 + 0.2), "0.3", "no float noise");
 		Eq(Ui.NumberField.Parse("2,5"), 2.5, "a comma reads as the decimal point");

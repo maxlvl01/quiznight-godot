@@ -214,7 +214,10 @@ public static class GameParts
 			side.AddChild(chips);
 		}
 		if (side.GetChildCount() > 0) side.AddChild(U.Gap(4));
-		side.AddChild(U.Eyebrow("Scores"));
+		// ("Stats": tonight's numbers for everyone, in a window)
+		var stats = U.Link("Stats", null, 13).Tip("Tonight so far: points, questions scored, answer times, how far off");
+		stats.Pressed += () => NightStatsView.Popup(stats, room, me);
+		side.AddChild(Row(8, U.Eyebrow("Scores").Grow(), stats));
 		side.AddChild(Scoreboard(room, me, adjust));
 	}
 

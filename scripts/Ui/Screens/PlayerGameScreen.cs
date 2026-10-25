@@ -23,6 +23,8 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 	/// <summary>Interactive questions: plays the recordings when the host does.</summary>
 	readonly ClipPlayer _clips;
 	readonly HintTracker _hints = new();
+	/// <summary>"Get ready" screen: how it works, or tonight's stats.</summary>
+	string _readyTab = "how";
 	/// <summary>Slideshows: the picture this player looks at once they may flip themselves (question index, picture).</summary>
 	(int Index, int Slide)? _mySlide;
 	RoomState _room = new();
@@ -149,7 +151,18 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		}
 		if (!game.Shown)
 		{
-			_panel.Set($"{key}|hidden", () => Status(U.Bold("Get ready…", 28), U.Muted("The host is about to show the next question.", 16)));
+			// (the space under "Get ready" explains the coming question, or shows tonight's stats)
+			_panel.Set($"{key}|hidden|{_readyTab}|{string.Join(",", room.Ranking.Select(id => room.Score(id)))}", () => U.V(14,
+				Status(U.Bold("Get ready…", 28), U.Muted("The host is about to show the next question.", 16)),
+				U.Segmented(new[] { ("how", "How it works"), ("stats", "Tonight so far") }, _readyTab, id =>
+				{
+					_readyTab = id;
+					Refresh(_room);
+				}).With(s => s.SizeFlagsHorizontal = SizeFlags.ShrinkCenter),
+				_readyTab == "stats"
+					? U.Panel(NightStatsView.Table(room, MyId), "Card2")
+					: U.Panel(U.V(8, GameParts.Row(10, new TypeIcon(q.Type, 26), U.Bold(Chips.TypeLabel(q), 20).Raw()),
+						U.Text(NightStatsView.HowItWorks(q), 17, C.Text, null, true).Raw()), "Card2")));
 			return;
 		}
 		if (late)
@@ -316,6 +329,8 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		var error = U.Error();
 		var list = U.V(10);
 		if (multi && locked == null) list.AddChild(U.Muted("Several answers can be right. Pick all you think are, then lock in.", 15, false, HorizontalAlignment.Center).Center());
+		if (game.Question.WrongCosts && locked == null)
+			list.AddChild(U.Text(Lang.F("Careful: a wrong answer costs {0}.", U.Plural(game.Question.Points, "point", "points")), 15, C.Coral, Fonts.Bold).Center());
 		Button? lockIn = null;
 		for (var i = 0; i < (game.Question.Choices?.Count ?? 0); i++)
 		{

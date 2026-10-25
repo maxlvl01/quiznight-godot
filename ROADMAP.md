@@ -29,6 +29,11 @@ off (`- [x]`) when they're done, with the version they came in.
 - [ ] _(add what you find)_
 
 ### Quality of life
+- [x] "How it works" on the players' Get ready screen, with a "Tonight so far" tab
+- [x] Stats for the night (Stats link by the scores, host and players)
+- [x] Ewige Tabelle: sort by any column, profile pictures, Ø % off for estimations
+- [x] Tie rule "Faster answer wins" (default for new map pins)
+- [x] Choice questions: optional "Wrong answers cost points"
 - [ ] _(add what you find)_
 
 ### Not tested with real people yet

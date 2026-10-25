@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using Godot;
@@ -13,6 +14,33 @@ namespace QuizNight.Ui.Screens;
 public partial class EternalTableScreen : Control
 {
 	static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
+
+	static readonly (string Id, string Label)[] Columns =
+	{
+		("player", "Player"), ("nights", "Nights"), ("wins", "Wins"), ("podiums", "Podiums"), ("points", "Points"),
+		("avgPoints", "Ø points"), ("answer", "Ø answer time"), ("km", "Ø km off"), ("pct", "Ø % off"),
+	};
+
+	/// <summary>The column the table is sorted by, and which way (kept while the game runs).</summary>
+	static string _sort = "points";
+	static bool _descending = true;
+
+	/// <summary>More is better for counts and points; less is better for times and distances (and names go A–Z).</summary>
+	static bool HigherIsBetter(string col) => col is "nights" or "wins" or "podiums" or "points" or "avgPoints";
+
+	static List<Results.Career> Sorted(List<Results.Career> table)
+	{
+		// (players without a value for a column, e.g. no estimations yet, go last either way)
+		double? Key(Results.Career c) => _sort switch
+		{
+			"nights" => c.Nights, "wins" => c.Wins, "podiums" => c.Podiums, "points" => c.Points, "avgPoints" => c.AvgPoints,
+			"answer" => c.AvgAnswerS, "km" => c.AvgKm, "pct" => c.AvgPercentOff, _ => null,
+		};
+		if (_sort == "player") return (_descending ? table.OrderByDescending(c => c.Name) : table.OrderBy(c => c.Name)).ToList();
+		var has = table.Where(c => Key(c) != null);
+		var sorted = _descending ? has.OrderByDescending(c => Key(c)) : has.OrderBy(c => Key(c));
+		return sorted.ThenBy(c => c.Name).Concat(table.Where(c => Key(c) == null)).ToList();
+	}
 
 	/// <summary>The beta table is shown (nights before 1.0); until 1.0 has nights of its own, that's the one that opens.</summary>
 	static bool? _beta;
@@ -42,24 +70,45 @@ public partial class EternalTableScreen : Control
 			AddChild(U.Page(page, 980, 20));
 			return;
 		}
-		var grid = new GridContainer { Columns = 9 };
-		grid.AddThemeConstantOverride("h_separation", 18);
+		// (# stays everyone's place by points; a heading sorts the table by its column, again for the other way round)
+		var places = table.Select((c, n) => (c.Id, n + 1)).ToDictionary(x => x.Id, x => x.Item2);
+		var sorted = Sorted(table);
+		var grid = new GridContainer { Columns = 10 };
+		grid.AddThemeConstantOverride("h_separation", 16);
 		grid.AddThemeConstantOverride("v_separation", 8);
-		foreach (var h in new[] { "#", "Player", "Nights", "Wins", "Podiums", "Points", "Ø points", "Ø answer time", "Ø km off" })
-			grid.AddChild(U.Eyebrow(h));
-		for (var i = 0; i < table.Count; i++)
+		grid.AddChild(U.Eyebrow("#"));
+		foreach (var (id, label) in Columns)
 		{
-			var c = table[i];
-			grid.AddChild(GameParts.RankBadge(i + 1, true));
-			grid.AddChild(U.Text(c.Name, 16, i == 0 ? C.Accent : C.Text, i < 3 ? Fonts.Bold : null).Raw().Grow());
+			var col = id;
+			var head = U.Link(Lang.T(label) + (_sort == id ? (_descending ? " ▼" : " ▲") : ""), () =>
+			{
+				if (_sort == col) _descending = !_descending;
+				else
+				{
+					_sort = col;
+					_descending = HigherIsBetter(col);
+				}
+				App.I.GoEternalTable();
+			}, 12).Tip("Sort by this");
+			head.AddThemeColorOverride("font_color", _sort == id ? C.Accent : C.Muted);
+			head.Alignment = HorizontalAlignment.Left;
+			grid.AddChild(head);
+		}
+		foreach (var c in sorted)
+		{
+			var place = places[c.Id];
+			grid.AddChild(GameParts.RankBadge(place, true));
+			// (their Steam picture in front of the name; initials in a colour of their own otherwise)
+			var who = new PublicPlayer { Id = c.Id, Name = c.Name, Connected = true, Color = Limits.PlayerColors[(c.Id.Aggregate(0, (h, ch) => (h * 31 + ch) & 0xffffff)) % Limits.PlayerColors.Length] };
+			grid.AddChild(GameParts.Row(8, new Avatar(who, 26), U.Text(c.Name, 16, place == 1 ? C.Accent : C.Text, place <= 3 ? Fonts.Bold : null).Raw()).Grow());
 			grid.AddChild(U.Mono($"{c.Nights}", 15));
 			grid.AddChild(U.Mono($"{c.Wins}", 15));
 			grid.AddChild(U.Mono($"{c.Podiums}", 15));
 			grid.AddChild(U.Mono($"{c.Points}", 16, C.Accent));
 			grid.AddChild(U.Mono(c.AvgPoints.ToString("0.0", Inv), 15, C.Muted));
 			grid.AddChild(U.Mono(c.AvgAnswerS is { } s ? s.ToString("0.000", Inv) + " s" : "–", 15, C.Muted));
-			// (game maps are small: under 1 km reads better in metres)
-			grid.AddChild(U.Mono(c.AvgKm is { } km ? km < 1 ? (km * 1000).ToString("0", Inv) + " m" : km.ToString("0.0", Inv) + " km" : "–", 15, C.Muted));
+			grid.AddChild(U.Mono(c.AvgKm is { } km ? NightStatsView.Distance(km) : "–", 15, C.Muted));
+			grid.AddChild(U.Mono(c.AvgPercentOff is { } pct ? NightStatsView.Percent(pct) : "–", 15, C.Muted));
 		}
 		page.AddChild(U.Card(0, grid));
 		AddChild(U.Page(page, 980, 20));

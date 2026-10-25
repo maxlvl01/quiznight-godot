@@ -11,6 +11,20 @@ Versions follow **MAJOR.MINOR.HOTFIX**:
 `1.0.0` will be the first complete, playable quiz night.
 Versions up to 0.3.2a were the website; the history of those is in the website's CHANGELOG.md.
 
+## [Unreleased]
+
+### Added
+- **"How it works" while you wait.** The "Get ready…" screen players see before the host shows a question used to be mostly empty space. It now says what kind of question is coming and how it works in one sentence, and it knows the variant: a buzzer question tells you to buzz and say it out loud, A B C D to pick one before the time runs out, multiple choice that several can be right, a timeline that you take turns, and so on. It also warns you when wrong answers cost points.
+- **Tonight's stats.** Next to "Scores" on the side of the host's and the players' screens there's now a "Stats" link. It opens a table of everyone's night so far: place, points, how many questions they scored on, their average answer time, how far off their map pins were on average and how far off their estimations were (in % of the right number). Players can also switch the "Get ready…" screen between "How it works" and "Tonight so far" to see the same table there.
+- **Ewige Tabelle: sort by any column.** Click a column's heading (Wins, Ø points, Ø answer time …) to sort the table by it; click again for the other way round. The # column keeps everyone's real place by points, so sorting never changes who's first. Players without a value in that column (say, no estimations yet) go to the bottom.
+- **Ewige Tabelle: profile pictures** in front of every name (Steam pictures; players from LAN games get their initials in a colour of their own).
+- **Ewige Tabelle: Ø % off** for estimations: how far off someone's guesses were on average, in % of the right number, so a guess of 110 when the answer is 100 counts as 10 % off. The results of a night now record this too. Nights played before this version didn't, so the column only fills from now on.
+- **New tie rule "Faster answer wins"** for map pin and estimation questions. Two players with the same distance used to share a place (or both get nothing, depending on the rule). Now you can choose that whoever locked in first gets the better place. New map pin questions use it by default; for existing ones you can pick it under "If there is a tie".
+- **Wrong answers can cost points** in A B C D and multiple choice questions: tick "Wrong answers cost points" in the editor and a wrong answer loses as many points as a right one gets (doubled with Double points, like the win would be). Not answering costs nothing. It's off unless you tick it, and players see a warning on the question when it's on.
+
+### Changed
+- **Map pin ties go by the distance you see.** Two pins were only a tie if their distance was exactly the same down to the last decimal, which basically never happens, while the reveal showed both as, say, "312 m". Now pins at the same shown distance (to the metre, or 0.1 % on maps without a scale) count as a tie, and the tie rule decides.
+
 ## [0.9.2b] — scoring per place, units, UI polish
 
 ### Added

@@ -183,9 +183,12 @@ public static class TieRule
 {
 	public const string AllScore = "allScore";
 	public const string NobodyScores = "nobodyScores";
+	/// <summary>Whoever locked in first takes the better place.</summary>
+	public const string Faster = "faster";
 
 	public static readonly (string Id, string Label)[] All =
 	{
+		(Faster, "Faster answer wins"),
 		(AllScore, "Both get the point"),
 		(NobodyScores, "Nobody gets the point"),
 	};
@@ -284,6 +287,8 @@ public sealed class Question
 	public int CorrectChoice;
 	/// <summary>Multi mode: every correct answer (indexes into Choices).</summary>
 	public List<int> CorrectChoices = new();
+	/// <summary>A–D and multiple choice: a wrong answer loses the question's points (off by default).</summary>
+	public bool WrongCosts;
 
 	/// <summary>Classic choice, estimation and map pin: how long everyone has to answer.</summary>
 	public int TimeLimitSec = QuestionLimits.TimeLimitDefault;
@@ -545,8 +550,9 @@ public static class QuizRules
 			case QuestionType.MapPin:
 				q.Prompt = "Where is this?";
 				q.TimeLimitSec = QuestionLimits.MapTimeLimitSec;
-				// (map pins: the closest three score 3, 2 and 1 by default)
+				// (map pins: the closest three score 3, 2 and 1 by default; the same distance goes to who placed the pin first)
 				q.Scoring = Scoring.Top3;
+				q.TieRule = TieRule.Faster;
 				break;
 			case QuestionType.Interactive:
 				q.TimeLimitSec = QuestionLimits.InteractiveTimeDefault;

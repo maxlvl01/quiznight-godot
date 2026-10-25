@@ -20,8 +20,9 @@ public interface IGameHooks
 	bool JokerAllowed(string kind);
 	/// <summary>For the ranking's tiebreaks: how long a player took to buzz or lock in an answer (ms)…</summary>
 	void NoteAnswerTime(string playerId, long ms);
-	/// <summary>…how far off a map pin was (km, maps with a scale only)…</summary>
+	/// <summary>…how far off a map pin was (km, maps with a scale only), and an estimation (% of the right number)…</summary>
 	void NoteDistance(string playerId, double km);
+	void NotePercentOff(string playerId, double percent);
 	/// <summary>…and that they scored on a question.</summary>
 	void NoteScored(string playerId);
 	int Score(string playerId);
@@ -802,12 +803,14 @@ public sealed class Game
 	public static Dictionary<string, (int Rank, int Points)> ClosenessPoints(
 		IReadOnlyList<(string PlayerId, double Dist)> dists, int points, string scoring, string tieRule, IReadOnlyList<int>? rankPoints = null)
 	{
-		var sorted = dists.OrderBy(d => d.Dist).ToList();
+		// (dists come in the order players locked in: "faster answer wins" keeps that order for the same distance)
+		var sorted = dists.Select((d, i) => (d.PlayerId, d.Dist, At: i)).OrderBy(d => d.Dist).ThenBy(d => d.At).ToList();
+		var faster = tieRule == TieRule.Faster;
 		var result = new Dictionary<string, (int, int)>();
 		foreach (var d in sorted)
 		{
-			var rank = sorted.FindIndex(o => o.Dist == d.Dist) + 1;
-			var tied = sorted.Count(o => o.Dist == d.Dist) > 1;
+			var rank = faster ? sorted.IndexOf(d) + 1 : sorted.FindIndex(o => o.Dist == d.Dist) + 1;
+			var tied = !faster && sorted.Count(o => o.Dist == d.Dist) > 1;
 			var pts = 0;
 			// (points per place, e.g. F1's 25 / 18 / 15 …; tied players share the better place's points)
 			if (rankPoints is { Count: > 0 }) pts = rank <= rankPoints.Count ? rankPoints[rank - 1] : 0;
@@ -936,7 +939,7 @@ public sealed class Game
 					Value = a.Value,
 					Text = ChoiceText(q, picks),
 					Correct = correct,
-					Points = correct ? q.Points : 0,
+					Points = correct ? q.Points : q.WrongCosts ? -q.Points : 0,
 				};
 			}).ToList();
 			return new RevealView
@@ -959,6 +962,7 @@ public sealed class Game
 				var n = a.Value.Num!.Value;
 				var diff = n - answer;
 				var r = ranks[a.PlayerId];
+				if (answer != 0) _hooks.NotePercentOff(a.PlayerId, Math.Abs(diff / answer) * 100);
 				return new RevealEntry
 				{
 					PlayerId = a.PlayerId,
@@ -983,7 +987,7 @@ public sealed class Game
 		var measured = _answers.Select(a => (a.PlayerId, a.Value, D: QuizRules.MapDistance(map, a.Value.Point!.Value, target))).ToList();
 		foreach (var m in measured)
 			if (m.D.Km is { } km) _hooks.NoteDistance(m.PlayerId, km);
-		var mapRanks = ClosenessPoints(measured.Select(m => (m.PlayerId, m.D.Km ?? m.D.Percent)).ToList(), q.Points, q.Scoring, q.TieRule, q.RankPoints);
+		var mapRanks = ClosenessPoints(measured.Select(m => (m.PlayerId, m.D.Km is { } km ? Math.Round(km * 1000) : Math.Round(m.D.Percent, 1))).ToList(), q.Points, q.Scoring, q.TieRule, q.RankPoints);
 		var pinEntries = measured.Select(m =>
 		{
 			var r = mapRanks[m.PlayerId];
@@ -1115,6 +1119,7 @@ public sealed class Game
 			{
 				pq.Choices = q.Choices.Select(c => string.IsNullOrWhiteSpace(c) ? null : c).ToList();
 				pq.TimeLimitSec = q.TimeLimitSec;
+				pq.WrongCosts = q.WrongCosts;
 			}
 		}
 		if (q.Type == QuestionType.Order)
@@ -1208,7 +1213,7 @@ public sealed class Game
 			Total = _quiz.Questions.Count,
 			Stage = Stage,
 			// A hidden question: players only learn its number, type and points.
-			Question = Shown || viewer == "host" || !open ? PublicQuestion() : new PublicQuestion { Type = Question.Type, Points = Question.Points, Buzzer = Question.IsBuzzer, Written = Question.IsWritten, Mode = Question.IsClassicLike ? Question.Mode : null, OrderMode = Question.Type == QuestionType.Order ? Question.OrderMode : null },
+			Question = Shown || viewer == "host" || !open ? PublicQuestion() : new PublicQuestion { Type = Question.Type, Points = Question.HasRankPoints ? Question.MaxPoints : Question.Points, RankScoring = Question.HasRankPoints, Buzzer = Question.IsBuzzer, Written = Question.IsWritten, Mode = Question.IsClassicLike ? Question.Mode : null, OrderMode = Question.Type == QuestionType.Order ? Question.OrderMode : null, WrongCosts = Question.IsChoice && Question.WrongCosts, Judging = Question.IsInteractive ? Question.Judging : null },
 			Shown = Shown || !open,
 			BuzzersOpen = BuzzersOpen,
 			EndsAt = open ? _endsAt : null,

@@ -172,6 +172,17 @@ public partial class QuestionEditorScreen : Control
 		var settings = new List<Control>();
 		if (choice || _draft.IsTyped) settings.Add(RoundSettings.TimeLimit(_draft, () => Changed()));
 		settings.Add(RoundSettings.Points(_draft, () => Changed()));
+		if (choice)
+		{
+			// (off by default: a wrong pick loses the question's points)
+			var costs = new CheckBox { Text = Lang.T("Wrong answers cost points"), ButtonPressed = _draft.WrongCosts, MouseDefaultCursorShape = CursorShape.PointingHand };
+			costs.Toggled += on =>
+			{
+				_draft.WrongCosts = on;
+				Changed();
+			};
+			settings.Add(U.V(2, costs, U.Muted("A wrong answer loses as many points as a right one gets. Not answering costs nothing.", 12)));
+		}
 		settings.Add(RoundSettings.Bonus(_draft, () => Changed()));
 		settings.Add(U.Muted(_draft.IsTyped ? TypedHelp : _draft.IsMulti
 			? "Everyone picks all the answers they think are right on their own screen. Only players who pick exactly the right ones get the points. The answer is revealed when everyone has answered, the time runs out, or you reveal it."
