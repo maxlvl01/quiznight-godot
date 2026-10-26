@@ -13,6 +13,8 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.10.8b]
+
 ### Changed
 - **A new version shows on the logo instead of a line under it:** the logo's outline pulses green while an update is out (hover over it to see which version; the green arrow next to the version number installs it). The line "An update is available" made the home screen longer, so it started to scroll.
 - **Bonus points have − and + buttons** next to the number (it can still be typed in), and the box is only as wide as two digits.
