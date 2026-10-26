@@ -226,7 +226,7 @@ public partial class IntroSequence : Control
 	}
 
 	/// <summary>Music by Epidemic Sound: their wordmark (assets/intro/epidemic-sound.png, white) on black.</summary>
-	/// <summary>Track Glow, the sponsor (IBassGaming's Patreon; the title screen has a button to it).</summary>
+	/// <summary>TrackGlow, the sponsor (IBassGaming's Patreon; the title screen has a button to it).</summary>
 	public const string SponsorUrl = "https://www.patreon.com/cw/IBassGaming";
 
 	static Control SponsorCard() => U.V(22, Spaced("SPONSORED BY", 16, C.Muted), new TrackGlowLogo(1.6f),
@@ -330,7 +330,7 @@ public partial class AntiCheatSplash : Control
 {
 	static readonly string[] Steps =
 	{
-		"Initialising…", "Verifying game files…", "Scanning for big brains…", "Checking for Googling under the table…",
+		"Initialising…", "Connecting to your brain…", "Verifying game files…", "Scanning for big brains…", "Reading your thoughts…",
 		"No cheats found. Probably.",
 	};
 
@@ -381,7 +381,7 @@ public partial class AntiCheatSplash : Control
 		AddChild(shade);
 		var title = U.H(22,
 			new ShieldIcon { CustomMinimumSize = new Vector2(70, 84), SizeFlagsVertical = SizeFlags.ShrinkCenter },
-			U.V(-6, U.Text("PINKE GEILHEIT", 66, Colors.White, Fonts.Black).Raw(), U.Text("ANTI-CHEAT", 30, Pink, Fonts.Spaced).Raw()));
+			U.V(-6, U.Text("PINKE GEILHEIT", 66, Colors.White, Fonts.Black).Raw(), U.Text("NEURAL-LEVEL ANTI-CHEAT", 30, Pink, Fonts.Spaced).Raw()));
 		title.Position = new Vector2(56, 330);
 		AddChild(title);
 		_status = U.Text(Lang.T(Steps[0]), 28, new Color("#d8d6e0")).Raw();
@@ -496,15 +496,17 @@ public partial class TitleScreen : Control
 }
 
 /// <summary>
-/// Track Glow's logo, drawn: the name in the game's chunky letters with a neon glow, a race-track line under it that a light
-/// runs along.
+/// TrackGlow's logo: its app icon (three glowing dots, assets/intro/trackglow.png, from TrackGlow.exe) and the name beside
+/// it in the game's chunky letters, glowing in the icon's purple to blue.
 /// </summary>
 public partial class TrackGlowLogo : Control
 {
 	readonly float _k;
 	double _t;
-	static readonly Color Neon = new("#39ffb6");
-	static readonly Color Neon2 = new("#00c9f6");
+	static readonly Color Purple = new("#b07cff");
+	static readonly Color Blue = new("#4a90ff");
+	static readonly Texture2D? Icon = ResourceLoader.Exists("res://assets/intro/trackglow.png") ? GD.Load<Texture2D>("res://assets/intro/trackglow.png") : null;
+	const string Name = "TrackGlow";
 
 	public TrackGlowLogo() : this(1) { }
 
@@ -512,7 +514,8 @@ public partial class TrackGlowLogo : Control
 	{
 		_k = k;
 		MouseFilter = MouseFilterEnum.Ignore;
-		CustomMinimumSize = new Vector2(330, 84) * k;
+		var text = Fonts.Black.GetStringSize(Name, HorizontalAlignment.Left, -1, (int)(48 * k)).X;
+		CustomMinimumSize = new Vector2(72 * k + 16 * k + text, 76 * k);
 		SizeFlagsHorizontal = SizeFlags.ShrinkCenter;
 	}
 
@@ -524,29 +527,15 @@ public partial class TrackGlowLogo : Control
 
 	public override void _Draw()
 	{
-		var font = Fonts.Black;
-		var size = (int)(46 * _k);
-		const string name = "TRACK GLOW";
-		var w = font.GetStringSize(name, HorizontalAlignment.Left, -1, size).X;
-		var at = new Vector2((Size.X - w) / 2, 50 * _k);
-		var pulse = 0.75f + 0.25f * Mathf.Sin((float)_t * 2.2f);
-		// (the glow: the name drawn wider and see-through behind itself)
+		var icon = 72 * _k;
+		var top = (Size.Y - icon) / 2;
+		if (Icon != null) DrawTextureRect(Icon, new Rect2(0, top, icon, icon), false);
+		var size = (int)(48 * _k);
+		var at = new Vector2(icon + 16 * _k, Size.Y / 2 + size * 0.36f);
+		var pulse = 0.7f + 0.3f * Mathf.Sin((float)_t * 2.2f);
+		// (the glow: the name drawn wider and see-through behind itself, purple fading into blue)
 		for (var r = 3; r >= 1; r--)
-			DrawStringOutline(font, at, name, HorizontalAlignment.Left, -1, size, (int)(r * 5 * _k), new Color(Neon, 0.08f * pulse));
-		DrawString(font, at, name, HorizontalAlignment.Left, -1, size, Colors.White);
-		// the track: a line with a curve in it, a light running along
-		var y = 66 * _k;
-		var pts = new Vector2[40];
-		for (var i = 0; i < pts.Length; i++)
-		{
-			var f = i / (float)(pts.Length - 1);
-			pts[i] = new Vector2(at.X + f * w, y + Mathf.Sin(f * Mathf.Tau) * 5 * _k);
-		}
-		DrawPolyline(pts, new Color(Neon2, 0.35f), 4 * _k, true);
-		DrawPolyline(pts, Neon2, 1.6f * _k, true);
-		var run = (float)(_t * 0.6 % 1.0);
-		var p = pts[(int)(run * (pts.Length - 1))];
-		DrawCircle(p, 7 * _k, new Color(Neon, 0.3f));
-		DrawCircle(p, 3.5f * _k, Colors.White);
+			DrawStringOutline(Fonts.Black, at, Name, HorizontalAlignment.Left, -1, size, (int)(r * 5 * _k), new Color(Purple.Lerp(Blue, r / 3f), 0.1f * pulse));
+		DrawString(Fonts.Black, at, Name, HorizontalAlignment.Left, -1, size, Colors.White);
 	}
 }
