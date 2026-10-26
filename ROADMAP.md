@@ -51,6 +51,21 @@ off (`- [x]`) when they're done, with the version they came in.
   bump; past nights' stats for Image reveal count under Picture → Reveal (`KindStats`, eternal table per type); the lobby
   version check knows the new subtype needs 0.12 (older games get "can't play question N"). Changelog says where it went.
   ~26 places use `QuestionType.Image` today.
+- [ ] **Picture questions: which answer modes make sense?** Picture offers the same four as Classic (Buzzer, Everyone
+  types, Pick one, Multiple choice). Max doubts Pick one and Multiple choice fit a picture ("a picture can really only
+  be one answer"). Cases they'd still cover: Pick one — "Which game is this Steam review about?" with four games to
+  pick from (an easier version of the same question); Multiple choice — "Which of these characters are in the
+  screenshot?" (several right). Decide: keep all four, or Picture only Buzzer / Everyone types (old quizzes with the
+  others then open as … ? Everyone types, keeping the right answer as the answer).
+- [ ] **No squash when a button is clicked.** Buttons shrink to 94 % while held down (`UiAudio.Bounce` on ButtonDown);
+  they already look pressed in (their 3D style), so drop the squash. The slight grow under the mouse stays (Max didn't
+  mind that one; check).
+- [ ] **Drop-downs: smoother, and always right under their button.** Today the list unfolds in 0.16 s from a quarter of
+  its height (`DropDowns.Unfold`) and a long list (Category, the estimation unit list with Length/Mass/Time …) opens
+  wherever it fits, even over the button and up the whole screen. Instead: a longer, softer unfold (e.g. 0.25 s, ease
+  out, fading in); the list always hangs under its button (above only if there's no room below), at most so tall it
+  fits (~8–10 rows), and scrolls inside itself (mouse wheel, the scrollbar) for the rest; keeps its place on screen
+  while scrolling. Check in every drop-down: units, categories, maps' Jump to zone, settings.
 - [ ] **Mini games in the lobby while waiting.** In the waiting room (and the host's lobby) a "Play something" button
   opens a 4:3 window over the lobby with a few small games:
   - **Tetris** — single player; best scores shown in the lobby.
