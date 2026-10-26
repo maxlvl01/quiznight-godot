@@ -28,9 +28,9 @@ public partial class HomeScreen : Control
 		// (the logo is an answer field that now and then types something else: LogoField)
 		var logo = Logo = new LogoField(64);
 		var brand = U.H(0, logo);
-		// The stamp on the logo follows the version letter: 0.5.0a = alpha, 0.7.1b = beta, none when finished. It's a sticker
+		// The stamp on the logo follows the version letter: 0.5.0a = alpha, 0.7.1b = beta, 0.12.0d1 = a test build, none when finished. It's a sticker
 		// on the logo's top right corner (in a zero-width holder, so the logo itself stays centred).
-		var stage = AppVersion.Parse(App.Version)?.Suffix switch { "a" => "ALPHA", "b" => "BETA", _ => null };
+		var stage = AppVersion.Parse(App.Version)?.Suffix switch { "a" => "ALPHA", "b" => "BETA", "d" => "DEV", _ => null };
 		if (stage != null)
 		{
 			var holder = new Control { MouseFilter = MouseFilterEnum.Ignore };

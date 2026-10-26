@@ -1,5 +1,5 @@
-// Versions (MAJOR.MINOR.HOTFIX with an optional letter: "0.5.0a" = alpha, "0.7.1b" = beta) and the
-// changelog, read from CHANGELOG.md (shipped with the game) for the "What's new" screen.
+// Versions (MAJOR.MINOR.HOTFIX with an optional letter: "0.5.0a" = alpha, "0.7.1b" = beta; from 0.12 the test builds are
+// "0.12.0d1", "0.12.0d2" …: d = dev, then the test build's number) and the changelog, read from CHANGELOG.md (shipped with the game) for the "What's new" screen.
 
 using System;
 using System.Collections.Generic;
@@ -8,24 +8,33 @@ using System.Text.RegularExpressions;
 
 namespace QuizNight.Shared;
 
-public readonly record struct AppVersion(int Major, int Minor, int Hotfix, string Suffix) : IComparable<AppVersion>
+/// <param name="Build">The test build's number after a "d" (0.12.0d3 → 3); 0 otherwise.</param>
+public readonly record struct AppVersion(int Major, int Minor, int Hotfix, string Suffix, int Build = 0) : IComparable<AppVersion>
 {
-	static readonly Regex Pattern = new(@"^v?(\d+)\.(\d+)(?:\.(\d+))?([a-z]*)$", RegexOptions.IgnoreCase);
+	static readonly Regex Pattern = new(@"^v?(\d+)\.(\d+)(?:\.(\d+))?([a-z]*)(\d*)$", RegexOptions.IgnoreCase);
+
+	/// <summary>A test build (0.12.0d1): the private test repo's numbering, never a public version.</summary>
+	public bool IsDev => Suffix == "d";
 
 	public static AppVersion? Parse(string? text)
 	{
 		var m = Pattern.Match((text ?? "").Trim());
 		if (!m.Success) return null;
 		return new AppVersion(int.Parse(m.Groups[1].Value), int.Parse(m.Groups[2].Value),
-			m.Groups[3].Success && m.Groups[3].Value != "" ? int.Parse(m.Groups[3].Value) : 0, m.Groups[4].Value.ToLowerInvariant());
+			m.Groups[3].Success && m.Groups[3].Value != "" ? int.Parse(m.Groups[3].Value) : 0, m.Groups[4].Value.ToLowerInvariant(),
+			m.Groups[5].Value != "" ? int.Parse(m.Groups[5].Value) : 0);
 	}
 
-	/// <summary>Numbers first; for the same numbers a letter ("a" alpha, "b" beta) comes before the finished version, and "a" before "b".</summary>
+	/// <summary>
+	/// Numbers first; for the same numbers the test builds come first (0.12.0d1, d2 … d10, by their number), then a letter
+	/// ("a" alpha, "b" beta), then the finished version; "a" before "b".
+	/// </summary>
 	public int CompareTo(AppVersion other)
 	{
 		var c = (Major, Minor, Hotfix).CompareTo((other.Major, other.Minor, other.Hotfix));
 		if (c != 0) return c;
-		if (Suffix == other.Suffix) return 0;
+		if (IsDev != other.IsDev) return IsDev ? -1 : 1;
+		if (Suffix == other.Suffix) return Build.CompareTo(other.Build);
 		if (Suffix == "") return 1;
 		if (other.Suffix == "") return -1;
 		return string.CompareOrdinal(Suffix, other.Suffix);
@@ -34,7 +43,7 @@ public readonly record struct AppVersion(int Major, int Minor, int Hotfix, strin
 	public static bool operator >(AppVersion a, AppVersion b) => a.CompareTo(b) > 0;
 	public static bool operator <(AppVersion a, AppVersion b) => a.CompareTo(b) < 0;
 
-	public override string ToString() => $"{Major}.{Minor}.{Hotfix}{Suffix}";
+	public override string ToString() => $"{Major}.{Minor}.{Hotfix}{Suffix}{(Build > 0 ? Build : "")}";
 }
 
 public static class Changelog

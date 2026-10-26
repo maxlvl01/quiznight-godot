@@ -15,9 +15,14 @@ HEAD = re.compile(r"^## \[([^\]]+)\](.*)$")
 
 
 def key(version):
-    """0.10.3b → (0, 10, 3, 'b'); anything else (Unreleased) → None."""
-    m = re.fullmatch(r"(\d+)\.(\d+)(?:\.(\d+))?([a-z]?)", version.strip(), re.I)
-    return (int(m[1]), int(m[2]), int(m[3] or 0), m[4].lower()) if m else None
+    """0.10.3b → (0, 10, 3, 1, 'b', 0); a test build 0.12.0d3 → (0, 12, 0, 0, 'd', 3), before any other version with the
+    same numbers (as AppVersion.CompareTo in the game); anything else (Unreleased) → None."""
+    m = re.fullmatch(r"(\d+)\.(\d+)(?:\.(\d+))?([a-z]?)(\d*)", version.strip(), re.I)
+    if not m:
+        return None
+    letter = m[4].lower()
+    # (finished versions after lettered ones: "~" sorts after any letter)
+    return (int(m[1]), int(m[2]), int(m[3] or 0), 0 if letter == "d" else 1, letter or "~", int(m[5] or 0))
 
 
 def parse(text):

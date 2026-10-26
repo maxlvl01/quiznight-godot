@@ -902,6 +902,11 @@ public static class SelfTest
 		Check(AppVersion.Parse("0.5.0") > AppVersion.Parse("0.5.0a")!.Value && AppVersion.Parse("0.5.1a") > AppVersion.Parse("0.5.0")!.Value, "version order");
 		Check(AppVersion.Parse("v0.10.0a") > AppVersion.Parse("0.9.3")!.Value, "tags and two-digit numbers");
 		Check(AppVersion.Parse("0.10.0b") > AppVersion.Parse("0.9.6b")!.Value, "0.10.0b is an update for 0.9.6b");
+		Check(AppVersion.Parse("0.12.0d1") is { IsDev: true, Build: 1 } d1 && d1.ToString() == "0.12.0d1", "test build numbers");
+		Check(AppVersion.Parse("0.12.0d1") > AppVersion.Parse("0.11.3b")!.Value && AppVersion.Parse("0.12.0d10") > AppVersion.Parse("0.12.0d9")!.Value,
+			"test builds count up (d10 after d9)");
+		Check(AppVersion.Parse("0.12.0b") > AppVersion.Parse("0.12.0d7")!.Value && AppVersion.Parse("0.12.1d1") > AppVersion.Parse("0.12.0b")!.Value,
+			"a public version comes after its test builds");
 		Check(Ui.UiAudio.IsChristmas(new DateTime(2026, 12, 24)) && !Ui.UiAudio.IsChristmas(new DateTime(2026, 12, 27)) && !Ui.UiAudio.IsChristmas(new DateTime(2026, 11, 30)),
 			"Christmas songs: 1 to 26 December");
 		Check(Storage.CrashReports.HasError("ok\nERROR: System.NullReferenceException: Object reference not set\n   at X")

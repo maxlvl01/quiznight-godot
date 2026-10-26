@@ -32,6 +32,11 @@ ZIP_LINUX="build/Quiznight-$VERSION-linux.zip"
 NOTES="build/notes-$VERSION.md"
 
 echo "== Quiznight $VERSION"
+# Test builds from 0.12 on are numbered 0.12.0d1, d2 … (d = dev); those never go public: give the public one its own
+# version (e.g. 0.12.0b) and the d builds' changelog sections are folded into it.
+if [ -z "$TEST" ] && echo "$VERSION" | grep -qE 'd[0-9]+$'; then
+	echo "$VERSION is a test build's version: use --test, or set the public version in project.godot"; exit 1
+fi
 grep -q "^## \[$VERSION\]" CHANGELOG.md || { echo "CHANGELOG.md has no section '## [$VERSION]'"; exit 1; }
 # Public release: the test versions since the last public one are folded into this version's section, so players see
 # one version with everything (tools/fold_changelog.py; commit CHANGELOG.md afterwards). Test builds keep their own.

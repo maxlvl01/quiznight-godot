@@ -232,7 +232,11 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
 ## Versioning rules
 
 Same as the web version: **MAJOR.MINOR.HOTFIX** (`0.4.0a` = alpha, `0.7.1b` = beta; the home screen stamp follows the letter), stored in
-`project.godot` (`application/config/version`). Add changelog entries under `[Unreleased]` in
+`project.godot` (`application/config/version`). **Test builds from 0.12 on are `0.12.0d1`, `0.12.0d2` …** (d = dev, then the test
+build's number; `AppVersion.Build`, stamp "DEV"): they sort before every other version with the same numbers, so the public
+release gets its own version (e.g. `0.12.0b`, `release.sh` refuses to publish a d version) and `fold_changelog.py` folds the
+d sections into it. Test builds before 0.12 still used b numbers. Older test builds can't read d versions, so a 0.11.x test
+build won't update to 0.12.0d1 by itself: download it once by hand. Add changelog entries under `[Unreleased]` in
 CHANGELOG.md while working (plain language, for friends to read). Big updates (a new MINOR, x.y.0) get a name, chosen
 by Claude: `## [0.8.0b] — "Jokers Wild": what's in it`; `release.sh` makes the release title "Quiznight 0.8.0b — Jokers
 Wild" from it. Players see a named update as its MAJOR.MINOR ("0.11 — Opening Night", `Changelog.Release.Shown`, also the
