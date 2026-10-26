@@ -66,6 +66,21 @@ off (`- [x]`) when they're done, with the version they came in.
   out, fading in); the list always hangs under its button (above only if there's no room below), at most so tall it
   fits (~8–10 rows), and scrolls inside itself (mouse wheel, the scrollbar) for the rest; keeps its place on screen
   while scrolling. Check in every drop-down: units, categories, maps' Jump to zone, settings.
+- [ ] **Test screens in developer mode ("Test lab").** Test builds start in developer mode (`App.LanUnlocked`; exported
+  games after typing 61969); there a "Test lab" button on the home screen (next to DEV / Test update) opens a screen of
+  quick checks, without hosting a whole quiz or using command-line flags (`DevTools` has most of them only as flags):
+  - **Buzzers:** press the buzz button (or the key), hear every buzzer sound and your own, see the buzz screen as a
+    player sees it, with the reaction time it measured.
+  - **Sounds & music:** play each song, buzzer, podium jingle, correct/wrong and the voice line at their volume, to
+    hear them side by side (handy for the audio normalisation item).
+  - **Microphone:** record a few seconds like an Interactive question and play it back (checks the mic works).
+  - **Video:** play a test video (blur until it starts, play clock) like a video question.
+  - **Question screens:** open any question type as host or player with sample content (the `--open …` previews), and
+    the reveal / podium / The TrackGlow Podium, with bots as players (`--bot`, `--autopilot`), all from buttons.
+  - **Maps:** the map picker, WoW Forever zoom and hover, `--pretend-changed-map` / `--pretend-new-map` as switches.
+  - **Screens with fake states:** lobby with an old-version player (version check), the intro and the first-start
+    welcome screen, "What's new", the yellow new dots (and resetting them).
+  Players never see it (public builds without the code don't show the button).
 - [ ] **Mini games in the lobby while waiting.** In the waiting room (and the host's lobby) a "Play something" button
   opens a 4:3 window over the lobby with a few small games:
   - **Tetris** — single player; best scores shown in the lobby.
