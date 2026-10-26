@@ -15,6 +15,8 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ### Changed
 - **A new version shows on the logo instead of a line under it:** the logo's outline pulses green while an update is out (hover over it to see which version; the green arrow next to the version number installs it). The line "An update is available" made the home screen longer, so it started to scroll.
+- **Bonus points have − and + buttons** next to the number (it can still be typed in), and the box is only as wide as two digits.
+- **Image reveal editor fits on one screen:** the bonus and the category were at the bottom of the left column and made the editor scroll. They're in the round settings on the right now, like every other question type, and the picture and its preview sit side by side.
 - **Developer mode:** a "Test update" button next to the DEV badge shows the home screen as if an update were out (the logo pulses green), and stops it again.
 
 ## [0.10.7b]

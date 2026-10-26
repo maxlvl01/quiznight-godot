@@ -405,6 +405,25 @@ public partial class NumberField : LineEdit
 		_changed(Value);
 	}
 
+	/// <summary>The field between [−] and [+] buttons that count it down/up by one (it can still be typed in).</summary>
+	public HBoxContainer WithSteps()
+	{
+		void Step(int by)
+		{
+			var n = (Value ?? _min ?? 0) + by;
+			if (_min is { } min) n = Math.Max(min, n);
+			if (_max is { } max) n = Math.Min(max, n);
+			Value = n;
+			Text = Format(n);
+			_changed(n);
+		}
+		SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+		Alignment = HorizontalAlignment.Center;
+		// (room for two digits, not the usual four characters)
+		AddThemeConstantOverride("minimum_character_width", 2);
+		return U.H(6, U.Small("−", () => Step(-1)).MinSize(40), this, U.Small("+", () => Step(1)).MinSize(40));
+	}
+
 	void Clamp()
 	{
 		if (Value is not { } v) return;

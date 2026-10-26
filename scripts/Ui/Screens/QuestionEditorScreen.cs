@@ -582,18 +582,8 @@ public partial class QuestionEditorScreen : Control
 			_draft.Image = img;
 			Changed(true);
 		}, Images.ScreenshotMax, "The picture players have to recognise.", false);
-		var left = U.V(14, PromptLine(),
-			U.Field("Picture", _primaryImage),
-			U.Field("Correct answer (only you see this)", U.Input(_draft.AnswerText, "e.g. The Eiffel Tower", t =>
-			{
-				_draft.AnswerText = t;
-				Changed();
-			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold))),
-			// (here, not in the settings: the picture on the left gives up the room)
-			U.H(12, RoundSettings.AnswerMode(_draft, () => Changed(true)).Grow(),
-				_draft.Typed ? RoundSettings.TimeLimit(_draft, () => Changed()).Grow() : U.Gap(0)),
-			RoundSettings.Bonus(_draft, () => Changed()));
-		var right = U.V(14);
+		// (the picture and its preview side by side, so the whole editor fits without scrolling)
+		var pictures = U.H(14, U.Field("Picture", _primaryImage).Grow());
 		if (_draft.Image != null)
 		{
 			var zoom = _draft.RevealStyle == RevealStyle.Zoom;
@@ -605,10 +595,18 @@ public partial class QuestionEditorScreen : Control
 					_draft.Focus = p;
 					Changed(true);
 				};
-			right.AddChild(U.Field("Preview", preview, zoom
+			pictures.AddChild(U.Field("Preview", preview, zoom
 				? "Click the picture to choose the spot it starts zoomed in on (the yellow ring)."
-				: "This is what your screen shows; it gets sharper until the time is up."));
+				: "This is what your screen shows; it gets sharper until the time is up.").Grow());
 		}
+		var left = U.V(14, PromptLine(), pictures,
+			U.Field("Correct answer (only you see this)", U.Input(_draft.AnswerText, "e.g. The Eiffel Tower", t =>
+			{
+				_draft.AnswerText = t;
+				Changed();
+			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold))),
+			U.H(12, RoundSettings.AnswerMode(_draft, () => Changed(true)).Grow(),
+				_draft.Typed ? RoundSettings.TimeLimit(_draft, () => Changed()).Grow() : U.Gap(0)));
 
 		var settings = RoundSettings.Panel(
 			U.Field("How it's hidden", U.Segmented(RevealStyle.All, _draft.RevealStyle, style =>
@@ -616,17 +614,16 @@ public partial class QuestionEditorScreen : Control
 				_draft.RevealStyle = style;
 				Changed(true);
 			})),
-			// (side by side, so the preview and the settings fit next to the picture)
 			U.H(12,
 				U.Field("Seconds until it's fully clear", new NumberField(_draft.RevealSec, v =>
 				{
 					_draft.RevealSec = (int)Math.Clamp(v ?? QuestionLimits.RevealSecDefault, QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax);
 					Changed();
-				}, QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax, true), Lang.F("{0}–{1} seconds.", QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax)).Grow(1.4f),
+				}, QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax, true).Tip(Lang.F("{0}–{1} seconds.", QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax))).Grow(1.4f),
 				RoundSettings.Points(_draft, () => Changed()).Grow()),
+			RoundSettings.Bonus(_draft, () => Changed()),
 			_draft.Typed ? U.Muted(TypedHelp, 13) : U.Muted("The picture is shown on your screen only and gets clearer over time. Players buzz in on their own PC; it pauses while someone answers and you mark it Correct or Wrong. Once it's guessed, everyone sees the whole picture and how many seconds it took. Answer time per buzz is set in the lobby.", 13));
-		right.AddChild(settings);
-		return Columns((left, 1.6f), (right, 1));
+		return Columns((left, 1.6f), (settings, 1));
 	}
 
 	// ---------- map pin ----------

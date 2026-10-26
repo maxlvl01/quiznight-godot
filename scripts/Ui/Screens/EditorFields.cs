@@ -263,7 +263,7 @@ public static class RoundSettings
 		{
 			q.BonusPoints = (int)Math.Clamp(Math.Round(v ?? 0), 0, QuestionLimits.BonusPointsMax);
 			changed();
-		}, 0, QuestionLimits.BonusPointsMax, true).MinSize(84).With(n => n.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin);
+		}, 0, QuestionLimits.BonusPointsMax, true).WithSteps();
 		// (every type's round settings have the bonus, so the category comes along with it)
 		return U.V(12, U.Field("Bonus points (optional)", U.H(8, points, what), "You give the bonus to players at the reveal. 0 = no bonus."),
 			Category(q, changed));
