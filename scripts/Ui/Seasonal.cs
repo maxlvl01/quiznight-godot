@@ -17,6 +17,15 @@ public static class Seasonal
 	/// <summary>Whether the skin in use has decorations.</summary>
 	public static bool On => Skins.IsSeasonal(C.Skin);
 
+	/// <summary>Christmas: snow on top of a panel (the lobby's), falling over it too.</summary>
+	public static void SnowOn(Control panel)
+	{
+		if (C.Skin == Skins.Christmas) panel.AddChild(new SnowCap(true, 1));
+	}
+
+	/// <summary>Whether the screen shown gets the decorations behind it: only the home screen and the lobby (not editors, games, settings …).</summary>
+	public static bool OnScreen => On && App.I?.CurrentScreen is Screens.HomeScreen or Screens.HostLobbyScreen or Screens.WaitingRoomScreen;
+
 	static readonly (float X, float Speed, float Phase, float R)[] Flakes = MakeFlakes(80, 11);
 
 	static (float, float, float, float)[] MakeFlakes(int count, int seed)
@@ -326,5 +335,66 @@ public partial class LogoDecor : Control
 		DrawRect(new Rect2(-28, -1, 56, 8), white);
 		for (var x = -26; x < 26; x += 8) DrawRect(new Rect2(x, -1, 4, 8), red);
 		DrawSetTransformMatrix(Transform2D.Identity);
+	}
+}
+
+/// <summary>
+/// Christmas: a lumpy snow cap along the top edge of its parent (a panel or the BETA sticker), with snow falling over
+/// it if asked. Put it in as the parent's last child, so it's drawn on top.
+/// </summary>
+public partial class SnowCap : Control
+{
+	readonly bool _falling;
+	readonly float _size;
+	double _t;
+	readonly (float X, float Speed, float Phase, float R)[] _flakes;
+
+	public SnowCap() : this(false, 1) { }
+
+	/// <param name="falling">Snow falling over the whole parent too.</param>
+	/// <param name="size">The cap's thickness: 1 = the logo's, smaller for small things.</param>
+	public SnowCap(bool falling, float size)
+	{
+		_falling = falling;
+		_size = size;
+		MouseFilter = MouseFilterEnum.Ignore;
+		var rng = new Random(23);
+		_flakes = Enumerable.Range(0, falling ? 40 : 0).Select(_ => ((float)rng.NextDouble(), 0.03f + (float)rng.NextDouble() * 0.05f, (float)rng.NextDouble(), 1.5f + (float)rng.NextDouble() * 2.2f)).ToArray();
+	}
+
+	public override void _Process(double delta)
+	{
+		if (Announcer.ReduceMotion || !_falling) return;
+		_t += delta;
+		QueueRedraw();
+	}
+
+	public override void _Draw()
+	{
+		// (the parent's whole box: inside a panel this control only gets the space inside its padding)
+		var box = new Rect2(-Position, GetParent<Control>().Size);
+		var t = (float)_t;
+		var snow = new Color("#f4f8ff");
+		var shade = new Color("#c9d6ea");
+		foreach (var (x, speed, phase, r) in _flakes)
+		{
+			var y = (phase + t * speed) % 1f;
+			var px = box.Position.X + 8 + x * (box.Size.X - 16) + Mathf.Sin(t * 1.3f + phase * 9) * 6;
+			DrawCircle(new Vector2(px, box.Position.Y + 6 + y * (box.Size.Y - 12)), r, new Color(snow, 0.75f));
+		}
+		var top = box.Position.Y + 1;
+		var s = _size;
+		var left = box.Position.X + 10 * s;
+		var right = box.End.X - 10 * s;
+		float Lump(float x) => (7 + 3 * Mathf.Sin(x * 0.11f / s) + 1.5f * Mathf.Sin(x * 0.37f / s)) * s;
+		var step = Mathf.Max(2, 5 * s);
+		for (var x = left; x <= right; x += step) DrawCircle(new Vector2(x, top), Lump(x) + 1.5f * s, shade);
+		for (var x = left; x <= right; x += step) DrawCircle(new Vector2(x, top - 1.5f * s), Lump(x), snow);
+		foreach (var f in new[] { 0.18f, 0.43f, 0.69f, 0.9f })
+		{
+			var x = left + (right - left) * f;
+			DrawCircle(new Vector2(x, top + 8 * s), 3.5f * s, snow);
+			DrawCircle(new Vector2(x, top + 12 * s), 2.4f * s, snow);
+		}
 	}
 }

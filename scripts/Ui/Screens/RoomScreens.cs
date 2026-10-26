@@ -46,7 +46,7 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 	{
 		_host = host;
 		SetAnchorsPreset(LayoutPreset.FullRect);
-		AddChild(U.Page(U.Panel(_content), 1000, 16));
+		AddChild(U.Page(U.Panel(_content).With(Seasonal.SnowOn), 1000, 16));
 	}
 
 	/// <summary>
@@ -153,7 +153,7 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 	{
 		_client = client;
 		SetAnchorsPreset(LayoutPreset.FullRect);
-		AddChild(U.Page(U.Panel(_content), 1000, 16));
+		AddChild(U.Page(U.Panel(_content).With(Seasonal.SnowOn), 1000, 16));
 	}
 
 	/// <summary>While you change your name: the field (kept across updates, so typing isn't lost).</summary>
