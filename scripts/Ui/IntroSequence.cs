@@ -506,7 +506,7 @@ public partial class TrackGlowLogo : Control
 	static readonly Color Purple = new("#b07cff");
 	static readonly Color Blue = new("#4a90ff");
 	static readonly Texture2D? Icon = ResourceLoader.Exists("res://assets/intro/trackglow.png") ? GD.Load<Texture2D>("res://assets/intro/trackglow.png") : null;
-	const string Name = "TrackGlow";
+	const string Wordmark = "TrackGlow";
 
 	public TrackGlowLogo() : this(1) { }
 
@@ -514,7 +514,7 @@ public partial class TrackGlowLogo : Control
 	{
 		_k = k;
 		MouseFilter = MouseFilterEnum.Ignore;
-		var text = Fonts.Black.GetStringSize(Name, HorizontalAlignment.Left, -1, (int)(48 * k)).X;
+		var text = Fonts.Black.GetStringSize(Wordmark, HorizontalAlignment.Left, -1, (int)(48 * k)).X;
 		CustomMinimumSize = new Vector2(72 * k + 16 * k + text, 76 * k);
 		SizeFlagsHorizontal = SizeFlags.ShrinkCenter;
 	}
@@ -535,7 +535,7 @@ public partial class TrackGlowLogo : Control
 		var pulse = 0.7f + 0.3f * Mathf.Sin((float)_t * 2.2f);
 		// (the glow: the name drawn wider and see-through behind itself, purple fading into blue)
 		for (var r = 3; r >= 1; r--)
-			DrawStringOutline(Fonts.Black, at, Name, HorizontalAlignment.Left, -1, size, (int)(r * 5 * _k), new Color(Purple.Lerp(Blue, r / 3f), 0.1f * pulse));
-		DrawString(Fonts.Black, at, Name, HorizontalAlignment.Left, -1, size, Colors.White);
+			DrawStringOutline(Fonts.Black, at, Wordmark, HorizontalAlignment.Left, -1, size, (int)(r * 5 * _k), new Color(Purple.Lerp(Blue, r / 3f), 0.1f * pulse));
+		DrawString(Fonts.Black, at, Wordmark, HorizontalAlignment.Left, -1, size, Colors.White);
 	}
 }
