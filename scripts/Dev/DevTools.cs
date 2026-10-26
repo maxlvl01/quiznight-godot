@@ -793,9 +793,11 @@ public sealed class DevTools
 			else if (_arcade.Billiard is { Moving: false } b && (b.Turn == "A" ? _arcade.A : _arcade.B) == client.MyId && now - _arcadeShotAt > 2)
 			{
 				_arcadeShotAt = now;
-				var target = Enumerable.Range(1, b.X.Count - 1).Where(i => !b.In[i]).OrderBy(i => Math.Pow(b.X[i] - b.X[0], 2) + Math.Pow(b.Y[i] - b.Y[0], 2)).FirstOrDefault();
-				if (target == 0) return;
-				var angle = Math.Atan2(b.Y[target] - b.Y[0], b.X[target] - b.X[0]) + (_rng.NextDouble() - 0.5) * 0.08;
+				var cue = BilliardRules.CueFor(b);
+				var targets = BilliardRules.Targets(b).OrderBy(i => Math.Pow(b.X[i] - b.X[cue], 2) + Math.Pow(b.Y[i] - b.Y[cue], 2)).ToList();
+				if (targets.Count == 0) return;
+				var target = targets[0];
+				var angle = Math.Atan2(b.Y[target] - b.Y[cue], b.X[target] - b.X[cue]) + (_rng.NextDouble() - 0.5) * 0.08;
 				client.Arcade(new ArcadeRequest { Kind = ArcadeRequest.Shot, Angle = angle, Power = 0.5 + _rng.NextDouble() * 0.5 });
 			}
 		}

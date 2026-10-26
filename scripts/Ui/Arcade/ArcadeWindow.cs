@@ -64,6 +64,7 @@ public partial class ArcadeWindow : Control
 	readonly Label _title = U.Heading("Mini games", 24, false);
 	Control? _game;
 	string? _matchId;
+	string _billiardMode = BilliardMode.Eight;
 
 	public ArcadeWindow() : this(null!) { }
 
@@ -141,7 +142,8 @@ public partial class ArcadeWindow : Control
 		_body.AddChild(U.H(8, leave, U.Fill(), U.Muted(game is TetrisGame
 			? "← → move · ↑ / X turn · Z turn back · ↓ faster · Space drop"
 			: game is PongView ? "Move the mouse (or ↑ ↓) to move your paddle. First to 5."
-			: "Your turn: drag back from the white ball and let go to shoot. Pot a ball: a point and you go again.", 12, false)));
+			: "Your turn: drag back from your ball and let go to shoot.", 12, false)));
+		if (game is BilliardView billiard) _body.AddChild(U.Muted(BilliardMode.Rules(billiard.Mode), 12));
 		game.GrabFocus();
 	}
 
@@ -193,6 +195,14 @@ public partial class ArcadeWindow : Control
 			versus.AddChild(U.H(6, U.Muted(Lang.F("Waiting for {0} to accept {1} …", _link.Name(mine.To), Lang.T(ArcadeGame.Label(mine.Game))), 13).Grow(),
 				U.Small("Cancel", () => _link.Send(new ArcadeRequest { Kind = ArcadeRequest.Cancel }))));
 		var busy = view?.Matches.SelectMany(m => new[] { m.A, m.B }).ToHashSet() ?? new HashSet<string>();
+		// (which billiard game the Billiard buttons challenge to; kept while the window is open)
+		versus.AddChild(U.H(8, U.Muted("Billiard game:", 13, false).With(l => l.SizeFlagsVertical = SizeFlags.ShrinkCenter),
+			U.Select(BilliardMode.All.Select(m => (m, BilliardMode.Label(m))).ToArray(), _billiardMode, m =>
+			{
+				_billiardMode = m;
+				Callable.From(ShowMenu).CallDeferred();
+			}).Grow()));
+		versus.AddChild(U.Muted(BilliardMode.Rules(_billiardMode), 12));
 		var opponents = _link.Opponents();
 		if (opponents.Count == 0) versus.AddChild(U.Muted("Nobody to play against yet (players on older versions don't have the mini games).", 13));
 		foreach (var id in opponents)
@@ -201,7 +211,7 @@ public partial class ArcadeWindow : Control
 			var row = U.H(6, U.Text(_link.Name(id), 15, C.Text).Raw().Grow());
 			if (busy.Contains(id)) row.AddChild(U.Muted("playing", 12, false));
 			else
-				foreach (var game in ArcadeGame.Versus)
+				foreach (var game in new[] { ArcadeGame.Pong, _billiardMode })
 				{
 					var g = game;
 					row.AddChild(U.Small(Lang.T(ArcadeGame.Label(g)), () => _link.Send(new ArcadeRequest { Kind = ArcadeRequest.Challenge, Game = g, Who = who }))

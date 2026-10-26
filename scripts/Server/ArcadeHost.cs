@@ -20,8 +20,6 @@ public sealed class ArcadeHost
 		public int ScoreA, ScoreB;
 		public PongState? Pong;
 		public BilliardState? Billiard;
-		public bool WhiteIn;
-		public int PottedThisShot;
 		public double SinceFrame;
 
 		public bool Has(string id) => A == id || B == id;
@@ -72,7 +70,7 @@ public sealed class ArcadeHost
 				_invites.RemoveAll(i => i.From == from || i.To == from || i.From == r.Who || i.To == r.Who);
 				var m = new Match { Id = $"m{++_next}", Game = invite.Game, A = invite.From, B = from };
 				if (m.Game == ArcadeGame.Pong) m.Pong = new PongState();
-				else m.Billiard = BilliardState.New();
+				else m.Billiard = BilliardState.New(m.Game);
 				_matches.Add(m);
 				frames.Add(Frame(m));
 				return (true, frames);
@@ -85,8 +83,6 @@ public sealed class ArcadeHost
 			case ArcadeRequest.Shot when _matches.FirstOrDefault(m => m.Has(from) && m.Billiard != null) is { } m
 				&& !m.Billiard!.Moving && (m.Billiard.Turn == "A" ? m.A : m.B) == from && double.IsFinite(r.Angle) && double.IsFinite(r.Power):
 				BilliardRules.Shoot(m.Billiard, r.Angle, r.Power);
-				m.WhiteIn = false;
-				m.PottedThisShot = 0;
 				frames.Add(Frame(m));
 				return (false, frames);
 			case ArcadeRequest.Leave when _matches.FirstOrDefault(m => m.Has(from)) is { } m:
@@ -125,6 +121,7 @@ public sealed class ArcadeHost
 		foreach (var m in _matches.ToList())
 		{
 			var urgent = false;
+			string? decided = null;
 			for (var t = 0.0; t < dt; t += StepSec)
 			{
 				var step = Math.Min(StepSec, dt - t);
@@ -138,14 +135,10 @@ public sealed class ArcadeHost
 				}
 				else if (m.Billiard is { Moving: true } b)
 				{
-					foreach (var ball in BilliardRules.Step(b, step))
-					{
-						if (ball == 0) m.WhiteIn = true;
-						else m.PottedThisShot++;
-					}
+					BilliardRules.Step(b, step);
 					if (!b.Moving)
 					{
-						Settle(m, b);
+						decided = BilliardRules.Settle(b, ref m.ScoreA, ref m.ScoreB);
 						urgent = true;
 						break;
 					}
@@ -153,7 +146,7 @@ public sealed class ArcadeHost
 			}
 			var winner = m.Pong != null
 				? m.ScoreA >= PongState.Win ? m.A : m.ScoreB >= PongState.Win ? m.B : null
-				: m.Billiard!.In.Skip(1).All(i => i) && !m.Billiard.Moving ? (m.ScoreA > m.ScoreB ? m.A : m.B) : null;
+				: decided == "A" ? m.A : decided == "B" ? m.B : null;
 			if (winner != null)
 			{
 				frames.Add(End(m, winner));
@@ -169,19 +162,6 @@ public sealed class ArcadeHost
 			}
 		}
 		return (changed, frames);
-	}
-
-	/// <summary>A billiard shot has come to rest: points, a foul, whose turn it is.</summary>
-	static void Settle(Match m, BilliardState b)
-	{
-		var shooterA = b.Turn == "A";
-		if (shooterA) m.ScoreA += m.PottedThisShot;
-		else m.ScoreB += m.PottedThisShot;
-		if (m.WhiteIn) BilliardRules.ReturnWhite(b);
-		// (potted one and no foul: go again; otherwise it's the other's turn)
-		if (m.WhiteIn || m.PottedThisShot == 0) b.Turn = shooterA ? "B" : "A";
-		m.PottedThisShot = 0;
-		m.WhiteIn = false;
 	}
 
 	ArcadeFrame End(Match m, string winner)
@@ -210,7 +190,8 @@ public sealed class ArcadeHost
 		Billiard = m.Billiard == null ? null : new BilliardState
 		{
 			X = m.Billiard.X.ToList(), Y = m.Billiard.Y.ToList(), VX = m.Billiard.VX.ToList(), VY = m.Billiard.VY.ToList(),
-			In = m.Billiard.In.ToList(), Turn = m.Billiard.Turn, Moving = m.Billiard.Moving,
+			In = m.Billiard.In.ToList(), Turn = m.Billiard.Turn, Moving = m.Billiard.Moving, Mode = m.Billiard.Mode,
+			GroupA = m.Billiard.GroupA, Cue = m.Billiard.Cue,
 		},
 	};
 }

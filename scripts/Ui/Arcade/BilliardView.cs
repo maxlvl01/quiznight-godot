@@ -15,11 +15,20 @@ public partial class BilliardView : Control
 	double _since;
 	Vector2? _drag;
 
-	static readonly Color Cloth = new("#1f7a4d"), Rail = new("#5a3a22");
-	static readonly Color[] Balls =
+	static readonly Color Cloth = new("#1f7a4d"), CaromCloth = new("#2a5fa8"), Rail = new("#5a3a22");
+	/// <summary>Pool balls 1–8 (9–15 are the same colours as stripes): yellow, blue, red, purple, orange, green, maroon, black.</summary>
+	static readonly Color[] Pool =
 	{
-		Colors.White, new("#ffc93c"), new("#4a6cff"), new("#ff6b7a"), new("#9d8cff"), new("#ff9f43"), new("#3fd0b0"), new("#14151b"),
+		Colors.White, new("#f5c518"), new("#2a5bd7"), new("#e0302a"), new("#6b3fa0"), new("#f07d1a"), new("#1f8a4c"), new("#8a2232"), new("#14151b"),
 	};
+	static readonly Color Yellow = new("#f5c518"), Red = new("#e0302a");
+
+	/// <summary>A ball's colour, whether it's a stripe, and its number ("" for cue and carom balls).</summary>
+	static (Color Colour, bool Stripe, string Number) Look(string mode, int i) => BilliardMode.Carom(mode)
+		? (i == 0 ? Colors.White : i == 1 ? Yellow : Red, false, "")
+		: i == 0 ? (Colors.White, false, "")
+		: i <= 8 ? (Pool[i], false, i.ToString())
+		: (Pool[i - 8], true, i.ToString());
 
 	const float MaxPull = 0.5f;
 
@@ -32,6 +41,9 @@ public partial class BilliardView : Control
 		FocusMode = FocusModeEnum.All;
 		CustomMinimumSize = new Vector2(0, 420);
 	}
+
+	/// <summary>Which billiard game this is (BilliardMode).</summary>
+	public string Mode => _frame.Billiard?.Mode ?? _frame.Game;
 
 	public void Take(ArcadeFrame frame)
 	{
@@ -49,11 +61,13 @@ public partial class BilliardView : Control
 		return new Rect2(new Vector2((Size.X - size.X) / 2, 60), size);
 	}
 
+	/// <summary>Where the shooter's ball is (pool: the white; carom: their own cue ball).</summary>
 	Vector2 White()
 	{
 		var t = Table();
 		var b = _frame.Billiard!;
-		return t.Position + new Vector2((float)b.X[0], (float)b.Y[0]) * (t.Size.X / (float)BilliardState.W);
+		var cue = BilliardRules.CueFor(b);
+		return t.Position + new Vector2((float)b.X[cue], (float)b.Y[cue]) * (t.Size.X / (float)BilliardState.W);
 	}
 
 	public override void _GuiInput(InputEvent e)
@@ -97,17 +111,26 @@ public partial class BilliardView : Control
 		var t = Table();
 		var k = t.Size.X / (float)BilliardState.W;
 		DrawRect(t.Grow(14), Rail);
-		DrawRect(t, Cloth);
-		foreach (var (px, py) in BilliardState.Pockets) DrawCircle(t.Position + new Vector2((float)px, (float)py) * k, (float)BilliardState.Pocket * k, new Color("#0b0b0f"));
+		DrawRect(t, s.Pockets ? Cloth : CaromCloth);
+		if (s.Pockets)
+			foreach (var (px, py) in BilliardState.PocketSpots) DrawCircle(t.Position + new Vector2((float)px, (float)py) * k, (float)BilliardState.Pocket * k * 0.85f, new Color("#0b0b0f"));
+		var r = (float)BilliardState.R * k;
 		for (var i = 0; i < s.X.Count; i++)
 		{
 			if (s.In[i]) continue;
 			// (moved on between the host's frames by its speed)
 			var dt = s.Moving ? Math.Min(_since, 0.05) : 0;
 			var at = t.Position + new Vector2((float)(s.X[i] + s.VX[i] * dt), (float)(s.Y[i] + s.VY[i] * dt)) * k;
-			DrawCircle(at + new Vector2(1.5f, 2), (float)BilliardState.R * k, new Color(0, 0, 0, 0.35f));
-			DrawCircle(at, (float)BilliardState.R * k, Balls[i % Balls.Length]);
-			DrawCircle(at - Vector2.One * (float)BilliardState.R * k * 0.35f, (float)BilliardState.R * k * 0.3f, new Color(1, 1, 1, 0.45f));
+			var (colour, stripe, number) = Look(s.Mode, i);
+			DrawCircle(at + new Vector2(1.5f, 2), r, new Color(0, 0, 0, 0.35f));
+			DrawCircle(at, r, stripe ? Colors.White : colour);
+			if (stripe) DrawRect(new Rect2(at.X - r * 0.95f, at.Y - r * 0.5f, r * 1.9f, r), colour);
+			if (number != "")
+			{
+				DrawCircle(at, r * 0.5f, Colors.White);
+				DrawString(Fonts.Bold, at + new Vector2(-r * 0.5f, r * 0.3f), number, HorizontalAlignment.Center, r, Mathf.Max(7, (int)(r * 0.75f)), new Color("#14151b"));
+			}
+			DrawCircle(at - Vector2.One * r * 0.4f, r * 0.25f, new Color(1, 1, 1, 0.4f));
 		}
 		if (_drag is { } mouse && MyTurn)
 		{
@@ -121,8 +144,17 @@ public partial class BilliardView : Control
 		string Side(string id, int score, bool turn) => $"{(turn ? "▶ " : "")}{_link.Name(id)}  {score}";
 		DrawString(font, new Vector2(t.Position.X, 34), Side(_frame.A, _frame.ScoreA, s.Turn == "A"), HorizontalAlignment.Left, t.Size.X / 2 - 10, 20, s.Turn == "A" ? C.Accent : C.Text);
 		DrawString(font, new Vector2(t.Position.X + t.Size.X / 2 + 10, 34), Side(_frame.B, _frame.ScoreB, s.Turn == "B"), HorizontalAlignment.Right, t.Size.X / 2 - 10, 20, s.Turn == "B" ? C.Accent : C.Text);
-		var left = s.In.Skip(1).Count(i => !i);
 		var line = s.Moving ? "" : MyTurn ? Lang.T("Your shot") : Lang.F("{0}'s shot", _link.Name(s.Turn == "A" ? _frame.A : _frame.B));
-		DrawString(Fonts.Bold, new Vector2(t.Position.X, t.End.Y + 38), line + (line != "" ? " · " : "") + Lang.F("{0} balls left", left), HorizontalAlignment.Center, t.Size.X, 15, C.Muted);
+		var extra = s.Mode switch
+		{
+			BilliardMode.Eight => BilliardRules.GroupOf(s, "A") is { Length: > 0 } a
+				? Lang.F("{0}: {1} · {2}: {3}", _link.Name(_frame.A), Lang.T(a), _link.Name(_frame.B), Lang.T(BilliardRules.GroupOf(s, "B")))
+				: Lang.T("Table open: the first ball you pot is your group"),
+			BilliardMode.Nine => BilliardRules.Targets(s).FirstOrDefault() is var low and > 0 ? Lang.F("Hit the {0} first", low) : "",
+			BilliardMode.Four => Lang.T("Your ball: white for the left player, yellow for the right. First to 20."),
+			BilliardMode.Three => Lang.T("Your ball: white for the left player, yellow for the right. First to 3."),
+			_ => Lang.F("{0} balls left", s.In.Skip(1).Count(i => !i)),
+		};
+		DrawString(Fonts.Bold, new Vector2(t.Position.X, t.End.Y + 38), line + (line != "" && extra != "" ? " · " : "") + extra, HorizontalAlignment.Center, t.Size.X, 15, C.Muted);
 	}
 }

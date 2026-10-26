@@ -1003,6 +1003,28 @@ public static class SelfTest
 			for (var t = 0; t < 60 * 30; t++) rolled |= arcade.Tick(1 / 60.0).Frames.Any(f => f.Billiard is { Moving: false } b && b.X.All(double.IsFinite));
 			var cut = arcade.StopAll();
 			Check(rolled && cut.Count == 1 && cut[0].Winner == "" && arcade.View().Records.Count == 1, "mini games: a billiard shot rolls to a stop; starting the quiz cuts the match off for nobody");
+			// Every billiard game, played shot by shot at the nearest fair ball: the balls stay on the table, turns pass,
+			// and the pool games end with a winner.
+			foreach (var mode in BilliardMode.All)
+			{
+				var table = BilliardState.New(mode);
+				int scoreA = 0, scoreB = 0, shots = 0;
+				string? won = null;
+				var ok = table.X.Count == mode switch { BilliardMode.Eight => 16, BilliardMode.Nine => 10, BilliardMode.Four => 4, BilliardMode.Three => 3, _ => 8 };
+				var turns = new HashSet<string>();
+				while (won == null && shots++ < 400)
+				{
+					var cue = BilliardRules.CueFor(table);
+					var target = BilliardRules.Targets(table).OrderBy(i => Math.Pow(table.X[i] - table.X[cue], 2) + Math.Pow(table.Y[i] - table.Y[cue], 2)).FirstOrDefault(-1);
+					if (target < 0) break;
+					BilliardRules.Shoot(table, Math.Atan2(table.Y[target] - table.Y[cue], table.X[target] - table.X[cue]) + (shots % 3 - 1) * 0.05, 0.6 + shots % 4 * 0.1);
+					for (var t = 0; t < 240 * 30 && table.Moving; t++) BilliardRules.Step(table, 1 / 240.0);
+					won = BilliardRules.Settle(table, ref scoreA, ref scoreB);
+					turns.Add(table.Turn);
+					ok &= table.X.All(double.IsFinite) && table.Y.All(double.IsFinite) && !table.Moving;
+				}
+				Check(ok && turns.Count == 2 && (BilliardMode.Carom(mode) || won != null), $"billiard {mode}: plays through ({shots} shots, {scoreA}–{scoreB}, winner {won ?? "none"})");
+			}
 			arcade.Request("ann", new ArcadeRequest { Kind = ArcadeRequest.Score, Value = 1200 });
 			arcade.Request("ann", new ArcadeRequest { Kind = ArcadeRequest.Score, Value = 800 });
 			Check(arcade.View().TetrisBest["ann"] == 1200, "mini games: Tetris keeps each player's best score");

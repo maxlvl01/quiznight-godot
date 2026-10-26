@@ -16,9 +16,13 @@ public static class ArcadeGame
 	public const string Pong = "pong";
 	public const string Billiard = "billiard";
 
-	public static readonly string[] Versus = { Pong, Billiard };
+	/// <summary>The 1 vs 1 games: Pong and every billiard game (BilliardMode; "billiard" itself is quick pool).</summary>
+	public static readonly string[] Versus = new[] { Pong }.Concat(BilliardMode.All).ToArray();
 
-	public static string Label(string game) => game switch { Tetris => "Tetris", Pong => "Pong", Billiard => "Billiard", _ => game };
+	public static string Label(string game) => game switch
+	{
+		Tetris => "Tetris", Pong => "Pong", _ when BilliardMode.Is(game) => BilliardMode.Label(game), _ => game,
+	};
 
 	/// <summary>The host plays as this id (not a player of the quiz).</summary>
 	public const string HostId = "host";
@@ -178,27 +182,77 @@ public static class PongRules
 
 // ---------- Billiard ----------
 
-/// <summary>
-/// A 2 × 1 table, the white ball (index 0) and seven others. Players take turns: potting a ball scores a point and you
-/// go again; potting the white is a foul (it comes back, the other player's turn). When all seven are in, most points wins.
-/// </summary>
+/// <summary>The billiard games: pool with pockets (Quick, 8-ball, 9-ball) and carom without (4-ball, three-cushion).</summary>
+public static class BilliardMode
+{
+	/// <summary>Seven balls, a point for each one you pot; most points when they're all in wins.</summary>
+	public const string Quick = "billiard";
+	/// <summary>Solids or stripes (the first ball you pot decides), then the black; the black too early loses.</summary>
+	public const string Eight = "8ball";
+	/// <summary>Always hit the lowest ball first; whoever pots the 9 in a fair shot wins.</summary>
+	public const string Nine = "9ball";
+	/// <summary>Yotsudama: no pockets; your cue ball hitting two reds is 3, a red and the other cue ball 2, all three 5. First to 20.</summary>
+	public const string Four = "4ball";
+	/// <summary>No pockets; your cue ball hits both others with three cushions before the second: a point. First to 3.</summary>
+	public const string Three = "3cushion";
+
+	public static readonly string[] All = { Quick, Eight, Nine, Four, Three };
+
+	public static bool Is(string game) => All.Contains(game);
+	public static bool Carom(string mode) => mode is Four or Three;
+
+	public static string Label(string mode) => mode switch
+	{
+		Quick => "Quick pool",
+		Eight => "8-ball",
+		Nine => "9-ball",
+		Four => "4-ball",
+		Three => "Three-cushion",
+		_ => mode,
+	};
+
+	public static string Rules(string mode) => mode switch
+	{
+		Quick => "Seven balls. Pot one: a point and you go again. When they're all in, most points wins.",
+		Eight => "Pot one: that's your group (solids 1–7 or stripes 9–15). Clear yours, then pot the black. The black too early loses.",
+		Nine => "Always hit the lowest ball on the table first. Pot any ball in a fair shot and go again; pot the 9 in a fair shot and win.",
+		Four => "No pockets. Your cue ball hits both reds: 3 points, a red and the other cue ball: 2, all three: 5. Score and go again. First to 20.",
+		Three => "No pockets. Your cue ball hits both other balls and three cushions before the second one: a point, and you go again. First to 3.",
+		_ => "",
+	};
+}
+
+/// <summary>A 2 × 1 table: where the balls are, whose shot it is, and what the shot under way has done so far.</summary>
 public sealed class BilliardState
 {
 	public const double W = 2, H = 1, R = 0.03, Pocket = 0.065;
+	public string Mode = BilliardMode.Quick;
 	public List<double> X = new(), Y = new(), VX = new(), VY = new();
 	public List<bool> In = new();
 	/// <summary>Whose shot it is: "A" or "B".</summary>
 	public string Turn = "A";
 	public bool Moving;
+	/// <summary>8-ball: A's group, "solids" or "stripes" ("" while the table is open).</summary>
+	public string GroupA = "";
+	/// <summary>The ball being shot (pool: the white, 0; carom: 0 for A, 1 for B).</summary>
+	public int Cue;
+	/// <summary>This shot so far: the balls the cue ball touched (in order), cushions before the second one, balls potted.</summary>
+	public List<int> Touched = new();
+	public int CushionsBeforeSecond;
+	public List<int> Potted = new();
+	/// <summary>9-ball: the lowest ball on the table when the shot was taken.</summary>
+	public int Lowest;
 
-	public static readonly (double X, double Y)[] Pockets =
+	public bool Pockets => !BilliardMode.Carom(Mode);
+
+	public static readonly (double X, double Y)[] PocketSpots =
 	{
 		(0, 0), (W / 2, -0.01), (W, 0), (0, H), (W / 2, H + 0.01), (W, H),
 	};
 
-	public static BilliardState New()
+	public static BilliardState New(string mode)
 	{
-		var s = new BilliardState();
+		var s = new BilliardState { Mode = mode };
 		void Add(double x, double y)
 		{
 			s.X.Add(x);
@@ -207,14 +261,56 @@ public sealed class BilliardState
 			s.VY.Add(0);
 			s.In.Add(false);
 		}
-		Add(0.5, H / 2);
-		// (a triangle of seven: 1, 2, then 4)
 		var d = R * 2.05;
 		var apex = 1.4;
-		Add(apex, H / 2);
-		Add(apex + d * 0.87, H / 2 - d / 2);
-		Add(apex + d * 0.87, H / 2 + d / 2);
-		for (var i = 0; i < 4; i++) Add(apex + d * 1.74, H / 2 + (i - 1.5) * d);
+		// (a rack, row by row from the apex; the numbers in the order they go in)
+		void Rack(int[] rows, IList<int> numbers)
+		{
+			var placed = new (double X, double Y)[numbers.Count + 1];
+			var k = 0;
+			for (var row = 0; row < rows.Length; row++)
+			for (var i = 0; i < rows[row]; i++)
+				placed[numbers[k++]] = (apex + row * d * 0.87, H / 2 + (i - (rows[row] - 1) / 2.0) * d);
+			for (var n = 1; n <= numbers.Count; n++) Add(placed[n].X, placed[n].Y);
+		}
+		var rng = Random.Shared;
+		switch (mode)
+		{
+			case BilliardMode.Eight:
+			{
+				Add(0.5, H / 2);
+				// (the black in the middle of the third row; the rest shuffled)
+				var others = Enumerable.Range(1, 15).Where(n => n != 8).OrderBy(_ => rng.Next()).ToList();
+				others.Insert(4, 8);
+				Rack(new[] { 1, 2, 3, 4, 5 }, others);
+				break;
+			}
+			case BilliardMode.Nine:
+			{
+				Add(0.5, H / 2);
+				// (a diamond: the 1 at the front, the 9 in the middle)
+				var others = Enumerable.Range(2, 7).OrderBy(_ => rng.Next()).ToList();
+				others.Insert(0, 1);
+				others.Insert(4, 9);
+				Rack(new[] { 1, 2, 3, 2, 1 }, others);
+				break;
+			}
+			case BilliardMode.Four:
+				Add(0.5, H / 2 + 0.12); // white (A)
+				Add(0.5, H / 2 - 0.12); // yellow (B)
+				Add(1.5, H / 2); // red
+				Add(1.0, H / 2); // red
+				break;
+			case BilliardMode.Three:
+				Add(0.5, H / 2 + 0.15); // white (A)
+				Add(0.5, H / 2); // yellow (B)
+				Add(1.5, H / 2); // red
+				break;
+			default:
+				Add(0.5, H / 2);
+				Rack(new[] { 1, 2, 4 }, Enumerable.Range(1, 7).ToList());
+				break;
+		}
 		return s;
 	}
 }
@@ -223,18 +319,25 @@ public static class BilliardRules
 {
 	const double MaxSpeed = 3.2, Friction = 0.55, Cushion = 0.85;
 
+	/// <summary>The ball the shooter plays: the white in pool; in carom A's white or B's yellow.</summary>
+	public static int CueFor(BilliardState s) => s.Pockets ? 0 : s.Turn == "A" ? 0 : 1;
+
 	public static void Shoot(BilliardState s, double angle, double power)
 	{
+		s.Cue = CueFor(s);
+		s.Touched.Clear();
+		s.Potted.Clear();
+		s.CushionsBeforeSecond = 0;
+		s.Lowest = Enumerable.Range(1, s.X.Count - 1).Where(i => !s.In[i]).DefaultIfEmpty(0).Min();
 		var speed = Math.Clamp(power, 0.05, 1) * MaxSpeed;
-		s.VX[0] = Math.Cos(angle) * speed;
-		s.VY[0] = Math.Sin(angle) * speed;
+		s.VX[s.Cue] = Math.Cos(angle) * speed;
+		s.VY[s.Cue] = Math.Sin(angle) * speed;
 		s.Moving = true;
 	}
 
-	/// <summary>Moves the balls on; returns the balls potted in this step.</summary>
-	public static List<int> Step(BilliardState s, double dt)
+	/// <summary>Moves the balls on, noting what the cue ball touches and what drops.</summary>
+	public static void Step(BilliardState s, double dt)
 	{
-		var potted = new List<int>();
 		var n = s.X.Count;
 		for (var i = 0; i < n; i++)
 		{
@@ -248,15 +351,25 @@ public static class BilliardRules
 				s.VX[i] *= slower;
 				s.VY[i] *= slower;
 			}
-			if (BilliardState.Pockets.Any(p => (s.X[i] - p.X) * (s.X[i] - p.X) + (s.Y[i] - p.Y) * (s.Y[i] - p.Y) < BilliardState.Pocket * BilliardState.Pocket))
+			if (s.Pockets && BilliardState.PocketSpots.Any(p => (s.X[i] - p.X) * (s.X[i] - p.X) + (s.Y[i] - p.Y) * (s.Y[i] - p.Y) < BilliardState.Pocket * BilliardState.Pocket))
 			{
 				s.In[i] = true;
 				s.VX[i] = s.VY[i] = 0;
-				potted.Add(i);
+				s.Potted.Add(i);
 				continue;
 			}
-			if (s.X[i] < BilliardState.R && s.VX[i] < 0 || s.X[i] > BilliardState.W - BilliardState.R && s.VX[i] > 0) s.VX[i] = -s.VX[i] * Cushion;
-			if (s.Y[i] < BilliardState.R && s.VY[i] < 0 || s.Y[i] > BilliardState.H - BilliardState.R && s.VY[i] > 0) s.VY[i] = -s.VY[i] * Cushion;
+			var cushion = false;
+			if (s.X[i] < BilliardState.R && s.VX[i] < 0 || s.X[i] > BilliardState.W - BilliardState.R && s.VX[i] > 0)
+			{
+				s.VX[i] = -s.VX[i] * Cushion;
+				cushion = true;
+			}
+			if (s.Y[i] < BilliardState.R && s.VY[i] < 0 || s.Y[i] > BilliardState.H - BilliardState.R && s.VY[i] > 0)
+			{
+				s.VY[i] = -s.VY[i] * Cushion;
+				cushion = true;
+			}
+			if (cushion && i == s.Cue && s.Touched.Count < 2) s.CushionsBeforeSecond++;
 			s.X[i] = Math.Clamp(s.X[i], BilliardState.R, BilliardState.W - BilliardState.R);
 			s.Y[i] = Math.Clamp(s.Y[i], BilliardState.R, BilliardState.H - BilliardState.R);
 		}
@@ -268,6 +381,8 @@ public static class BilliardRules
 			double dx = s.X[j] - s.X[i], dy = s.Y[j] - s.Y[i];
 			var dist = Math.Sqrt(dx * dx + dy * dy);
 			if (dist >= BilliardState.R * 2 || dist == 0) continue;
+			if (i == s.Cue && !s.Touched.Contains(j)) s.Touched.Add(j);
+			if (j == s.Cue && !s.Touched.Contains(i)) s.Touched.Add(i);
 			double nx = dx / dist, ny = dy / dist;
 			var overlap = BilliardState.R * 2 - dist;
 			s.X[i] -= nx * overlap / 2;
@@ -284,7 +399,120 @@ public static class BilliardRules
 		s.Moving = Enumerable.Range(0, n).Any(i => !s.In[i] && (Math.Abs(s.VX[i]) > 0.002 || Math.Abs(s.VY[i]) > 0.002));
 		if (!s.Moving)
 			for (var i = 0; i < n; i++) s.VX[i] = s.VY[i] = 0;
-		return potted;
+	}
+
+	public static bool Solid(int ball) => ball is >= 1 and <= 7;
+	public static bool Stripe(int ball) => ball is >= 9 and <= 15;
+
+	/// <summary>8-ball: a side's group ("" while the table is open).</summary>
+	public static string GroupOf(BilliardState s, string side) =>
+		s.GroupA == "" ? "" : side == "A" ? s.GroupA : s.GroupA == "solids" ? "stripes" : "solids";
+
+	static bool InGroup(int ball, string group) => group == "solids" ? Solid(ball) : group == "stripes" && Stripe(ball);
+
+	/// <summary>
+	/// The balls the shooter should aim at: 9-ball the lowest, 8-ball their group (then the black), carom and quick pool
+	/// any ball but their own cue ball.
+	/// </summary>
+	public static IEnumerable<int> Targets(BilliardState s)
+	{
+		var cue = CueFor(s);
+		var on = Enumerable.Range(0, s.X.Count).Where(i => i != cue && !s.In[i] && !(s.Pockets && i == 0)).ToList();
+		switch (s.Mode)
+		{
+			case BilliardMode.Nine:
+				return on.Count > 0 ? new[] { on.Min() } : on;
+			case BilliardMode.Eight:
+				var group = GroupOf(s, s.Turn);
+				var mine = on.Where(i => group == "" ? i != 8 : InGroup(i, group)).ToList();
+				return mine.Count > 0 ? mine : on.Where(i => i == 8);
+			default:
+				return on;
+		}
+	}
+
+	/// <summary>
+	/// A shot has come to rest: points, fouls, whose turn it is next. Returns the winner ("A" / "B") if that decided it.
+	/// </summary>
+	public static string? Settle(BilliardState s, ref int scoreA, ref int scoreB)
+	{
+		var shooter = s.Turn;
+		var other = shooter == "A" ? "B" : "A";
+		var points = 0;
+		var keep = false;
+		string? winner = null;
+		var cueIn = s.Pockets && s.Potted.Contains(0);
+		switch (s.Mode)
+		{
+			case BilliardMode.Eight:
+			{
+				var group = GroupOf(s, shooter);
+				var clearedBefore = group != "" && Enumerable.Range(1, 15).Where(i => InGroup(i, group)).All(i => s.In[i] && !s.Potted.Contains(i));
+				var first = s.Touched.Count > 0 ? s.Touched[0] : -1;
+				var foul = cueIn || first < 0 || first == 8 && !clearedBefore || group != "" && first != 8 && !InGroup(first, group);
+				if (s.Potted.Contains(8))
+				{
+					winner = !foul && clearedBefore ? shooter : other;
+					break;
+				}
+				var firstIn = s.Potted.FirstOrDefault(i => i != 0);
+				if (group == "" && !foul && firstIn > 0)
+				{
+					var mineNow = Solid(firstIn) ? "solids" : "stripes";
+					s.GroupA = shooter == "A" ? mineNow : mineNow == "solids" ? "stripes" : "solids";
+					group = mineNow;
+				}
+				points = s.Potted.Count(i => group != "" && InGroup(i, group));
+				keep = !foul && points > 0;
+				break;
+			}
+			case BilliardMode.Nine:
+			{
+				var foul = cueIn || s.Touched.Count == 0 || s.Touched[0] != s.Lowest;
+				points = foul ? 0 : s.Potted.Count(i => i != 0);
+				if (s.Potted.Contains(9))
+				{
+					if (!foul)
+					{
+						winner = shooter;
+						break;
+					}
+					// (the 9 potted in a foul comes back on its spot)
+					s.In[9] = false;
+					s.X[9] = 1.5;
+					s.Y[9] = BilliardState.H / 2;
+				}
+				keep = !foul && points > 0;
+				break;
+			}
+			case BilliardMode.Four:
+			{
+				var otherCue = s.Cue == 0 ? 1 : 0;
+				var reds = s.Touched.Count(i => i >= 2);
+				var hitCue = s.Touched.Contains(otherCue);
+				points = reds == 2 && hitCue ? 5 : reds == 2 ? 3 : reds == 1 && hitCue ? 2 : 0;
+				keep = points > 0;
+				break;
+			}
+			case BilliardMode.Three:
+				points = s.Touched.Count >= 2 && s.CushionsBeforeSecond >= 3 ? 1 : 0;
+				keep = points > 0;
+				break;
+			default:
+				points = s.Potted.Count(i => i != 0);
+				keep = !cueIn && points > 0;
+				break;
+		}
+		if (shooter == "A") scoreA += points;
+		else scoreB += points;
+		if (cueIn) ReturnWhite(s);
+		if (winner != null) return winner;
+		var target = s.Mode == BilliardMode.Four ? 20 : s.Mode == BilliardMode.Three ? 3 : int.MaxValue;
+		if (scoreA >= target) return "A";
+		if (scoreB >= target) return "B";
+		if (s.Mode == BilliardMode.Quick && s.In.Skip(1).All(i => i)) return scoreA > scoreB ? "A" : "B";
+		if (!keep) s.Turn = other;
+		return null;
 	}
 
 	/// <summary>The white ball back on the table after it was potted (where it started, or next to it if that's taken).</summary>
