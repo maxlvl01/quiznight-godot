@@ -13,6 +13,12 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.12.0d3]
+
+### Fixed
+- **Test builds didn't update by themselves, and sent no logs.** 0.12.0d1 and 0.12.0d2 said "You have the newest version" even when a newer test build was out: they were built without the game's key for the private repos (it isn't stored with the code and didn't get copied in), and without it a test build can't see the test releases at all, nor send its logs or quiz night results. The build tool now stops instead of only warning when the key is missing. **Download this version once by hand**; from here on test builds update themselves again.
+- **The TRACKGLOW engraving on the buzzer** ran into the silver plate's lower edge; it's in the top strip above the key now.
+
 ## [0.12.0d2]
 
 ### Added

@@ -55,7 +55,9 @@ sign() {
 	openssl dgst -sha256 -verify tools/release-signing-public.pem -signature "$1.sig" "$1" >/dev/null || { echo "Signing $1 failed"; exit 1; }
 }
 # The token that lets games upload their results to maxlvl01/quiznight-results (Storage/ResultsUpload.cs); not in git.
-[ -s results-token.txt ] || echo "Warning: results-token.txt is missing: this build won't upload quiz night results."
+# (without it the game uploads no results or crash logs, and a test build can't even see newer test builds: stop. It isn't
+# in git, so a fresh checkout or worktree needs it copied in from the main checkout.)
+[ -s results-token.txt ] || { echo "results-token.txt is missing (copy it from the main checkout): no results, logs or test updates without it"; exit 1; }
 
 # (keeps Godot from importing what's in build/, e.g. the maps copied next to the Windows build)
 mkdir -p build && touch build/.gdignore
