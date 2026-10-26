@@ -52,6 +52,11 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **Zooming into the WoW map stays sharp and looks the same all the way down.** Before, between the world map and the zones (around zoom 1.5–4) the map showed the small old world and continent pictures blown up: blurry, other colours, and the land suddenly looked like old Classic again until the zone art came in. Now all of OpenMap's zone art is put together into one big map (in two sizes) that shows from the first zoom steps on, so the land looks the same at every zoom, only more detailed the closer you get. (The sea between the continents is still the world map; the zone names on hover for Forever's new zones like Gilneas come once WoW Forever is out.)
 - **Licence:** from this version on Quiznight? is under the PolyForm Noncommercial licence instead of MIT: anyone may use, change and share it, but nobody may sell it. It's free and always will be — no purchases, no ads, no donations.
 
+## [0.11.5b]
+
+### Fixed
+- **Quiz night results weren't sent for the eternal table, and crash reports weren't sent either.** 0.11.4b was built without the game's key for the results list (it isn't stored with the code and didn't get copied in), so at the end of a night over Steam the results only went to Documents/Quiznight/Results instead of the eternal table, and errors weren't reported. This version has the key again; the build tool now refuses to make a version without it. Results from 0.11.4b nights are still in that folder, nothing is lost.
+
 ## [0.11.4b]
 
 ### Added
