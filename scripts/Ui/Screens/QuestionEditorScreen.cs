@@ -170,8 +170,9 @@ public partial class QuestionEditorScreen : Control
 		left.AddChild(picture ? SlidesField() : U.Field("Image (optional)", OptionalImage()));
 
 		var settings = new List<Control>();
-		if (choice || _draft.IsTyped) settings.Add(RoundSettings.TimeLimit(_draft, () => Changed()));
-		settings.Add(RoundSettings.Points(_draft, () => Changed()));
+		settings.Add(choice || _draft.IsTyped
+			? RoundSettings.Row(RoundSettings.TimeLimit(_draft, () => Changed()), RoundSettings.Points(_draft, () => Changed()))
+			: RoundSettings.Points(_draft, () => Changed()));
 		if (choice)
 		{
 			// (off by default: a wrong pick loses the question's points)
@@ -181,7 +182,8 @@ public partial class QuestionEditorScreen : Control
 				_draft.WrongCosts = on;
 				Changed();
 			};
-			settings.Add(U.V(2, costs, U.Muted("A wrong answer loses as many points as a right one gets. Not answering costs nothing.", 12)));
+			// (its explanation as a tooltip, so the round settings fit without scrolling)
+			settings.Add(costs.Tip("A wrong answer loses as many points as a right one gets. Not answering costs nothing."));
 		}
 		settings.Add(RoundSettings.Bonus(_draft, () => Changed()));
 		settings.Add(U.Muted(_draft.IsTyped ? TypedHelp : _draft.IsMulti
@@ -364,19 +366,20 @@ public partial class QuestionEditorScreen : Control
 			{
 				_draft.AnswerText = t;
 				Changed();
-			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold))));
-		var settings = RoundSettings.Panel(
-			RoundSettings.AnswerMode(_draft, () => Changed(true)),
-			U.Field("Start playing at (seconds)", new NumberField(_draft.StartSec, v =>
-			{
-				_draft.StartSec = Math.Max(0, v ?? 0);
-				Changed();
-			}, 0, _draft.Media?.DurationSec), "Skip a silent intro or a title card that gives it away."),
-			_draft.Typed ? U.H(12, RoundSettings.TimeLimit(_draft, () => Changed()).Grow(), RoundSettings.Points(_draft, () => Changed()).Grow()) : RoundSettings.Points(_draft, () => Changed()),
-			RoundSettings.Bonus(_draft, () => Changed()),
+			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold))),
+			// (the explanation on the left, where there's room: in the round settings it made the page scroll)
 			U.Muted(_draft.Typed ? TypedHelp : isSound
 				? "The sound plays on your screen. Players buzz in on their own PC; playback pauses when someone buzzes. After a wrong answer it stays paused until you resume it (or reveal the answer if nobody knows it). Once it's guessed, everyone sees how many seconds of listening it took. Answer time per buzz is set in the lobby."
 				: "The video plays on your screen and on the players' screens too (blurred until you start it). Players buzz in on their own PC; playback pauses when someone buzzes. After a wrong answer it stays paused until you resume it (or reveal the answer if nobody knows it). Once it's guessed, everyone sees how many seconds of watching it took. Answer time per buzz is set in the lobby.", 13));
+		var settings = RoundSettings.Panel(
+			RoundSettings.AnswerMode(_draft, () => Changed(true)),
+			RoundSettings.Row(U.Field("Start playing at (seconds)", new NumberField(_draft.StartSec, v =>
+			{
+				_draft.StartSec = Math.Max(0, v ?? 0);
+				Changed();
+			}, 0, _draft.Media?.DurationSec).Tip("Skip a silent intro or a title card that gives it away.")), RoundSettings.Points(_draft, () => Changed())),
+			_draft.Typed ? RoundSettings.TimeLimit(_draft, () => Changed()) : U.Gap(0),
+			RoundSettings.Bonus(_draft, () => Changed()));
 		return Columns((left, 1.6f), (settings, 1));
 	}
 
@@ -460,7 +463,7 @@ public partial class QuestionEditorScreen : Control
 				Changed();
 			};
 			settings = RoundSettings.Panel(
-				U.Field("Time per turn (seconds)", new NumberField(_draft.TimeLimitSec, v =>
+				RoundSettings.Row(U.Field("Time per turn (seconds)", new NumberField(_draft.TimeLimitSec, v =>
 				{
 					_draft.TimeLimitSec = (int)Math.Clamp(Math.Round(v ?? QuestionLimits.TimeLimitMin), QuestionLimits.TimeLimitMin, QuestionLimits.TimeLimitMax);
 					Changed();
@@ -469,8 +472,8 @@ public partial class QuestionEditorScreen : Control
 				{
 					_draft.Points = (int)Math.Clamp(Math.Round(v ?? QuestionLimits.PointsMin), QuestionLimits.PointsMin, QuestionLimits.PointsMax);
 					Changed();
-				}, QuestionLimits.PointsMin, QuestionLimits.PointsMax, true)),
-				U.V(4, keepGoing, U.Muted("Off: the turn passes on after every item.", 12)),
+				}, QuestionLimits.PointsMin, QuestionLimits.PointsMax, true))),
+				keepGoing.Tip("Off: the turn passes on after every item."),
 				RoundSettings.Bonus(_draft, () => Changed()),
 				U.Muted("Players take turns, fewest points first. On your turn you pick where the next item goes on the timeline. Right: it's placed with its label, you score and carry on. Wrong: the next player tries the same item. If nobody gets it, it's placed for free and the next player starts the next item.", 13));
 		}
@@ -483,13 +486,13 @@ public partial class QuestionEditorScreen : Control
 				Changed();
 			};
 			settings = RoundSettings.Panel(
-				RoundSettings.TimeLimit(_draft, () => Changed()),
+				RoundSettings.Row(RoundSettings.TimeLimit(_draft, () => Changed()),
 				U.Field("Points per item in the right place", new NumberField(_draft.Points, v =>
 				{
 					_draft.Points = (int)Math.Clamp(Math.Round(v ?? QuestionLimits.PointsMin), QuestionLimits.PointsMin, QuestionLimits.PointsMax);
 					Changed();
-				}, QuestionLimits.PointsMin, QuestionLimits.PointsMax, true)),
-				U.V(2, costs, U.Muted("Off by default. On: each item in a wrong place takes the same points off again.", 12)),
+				}, QuestionLimits.PointsMin, QuestionLimits.PointsMax, true))),
+				costs.Tip("Off by default. On: each item in a wrong place takes the same points off again."),
 				RoundSettings.Bonus(_draft, () => Changed()),
 				U.Muted("Everyone puts the items in order on their own screen. Every item in its right place gets the points, so 3 of 4 right is still worth something; the reveal shows how many each player had right.", 13));
 		}
@@ -641,17 +644,17 @@ public partial class QuestionEditorScreen : Control
 			_draft.Image = img;
 			Changed();
 		}, Images.ScreenshotMax, "The screenshot players have to locate.", false);
-		var left = U.V(14, U.Bold("1 · Screenshot", 16), _primaryImage, PromptLine());
-		_mapCol = U.V(10);
-		BuildMapColumn();
-		var check = new CheckBox { Text = "Players must buzz in first", ButtonPressed = _draft.BuzzFirst };
+		var check = new CheckBox { Text = "Players must buzz in first", ButtonPressed = _draft.BuzzFirst, TooltipText = Lang.T("Not used in the game yet. Answer time per buzz is a game rule, set in the lobby.") };
 		check.Toggled += on =>
 		{
 			_draft.BuzzFirst = on;
 			Changed();
 		};
-		var right = RoundSettings.Closeness(_draft, () => Changed(), U.V(4, check,
-			U.Muted("Not used in the game yet. Answer time per buzz is a game rule, set in the lobby.", 12)));
+		// (the check box under the screenshot, which shrinks to make room: in the narrow round settings it made the page scroll)
+		var left = U.V(14, U.Bold("1 · Screenshot", 16), _primaryImage, PromptLine(), check);
+		_mapCol = U.V(10);
+		BuildMapColumn();
+		var right = RoundSettings.Closeness(_draft, () => Changed());
 		return Columns((left, 1), (_mapCol, 1.5f), (right, 0.8f));
 	}
 

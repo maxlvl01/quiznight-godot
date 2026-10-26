@@ -21,6 +21,7 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **WoW map: the world view is the classic parchment map** (Kalimdor and the Eastern Kingdoms on old paper, as in WoW Classic). Zooming into continents, zones and cities works as before, and pins in existing quizzes stay where they were.
 - **Seasonal decorations only on the home screen and in the lobby:** the snow, fairy lights, cobwebs, bats, pumpkins, confetti and hearts were behind every screen, also the question editor and the game. Now they're only on the home screen and in the lobby (the logo keeps its own decorations).
 - **Christmas: snow on the lobby** (a snow cap on the lobby's panel, with snow falling over it, for the host and the players) and a little snow on the BETA sticker.
+- **No question editor scrolls any more** (checked for every question type, in English and German): short fields sit side by side in the round settings (time limit and points, start time and points), explanations moved to the roomier left side, and the notes under check boxes became tooltips. Before, pick one, multiple choice, estimation, map pin, sound, put in order and timeline were a little too tall and scrolled.
 - **Developer mode:** a "Test update" button next to the DEV badge shows the home screen as if an update were out (the logo pulses green), and stops it again.
 
 ## [0.10.7b]

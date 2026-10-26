@@ -314,6 +314,9 @@ public static class RoundSettings
 			rebuild();
 		}));
 
+	/// <summary>Two short fields side by side (time limit and points …): the round settings fit without scrolling.</summary>
+	public static HBoxContainer Row(Control a, Control b) => U.H(12, a.Grow(), b.Grow());
+
 	public static PanelContainer Panel(params Control[] kids)
 	{
 		var all = new List<Control> { U.Bold("Round settings", 17) };
@@ -324,17 +327,17 @@ public static class RoundSettings
 	/// <summary>Round settings shared by estimation and map pin questions.</summary>
 	public static PanelContainer Closeness(Question q, Action changed, params Control[] extra)
 	{
-		var kids = new List<Control> { TimeLimit(q, changed) };
+		// (points per place, e.g. F1's, or the two classic ways that use the question's points; next to the time limit, so
+		// the settings fit without scrolling)
+		var points = Points(q, changed);
+		var kids = new List<Control> { Row(TimeLimit(q, changed), points) };
 		kids.AddRange(extra);
 		kids.Add(U.Field("If there is a tie", U.Select(TieRule.All, q.TieRule, id =>
 		{
 			q.TieRule = id;
 			changed();
 		})));
-		// (points per place, e.g. F1's, or the two classic ways that use the question's points)
-		var points = Points(q, changed);
 		kids.Add(ScoringField.Make(q, changed, points));
-		kids.Add(points);
 		kids.Add(Bonus(q, changed));
 		return Panel(kids.ToArray());
 	}

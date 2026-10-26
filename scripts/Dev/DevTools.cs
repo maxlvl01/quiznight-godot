@@ -134,6 +134,14 @@ public sealed class DevTools
 		return sample;
 	}
 
+	static ScrollContainer? FindScroll(Node n)
+	{
+		if (n is ScrollContainer sc) return sc;
+		foreach (var c in n.GetChildren())
+			if (FindScroll(c) is { } found) return found;
+		return null;
+	}
+
 	public static DevTools? FromArgs(App app, string[] args) => args.Length == 0 ? null : new DevTools(app, args).Setup();
 
 	DevTools Setup()
@@ -153,6 +161,15 @@ public sealed class DevTools
 		if (Value("--pretend-new-map") is { } newMap) MapPresets.PretendNew = newMap;
 		// (made-up quiz nights for the statistics screens, this run only: --fake-results [N])
 		if (Has("--fake-results")) Storage.Results.Fake = FakeResults.Make(int.TryParse(Value("--fake-results"), out var fake) ? fake : 30);
+		// --overflow: after 3 s, prints how much the screen's scrolling area is taller than the window (0 = fits) and quits
+		if (Has("--overflow"))
+			_app.GetTree().CreateTimer(3).Timeout += () =>
+			{
+				var scroll = _app.CurrentScreen is { } screen ? FindScroll(screen) : null;
+				var over = scroll == null ? 0 : scroll.GetVScrollBar().MaxValue - scroll.GetVScrollBar().Page;
+				GD.Print($"OVERFLOW {Value("--open") ?? "screen"} {Math.Max(0, over):0}");
+				_app.GetTree().Quit();
+			};
 		// --press TEXT[#N]: presses the first (or Nth) button whose text starts with TEXT, once, as soon as there is one
 		// (e.g. "⋮" on a scoreboard, "▶#2" for the podium sound in Settings)
 		if (Value("--press") is { } pressArg)
