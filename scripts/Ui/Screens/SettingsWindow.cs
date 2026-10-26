@@ -18,6 +18,7 @@ public partial class SettingsWindow : Control
 	{
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		MouseFilter = MouseFilterEnum.Stop;
+		FocusMode = FocusModeEnum.All;
 		var dim = new ColorRect { Color = new Color(0, 0, 0, 0.6f), MouseFilter = MouseFilterEnum.Ignore };
 		dim.SetAnchorsPreset(LayoutPreset.FullRect);
 		AddChild(dim);
@@ -58,7 +59,13 @@ public partial class SettingsWindow : Control
 	/// <summary>Ctrl+S: Apply.</summary>
 	public bool ApplyKey() => _settings.ApplyKey();
 
-	public override void _Ready() => Place();
+	public override void _Ready()
+	{
+		Place();
+		// (the window holds the keyboard focus from the start, invisibly: else a lobby or game screen rebuilt underneath could
+		// hand it to a control further down in here, and the page scrolled down to it)
+		CallDeferred(Control.MethodName.GrabFocus);
+	}
 
 	public override void _Notification(int what)
 	{

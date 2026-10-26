@@ -209,39 +209,53 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		var game = room.Game!;
 		var allowed = Joker.All.Where(room.Settings.Jokers.Contains).ToList();
 		if (allowed.Count == 0) return null;
-		var box = U.V(6, U.Eyebrow("Your jokers"));
+		// (small keys with just a drawn icon: the bolt for the Fast Pass, a big ×2 for Double points; the name and what to do
+		// with it are the tooltip, the line underneath says the one that matters now)
+		var row = U.H(8);
+		var lines = new System.Collections.Generic.List<string>();
 		foreach (var kind in allowed)
 		{
 			var k = kind;
 			var mine = game.Jokers.FirstOrDefault(j => j.PlayerId == MyId && j.Kind == k);
 			string hint;
 			Button button;
+			var used = false;
 			if (mine != null && (mine.Index < game.Index || mine.Index == game.Index && (game.Shown || game.Stage == Stage.Reveal)))
 			{
-				button = Bolt.On(U.Btn(Joker.Label(k), "SmallButton", null, 14), k);
-				button.Disabled = true;
+				button = U.Btn("", "SmallButton", null, 14);
+				button.Disabled = used = true;
 				hint = Lang.F("Used on question {0}.", mine.Index + 1);
 			}
 			else if (mine != null)
 			{
-				button = Bolt.On(U.Btn("✓ " + Lang.T(Joker.Label(k)), "TealButton", () => _client.PlayJoker(k, false), 14), k);
+				button = U.Btn("", "TealButton", () => _client.PlayJoker(k, false), 14);
 				hint = Lang.F("Played on question {0}. Click to take it back.", mine.Index + 1);
+				lines.Insert(0, hint);
 			}
 			else
 			{
-				button = Bolt.On(U.Btn(Joker.Label(k), "SmallButton", () => _client.PlayJoker(k, true), 14), k);
+				button = U.Btn("", "SmallButton", () => _client.PlayJoker(k, true), 14);
 				var fastOff = k == Joker.FastPass && !game.JokerBuzzer;
 				var taken = k == Joker.FastPass && game.FastPassTaken;
-				button.Disabled = game.JokerIndex == null || fastOff || taken;
+				button.Disabled = used = game.JokerIndex == null || fastOff || taken;
 				hint = game.JokerIndex is not { } next ? Lang.T("Play it before a question starts.")
 					: fastOff ? Lang.T("Only for buzzer questions: the next one isn't.")
 					: taken ? Lang.T("Someone else already has the Fast Pass for this question.")
 					: Lang.F("Plays on question {0}.", next + 1);
+				lines.Add(hint);
 			}
-			button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-			box.AddChild(button);
-			box.AddChild(U.Muted(hint, 12));
+			button.CustomMinimumSize = new Vector2(58, 46);
+			button.TooltipText = Lang.T(Joker.Label(k)) + "\n" + hint;
+			button.AccessibilityName = Lang.T(Joker.Label(k));
+			var icon = new JokerIcon(k, used);
+			icon.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, 6);
+			// (on the key's face: its side is the bottom few pixels)
+			icon.OffsetBottom -= 3;
+			button.AddChild(icon);
+			row.AddChild(button);
 		}
+		var box = U.V(6, U.Eyebrow("Your jokers"), row);
+		if (lines.Count > 0) box.AddChild(U.Muted(lines[0], 12));
 		return box;
 	}
 
@@ -795,5 +809,39 @@ public partial class BuzzButton : Button
 			Buzz();
 			GetViewport().SetInputAsHandled();
 		}
+	}
+}
+
+/// <summary>A joker's icon on its key: the Fast Pass bolt, or a chunky ×2 for Double points (greyed when it can't be played).</summary>
+public partial class JokerIcon : Control
+{
+	readonly string _kind;
+	readonly bool _off;
+
+	public JokerIcon() : this(Joker.Double, false) { }
+
+	public JokerIcon(string kind, bool off)
+	{
+		_kind = kind;
+		_off = off;
+		MouseFilter = MouseFilterEnum.Ignore;
+	}
+
+	public override void _Draw()
+	{
+		var m = Mathf.Min(Size.X, Size.Y);
+		var color = _off ? C.Muted : _kind == Joker.FastPass ? C.Gold : C.Pink;
+		if (_kind == Joker.FastPass)
+		{
+			if (Bolt.Icon((int)m, color) is { } tex) DrawTextureRect(tex, new Rect2((Size - new Vector2(m, m)) / 2, new Vector2(m, m)), false);
+			return;
+		}
+		var font = Fonts.Black;
+		var size = (int)(m * 0.95f);
+		const string text = "×2";
+		var w = font.GetStringSize(text, HorizontalAlignment.Left, -1, size);
+		var pos = new Vector2((Size.X - w.X) / 2, Size.Y / 2 + size * 0.36f);
+		DrawStringOutline(font, pos, text, HorizontalAlignment.Left, -1, size, Mathf.Max(3, size / 7), C.Ink);
+		DrawString(font, pos, text, HorizontalAlignment.Left, -1, size, color);
 	}
 }

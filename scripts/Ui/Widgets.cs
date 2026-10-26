@@ -594,11 +594,4 @@ public static class Bolt
 		if (!iconOnly) row.AddChild(U.Text(Lang.T(Joker.Label(kind)), 14, color, Fonts.Bold));
 		return U.Panel(row, "Pill").With(p => p.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter);
 	}
-
-	/// <summary>Puts the bolt on a Fast Pass button.</summary>
-	public static Button On(Button button, string kind)
-	{
-		if (kind == Joker.FastPass) button.Icon = Icon(18);
-		return button;
-	}
 }
