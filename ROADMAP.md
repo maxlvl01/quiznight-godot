@@ -43,6 +43,14 @@ off (`- [x]`) when they're done, with the version they came in.
     check by ear that the menu music, the buzzers and the podium jingles feel balanced against each other. Players' own
     buzzer sounds (uploaded) could be levelled when they're picked, too. Also the sounds and videos in quizzes? (open:
     those are the quiz maker's; maybe just a "level the volume" tick in the editor)
+- [ ] **Image reveal becomes a Picture subtype.** Both show a picture and are answered the same way, so in the type picker
+  "Image reveal" goes away and Picture gets the choice: **still / slideshow** (as now) or **reveal** (zoomed right in or
+  pixelated, uncovering over time: the image reveal's modes and timing, `ImageReveal`, `PlayerImageReveal`). Done the
+  way "Write the answer" became Classic + typed in 0.10.3b: older quizzes, exported files and share codes with
+  `type "image"` open as Picture → reveal with everything kept (picture, mode, time, answers, points, bonus); quiz format
+  bump; past nights' stats for Image reveal count under Picture → Reveal (`KindStats`, eternal table per type); the lobby
+  version check knows the new subtype needs 0.12 (older games get "can't play question N"). Changelog says where it went.
+  ~26 places use `QuestionType.Image` today.
 - [ ] **Mini games in the lobby while waiting.** In the waiting room (and the host's lobby) a "Play something" button
   opens a 4:3 window over the lobby with a few small games:
   - **Tetris** — single player; best scores shown in the lobby.
