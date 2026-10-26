@@ -322,6 +322,9 @@ public sealed class Game
 		return false;
 	}
 
+	/// <summary>A Fast Pass buzz this soon after the one answering counts as at the same time: it answers first.</summary>
+	public const int FastPassTieMs = 1000;
+
 	public bool BuzzIn(string playerId)
 	{
 		var q = Question;
@@ -335,12 +338,25 @@ public sealed class Game
 			AtMs = q.HasPlayClock ? PlayTimeMs(now) : now - _openedAt,
 			FastPass = Played(playerId, Joker.FastPass, Index),
 		};
-		// A Fast Pass goes ahead of everyone waiting (after earlier Fast Passes).
-		var at = buzz.FastPass ? _buzzes.FindIndex(b => b.Status == BuzzStatus.Waiting && !b.FastPass) : -1;
-		if (at >= 0) _buzzes.Insert(at, buzz);
-		else _buzzes.Add(buzz);
+		// A Fast Pass goes ahead of everyone waiting (after earlier Fast Passes), and also takes over from whoever buzzed
+		// just before (FastPassTieMs: as good as at the same moment, they can't have said anything yet). Without that, a
+		// buzz a few ms earlier was already answering and the Fast Pass ended up second.
+		var answering = _buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Answering);
+		if (buzz.FastPass && answering is { FastPass: false } && _answeringSince is { } since && now - since <= FastPassTieMs)
+		{
+			answering.Status = BuzzStatus.Waiting;
+			buzz.Status = BuzzStatus.Answering;
+			_buzzes.Insert(_buzzes.IndexOf(answering), buzz);
+			_answeringSince = now;
+		}
+		else
+		{
+			var at = buzz.FastPass ? _buzzes.FindIndex(b => b.Status == BuzzStatus.Waiting && !b.FastPass) : -1;
+			if (at >= 0) _buzzes.Insert(at, buzz);
+			else _buzzes.Add(buzz);
+			if (!someoneAnswering) _answeringSince = now;
+		}
 		_hooks.NoteBuzzTime(playerId, buzz.AtMs);
-		if (!someoneAnswering) _answeringSince = now;
 		return true;
 	}
 

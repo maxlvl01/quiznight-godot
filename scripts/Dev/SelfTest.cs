@@ -187,6 +187,25 @@ public static class SelfTest
 		Check(g.BuzzIn("ann"), "the next (buzzer) question still buzzes");
 	}
 
+	/// <summary>A Fast Pass buzz right after someone else's (the same moment, as far as anyone can tell) answers first.</summary>
+	static void FastPassTie()
+	{
+		var (room, clock) = NewRoom(Dev.SampleQuiz.Build(), "ann", "bob");
+		room.UpdateSettings(hostShows: true);
+		room.Start();
+		var g = room.Game!;
+		Check(g.PlayJoker("bob", Joker.FastPass, true).Ok, "bob plays the Fast Pass");
+		g.ShowQuestion();
+		clock.Now += 2600;
+		g.BuzzIn("ann");
+		clock.Now += 40;
+		g.BuzzIn("bob");
+		var buzzes = g.View("host").Buzzes;
+		Eq(string.Join(",", buzzes.Select(b => $"{b.PlayerId}:{b.Status}")), $"bob:{BuzzStatus.Answering},ann:{BuzzStatus.Waiting}", "a Fast Pass 40 ms after someone else's buzz answers first, they wait");
+		g.Judge(false);
+		Eq(g.View("host").Buzzes.First(b => b.Status == BuzzStatus.Answering).PlayerId, "ann", "then it's their turn");
+	}
+
 	/// <summary>Jokers, joining during a game, and the pause when someone leaves.</summary>
 	static void JokersAndSeats()
 	{
@@ -210,9 +229,10 @@ public static class SelfTest
 		Eq(g.View("cat").Jokers.Count, 2, "everyone sees them now");
 		clock.Now += 1000;
 		g.BuzzIn("cat");
+		clock.Now += Game.FastPassTieMs + 500;
 		g.BuzzIn("bob");
 		g.BuzzIn("ann");
-		Eq(string.Join(",", g.View("host").Buzzes.Select(b => b.PlayerId)), "cat,ann,bob", "the Fast Pass goes ahead of the line, not the one answering");
+		Eq(string.Join(",", g.View("host").Buzzes.Select(b => b.PlayerId)), "cat,ann,bob", "the Fast Pass goes ahead of the line, not the one answering for a while already");
 		Check(g.View("host").Buzzes[1].FastPass, "the buzz shows its Fast Pass");
 		g.Judge(false);
 		g.Judge(true);
@@ -308,6 +328,7 @@ public static class SelfTest
 		Rules();
 		TypedAndBonus();
 		JokersAndSeats();
+		FastPassTie();
 		Files();
 		// Load, not just Exists: an Opus .ogg exists but Godot can't import it.
 		foreach (var b in Storage.Sfx.Buzzers) Check(ResourceLoader.Load<AudioStream>(b.Path) != null, $"buzzer sound {b.Id} plays");

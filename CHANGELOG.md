@@ -28,6 +28,7 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **The BETA stamp is a sticker on the logo's corner,** so "Quiznight?" sits exactly in the middle of the home screen again (the stamp next to it pushed it to the left).
 
 ### Fixed
+- **The Fast Pass lost to someone who buzzed at the same moment.** Bob had the Fast Pass, but Ann's buzz arrived a few milliseconds earlier (both showed 2.6 s), so Ann was already answering and the Fast Pass only put Bob first among those still waiting, behind her. A Fast Pass now also takes over from someone who started answering less than a second earlier (they couldn't have said anything yet); they're next in line instead. Someone who has been answering for longer keeps their turn, as before.
 - **The text on big buttons sat too low** ("My quizzes", "Join!"). The dark edge under each button counted as part of the button when the text was centred, so the text was centred on the button plus its edge and ended up below the middle of the coloured part. It's now centred on the coloured part.
 - **"What's new" showed the notes in a narrow column** on the left half of the window. The window's scroll area didn't give its content the full width, so the wrapped text was only as wide as the heading. It now uses the whole width, and opens at the top instead of sometimes scrolled to the end.
 
