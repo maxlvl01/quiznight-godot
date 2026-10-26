@@ -110,7 +110,7 @@ public partial class UiAudio : Node
 	readonly AudioStreamPlayer _hover = new() { Bus = Prefs.SfxBus, MaxPolyphony = 2 };
 	readonly AudioStreamPlayer _click = new() { Bus = Prefs.SfxBus, MaxPolyphony = 3 };
 	// (a little louder than the other sound effects: it's the show's host talking)
-	readonly AudioStreamPlayer _voice = new() { Bus = Prefs.SfxBus, VolumeDb = 4 };
+	readonly AudioStreamPlayer _voice = new() { Bus = Prefs.SfxBus };
 	bool _greeted;
 	/// <summary>The voice line is on: the music waits for it to end, then starts from the top.</summary>
 	bool _voiceFirst;

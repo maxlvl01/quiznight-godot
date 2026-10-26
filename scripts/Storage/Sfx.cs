@@ -18,8 +18,8 @@ public static class Sfx
 	{
 		new("soft-beep", "Soft beep", "res://assets/soundeffects/Soft Beep Buzzer.ogg"),
 		new("metal-pipe", "Metal pipe", "res://assets/soundeffects/metal pipe buzzer.ogg"),
-		// (recorded about 12 dB quieter than the other two)
-		new("buzzer-3", "Buzzer 3", "res://assets/soundeffects/Buzzer 3.ogg", 12),
+		// (the files are levelled to the same loudness, tools/normalise_audio.py: no boosts needed)
+		new("buzzer-3", "Buzzer 3", "res://assets/soundeffects/Buzzer 3.ogg"),
 	};
 
 	/// <summary>assets/soundeffects/Podium.mp3, .wav or .ogg — whichever is there (MP3 and WAV first).</summary>
@@ -29,7 +29,7 @@ public static class Sfx
 	/// <summary>What plays when the final results show. The host picks one for the room; a player can hear their own.</summary>
 	public static readonly Sound[] Podiums =
 	{
-		new("f1-podium", "F1 Podium", "res://assets/soundeffects/Podium2.ogg", 10),
+		new("f1-podium", "F1 Podium", "res://assets/soundeffects/Podium2.ogg"),
 		new("so-back", "#SoBack", PodiumJingle),
 	};
 
