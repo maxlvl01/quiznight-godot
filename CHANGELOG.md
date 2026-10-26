@@ -13,6 +13,8 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.10.5b]
+
 ### Added
 - **Six new skins** (Settings → Skin): **Formula 1** (carbon black, F1 red and white), **AMOLED black** (true black, for OLED screens), **Daylight** (a light skin that's easy on the eyes: warm off-white instead of glaring white, dark plum text and outlines), **#effzeh** (red and white, for 1. FC Köln fans), and two that only show up in their season: **Halloween** in October (pumpkin orange and purple, cobwebs in the corners, bats flapping across, carved pumpkins, and the logo gets pumpkins, a cobweb and a bat) and **Christmas** from 1 to 26 December (pine green, red and gold, snow falling, fairy lights along the top, and the logo gets a snow cap and a Santa hat). After its season a seasonal skin goes back to Quiznight Purple. The decorations sit behind everything you need to read, and stand still with "less motion".
 
