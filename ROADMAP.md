@@ -85,7 +85,7 @@ off (`- [x]`) when they're done, with the version they came in.
 - [x] Skins: Quiznight Purple (the old one) and a pastel Pinke Geilheit; Olf?; profile bars light up
 - [x] Fixed: Settings with the dyslexia-friendly font; award pack window with examples; volumes 50 %
 
-## 0.10.3b — smaller download (planned, not started)
+## 0.10.3b — smaller download (in progress)
 
 From the 1.0 chat (also on its branch claude/1-0-roadmap-review-9685d7 and the public roadmap). 0.10.1b is ~193 MB
 zipped (Windows), ~307 MB unpacked; updates already stay small (game packs ~33 MB), this is about the first download.
@@ -108,9 +108,21 @@ zipped (Windows), ~307 MB unpacked; updates already stay small (game packs ~33 M
 ## For 1.0 — content and bigger things
 
 - [ ] Questions / quizzes for the first proper night
-- [ ] Discord Rich Presence (needs a Discord application ID from you: "Playing Quiznight? · Question 4/15")
-- [ ] Steam invites: join from the friends list instead of typing the code
 - [ ] Map pin "buzz in first, then place your pin" (`Question.BuzzFirst` exists in the file format, not in the game yet)
+- [ ] More game maps for map pin (which games: _add them here_)
+- [ ] Step by step: a sub category (idea, details to come)
+
+### Game design changes
+Whatever turns out not to be fun when we play gets changed or removed outright before 1.0. Note what felt off and
+what happened instead.
+- [ ] _(add what you notice)_
+
+## Low priority — once everything else is done
+
+Probably not for 1.0; they come when there's nothing else to do and the program is finished.
+- [ ] Discord Rich Presence (needs a Discord application ID from you: "Playing Quiznight? · Question 4/15")
+
+Dropped: Steam invites (joining from the friends list) — the room code already does the job.
 
 ## 0.9.x — polish
 
