@@ -13,6 +13,8 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.10.7b]
+
 ### Added
 - **A third buzzer sound, "Buzzer 3",** to pick in Settings and in the lobby. Its recording is quieter than the other two, so the game plays it 12 dB louder to match.
 
