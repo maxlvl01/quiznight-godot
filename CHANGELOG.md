@@ -18,6 +18,7 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **Bonus points have − and + buttons** next to the number (it can still be typed in), and the box is only as wide as two digits.
 - **Image reveal editor fits on one screen:** the bonus and the category were at the bottom of the left column and made the editor scroll. They're in the round settings on the right now, like every other question type, and the picture and its preview sit side by side.
 - **Map pin: the map pictures in the grid have rounded corners** like the "Upload a new map" tile (they were square and ran into the card's rounded edge), and the WoW map is just called "WoW Classic – Azeroth" (its long name was cut off).
+- **WoW map: the world view is the classic parchment map** (Kalimdor and the Eastern Kingdoms on old paper, as in WoW Classic). Zooming into continents, zones and cities works as before, and pins in existing quizzes stay where they were.
 - **Developer mode:** a "Test update" button next to the DEV badge shows the home screen as if an update were out (the logo pulses green), and stops it again.
 
 ## [0.10.7b]
