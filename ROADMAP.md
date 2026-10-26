@@ -10,9 +10,9 @@ off (`- [x]`) when they're done, with the version they came in.
 
 ---
 
-## 0.12.0d2 — collecting (nothing built yet)
+## 0.12.0d2 — second test build (done)
 
-- [ ] **Hover names for WoW Forever's new zones, rough outlines for now.** Hovering Riverglades (and Gilneas) on the
+- [x] (0.12.0d2) **Hover names for WoW Forever's new zones, rough outlines for now.** Hovering Riverglades (and Gilneas) on the
   WoW Forever map says "Eastern Kingdoms" (or a neighbour like "Silverpine Forest"): `WowAtlas.ZoneAt` only knows
   Classic's zones, by their map rectangles, and new land outside them falls back to the continent. Until Forever's
   zone data is out (after 4 November; then it replaces these), draw rough outlines on the world map (0–1 points) for
@@ -20,17 +20,17 @@ off (`- [x]`) when they're done, with the version they came in.
   one-off dev mask of land in the zone art (`overview-2`) that no Classic zone covers. Names known so far: Gilneas,
   Riverglades; any other new areas the mask shows need their names from Max. Tooltip/jump only: scoring stays in
   Classic's game yards. Screenshot from Max, 26 October 2026.
-- [ ] **No more "on the TV / in a stream" in the game's texts.** Quiznight? is played with everyone on their own PC
+- [x] (0.12.0d2) **No more "on the TV / in a stream" in the game's texts.** Quiznight? is played with everyone on their own PC
   (talking on Discord), never from one shared screen. The home screen's tagline "Quiz nights with your friends — on
   Discord or on the couch." (and LangDe) and the README's "over Discord or in the same room … the host's screen goes on
   the TV or into a Discord stream" need new wording; HostNotes' tooltip "not in your stream if you share only the game
   window" too (the notes window may still be handy, just not for that reason).
-- [ ] **"The TrackGlow Podium"** — poking fun at American sports ads where everything has a sponsor's name. The podium
+- [x] (0.12.0d2) **"The TrackGlow Podium"** — poking fun at American sports ads where everything has a sponsor's name. The podium
   screen (`PodiumScreen` in `RoomScreens.cs`: "And the winner is …") gets the title "The TrackGlow Podium" with the
   TrackGlow logo (`TrackGlowLogo`, like the intro's sponsor card and the title screen), for host and players alike.
   More branded names later (Max has none for the other awards yet: the season poster's awards, the eternal table's
   "Fastest buzz" … could each get one, e.g. "the TrackGlow Fastest Buzz of the Night", once he picks them).
-- [ ] **Audio normalisation: every sound and song equally loud.** Measured 26 October (EBU R128 integrated loudness):
+- [x] (0.12.0d2) **Audio normalisation: every sound and song equally loud.** Measured 26 October (EBU R128 integrated loudness):
   - Music (`assets/music`, incl. `christmas/`, `halloween/`): from −9.6 LUFS (Before Chill, Sugarsnaps) to −15.8 LUFS
     (Seth, Drive-Through Dinner), 6 dB apart — the quiet ones sound half as loud. The new Halloween song is −13.1.
   - Sound effects (`assets/soundeffects`): Podium −8.0 vs Podium2 −30.5 (22 dB apart!), buzzers −14.3 (metal pipe),
@@ -43,7 +43,7 @@ off (`- [x]`) when they're done, with the version they came in.
     check by ear that the menu music, the buzzers and the podium jingles feel balanced against each other. Players' own
     buzzer sounds (uploaded) could be levelled when they're picked, too. Also the sounds and videos in quizzes? (open:
     those are the quiz maker's; maybe just a "level the volume" tick in the editor)
-- [ ] **Image reveal becomes a Picture subtype.** Both show a picture and are answered the same way, so in the type picker
+- [x] (0.12.0d2) **Image reveal becomes a Picture subtype.** Both show a picture and are answered the same way, so in the type picker
   "Image reveal" goes away and Picture gets the choice: **still / slideshow** (as now) or **reveal** (zoomed right in or
   pixelated, uncovering over time: the image reveal's modes and timing, `ImageReveal`, `PlayerImageReveal`). Done the
   way "Write the answer" became Classic + typed in 0.10.3b: older quizzes, exported files and share codes with
@@ -51,22 +51,22 @@ off (`- [x]`) when they're done, with the version they came in.
   bump; past nights' stats for Image reveal count under Picture → Reveal (`KindStats`, eternal table per type); the lobby
   version check knows the new subtype needs 0.12 (older games get "can't play question N"). Changelog says where it went.
   ~26 places use `QuestionType.Image` today.
-- [ ] **Picture questions: which answer modes make sense?** Picture offers the same four as Classic (Buzzer, Everyone
+- [ ] (still open; all four kept for now) **Picture questions: which answer modes make sense?** Picture offers the same four as Classic (Buzzer, Everyone
   types, Pick one, Multiple choice). Max doubts Pick one and Multiple choice fit a picture ("a picture can really only
   be one answer"). Cases they'd still cover: Pick one — "Which game is this Steam review about?" with four games to
   pick from (an easier version of the same question); Multiple choice — "Which of these characters are in the
   screenshot?" (several right). Decide: keep all four, or Picture only Buzzer / Everyone types (old quizzes with the
   others then open as … ? Everyone types, keeping the right answer as the answer).
-- [ ] **No squash when a button is clicked.** Buttons shrink to 94 % while held down (`UiAudio.Bounce` on ButtonDown);
+- [x] (0.12.0d2) **No squash when a button is clicked.** Buttons shrink to 94 % while held down (`UiAudio.Bounce` on ButtonDown);
   they already look pressed in (their 3D style), so drop the squash. The slight grow under the mouse stays (Max didn't
   mind that one; check).
-- [ ] **Drop-downs: smoother, and always right under their button.** Today the list unfolds in 0.16 s from a quarter of
+- [x] (0.12.0d2) **Drop-downs: smoother, and always right under their button.** Today the list unfolds in 0.16 s from a quarter of
   its height (`DropDowns.Unfold`) and a long list (Category, the estimation unit list with Length/Mass/Time …) opens
   wherever it fits, even over the button and up the whole screen. Instead: a longer, softer unfold (e.g. 0.25 s, ease
   out, fading in); the list always hangs under its button (above only if there's no room below), at most so tall it
   fits (~8–10 rows), and scrolls inside itself (mouse wheel, the scrollbar) for the rest; keeps its place on screen
   while scrolling. Check in every drop-down: units, categories, maps' Jump to zone, settings.
-- [ ] **Test screens in developer mode ("Test lab").** Test builds start in developer mode (`App.LanUnlocked`; exported
+- [x] (0.12.0d2) **Test screens in developer mode ("Test lab").** Test builds start in developer mode (`App.LanUnlocked`; exported
   games after typing 61969); there a "Test lab" button on the home screen (next to DEV / Test update) opens a screen of
   quick checks, without hosting a whole quiz or using command-line flags (`DevTools` has most of them only as flags):
   - **Buzzers:** press the buzz button (or the key), hear every buzzer sound and your own, see the buzz screen as a
@@ -81,7 +81,7 @@ off (`- [x]`) when they're done, with the version they came in.
   - **Screens with fake states:** lobby with an old-version player (version check), the intro and the first-start
     welcome screen, "What's new", the yellow new dots (and resetting them).
   Players never see it (public builds without the code don't show the button).
-- [ ] **Mini games in the lobby while waiting.** In the waiting room (and the host's lobby) a "Play something" button
+- [x] (0.12.0d2) **Mini games in the lobby while waiting.** In the waiting room (and the host's lobby) a "Play something" button
   opens a 4:3 window over the lobby with a few small games:
   - **Tetris** — single player; best scores shown in the lobby.
   - **Pong** — 1 vs 1: challenge another player in the lobby or the host; they get an invite to accept or decline.
@@ -277,7 +277,7 @@ what happened instead.
 
 ## Low priority — once everything else is done
 
-- [ ] **Black box round a drop-down list, now and then.** Opening and closing a drop-down (e.g. Buzzer sound) quickly can
+- [x] (0.12.0d2: see-through popup background) **Black box round a drop-down list, now and then.** Opening and closing a drop-down (e.g. Buzzer sound) quickly can
   leave a black rectangle round the list's rounded panel for a moment (Max: "you really have to try to get it";
   screenshot 26 October). Likely the list's popup window showing its own black background: `DropDowns.Unfold` resizes
   the popup window every frame, and a frame where the window is bigger than what's drawn (or its corners aren't see-

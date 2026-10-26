@@ -57,7 +57,6 @@ public partial class QuizOverviewScreen : Control
 			// on the right, level with the name, which tells what the type does (hover) and its variants (click).
 			var card = new MarginContainer { MouseFilter = MouseFilterEnum.Ignore }.Grow();
 			var button = new Button { ThemeTypeVariation = "", MouseDefaultCursorShape = CursorShape.PointingHand, CustomMinimumSize = new Vector2(0, 76) };
-			button.SetMeta(UiAudio.NoBounce, true);
 			// (a key like every button, KeyBox: lighter under the mouse, pushed in when clicked)
 			button.AddThemeStyleboxOverride("normal", new KeyBox(C.Panel2, 16, 16, 14, 3, 6, false));
 			button.AddThemeStyleboxOverride("hover", new KeyBox(C.Panel2.Lightened(0.1f), 16, 16, 14, 3, 6, false));
@@ -173,7 +172,6 @@ public partial class QuizOverviewScreen : Control
 		var grip = new GripIcon { CustomMinimumSize = new Vector2(12, 20), SizeFlagsVertical = SizeFlags.ShrinkCenter };
 		// (click opens the question; drag it onto another row to move it there)
 		var open = new QuestionRowButton(i, Move) { Flat = true, MouseDefaultCursorShape = CursorShape.PointingHand, TooltipText = Lang.T("Click to edit, drag to move") }.Grow();
-		open.SetMeta(UiAudio.NoBounce, true);
 		open.Pressed += () => App.I.GoQuestion(_quiz.Id, q.Id, null);
 		open.Preview = () => U.Panel(U.Text(q.Prompt == "" ? Lang.T("No question text") : q.Prompt, 14, C.Text, Fonts.Bold).Raw(), "Card2")
 			.With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel2, 10, C.Accent, 2, 12, 8)));

@@ -13,6 +13,24 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.12.0d2]
+
+### Added
+- **Mini games in the lobby.** While you wait for the quiz to start, "🎮 Mini games" (under the seats, in the lobby and the waiting room) opens a window with **Tetris** to play alone, and **Pong** and **Billiard** to play 1 vs 1: challenge anyone in the lobby, or the host; they get a "… challenges you" note to accept or turn down. The host's game runs the matches, like the quiz, so Pong stays fair over Steam. The lobby keeps score of who beat whom how often and who's on a winning streak ("Ann 3 – 1 Ben · Pong · Ann ×2 in a row"), and everyone's best Tetris score. When the host starts the quiz, every mini game ends at once and a match that was cut off counts for nobody. Players on versions before 0.12 don't get the mini games.
+- **Test lab** (developer mode and test builds only): a button on the home screen with quick checks — buzzers with a reaction test, every song and sound side by side, the microphone, each question type's editor, a LAN game with bots (also one that pretends to be on an old version, for the lobby's version check), the map switches, and the screens that only show once (welcome, intro, What's new, the yellow dots). Bots accept mini game challenges and play along.
+- **The TrackGlow Podium.** The final results are now proudly presented by our sponsor, like everything in American sports.
+- **Gilneas and Riverglades have names on the WoW Forever map.** Hovering them used to say "Eastern Kingdoms" (or a neighbour like Silverpine Forest), as the game only knew Classic's zones; now they're named on hover and you can jump to them. Their outlines are rough for now, until WoW Forever's own zone data is out.
+
+### Changed
+- **Every song and sound is equally loud.** Before, the menu songs were up to 6 dB apart (some sounded half as loud as others) and the sound effects up to 22 dB (one podium jingle was barely audible, the other blasting). All of them are now levelled to the same loudness, songs with songs and sound effects with sound effects, and the welcome voice line sits just above the music. Overall the music is a little quieter than the loudest songs were; turn up Music in Settings if you liked it louder.
+- **Image reveal is now part of Picture questions.** A picture question is shown either as a picture or slideshow, or as a **reveal** that starts zoomed in or pixelated and gets clearer. Your image reveal questions are still there and play as before (also with friends on older versions); in the statistics they count under Picture → Reveal.
+- **Drop-down lists hang right under their button.** Long lists (categories, units) used to open wherever they fit, even over the button and up the whole screen. Now they always open under the button (above only if there's no room), show up to ten rows and scroll for the rest, and unfold more softly.
+- **Buttons don't shrink any more when you click them.** They already look pressed in.
+- **The game says what it is:** "Quiz nights with your friends — everyone on their own PC." (it used to mention the couch and streaming, which isn't how it's played).
+
+### Fixed
+- **A black box round drop-down lists.** Opening and closing a list quickly could leave a black rectangle round it for a moment; its little window is see-through round its rounded corners now.
+
 ## [0.12.0d1]
 
 ### Added

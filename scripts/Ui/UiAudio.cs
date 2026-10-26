@@ -147,29 +147,10 @@ public partial class UiAudio : Node
 
 	public override void _ExitTree() => GetTree().NodeAdded -= Hook;
 
-	/// <summary>Meta for a button that shouldn't grow under the mouse (list rows, cards in a grid).</summary>
-	public const string NoBounce = "no_bounce";
-
-	/// <summary>The party show bounce: buttons grow a little under the mouse (links don't move).</summary>
-	static void Bounce(BaseButton button, float to, double time)
-	{
-		if (button.ThemeTypeVariation == "LinkButton2" || button is Ui.Screens.BuzzButton or CheckBox || !button.IsVisibleInTree() || Announcer.ReduceMotion) return;
-		// (big rows and cards keep still: grown, they'd poke out of their list and get cut off at its edge)
-		if (button.HasMeta(NoBounce) || button.Size.X > 420) return;
-		button.PivotOffset = button.Size / 2;
-		var t = button.CreateTween();
-		t.TweenProperty(button, "scale", new Vector2(to, to), time).SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
-	}
-
 	void Hook(Node node)
 	{
 		if (node is not BaseButton button) return;
-		button.MouseEntered += () =>
-		{
-			if (!button.Disabled) Bounce(button, 1.04f, 0.15);
-		};
-		button.MouseExited += () => Bounce(button, 1f, 0.15);
-		// (no squash when pressed: the buttons' 3D style already shows them pressed in)
+		// (buttons don't grow or squash: their 3D style already shows them pressed in)
 		button.MouseEntered += () =>
 		{
 			if (_hover.Stream != null && !button.Disabled && button.IsVisibleInTree()) _hover.Play();

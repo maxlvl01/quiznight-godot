@@ -54,7 +54,6 @@ public partial class Jukebox : Control
 		_icon.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, 6);
 		_button.AddChild(_icon);
 		_button.Pressed += () => Open(!_panel!.Visible);
-		_button.SetMeta(UiAudio.NoBounce, true);
 
 		_toggle = MediaIcon.Button(MediaIcon.Kind.Pause, "Turn music off", () =>
 		{

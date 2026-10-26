@@ -909,7 +909,6 @@ public partial class QuestionEditorScreen : Control
 		button.AddThemeStyleboxOverride("pressed", new KeyBox(face.Darkened(0.05f), 14, 6, 6, 3, 6, true));
 		button.AddThemeStyleboxOverride("hover_pressed", new KeyBox(face, 14, 6, 6, 3, 6, true));
 		button.AddThemeStyleboxOverride("focus", new StyleBoxEmpty());
-		button.SetMeta(UiAudio.NoBounce, true);
 		button.Pressed += pick;
 		Control image;
 		if (picture != null)
