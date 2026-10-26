@@ -20,6 +20,19 @@ off (`- [x]`) when they're done, with the version they came in.
   one-off dev mask of land in the zone art (`overview-2`) that no Classic zone covers. Names known so far: Gilneas,
   Riverglades; any other new areas the mask shows need their names from Max. Tooltip/jump only: scoring stays in
   Classic's game yards. Screenshot from Max, 26 October 2026.
+- [ ] **Mini games in the lobby while waiting.** In the waiting room (and the host's lobby) a "Play something" button
+  opens a 4:3 window over the lobby with a few small games:
+  - **Tetris** — single player; best scores shown in the lobby.
+  - **Pong** — 1 vs 1: challenge another player in the lobby or the host; they get an invite to accept or decline.
+  - **Billiard** — 1 vs 1 the same way (turn-based, so the connection matters little).
+  - **Versus stats in the lobby:** who beat whom how often, and win streaks ("Ann beat Max 3× in a row in Pong"),
+    shown next to the seats.
+  - Rules: the host's game runs the matches (like the quiz: players send their inputs, the host sends the state;
+    Pong needs it fast, ~30 updates/s over Steam's relay, so test with real lag); when the host starts the quiz
+    every mini game closes at once (a match that's cut off counts for nobody); downloads of the quiz's files carry on
+    underneath; a player who's in a match still counts as ready. Older games (version check) just don't see the button.
+  - Open: do the versus stats last only for this lobby, or are they kept (per player id, like the eternal table:
+    an all-time Pong table)? Can the host play while the lobby is on the TV/stream (everyone watches the host's match)?
 
 ---
 
