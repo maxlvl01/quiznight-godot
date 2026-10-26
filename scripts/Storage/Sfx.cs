@@ -27,7 +27,7 @@ public static class Sfx
 	/// <summary>What plays when the final results show. The host picks one for the room; a player can hear their own.</summary>
 	public static readonly Sound[] Podiums =
 	{
-		new("f1-podium", "F1 Podium", "res://assets/soundeffects/Podium2.wav", 10),
+		new("f1-podium", "F1 Podium", "res://assets/soundeffects/Podium2.ogg", 10),
 		new("so-back", "#SoBack", PodiumJingle),
 	};
 

@@ -26,8 +26,22 @@ public partial class Jukebox : Control
 
 	static UiAudio Audio => App.I.Audio;
 
+	public static Jukebox? I { get; private set; }
+
+	/// <summary>The note button in the corner (hidden on the home screen, which has its own music player).</summary>
+	public bool ButtonShown
+	{
+		get => _button.Visible;
+		set
+		{
+			_button.Visible = value;
+			if (!value) Open(false);
+		}
+	}
+
 	public Jukebox()
 	{
+		I = this;
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		MouseFilter = MouseFilterEnum.Ignore;
 
@@ -42,15 +56,15 @@ public partial class Jukebox : Control
 		_button.Pressed += () => Open(!_panel!.Visible);
 		_button.SetMeta(UiAudio.NoBounce, true);
 
-		_toggle = U.Small("", () =>
+		_toggle = MediaIcon.Button(MediaIcon.Kind.Pause, "Turn music off", () =>
 		{
 			Audio.SetMusicOn(!Settings.MusicOn);
 			Refresh();
-		});
-		var controls = U.H(6,
-			U.Small("⏮", () => Audio.Skip(-1)).With(b => b.TooltipText = "Previous song"),
-			_toggle.Grow(),
-			U.Small("⏭", () => Audio.Skip(1)).With(b => b.TooltipText = "Next song"));
+		}, 40);
+		var controls = U.H(8,
+			MediaIcon.Button(MediaIcon.Kind.Previous, "Previous song", () => Audio.Skip(-1), 40),
+			_toggle,
+			MediaIcon.Button(MediaIcon.Kind.Next, "Next song", () => Audio.Skip(1), 40)).Center();
 		var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 200), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
 		scroll.AddChild(_list.With(l => l.SizeFlagsHorizontal = SizeFlags.ExpandFill));
 		_panel = U.Panel(U.V(10, U.Eyebrow("Jukebox"), U.V(0, _title, _artist), controls, new HSeparator(), scroll), "Clear");
@@ -73,7 +87,7 @@ public partial class Jukebox : Control
 		if (OS.GetCmdlineUserArgs().Contains("--jukebox")) Callable.From(() => Open(true)).CallDeferred();
 	}
 
-	void Open(bool open)
+	public void Open(bool open)
 	{
 		_panel.Visible = open;
 		if (open) Refresh();
@@ -83,7 +97,8 @@ public partial class Jukebox : Control
 	void Refresh()
 	{
 		_icon.Off = !Settings.MusicOn;
-		_toggle.Text = Lang.T(Settings.MusicOn ? "Turn music off" : "Turn music on");
+		MediaIcon.Of(_toggle).Shape = Settings.MusicOn ? MediaIcon.Kind.Pause : MediaIcon.Kind.Play;
+		_toggle.TooltipText = Settings.MusicOn ? "Turn music off" : "Turn music on";
 		var current = Audio.CurrentSong;
 		if (current == null)
 		{
@@ -102,12 +117,15 @@ public partial class Jukebox : Control
 		foreach (var (path, i, (title, artist)) in songs)
 		{
 			var playing = path == current && Settings.MusicOn;
-			var row = U.Link((playing ? "♪ " : "") + (artist != "" ? $"{title} · {artist}" : title), () => Audio.PlaySong(i), 14).Raw();
+			var row = U.Link(artist != "" ? $"{title} · {artist}" : title, () => Audio.PlaySong(i), 14).Raw();
 			row.Alignment = HorizontalAlignment.Left;
 			row.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
 			row.ClipText = true;
+			row.Grow();
 			if (playing) row.AddThemeColorOverride("font_color", C.Accent);
-			_list.AddChild(row);
+			// (a drawn note marks the song playing; the others keep its space, so the titles line up)
+			var note = new MediaIcon(MediaIcon.Kind.Note) { Color = playing ? C.Accent : Colors.Transparent, CustomMinimumSize = new Vector2(14, 14), SizeFlagsVertical = SizeFlags.ShrinkCenter };
+			_list.AddChild(U.H(6, note, row));
 		}
 	}
 

@@ -198,9 +198,11 @@ public static class UiTheme
 		var s = Box(bg, radius, C.Ink, outline, padX, padY);
 		var drop = pressed ? Math.Max(outline, depth / 3) : depth;
 		s.BorderWidthBottom = outline + drop;
-		// (pushed in: the text moves down by what the drop lost, so the button's height stays)
-		s.ContentMarginTop = padY + (depth - drop);
-		s.ContentMarginBottom = padY;
+		// (the text is centred on the coloured face, not on face + edge; pushed in: it moves down by what the drop lost,
+		// so the button's height stays)
+		var half = depth / 2f;
+		s.ContentMarginTop = Math.Max(0, padY - half) + (depth - drop);
+		s.ContentMarginBottom = Math.Max(0, padY - half) + drop;
 		return s;
 	}
 
@@ -219,12 +221,14 @@ public static class UiTheme
 		}
 		else
 		{
-			t.SetStylebox("normal", type, Chunky(bg, radius, padX, padY, outline, depth));
-			t.SetStylebox("hover", type, Chunky(bg.Lightened(0.1f), radius, padX, padY, outline, depth));
-			t.SetStylebox("pressed", type, Chunky(bg.Darkened(0.08f), radius, padX, padY, outline, depth, true));
-			t.SetStylebox("hover_pressed", type, Chunky(bg.Darkened(0.04f), radius, padX, padY, outline, depth, true));
-			var off = Chunky(new Color(bg, 0.45f), radius, padX, padY, outline, depth);
-			off.BorderColor = new Color(C.Ink, 0.6f);
+			// (every solid button is drawn as a real key: KeyBox)
+			StyleBox Face(Color c, bool pressed) => new KeyBox(c, radius, padX, padY, outline, depth, pressed);
+			t.SetStylebox("normal", type, Face(bg, false));
+			t.SetStylebox("hover", type, Face(bg.Lightened(0.1f), false));
+			t.SetStylebox("pressed", type, Face(bg.Darkened(0.08f), true));
+			t.SetStylebox("hover_pressed", type, Face(bg.Darkened(0.04f), true));
+			var off = Face(new Color(bg, 0.45f), false);
+			((KeyBox)off).Ink = new Color(C.Ink, 0.6f);
 			t.SetStylebox("disabled", type, off);
 		}
 		var focus = Outline(C.Blue, radius + 2, 2);
@@ -257,7 +261,7 @@ public static class UiTheme
 		t.SetTypeVariation("LinkButton2", "Button");
 		ButtonType(t, "LinkButton2", Colors.Transparent, C.Muted, null, 8, 4, 6, false);
 		t.SetTypeVariation("SmallButton", "Button");
-		ButtonType(t, "SmallButton", C.Panel2, C.Text, null, 10, 10, 4, outline: 2, depth: 1);
+		ButtonType(t, "SmallButton", C.Panel2, C.Text, null, 10, 10, 4, outline: 2, depth: 3);
 		t.SetTypeVariation("ToggleOn", "Button");
 		ButtonType(t, "ToggleOn", C.Blue, C.Ink, null, 14, 14, 7, outline: 2, depth: 3);
 		t.SetTypeVariation("ToggleOff", "Button");

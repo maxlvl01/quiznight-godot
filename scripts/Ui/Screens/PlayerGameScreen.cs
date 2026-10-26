@@ -665,8 +665,8 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 }
 
 /// <summary>
-/// The big BUZZ! button, an arcade dome: a red dome with a shine on a chrome ring and a purple base, drawn (so it stays
-/// sharp at any size). It squashes down when pressed and is grey while the buzzers are locked. Space works too.
+/// The big BUZZ! button: a big red key with rounded corners on a silver base plate, like the buttons (KeyBox), drawn (so it stays
+/// sharp at any size). It goes down when pressed and is grey while the buzzers are locked. Space works too.
 /// </summary>
 public partial class BuzzButton : Button
 {
@@ -704,56 +704,57 @@ public partial class BuzzButton : Button
 		t.TweenMethod(Callable.From<float>(v => { _press = v; QueueRedraw(); }), 1f, 0f, 0.35).SetTrans(Tween.TransitionType.Elastic).SetEase(Tween.EaseType.Out);
 	}
 
-	static Vector2[] Ellipse(Vector2 c, float rx, float ry, int n = 48, float from = 0, float to = Mathf.Tau)
-	{
-		var pts = new Vector2[n + 1];
-		for (var i = 0; i <= n; i++)
-		{
-			var a = from + (to - from) * i / n;
-			pts[i] = c + new Vector2(Mathf.Cos(a) * rx, Mathf.Sin(a) * ry);
-		}
-		return pts;
-	}
-
 	public override void _Draw()
 	{
-		var w = Size.X;
 		var k = _size / 240f;
-		var cx = w / 2;
 		var ink = C.Ink;
 		var off = Disabled;
 		var hover = !off && IsHovered();
-		var dome = off ? C.Panel2.Lightened(0.15f) : hover ? new Color("#ff5770") : new Color("#ff3d5a");
-		var shine = off ? new Color(1, 1, 1, 0.12f) : new Color("#ffd0d8", 0.85f);
-		var ringY = Size.Y - 70 * k;
-		// (shadow on the table, the base, the chrome ring)
-		DrawColoredPolygon(Ellipse(new Vector2(cx, ringY + 52 * k), 150 * k, 22 * k), new Color(0, 0, 0, 0.35f));
-		var baseTop = Ellipse(new Vector2(cx, ringY + 6 * k), 140 * k, 36 * k, 48, 0, Mathf.Pi);
-		var basePoly = new System.Collections.Generic.List<Vector2> { new(cx - 140 * k, ringY + 6 * k), new(cx - 140 * k, ringY + 34 * k) };
-		basePoly.AddRange(Ellipse(new Vector2(cx, ringY + 34 * k), 140 * k, 36 * k, 48, Mathf.Pi, 0));
-		basePoly.Add(new Vector2(cx + 140 * k, ringY + 6 * k));
-		DrawColoredPolygon(basePoly.ToArray(), C.Panel.Lightened(0.1f));
-		DrawPolyline(basePoly.Append(basePoly[0]).ToArray(), ink, 5 * k, true);
-		DrawColoredPolygon(Ellipse(new Vector2(cx, ringY + 6 * k), 140 * k, 36 * k), C.Panel2.Lightened(0.2f));
-		DrawPolyline(Ellipse(new Vector2(cx, ringY + 6 * k), 140 * k, 36 * k), ink, 5 * k, true);
-		DrawColoredPolygon(Ellipse(new Vector2(cx, ringY), 118 * k, 28 * k), C.Silver);
-		DrawPolyline(Ellipse(new Vector2(cx, ringY), 118 * k, 28 * k), ink, 4 * k, true);
-		// (the dome: a half ellipse on the ring, squashed by the press)
-		var height = (138 - 70 * _press) * k;
-		var top = Ellipse(new Vector2(cx, ringY - 4 * k), 108 * k, height, 40, Mathf.Pi, Mathf.Tau);
-		var bottom = Ellipse(new Vector2(cx, ringY - 4 * k), 108 * k, 22 * k, 20, 0, Mathf.Pi);
-		var domePoly = top.Concat(bottom.Skip(1)).ToArray();
-		DrawColoredPolygon(domePoly, dome);
-		DrawPolyline(domePoly.Append(domePoly[0]).ToArray(), ink, 6 * k, true);
-		DrawPolyline(Ellipse(new Vector2(cx - 30 * k, ringY - height * 0.55f), 46 * k, height * 0.36f, 16, Mathf.Pi * 1.05f, Mathf.Pi * 1.45f), shine, 13 * k, true);
+		// (drawn like the buttons, KeyBox: every part has a lit face and a side in its own colour's shadow)
+		var red = off ? C.Panel2.Lightened(0.15f) : hover ? new Color("#ff4a64") : new Color("#e8233f");
+		var metal = off ? C.Panel2.Lightened(0.3f) : new Color("#d9dee6");
+		var light = off ? 0.15f : 1f;
+		var plate = 236 * k;
+		var plateDepth = 16 * k;
+		var origin = new Vector2((Size.X - plate) / 2, (Size.Y - plate - plateDepth) / 2);
+		// (shadow on the table, then the silver base plate)
+		DrawStyleBox(KeyBox.Fill(new Color(0, 0, 0, 0.3f), (int)(40 * k)), new Rect2(origin + new Vector2(-6, 14) * k, new Vector2(plate + 12 * k, plate + plateDepth)));
+		DrawKey(new Rect2(origin, new Vector2(plate, plate + plateDepth)), metal, plateDepth, 36 * k, 5 * k, light);
+		// (the darker hollow the key sits in)
+		var well = new Rect2(origin + new Vector2(20, 18) * k, new Vector2(plate - 40 * k, plate - 36 * k));
+		DrawStyleBox(KeyBox.Fill(ink, (int)(28 * k)), well);
+		DrawStyleBox(KeyBox.Fill(metal.Darkened(0.55f), (int)(24 * k)), well.Grow(-4 * k));
+		// (the red key: its side gets shorter as it's pressed, so the face goes down)
+		var depth = (26 - 18 * _press) * k;
+		var key = new Rect2(well.Position + new Vector2(10, 4 + 26 - depth / k) * k, new Vector2(well.Size.X - 20 * k, well.Size.Y - 14 * k - (26 * k - depth)));
+		var face = DrawKey(key, red, depth, 26 * k, 6 * k, light);
 		// (the label)
 		var font = Fonts.Black;
 		var size = (int)(50 * k);
 		var text = Lang.T("BUZZ!");
-		var textW = font.GetStringSize(text, HorizontalAlignment.Left, -1, size).X;
-		var pos = new Vector2(cx - textW / 2, ringY - height * 0.38f + size * 0.35f);
+		var textSize = font.GetStringSize(text, HorizontalAlignment.Left, -1, size);
+		var pos = new Vector2(face.GetCenter().X - textSize.X / 2, face.GetCenter().Y + size * 0.36f);
 		DrawStringOutline(font, pos, text, HorizontalAlignment.Left, -1, size, (int)(9 * k), ink);
 		DrawString(font, pos, text, HorizontalAlignment.Left, -1, size, off ? C.Muted : C.Text);
+	}
+
+	/// <summary>A key like <see cref="KeyBox"/>, at this size: outline, side, face with a bevel and a shine. Returns the face.</summary>
+	Rect2 DrawKey(Rect2 r, Color color, float depth, float radius, float outline, float light)
+	{
+		DrawStyleBox(KeyBox.Fill(C.Ink, (int)radius), r);
+		var inner = r.Grow(-outline);
+		var rad = (int)Mathf.Max(2, radius - outline);
+		DrawStyleBox(KeyBox.Fill(color.Darkened(0.42f), rad), inner);
+		var face = new Rect2(inner.Position, new Vector2(inner.Size.X, inner.Size.Y - depth));
+		var faceBox = KeyBox.Fill(color, rad);
+		faceBox.BorderWidthTop = (int)Mathf.Max(2, 4 * _size / 240f);
+		faceBox.BorderColor = color.Lightened(0.45f);
+		faceBox.BorderBlend = true;
+		DrawStyleBox(faceBox, face);
+		var inset = face.Size.X * 0.07f;
+		DrawStyleBox(KeyBox.Fill(new Color(1, 1, 1, 0.2f * light), (int)Mathf.Max(2, rad - inset)),
+			new Rect2(face.Position + new Vector2(inset, inset * 0.6f), new Vector2(face.Size.X - 2 * inset, face.Size.Y * 0.4f)));
+		return face;
 	}
 
 	public override void _Notification(int what)

@@ -48,9 +48,9 @@ public partial class HomeScreen : Control
 		var host = U.Card(10,
 			U.Eyebrow("Quizmaster"),
 			U.Heading("Host a quiz night", 30),
-			U.Muted("Build a quiz, open a lobby, share the code and run the show. You control the pace — players answer on their own PC.", 16),
-			U.Fill(),
-			U.Btn("My quizzes  ▶", "AccentButton", App.I.GoQuizzes, 22).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin)).Grow();
+			U.Btn("My quizzes  ▶", "AccentButton", App.I.GoQuizzes, 22).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin));
+		// (under it the music player, filling the rest of the column next to "Join a game")
+		var music = U.Card(10, U.Eyebrow("Jukebox"), U.Fill(), new MusicPlayer(), U.Fill()).GrowV();
 
 		_target = U.Input("", "", _ => Validate(), 0, "CodeInput");
 		// (Steam names can be longer than names in a room may be: the field starts with the part that fits)
@@ -72,7 +72,7 @@ public partial class HomeScreen : Control
 		_join = U.Btn("Join!", "TealButton", Join, 22).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin);
 		var join = U.Card(10, U.Eyebrow("Player"), U.Heading("Join a game", 30), _joinFields, _error, _join).Grow();
 
-		var grid = U.H(16, host, join);
+		var grid = U.H(16, U.V(16, host, music).Grow(), join);
 		page.AddChild(grid);
 		// Just an arrow: grey (click to check), green when a newer version is out (click to update).
 		var updateButton = U.Small("", () =>

@@ -186,7 +186,7 @@ public partial class App : Control
 		else GoSettings();
 	}
 
-	void Show(Control screen, Action? again = null)
+	internal void Show(Control screen, Action? again = null)
 	{
 		// (history for the mouse's back/forward buttons: a screen left by going back can be opened again with forward;
 		// any other way to a new screen starts over, like a browser)
@@ -200,6 +200,8 @@ public partial class App : Control
 		screen.SetAnchorsPreset(LayoutPreset.FullRect);
 		_screens.AddChild(screen);
 		_audio.ScreenChanged(screen);
+		// (the home screen has its own music player instead of the corner jukebox; the welcome screen neither)
+		if (Jukebox.I != null) Jukebox.I.ButtonShown = screen is not (HomeScreen or WelcomeScreen);
 		UpdateBanners();
 	}
 

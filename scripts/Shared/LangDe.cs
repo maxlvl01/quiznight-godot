@@ -18,8 +18,6 @@ public static class LangDe
 		["Steam isn't available."] = "Steam ist nicht verfügbar.",
 		["Quizmaster"] = "Quizmaster",
 		["Host a quiz night"] = "Quizabend hosten",
-		["Build a quiz, open a lobby, share the code and run the show. You control the pace — players answer on their own PC."] =
-			"Baue ein Quiz, öffne eine Lobby, teile den Code und leite die Show. Du bestimmst das Tempo – die Spieler antworten am eigenen PC.",
 		["My quizzes"] = "Meine Quizze",
 		["Player"] = "Spieler",
 		["Join a game"] = "Spiel beitreten",
@@ -1032,6 +1030,8 @@ public static class LangDe
 		["Next song"] = "Nächster Song",
 		["No music on this screen."] = "Auf diesem Bildschirm läuft keine Musik.",
 		["Music is off"] = "Musik ist aus",
+		["Press play to turn it back on."] = "Drück auf Play, um sie wieder anzumachen.",
+		["All songs"] = "Alle Songs",
 		["Close Quiznight?"] = "Quiznight schließen?",
 		["Quit"] = "Beenden",
 		["Quit the game"] = "Spiel beenden",

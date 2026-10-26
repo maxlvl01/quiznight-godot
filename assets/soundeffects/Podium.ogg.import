@@ -2,12 +2,13 @@
 
 importer="oggvorbisstr"
 type="AudioStreamOggVorbis"
-uid="uid://cblbad0pwadrq"
-valid=false
+uid="uid://dfdsj1efa2ef1"
+path="res://.godot/imported/Podium.ogg-73238e294d54ac62c8ecbfccacd9fc74.oggvorbisstr"
 
 [deps]
 
 source_file="res://assets/soundeffects/Podium.ogg"
+dest_files=["res://.godot/imported/Podium.ogg-73238e294d54ac62c8ecbfccacd9fc74.oggvorbisstr"]
 
 [params]
 
