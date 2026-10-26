@@ -111,7 +111,9 @@ public sealed class RoomSettings
 	public List<string> Jokers = new(Joker.All);
 	/// <summary>Players see each question's category (off by default: it makes questions easier).</summary>
 	public bool ShowCategories;
-	public RoomSettings Clone() => new() { AnswerTimeSec = AnswerTimeSec, BuzzerSound = BuzzerSound, PodiumSound = PodiumSound, HostShowsQuestions = HostShowsQuestions, HostUnlocksBuzzers = HostUnlocksBuzzers, Jokers = Jokers.ToList(), ShowCategories = ShowCategories };
+	/// <summary>Over Steam, only the host's Steam friends get in.</summary>
+	public bool FriendsOnly;
+	public RoomSettings Clone() => new() { AnswerTimeSec = AnswerTimeSec, BuzzerSound = BuzzerSound, PodiumSound = PodiumSound, HostShowsQuestions = HostShowsQuestions, HostUnlocksBuzzers = HostUnlocksBuzzers, Jokers = Jokers.ToList(), ShowCategories = ShowCategories, FriendsOnly = FriendsOnly };
 }
 
 public sealed class PublicPlayer
@@ -550,6 +552,8 @@ public sealed class JoinRequest
 	/// player's Steam ID, used only if Steam itself doesn't tell the host who connected.
 	/// </summary>
 	public string ClientId = "";
+	/// <summary>The room code the player typed (Steam): the host lets nobody in without it.</summary>
+	public string Code = "";
 }
 
 public sealed class JoinReply

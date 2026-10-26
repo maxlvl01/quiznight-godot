@@ -513,7 +513,8 @@ public sealed class Game
 		if (Paused) return Result.Fail("The game is paused until everyone is back.");
 		if (_late.Contains(playerId)) return Result.Fail("You joined during this question: you play from the next one.");
 		if (_iaPhase != InteractivePhase.Recording) return Result.Fail("Time's up: the recordings are being played.");
-		if (WavSeconds(wav) is not { } sec || sec > QuestionLimits.RecordingMaxSec + 1) return Result.Fail("That recording didn't arrive properly.");
+		// (plain 16 kHz mono sound as the game records it, nothing else: it's played on everyone's screen)
+		if (!Guard.IsPlainWav(wav) || WavSeconds(wav) is not { } sec || sec > QuestionLimits.RecordingMaxSec + 1) return Result.Fail("That recording didn't arrive properly.");
 		_recordings[playerId] = ("data:audio/wav;base64," + Convert.ToBase64String(wav), sec);
 		if (!_clipOrder.Contains(playerId)) _clipOrder.Add(playerId);
 		_hooks.NoteAnswerTime(playerId, _hooks.Now() - _openedAt);

@@ -84,8 +84,9 @@ public static class Updater
 		try
 		{
 			using var http = NewClient(TimeSpan.FromSeconds(10));
-			// (QUIZNIGHT_UPDATE_FEED: a stand-in for GitHub's answer, to test updates against a local server)
-			var feed = OS.GetEnvironment("QUIZNIGHT_UPDATE_FEED");
+			// (QUIZNIGHT_UPDATE_FEED: a stand-in for GitHub's answer, to test updates against a local server; debug
+			// exports only, so nothing on a player's PC can point their game at another update)
+			var feed = OS.IsDebugBuild() ? OS.GetEnvironment("QUIZNIGHT_UPDATE_FEED") : "";
 			var json = await http.GetStringAsync(feed.Length > 0 ? feed : $"https://api.github.com/repos/{ReleasesRepo}/releases/latest");
 			if (JsonNode.Parse(json) is not JsonObject release) return null;
 			var latest = AppVersion.Parse(release["tag_name"]?.GetValue<string>());

@@ -325,6 +325,120 @@ public static class SelfTest
 			"buzz time has its own average; ties go by answer time first");
 	}
 
+	/// <summary>A host transport without a network: who each connection is (Steam ID), and what the host sent.</summary>
+	sealed class FakeHost : IHostTransport
+	{
+		public readonly Dictionary<string, string?> Steam = new();
+		public readonly List<(string Peer, string Type, System.Text.Json.Nodes.JsonNode? Data)> Sent = new();
+		public readonly HashSet<string> Dropped = new();
+		public event Action<string>? PeerConnected;
+		public event Action<string>? PeerDisconnected;
+		public event Action<string, byte[]>? Received;
+		public string? PeerSteamId(string peer) => Steam.GetValueOrDefault(peer);
+		public void Send(string peer, byte[] data)
+		{
+			if (Msg.Decode(data) is { } m) Sent.Add((peer, m.Type, m.Data));
+		}
+		public bool TrySend(string peer, byte[] data) => true;
+		public void Disconnect(string peer)
+		{
+			Dropped.Add(peer);
+			PeerDisconnected?.Invoke(peer);
+		}
+		public void Poll() { }
+		public int MaxMessageBytes => 300 * 1024;
+		public void Dispose() { }
+		public void Deliver(string peer, string type, object payload) => Received?.Invoke(peer, Msg.Encode(type, payload));
+		public JoinReply? Reply(string peer) => Sent.LastOrDefault(x => x.Peer == peer && x.Type == Msg.Joined).Data is { } d ? Msg.Read<JoinReply>(d) : null;
+		void Unused() => PeerConnected?.Invoke("");
+	}
+
+	/// <summary>What comes from outside: joins over Steam, pictures, packed quizzes, recordings, CSV cells, frames.</summary>
+	static void Safety()
+	{
+		var room = new Room("ABCD", Dev.SampleQuiz.Build());
+		var net = new FakeHost();
+		var host = new HostSession(room, net, NetMode.Steam) { IsFriend = id => id == 111 };
+		net.Steam["p1"] = "111";
+		net.Steam["p2"] = "222";
+		net.Steam["p3"] = null;
+		net.Deliver("p1", Msg.Join, new JoinRequest { Name = "Ann", Code = "ZZZZ" });
+		Check(net.Reply("p1")?.Ok == false && net.Dropped.Contains("p1"), "Steam: no seat without the right room code");
+		net.Deliver("p3", Msg.Join, new JoinRequest { Name = "Cat", ClientId = "steam-111", Code = "abcd" });
+		Check(net.Reply("p3")?.Ok == false, "Steam: a game that only claims a Steam ID gets no seat");
+		net.Deliver("p1", Msg.Join, new JoinRequest { Name = "Ann", Code = "abcd" });
+		Check(net.Reply("p1")?.Ok == true && room.GetPlayer("steam:111") != null, "Steam: the right code (any case) gets in, as the Steam account Steam names");
+		host.UpdateSettings(friendsOnly: true);
+		net.Deliver("p2", Msg.Join, new JoinRequest { Name = "Bob", Code = "ABCD" });
+		Check(net.Reply("p2")?.Ok == false, "friends only: someone who isn't the host's Steam friend stays out");
+		host.UpdateSettings(friendsOnly: false);
+		net.Deliver("p2", Msg.Join, new JoinRequest { Name = "Bob", Code = "ABCD" });
+		Check(net.Reply("p2")?.Ok == true, "and gets in once it's off");
+		host.Kick("steam:222");
+		net.Deliver("p4", Msg.Join, new JoinRequest { Name = "Bob again", Code = "ABCD" });
+		net.Steam["p4"] = "222";
+		net.Deliver("p4", Msg.Join, new JoinRequest { Name = "Bob again", Code = "ABCD" });
+		Check(net.Reply("p4")?.Ok == false && room.GetPlayer("steam:222") == null, "a kicked player can't come back into the room");
+		Check(SteamService.CodeKey("ABCD") == SteamService.CodeKey("ABCD") && SteamService.CodeKey("ABCD") != SteamService.CodeKey("ABCE")
+			&& !SteamService.CodeKey("ABCD").Contains("ABCD"), "the lobby list only has a hash of the room code");
+
+		// pictures: a header claiming 60 000 × 60 000 pixels is never decoded
+		byte[] Png(int w, int h)
+		{
+			var b = new byte[33];
+			new byte[] { 0x89, (byte)'P', (byte)'N', (byte)'G', 13, 10, 26, 10, 0, 0, 0, 13, (byte)'I', (byte)'H', (byte)'D', (byte)'R' }.CopyTo(b, 0);
+			b[16] = (byte)(w >> 24); b[17] = (byte)(w >> 16); b[18] = (byte)(w >> 8); b[19] = (byte)w;
+			b[20] = (byte)(h >> 24); b[21] = (byte)(h >> 16); b[22] = (byte)(h >> 8); b[23] = (byte)h;
+			return b;
+		}
+		Check(Guard.ImageSize(Png(640, 480)) == (640, 480) && Guard.ImageOk(Png(2048, 2048)), "picture size read from its header");
+		Check(!Guard.ImageOk(Png(60000, 60000)) && !Guard.ImageOk(Png(8000, 8000)) && Storage.Images.Decode(Png(60000, 60000), "image/png") == null,
+			"pictures claiming to be enormous aren't decoded");
+		Check(!Guard.ImageOk(new byte[] { 1, 2, 3, 4, 5 }), "unknown kinds of picture aren't decoded");
+		var webp = Storage.Images.Encode(Image.CreateEmpty(300, 200, false, Image.Format.Rgba8), 2048);
+		Check(Guard.ImageSize(Server.DataUrl.Bytes(webp.DataUrl, out _)!) == (300, 200), "a WebP picture's size from its header");
+
+		// a share code that unpacks to more than a quiz can be
+		var bomb = new System.IO.MemoryStream();
+		using (var br = new System.IO.Compression.BrotliStream(bomb, System.IO.Compression.CompressionLevel.SmallestSize, true))
+			for (var i = 0; i < 80; i++) br.Write(new byte[1024 * 1024]);
+		Check(ShareCode.Unpack(bomb.ToArray(), out var bombError) == null && bombError != null && bomb.Length < 200_000,
+			"a share code that unpacks to gigabytes is turned away (not unpacked)");
+
+		// recordings: only plain 16 kHz mono sound
+		byte[] Wav(int rate, short channels, int dataBytes)
+		{
+			using var ms = new System.IO.MemoryStream();
+			using var w = new System.IO.BinaryWriter(ms);
+			w.Write("RIFF"u8); w.Write(36 + dataBytes); w.Write("WAVE"u8); w.Write("fmt "u8); w.Write(16); w.Write((short)1); w.Write(channels);
+			w.Write(rate); w.Write(rate * 2 * channels); w.Write((short)(2 * channels)); w.Write((short)16); w.Write("data"u8); w.Write(dataBytes);
+			w.Write(new byte[dataBytes]);
+			return ms.ToArray();
+		}
+		Check(Guard.IsPlainWav(Wav(16000, 1, 32000)) && !Guard.IsPlainWav(Wav(44100, 2, 32000)), "recordings: the game's own format only");
+		var lying = Wav(16000, 1, 32000);
+		BitConverter.TryWriteBytes(lying.AsSpan(40), 999_999);
+		Check(!Guard.IsPlainWav(lying), "recordings: a header that lies about its size is turned away");
+
+		// CSV: names that would run as formulas in a spreadsheet
+		Check(Guard.CsvSafe("=HYPERLINK(\"x\")") == "'=HYPERLINK(\"x\")" && Guard.CsvValue(Guard.CsvSafe("=1+1")) == "=1+1"
+			&& Guard.CsvSafe("Max") == "Max" && Guard.CsvValue("'Tis") == "'Tis", "CSV cells can't run as formulas, and read back as they were");
+		Check(Guard.SafeId("A1B2C3D4E5F6A7B8") && !Guard.SafeId("../x") && !Guard.SafeId("CON:") && !Guard.SafeId(""), "file ids: plain ones only");
+
+		// frames: a player's game can't announce a 200 MB message
+		var reader = new FrameReader(1024 * 1024);
+		var threw = false;
+		try
+		{
+			reader.Feed(BitConverter.GetBytes(200 * 1024 * 1024));
+		}
+		catch (InvalidOperationException)
+		{
+			threw = true;
+		}
+		Check(threw, "LAN: a message bigger than a player ever sends is refused");
+	}
+
 	public static async Task<int> Run(Node node)
 	{
 		RankingAndResults();
@@ -334,6 +448,7 @@ public static class SelfTest
 		TypedAndBonus();
 		JokersAndSeats();
 		FastPassTie();
+		Safety();
 		Files();
 		// Load, not just Exists: an Opus .ogg exists but Godot can't import it.
 		foreach (var b in Storage.Sfx.Buzzers) Check(ResourceLoader.Load<AudioStream>(b.Path) != null, $"buzzer sound {b.Id} plays");
@@ -565,7 +680,8 @@ public static class SelfTest
 		// Interactive: everyone records, the host plays them, everyone votes (not for themselves).
 		room.Next();
 		Eq(g.Question.Type, QuestionType.Interactive, "interactive question");
-		var wav = SampleQuiz.Beep(1);
+		// (a second of sound as the game records it: 16 kHz mono)
+		var wav = Ui.MicRecorder.Wav(new float[16000], 16000);
 		Check(!g.SubmitRecording("ann", g.Index, new byte[100]).Ok, "something that isn't a WAV isn't a recording");
 		Check(g.SubmitRecording("ann", g.Index, wav).Ok && g.SubmitRecording("bob", g.Index, wav).Ok, "players send recordings");
 		Check(g.View("ann").Interactive is { Phase: InteractivePhase.Recording, Clips.Count: 0 } && g.AssetDataUrl(Game.RecordingKey(g.Index, 0)) == null,

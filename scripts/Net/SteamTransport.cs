@@ -21,7 +21,18 @@ public static class SteamService
 {
 	public const uint AppId = 480; // Spacewar
 	const string KeyGame = "quiznight";
-	const string KeyCode = "quiznight_code";
+	/// <summary>
+	/// The room code isn't in the lobby list as it is (anyone can read every Spacewar lobby's data): only a slow one-way
+	/// hash of it (CodeKey), so the list doesn't hand out every open room's code.
+	/// </summary>
+	const string KeyCode = "quiznight_room";
+	static readonly byte[] CodeSalt = System.Text.Encoding.UTF8.GetBytes("quiznight-room-code-v1");
+
+	/// <summary>The code's hash for the lobby list: PBKDF2 with 300 000 rounds, so trying every code takes many hours.</summary>
+	public static string CodeKey(string code) => Convert.ToHexString(System.Security.Cryptography.Rfc2898DeriveBytes.Pbkdf2(
+		System.Text.Encoding.UTF8.GetBytes(code), CodeSalt, 300_000, System.Security.Cryptography.HashAlgorithmName.SHA256, 16));
+
+	static Task<string> CodeKeyAsync(string code) => Task.Run(() => CodeKey(code));
 	const string KeyHost = "quiznight_host";
 
 	public static bool Available { get; private set; }
@@ -88,13 +99,13 @@ public static class SteamService
 		SteamClient.Shutdown();
 	}
 
-	static LobbyQuery CodeQuery(string code) =>
-		SteamMatchmaking.LobbyList.WithKeyValue(KeyCode, code).FilterDistanceWorldwide().WithMaxResults(10);
+	static LobbyQuery CodeQuery(string key) =>
+		SteamMatchmaking.LobbyList.WithKeyValue(KeyCode, key).FilterDistanceWorldwide().WithMaxResults(10);
 
 	/// <summary>The Steam ID of whoever hosts this code, or null if there is no such room.</summary>
 	public static async Task<ulong?> FindHost(string code)
 	{
-		var lobbies = await CodeQuery(code).RequestAsync();
+		var lobbies = await CodeQuery(await CodeKeyAsync(code)).RequestAsync();
 		foreach (var lobby in lobbies ?? Array.Empty<Lobby>())
 			if (lobby.GetData(KeyGame) == "1" && ulong.TryParse(lobby.GetData(KeyHost), out var host)) return host;
 		return null;
@@ -108,13 +119,13 @@ public static class SteamService
 		l.SetPublic();
 		l.SetJoinable(true);
 		l.SetData(KeyGame, "1");
-		l.SetData(KeyCode, code);
+		l.SetData(KeyCode, await CodeKeyAsync(code));
 		l.SetData(KeyHost, SteamClient.SteamId.Value.ToString());
 		return l;
 	}
 
 	/// <summary>True if some lobby already uses this code (codes must be unique across all Spacewar lobbies we see).</summary>
-	public static async Task<bool> CodeTaken(string code) => (await CodeQuery(code).RequestAsync())?.Length > 0;
+	public static async Task<bool> CodeTaken(string code) => (await CodeQuery(await CodeKeyAsync(code)).RequestAsync())?.Length > 0;
 
 	internal static byte[] Copy(IntPtr data, int size)
 	{

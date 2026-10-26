@@ -100,6 +100,8 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 				on => _host.UpdateSettings(hostShows: on)),
 			Rule("I unlock the buzzers myself", "After reading the question out (Space).", room.Settings.HostUnlocksBuzzers,
 				on => _host.UpdateSettings(hostUnlocks: on)),
+			Rule("Only my Steam friends can join", "Over Steam: players who aren't on your Steam friends list can't come in, even with the code.",
+				room.Settings.FriendsOnly, on => _host.UpdateSettings(friendsOnly: on)),
 			Rule("Show question categories", "Players see each question's category (e.g. Geography) on the Get ready screen. It makes questions easier; secret ones stay hidden.",
 				room.Settings.ShowCategories, on => _host.UpdateSettings(categories: on)),
 			U.Muted("Jokers (once per player and match)", 13).With(l => l.TooltipText = Lang.T("Played before a question starts.")),

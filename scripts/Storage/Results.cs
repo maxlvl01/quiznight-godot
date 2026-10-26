@@ -109,7 +109,9 @@ public static class Results
 		}
 	}
 
-	static string Quote(string s) => s.IndexOfAny(new[] { ',', '"', '\n' }) >= 0 ? $"\"{s.Replace("\"", "\"\"")}\"" : s;
+	// (names and titles come from players: one like "=HYPERLINK(…)" would run as a formula when the CSV is opened in a
+	// spreadsheet, so such cells get a ' in front, taken off again by Parse)
+	static string Quote(string raw) => Guard.CsvSafe(raw) is var s && s.IndexOfAny(new[] { ',', '"', '\n' }) >= 0 ? $"\"{s.Replace("\"", "\"\"")}\"" : s;
 
 	/// <summary>A player's line for the whole night (not one of the per-question rows).</summary>
 	static bool IsNightRow(Dictionary<string, string> row) => row.GetValueOrDefault("question", "") == "";
@@ -121,7 +123,7 @@ public static class Results
 		if (lines.Count == 0) return new();
 		var header = lines[0];
 		return lines.Skip(1).Where(r => r.Count == header.Count)
-			.Select(r => header.Zip(r).ToDictionary(x => x.First.Trim(), x => x.Second)).ToList();
+			.Select(r => header.Zip(r).ToDictionary(x => x.First.Trim(), x => Guard.CsvValue(x.Second))).ToList();
 	}
 
 	static List<List<string>> SplitRows(string csv)

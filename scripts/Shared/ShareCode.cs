@@ -39,9 +39,9 @@ public static class ShareCode
 		string json;
 		try
 		{
+			// (a few KB of code can unpack to gigabytes: only as much as a quiz can be)
 			using var brotli = new BrotliStream(new MemoryStream(packed), CompressionMode.Decompress);
-			using var reader = new StreamReader(brotli, Encoding.UTF8);
-			json = reader.ReadToEnd();
+			json = Encoding.UTF8.GetString(Guard.ReadCapped(brotli, Guard.MaxQuizJsonBytes));
 		}
 		catch (Exception e) when (e is InvalidDataException or IOException)
 		{

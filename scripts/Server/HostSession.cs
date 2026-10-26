@@ -191,7 +191,7 @@ public sealed class HostSession : IDisposable
 				break;
 			}
 			case Msg.MediaProgress when playerId != null:
-				if (Msg.Read<MediaProgress>(msg.Data) is { } mp)
+				if (Msg.Read<MediaProgress>(msg.Data) is { } mp && Room.SharedFiles.Any(f => f.Id == mp.Id))
 				{
 					if (!_mediaProgress.TryGetValue(playerId, out var got)) _mediaProgress[playerId] = got = new();
 					got[mp.Id] = Math.Clamp(mp.Percent, 0, 100);
@@ -216,14 +216,54 @@ public sealed class HostSession : IDisposable
 
 	bool Playing() => Room.Game != null && Room.Phase == Phase.Playing;
 
+	/// <summary>Who the host removed (player ids, and what their game called itself): they can't come back into this room.</summary>
+	readonly HashSet<string> _kicked = new();
+
+	/// <summary>
+	/// Whether a Steam account is the host's Steam friend. Steam mode only; a stand-in for the self-test.
+	/// </summary>
+	public Func<ulong, bool> IsFriend = id => SteamService.Available && new Steamworks.Friend(id).IsFriend;
+
+	void Refuse(string peer, string error)
+	{
+		Godot.GD.Print($"Join refused on connection {peer}: {error}");
+		_net.Send(peer, Msg.Encode(Msg.Joined, new JoinReply { Ok = false, Error = error }));
+		_net.Disconnect(peer);
+	}
+
 	void HandleJoin(string peer, JoinRequest req)
 	{
-		// Steam vouches for who is connecting; on LAN the player's app says who it is (over Steam too, if Steam didn't).
-		var cid = req.ClientId.Trim();
-		var id = _net.PeerSteamId(peer) is { } steamId ? "steam:" + steamId
-			: cid.StartsWith("steam-") && ulong.TryParse(cid.AsSpan(6), out var claimed) && claimed != 0 ? "steam:" + claimed
-			: cid is { Length: > 0 and <= 64 } ? "lan:" + cid
+		// Over Steam, Steam vouches for who is connecting, and nobody else gets a seat: a game claiming to be some Steam
+		// account could otherwise take that player's seat (and points). On LAN the player's game says who it is.
+		var cid = (req.ClientId ?? "").Trim();
+		var steamId = _net.PeerSteamId(peer);
+		if (Mode == NetMode.Steam)
+		{
+			if (steamId == null)
+			{
+				Refuse(peer, "Steam couldn't confirm who you are. Try joining again.");
+				return;
+			}
+			// (the code isn't a password, but without it nobody gets in by guessing the host's Steam ID)
+			if (!string.Equals(Limits.NormalizeCode(req.Code ?? ""), Room.Code, StringComparison.Ordinal))
+			{
+				Refuse(peer, "That room code doesn't match. Check it and try again.");
+				return;
+			}
+			if (Room.Settings.FriendsOnly && !(ulong.TryParse(steamId, out var sid) && IsFriend(sid)))
+			{
+				Refuse(peer, "Only the host's Steam friends can join this room.");
+				return;
+			}
+		}
+		var id = steamId != null ? "steam:" + steamId
+			: cid is { Length: > 0 and <= 64 } && !cid.StartsWith("steam") ? "lan:" + cid
 			: "lan:" + peer;
+		if (_kicked.Contains(id) || cid != "" && _kicked.Contains("client:" + cid))
+		{
+			Refuse(peer, "The host removed you from this room.");
+			return;
+		}
 		// Two people can't be one player: if this id's seat is held right now by a connection whose game said it is
 		// someone else, the ids came out the same by mistake; this one gets a seat of its own.
 		if (PeerOf(id) is { } holderPeer && holderPeer != peer && _peerClient.TryGetValue(holderPeer, out var holderCid)
@@ -244,6 +284,7 @@ public sealed class HostSession : IDisposable
 			_net.Disconnect(old);
 		}
 		_peerPlayer[peer] = id;
+		(_net as LanHostTransport)?.MarkJoined(peer);
 		_net.Send(peer, Msg.Encode(Msg.Joined, new JoinReply { Ok = true, PlayerId = id }));
 		Broadcast();
 	}
@@ -268,8 +309,11 @@ public sealed class HostSession : IDisposable
 	{
 		if (Room.GetPlayer(playerId) == null) return;
 		Room.Remove(playerId);
+		// (and they stay out: rejoining with the code would otherwise just bring them back)
+		_kicked.Add(playerId);
 		if (PeerOf(playerId) is { } peer)
 		{
+			if (_peerClient.TryGetValue(peer, out var cid) && cid != "") _kicked.Add("client:" + cid);
 			_net.Send(peer, Msg.Encode(Msg.Kicked));
 			_peerPlayer.Remove(peer);
 			_net.Disconnect(peer);
@@ -300,10 +344,10 @@ public sealed class HostSession : IDisposable
 	}
 
 	public void UpdateSettings(int? answerTimeSec = null, bool? hostShows = null, bool? hostUnlocks = null, (string Kind, bool On)? joker = null,
-		bool? categories = null)
+		bool? categories = null, bool? friendsOnly = null)
 	{
 		if (Room.Phase != Phase.Lobby) return;
-		Room.UpdateSettings(answerTimeSec, hostShows, hostUnlocks, joker, categories);
+		Room.UpdateSettings(answerTimeSec, hostShows, hostUnlocks, joker, categories, friendsOnly);
 		Broadcast();
 	}
 
@@ -358,7 +402,8 @@ public sealed class HostSession : IDisposable
 
 	void ReceiveRecording(string peer, string playerId, RecordingPart part)
 	{
-		if (part.Parts < 1 || part.Parts > 64 || part.Part < 0 || part.Part >= part.Parts) return;
+		// (a recording is at most 15 s of 16 kHz sound: about 640 KB as base64, sent in 200 KB parts)
+		if (part.Parts < 1 || part.Parts > 8 || part.Part < 0 || part.Part >= part.Parts || (part.Data?.Length ?? 0) > 200_000 || !Playing()) return;
 		if (!_recordingParts.TryGetValue(playerId, out var entry) || entry.Index != part.Index || entry.Parts.Length != part.Parts)
 			_recordingParts[playerId] = entry = (part.Index, new string?[part.Parts]);
 		entry.Parts[part.Part] = part.Data;

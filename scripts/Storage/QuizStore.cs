@@ -155,16 +155,15 @@ public static class QuizStore
 		{
 			using var zip = System.IO.Compression.ZipFile.OpenRead(path);
 			var json = zip.GetEntry("quiz.json") ?? throw new UserError(QuizJson.NotAQuiz);
+			// (zips can unpack to far more than they are: only as much as a quiz and its files can be)
 			string text;
-			using (var r = new StreamReader(json.Open())) text = r.ReadToEnd();
+			using (var r = json.Open()) text = System.Text.Encoding.UTF8.GetString(Guard.ReadCapped(r, Guard.MaxQuizJsonBytes));
 			var quiz = QuizJson.Parse(text, out var error) ?? throw new UserError(error ?? QuizJson.NotAQuiz);
 			foreach (var q in quiz.Questions)
 			{
 				if (q.Media == null || zip.Entries.FirstOrDefault(e => e.FullName.StartsWith($"media/{q.Id}.")) is not { } file) continue;
 				using var s = file.Open();
-				using var bytes = new MemoryStream();
-				s.CopyTo(bytes);
-				q.Media.DataUrl = Server.DataUrl.Make(q.Media.Mime, bytes.ToArray());
+				q.Media.DataUrl = Server.DataUrl.Make(q.Media.Mime, Guard.ReadCapped(s, Guard.MaxSharedFileBytes));
 			}
 			return quiz;
 		}

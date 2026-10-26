@@ -19,6 +19,9 @@ public static class Images
 	/// <summary>Decodes image bytes by mime type (falls back to trying every format).</summary>
 	public static Image? Decode(byte[] bytes, string mime)
 	{
+		// (pictures come from other players' hosts, share codes and quiz files: one whose header claims it's enormous
+		// would take gigabytes to decode, so only known kinds of a sane size get that far)
+		if (!Guard.ImageOk(bytes)) return null;
 		var img = new Image();
 		Error Try(string kind) => kind switch
 		{

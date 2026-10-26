@@ -13,6 +13,24 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.11.1b]
+
+### Added
+- **"Only my Steam friends can join"** as a lobby rule: over Steam, players who aren't on the host's Steam friends list can't come in, even with the code.
+
+### Changed
+- **Security check of everything online,** with these fixes:
+  - **Nobody gets into a room without its code.** Before, a game that knew the host's Steam ID could connect straight to the host and take a seat without ever typing the code. Now the host checks the code on every join.
+  - **Room codes aren't readable in Steam's lobby list any more.** The list (which anyone with Steam can read) had every open room's code in it as it is. Now it only has a one-way hash of the code that takes many hours to work back.
+  - **Nobody can pretend to be someone else.** Over Steam, only the account Steam itself names gets a seat. Before, a game could claim another player's Steam ID if Steam didn't say who it was, and take over their seat and points. On LAN, a game can't claim a Steam ID at all.
+  - **Kicked players stay out.** Before, a kicked player could simply join again with the code.
+  - **Pictures, share codes and quiz files can't crash the game by size.** A tiny picture can claim to be 60 000 × 60 000 pixels, and a few KB of share code or zip can unpack to gigabytes. The game checks a picture's size before decoding it and stops unpacking at what a quiz can be.
+  - **A host can't fill a player's disk.** The files a host sends before the game (sound, video, pictures) are limited to what a quiz can hold, and their names to plain ids.
+  - **Recordings must be plain sound as the game records it** (16 kHz mono). Before, anything that looked a little like a WAV file was passed on to every player's screen.
+  - **LAN: no more huge messages or idle connections.** A connection that announced a 256 MB message got that much memory reserved, and connections that never joined stayed open. Now a player's messages are limited to what the game sends (1 MB), connections must join within 15 seconds, and at most 48 can be open.
+  - **Results files are spreadsheet-safe.** A player name like "=HYPERLINK(…)" would run as a formula when a results CSV is opened in Excel; such cells now get a ' in front, which the game takes off again when reading them.
+  - **Only debug builds can be pointed at a different update server** (a testing setting that released builds also listened to).
+
 ## [0.11.0b] — "Opening Night": an intro like a console game's, a title screen, New Year, credits and drag and drop
 
 ### Added

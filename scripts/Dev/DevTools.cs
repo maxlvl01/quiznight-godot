@@ -725,7 +725,7 @@ public sealed class DevTools
 					_actAt = now + 1 + _rng.NextDouble() * 2;
 					var index = g.Index;
 					var others = Enumerable.Range(0, ia.Clips.Count).Where(i => ia.Clips[i].PlayerId != client.MyId).ToList();
-					_action = ia.Phase == InteractivePhase.Recording ? () => client.SendRecording(index, SampleQuiz.Beep(1 + _rng.NextDouble() * 2), _ => { })
+					_action = ia.Phase == InteractivePhase.Recording ? () => client.SendRecording(index, BotRecording(1 + _rng.NextDouble() * 2), _ => { })
 						: ia.Phase == InteractivePhase.Voting && others.Count > 0 ? () => client.Answer(index, AnswerValue.Number(others[_rng.Next(others.Count)]), _ => { })
 						: null;
 				}
@@ -793,6 +793,10 @@ public sealed class DevTools
 			if (All(app).OfType<Button>().FirstOrDefault(b => b.Text == Lang.T("Lock in") && !b.Disabled) is { } lockIn)
 				lockIn.EmitSignal(BaseButton.SignalName.Pressed);
 		}
+
+		/// <summary>A beep as the game records sound (16 kHz mono, Ui.MicRecorder): the host takes no other kind.</summary>
+		static byte[] BotRecording(double seconds) =>
+			Ui.MicRecorder.Wav(Enumerable.Range(0, (int)(16000 * seconds)).Select(i => 0.3f * MathF.Sin(i * 0.17f)).ToArray(), 16000);
 
 		internal static IEnumerable<Control> All(Node n)
 		{

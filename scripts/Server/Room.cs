@@ -354,9 +354,10 @@ public sealed class Room : IGameHooks
 	}
 
 	public void UpdateSettings(int? answerTimeSec = null, bool? hostShows = null, bool? hostUnlocks = null, (string Kind, bool On)? joker = null,
-		bool? categories = null)
+		bool? categories = null, bool? friendsOnly = null)
 	{
 		if (categories is { } cats) Settings.ShowCategories = cats;
+		if (friendsOnly is { } friends) Settings.FriendsOnly = friends;
 		if (joker is { } j && Joker.All.Contains(j.Kind))
 		{
 			Settings.Jokers.Remove(j.Kind);

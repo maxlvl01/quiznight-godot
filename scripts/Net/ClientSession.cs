@@ -88,7 +88,7 @@ public sealed class ClientSession : IDisposable
 			return;
 		}
 		_net = net;
-		net.Connected += () => net.Send(Msg.Encode(Msg.Join, new JoinRequest { Name = _name, ClientId = _clientId }));
+		net.Connected += () => net.Send(Msg.Encode(Msg.Join, new JoinRequest { Name = _name, ClientId = _clientId, Code = Mode == NetMode.Steam ? Target : "" }));
 		net.Disconnected += reason => OnLost(net, reason);
 		net.Received += OnReceived;
 	}

@@ -153,6 +153,11 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
   App then turns it into the saved window (`Prefs.ApplyWindow`) and plays the intro (`IntroSequence`: video, cards,
   title screen whose logo glides into `HomeScreen.Logo`). Runs with arguments after `--` get their window at once, no
   intro. Dev: `--splash [--intro-from N] [--intro-start]`, `--anti-cheat`. No music while `IntroSequence.HoldsMusic`.
+- **Anything from outside is checked (`Shared/Guard.cs`):** pictures by their header size before decoding, packed quizzes
+  and zips read capped, recordings must be the game's own WAV format, CSV cells formula-safe, file ids plain. Over Steam a
+  join needs the room code (`JoinRequest.Code`) and a Steam-confirmed ID (claimed ones are refused); the lobby list only
+  has `SteamService.CodeKey` (PBKDF2) of the code; kicked players stay out; `RoomSettings.FriendsOnly`. LAN host frames
+  ≤ 1 MB, joins within 15 s, ≤ 48 connections. The self-test's `Safety()` covers these.
 - **Custom cursors** (`assets/cursors`, `tools/make_cursors.py`) are set in `App.UseCursors`, cleared in `App._ExitTree`
   (else Godot reports their textures as leaked at exit).
 
