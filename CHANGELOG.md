@@ -13,6 +13,8 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.10.6b]
+
 ### Added
 - **Two more seasonal skins:** **Kölle Alaaf** for the Cologne carnival, on 11 November (the season opens at 11:11) and in the street carnival week from Weiberfastnacht to Veilchendienstag (worked out from Easter each year): red and white, confetti tumbling down, streamers along the top, and a jester's cap with bells on the logo. And **Valentine's Day** all of February: rose and pink, hearts floating up, hearts on the logo.
 - **Right-click on empty space goes back a screen,** like Escape or the mouse's back button (not on the home screen, and not on buttons, text fields, sliders or lists).
