@@ -10,6 +10,16 @@ off (`- [x]`) when they're done, with the version they came in.
 
 ---
 
+## 0.12.0d3 — collecting (nothing built yet)
+
+- [ ] **Videos at most 720p.** Still sharp on everyone's screen, and much less to send to every player (helps the stress
+  test night). Today only the copy-paste ffmpeg command (`Media.ConvertCommand`) caps the width at 1280; AnyConverter's
+  `--format ogv` (what `VideoGuide` opens) keeps the full size, and an .ogv added as it is isn't checked. Plan:
+  AnyConverter scales to max 1280×720 when Quiznight opens it; the editor notices bigger .ogv files and offers to shrink
+  them. (From the 1.0 roadmap chat, 27 October 2026; Max wants it in 0.12.)
+
+---
+
 ## 0.12.0d2 — second test build (done)
 
 - [x] (0.12.0d2) **Hover names for WoW Forever's new zones, rough outlines for now.** Hovering Riverglades (and Gilneas) on the
@@ -272,6 +282,10 @@ zipped (Windows), ~307 MB unpacked; updates already stay small (game packs ~33 M
 
 ## For 1.0 — content and bigger things
 
+- [ ] **Stress test night before 1.0:** a proper quiz night with 50+ questions (every type, lots of pictures, sound
+  and video), played start to finish with everyone over Steam. Watch: lobby downloads and the Start wait, memory and
+  speed late in the night, pauses/rejoins, the scoreboard and stats with that many questions, results upload.
+  (From the 1.0 roadmap chat, 27 October 2026.)
 - [ ] Questions / quizzes for the first proper night
 - [ ] Map pin "buzz in first, then place your pin" (`Question.BuzzFirst` exists in the file format, not in the game yet)
 - [ ] More game maps for map pin (which games: _add them here_)
@@ -283,6 +297,8 @@ what happened instead.
 - [ ] _(add what you notice)_
 
 ## Low priority — once everything else is done
+
+Probably not for 1.0; they come when there's nothing else to do and the program is finished.
 
 - [x] (0.12.0d2: see-through popup background) **Black box round a drop-down list, now and then.** Opening and closing a drop-down (e.g. Buzzer sound) quickly can
   leave a black rectangle round the list's rounded panel for a moment (Max: "you really have to try to get it";
@@ -297,7 +313,6 @@ what happened instead.
   the beta): a Forever world map as the base instead of the 1002 px Classic one, or at least the sea drawn from Forever's
   sea texture, and the coast edges solid. Plus hover/"Jump to zone…" names for the new zones (Gilneas, Riverglades …)
   from Forever's zone data (MapDumper Forever addon).
-Probably not for 1.0; they come when there's nothing else to do and the program is finished.
 - [ ] Discord Rich Presence (needs a Discord application ID from you: "Playing Quiznight? · Question 4/15")
 
 Dropped: Steam invites (joining from the friends list) — the room code already does the job.
