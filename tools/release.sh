@@ -1,14 +1,27 @@
 #!/usr/bin/env bash
 # Builds the game and publishes it as a GitHub release that the in-game updater picks up.
-#   tools/release.sh            build (Windows + Linux) + self-test + zip + publish the version in project.godot
+#   tools/release.sh            build (Windows + Linux) + self-test + zip + publish the version in project.godot (public)
+#   tools/release.sh --test     the same, as an internal test build on the private maxlvl01/quiznight-test-releases
+#                               (zips only: test builds still check the public repo for updates)
 #   tools/release.sh --dry-run  everything except publishing
+# Each version is a test build first; only the ones Max decides on are released publicly (players shouldn't have to
+# download every hotfix).
 # The release notes are this version's section of CHANGELOG.md. The release goes to the public
 # builds-only repo (the code repo, maxlvl01/quiznight-godot, stays private). Needs `gh` logged in and the export templates.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 G="${GODOT:-/c/Users/Xbox3/Desktop/Godot_v4.7.2-stable_mono_win64/Godot_v4.7.2-stable_mono_win64_console.exe}"
+DRY=""; TEST=""
+for arg in "$@"; do
+	case "$arg" in
+		--dry-run) DRY=1 ;;
+		--test) TEST=1 ;;
+		*) echo "Unknown option $arg"; exit 1 ;;
+	esac
+done
 REPO="maxlvl01/quiznight-releases"
+[ -n "$TEST" ] && REPO="maxlvl01/quiznight-test-releases"
 ANYCONVERTER="${ANYCONVERTER:-/c/Users/Xbox3/Desktop/AnyConverter/dist/AnyConverter.exe}"
 ANYCONVERTER_LINUX="${ANYCONVERTER_LINUX:-/c/Users/Xbox3/Desktop/AnyConverter/dist/linux/AnyConverter-linux-x86_64.tar.gz}"
 VERSION=$(sed -n 's/^config\/version="\(.*\)"/\1/p' project.godot)
@@ -17,7 +30,6 @@ ZIP="build/Quiznight-$VERSION-windows.zip"
 OUT_LINUX="build/Quiznight-linux"
 ZIP_LINUX="build/Quiznight-$VERSION-linux.zip"
 NOTES="build/notes-$VERSION.md"
-DRY=${1:-}
 
 echo "== Quiznight $VERSION"
 grep -q "^## \[$VERSION\]" CHANGELOG.md || { echo "CHANGELOG.md has no section '## [$VERSION]'"; exit 1; }
@@ -74,25 +86,39 @@ rm -f "$ZIP_LINUX"
 (cd "$OUT_LINUX" && /c/Windows/System32/tar.exe -a -c -f "../../$ZIP_LINUX" *)
 ls -la "$ZIP_LINUX"
 
-echo "== Update lists"
-# Every file with its hash, in a few packs by kind (game, engine, maps, AnyConverter). Packs that changed since
-# the last release are zipped into $PACKS for upload (usually just the game packs); the rest point to the older
-# release that has them (tools/manifest.py). The game downloads only the packs it needs.
-PACKS="build/packs-$VERSION"; PREV="build/prev-lists"
-rm -rf "$PACKS" "$PREV" && mkdir -p "$PREV"
-gh release download --repo "$REPO" --pattern 'update-*.json' -D "$PREV" 2>/dev/null || echo "(no earlier update lists: every pack is new)"
-BASE="https://github.com/$REPO/releases/download/v$VERSION/"
-py -I tools/manifest.py "$VERSION" windows "$OUT" build/update-windows.json "$PACKS" "$BASE" "$PREV"/update-*.json
-py -I tools/manifest.py "$VERSION" linux "$OUT_LINUX" build/update-linux.json "$PACKS" "$BASE" "$PREV"/update-*.json build/update-windows.json
+if [ -z "$TEST" ]; then
+	echo "== Update lists"
+	# Every file with its hash, in a few packs by kind (game, engine, maps, AnyConverter). Packs that changed since
+	# the last release are zipped into $PACKS for upload (usually just the game packs); the rest point to the older
+	# release that has them (tools/manifest.py). The game downloads only the packs it needs.
+	PACKS="build/packs-$VERSION"; PREV="build/prev-lists"
+	rm -rf "$PACKS" "$PREV" && mkdir -p "$PREV"
+	gh release download --repo "$REPO" --pattern 'update-*.json' -D "$PREV" 2>/dev/null || echo "(no earlier update lists: every pack is new)"
+	BASE="https://github.com/$REPO/releases/download/v$VERSION/"
+	py -I tools/manifest.py "$VERSION" windows "$OUT" build/update-windows.json "$PACKS" "$BASE" "$PREV"/update-*.json
+	py -I tools/manifest.py "$VERSION" linux "$OUT_LINUX" build/update-linux.json "$PACKS" "$BASE" "$PREV"/update-*.json build/update-windows.json
+fi
 
 # Big updates (x.y.0) get a name: '## [0.8.0b] — "Jokers Wild": …' makes the release "Quiznight 0.8.0b — Jokers Wild".
 NAME=$(sed -n "s/^## \[$VERSION\] — \"\([^\"]*\)\".*/\1/p" CHANGELOG.md)
-TITLE="Quiznight? $VERSION${NAME:+ — $NAME}"
+TITLE="Quiznight? $VERSION${NAME:+ — $NAME}${TEST:+ (test)}"
 # This version's notes: from its "## [version]" line up to the next "## [".
 awk -v v="## [$VERSION]" 'index($0, v) == 1 { on = 1; next } /^## \[/ { on = 0 } on' CHANGELOG.md > "$NOTES"
 
-if [ "$DRY" = "--dry-run" ]; then
+if [ -n "$DRY" ]; then
 	echo "== Dry run: not publishing ($ZIP, notes in $NOTES)"
+	exit 0
+fi
+
+if [ -n "$TEST" ]; then
+	echo "== Publishing test build v$VERSION to $REPO"
+	if gh release view "v$VERSION" --repo "$REPO" >/dev/null 2>&1; then
+		gh release edit "v$VERSION" --repo "$REPO" --title "$TITLE" --notes-file "$NOTES"
+	else
+		gh release create "v$VERSION" --repo "$REPO" --title "$TITLE" --notes-file "$NOTES"
+	fi
+	gh release upload "v$VERSION" "$ZIP" "$ZIP_LINUX" --repo "$REPO" --clobber
+	echo "Done: https://github.com/$REPO/releases/tag/v$VERSION"
 	exit 0
 fi
 

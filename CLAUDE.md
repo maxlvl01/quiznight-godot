@@ -169,6 +169,12 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
 - **Exporting:** the 4.7.2 mono templates are installed (Windows x86_64). C# export needs `QuizNight!.sln`
   next to the csproj. The build lands in `build/Quiznight/`; `steam_api64.dll` ends up in the
   `data_QuizNight!_windows_x86_64` folder and Steam works from there (checked with `--steam-check`).
+- **Test builds first (from 0.10.3b):** every new version goes to the private `maxlvl01/quiznight-test-releases` with
+  `tools/release.sh --test` (zips only, title "… (test)"); Max downloads and tries it there. Only when he says a version is
+  ready does it go public with plain `tools/release.sh` (players shouldn't download every hotfix). The public release's
+  "What's new" covers every version since the last public one (the shipped CHANGELOG has them all). Test builds still
+  check the public repo for updates, so they don't update themselves. 0.10.3b was public for a few minutes and is a
+  draft on the public repo now (nobody had downloaded it); drafts aren't deleted either.
 - **Releases & updates:** `tools/release.sh` exports, zips and publishes a GitHub release on the public
   `maxlvl01/quiznight-releases` repo (code lives in the private `maxlvl01/quiznight-godot`; `maxlvl01/quiznight` is the web version). Exported games check
   it at startup (`Storage/Updater.cs`) and update themselves; "What's new" is read from the shipped
