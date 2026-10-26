@@ -17,16 +17,20 @@ off (`- [x]`) when they're done, with the version they came in.
   `--format ogv` (what `VideoGuide` opens) keeps the full size, and an .ogv added as it is isn't checked. Plan:
   AnyConverter scales to max 1280×720 when Quiznight opens it; the editor notices bigger .ogv files and offers to shrink
   them. (From the 1.0 roadmap chat, 27 October 2026; Max wants it in 0.12.)
-- [ ] **"Report a bug" on every screen.** A small 🐞 button (corner of every screen, also in lobbies and games, next to
-  the Settings gear there) opens a short form: **what happened**, **what you expected**, **steps to get there**
-  (optional), and a tick for "include a screenshot" (on by default). Sending uploads one Markdown file to the results
-  repo's `bug-reports/` (same token and upload as `CrashReports.Put`: `bug-reports/<date> <version> <6 chars>.md`),
-  filled in from a template so they all read the same:
-  title line, version and build (test/public), date, screen, OS, language, skin, Steam or LAN, in a room (host or
-  player, phase, question number/type) — then the three answers — then the last ~200 lines of this run's log
-  (anonymised like crash reports, user name left out) — and the screenshot next to it (`.png`, same name).
-  "Thanks, Max will look at it" afterwards; if the upload fails it's kept and sent on the next start (like crash logs).
-  Max reads them in the repo and hands them to Claude. (Settings' "What the game sends" mentions it.)
+- [ ] **"Report a bug" on every screen.** Only ever sent by hand: a small 🐞 button (corner of every screen, also in
+  lobbies and games, next to the Settings gear there) opens a small window with **one text box: what happened**, and
+  Send. The **category comes from where it was opened**, filled in by the game, not picked: e.g. "Editor › Map pin",
+  "Quiz list", "Lobby (host)", "Waiting room", "Game (player) › Buzzer question", "Reveal", "Podium", "Mini games ›
+  8-ball", "Settings", "Statistics › Eternal table", "Test lab" (each screen says its own category; a window over a
+  screen, like Settings in a game, says both). Shown at the top of the window so the player sees it ("Bug in: Lobby
+  (host)").
+  Sending uploads one Markdown file to the results repo's `bug-reports/<category>/` (same token and upload as
+  `CrashReports.Put`: `<date> <version> <6 chars>.md`), from a template so they all read the same: category, version
+  and build (test/public), date, OS, language, skin, Steam or LAN, room details (host or player, phase, question
+  number/type) — the player's text — the last ~200 lines of this run's log (anonymised like crash reports) — and a
+  screenshot of the screen as it was when 🐞 was pressed (`.png`, same name). "Thanks, Max will look at it"
+  afterwards; if the upload fails it's kept and sent on the next start. Max reads them in the repo and hands them to
+  Claude. (Settings' "What the game sends" mentions it.)
 
 ---
 
