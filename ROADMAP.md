@@ -30,6 +30,19 @@ off (`- [x]`) when they're done, with the version they came in.
   TrackGlow logo (`TrackGlowLogo`, like the intro's sponsor card and the title screen), for host and players alike.
   More branded names later (Max has none for the other awards yet: the season poster's awards, the eternal table's
   "Fastest buzz" … could each get one, e.g. "the TrackGlow Fastest Buzz of the Night", once he picks them).
+- [ ] **Audio normalisation: every sound and song equally loud.** Measured 26 October (EBU R128 integrated loudness):
+  - Music (`assets/music`, incl. `christmas/`, `halloween/`): from −9.6 LUFS (Before Chill, Sugarsnaps) to −15.8 LUFS
+    (Seth, Drive-Through Dinner), 6 dB apart — the quiet ones sound half as loud. The new Halloween song is −13.1.
+  - Sound effects (`assets/soundeffects`): Podium −8.0 vs Podium2 −30.5 (22 dB apart!), buzzers −14.3 (metal pipe),
+    −15.0 (soft beep), −27.4 (Buzzer 3); Correct −27.1; the voice line −25.6; click and Wrong too short to measure
+    this way (use their peak/short-term loudness).
+  - Fix: normalise the files themselves, so nothing changes in code and every player hears the same: music to one target
+    (e.g. −14 LUFS, true peak −1 dB), sound effects to one level of their own (short ones by short-term loudness), the
+    voice line so it sits clearly above the music; a tool (`tools/normalise_audio.py`, ffmpeg `loudnorm` two-pass,
+    re-encoding Ogg Vorbis at 128 kbps like the songs) so new songs and sounds Max adds get the same treatment. Then
+    check by ear that the menu music, the buzzers and the podium jingles feel balanced against each other. Players' own
+    buzzer sounds (uploaded) could be levelled when they're picked, too. Also the sounds and videos in quizzes? (open:
+    those are the quiz maker's; maybe just a "level the volume" tick in the editor)
 - [ ] **Mini games in the lobby while waiting.** In the waiting room (and the host's lobby) a "Play something" button
   opens a 4:3 window over the lobby with a few small games:
   - **Tetris** — single player; best scores shown in the lobby.
