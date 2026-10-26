@@ -1,6 +1,6 @@
 // Every dropdown (OptionButton) in the game: a chunky arrow in the party show style instead of Godot's thin one, pointing
-// up while the list is open, and the list unfolds smoothly (from a quarter of its height, easing out) instead of popping
-// in. App installs it once; it catches every OptionButton as it's made.
+// up while the list is open, and the list hangs right under its button and unfolds smoothly (easing out) instead of popping
+// in anywhere it fits; long lists scroll inside. App installs it once; it catches every OptionButton as it's made.
 
 using System;
 using System.Collections.Generic;
@@ -16,7 +16,11 @@ public static class DropDowns
 	};
 
 	const string Hooked = "dropdown_hooked";
-	const double UnfoldSec = 0.16;
+	const double UnfoldSec = 0.26;
+	/// <summary>A long list shows this many rows and scrolls for the rest.</summary>
+	const int MaxRows = 10;
+	/// <summary>Room kept between a list and the window's edge.</summary>
+	const float Margin = 8;
 
 	static void Hook(OptionButton o)
 	{
@@ -26,7 +30,7 @@ public static class DropDowns
 		popup.AboutToPopup += () =>
 		{
 			o.AddThemeIconOverride("arrow", Arrow(true));
-			if (!Announcer.ReduceMotion) Callable.From(() => Unfold(popup, o)).CallDeferred();
+			Callable.From(() => Unfold(popup, o)).CallDeferred();
 		};
 		popup.PopupHide += () =>
 		{
@@ -34,23 +38,41 @@ public static class DropDowns
 		};
 	}
 
-	/// <summary>The list grows from a quarter of its height to all of it; opened upwards (no room below), it grows upwards.</summary>
+	/// <summary>
+	/// Where the list goes: right under its button (above it only if there's no room below), never over it; a long list
+	/// (categories, units) is cut to what fits, at most <see cref="MaxRows"/> rows, and scrolls inside itself. Then it
+	/// unfolds from the button, easing out. (The list is its own small window: it's see-through round its rounded panel,
+	/// so no black box shows while it grows.)
+	/// </summary>
 	static void Unfold(PopupMenu popup, OptionButton o)
 	{
 		if (!GodotObject.IsInstanceValid(popup) || !popup.Visible) return;
-		var full = popup.Size;
-		var at = popup.Position;
-		var upwards = at.Y + full.Y <= o.GetScreenPosition().Y + 2;
+		popup.TransparentBg = true;
+		var button = o.GetGlobalRect();
+		var screen = o.GetViewportRect();
+		var natural = popup.GetContentsMinimumSize();
+		var row = natural.Y / Math.Max(1, popup.ItemCount);
+		var wanted = Mathf.Min(natural.Y, row * MaxRows + 12);
+		float below = screen.End.Y - button.End.Y - Margin, above = button.Position.Y - screen.Position.Y - Margin;
+		var upwards = below < Mathf.Min(wanted, row * 3) && above > below;
+		var full = new Vector2I(Mathf.RoundToInt(Mathf.Max(natural.X, button.Size.X)), Mathf.RoundToInt(Mathf.Min(wanted, upwards ? above : below)));
+		var x = Mathf.RoundToInt(Mathf.Clamp(button.Position.X, screen.Position.X, screen.End.X - full.X));
+		var top = upwards ? Mathf.RoundToInt(button.Position.Y) - full.Y : Mathf.RoundToInt(button.End.Y) + 2;
 		void Height(float h)
 		{
 			if (!GodotObject.IsInstanceValid(popup) || !popup.Visible) return;
 			var height = Mathf.RoundToInt(h);
 			popup.Size = new Vector2I(full.X, height);
-			if (upwards) popup.Position = new Vector2I(at.X, at.Y + full.Y - height);
+			popup.Position = new Vector2I(x, upwards ? top + full.Y - height : top);
 		}
-		Height(full.Y * 0.25f);
+		if (Announcer.ReduceMotion)
+		{
+			Height(full.Y);
+			return;
+		}
+		Height(full.Y * 0.15f);
 		var tween = o.CreateTween();
-		tween.TweenMethod(Callable.From<float>(Height), full.Y * 0.25f, (float)full.Y, UnfoldSec).SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
+		tween.TweenMethod(Callable.From<float>(Height), full.Y * 0.15f, (float)full.Y, UnfoldSec).SetTrans(Tween.TransitionType.Quart).SetEase(Tween.EaseType.Out);
 	}
 
 	static readonly Dictionary<(bool Up, Color Color), ImageTexture> Arrows = new();

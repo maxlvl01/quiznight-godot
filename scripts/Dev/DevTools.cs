@@ -487,11 +487,12 @@ public sealed class DevTools
 			var key = new InputEventKey { Keycode = _introKeys == 1 ? Key.Escape : Key.Space, Pressed = true };
 			_app.GetViewport().PushInput(key, true);
 		}
-		// --open-dropdown: opens the screen's first dropdown at 1 s (to see its arrow and how it unfolds)
+		// --open-dropdown [N]: opens the screen's first (or Nth, from 1) dropdown at 1 s (to see its arrow and how it unfolds)
 		if (_time >= 1 && !_dropdownOpened && Has("--open-dropdown"))
 		{
 			_dropdownOpened = true;
-			Bot.All(_app).OfType<OptionButton>().FirstOrDefault(o => o.IsVisibleInTree())?.ShowPopup();
+			var nth = int.TryParse(Value("--open-dropdown"), out var n) ? n - 1 : 0;
+			Bot.All(_app).OfType<OptionButton>().Where(o => o.IsVisibleInTree()).Skip(nth).FirstOrDefault()?.ShowPopup();
 		}
 		if (_time >= 1.5 && !_undoChecked && Has("--undo-check"))
 		{
