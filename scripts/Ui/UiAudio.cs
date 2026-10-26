@@ -4,8 +4,10 @@
 //   assets/music/: every song in there plays, shuffled, in the menus, the lobby and during quizzes (where it pauses
 //     while a sound, video or interactive question is open, so it never covers the clip or the microphone). Songs keep
 //     their Epidemic Sound names, "ES_Title - Artist.ogg": the "Now playing" card reads title and artist from that.
-//     IntroSong ("Easy Breezy") always comes first when the game opens, with the voice line.
+//     IntroSong ("Easy Breezy", in October "The Sleepy Sneaky Sway") always comes first when the game opens, with the
+//     voice line.
 //     assets/music/christmas/: songs that only join in at Christmas time (1 to 26 December).
+//     assets/music/halloween/: songs that only join in during October.
 //     Optional, for a place of its own: <place>.ogg (<place>2 … <place>9), the place being home, editor, statistics,
 //     settings, lobby or game; that place then plays only those.
 //   assets/soundeffects/ui/hover.ogg and click.ogg (or .mp3 / .wav); back.ogg for "←" links, if there is one
@@ -31,8 +33,8 @@ public partial class UiAudio : Node
 
 	static bool _introDone;
 
-	/// <summary>The song that always opens the game (its title, as in the file name).</summary>
-	const string IntroSong = "Easy Breezy";
+	/// <summary>The song that always opens the game (its title, as in the file name); in October the Halloween one.</summary>
+	static string IntroSong => Seasons.IsHalloween(Seasons.Today) ? "The Sleepy Sneaky Sway" : "Easy Breezy";
 
 	static readonly string[] Places = { "home", "editor", "statistics", "settings", "lobby", "game" };
 
@@ -44,6 +46,7 @@ public partial class UiAudio : Node
 	{
 		var songs = SongsIn("res://assets/music");
 		if (IsChristmas(Seasons.Today)) songs.AddRange(SongsIn("res://assets/music/christmas"));
+		if (Seasons.IsHalloween(Seasons.Today)) songs.AddRange(SongsIn("res://assets/music/halloween"));
 		return songs;
 	}
 

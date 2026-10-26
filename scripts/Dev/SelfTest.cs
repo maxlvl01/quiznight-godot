@@ -914,6 +914,9 @@ public static class SelfTest
 		Check(Storage.CrashReports.Anonymise(@"C:\Users\Max\AppData\Roaming\Quiznight", "max") == @"C:\Users\<user>\AppData\Roaming\Quiznight",
 			"crash reports: the user name is left out of paths");
 		Check(Ui.UiAudio.Describe("res://assets/music/ES_Easy Breezy - Megan Wofford.ogg") == ("Easy Breezy", "Megan Wofford"), "a song's title and artist come from its Epidemic Sound name");
+		Check(Ui.UiAudio.SongsIn("res://assets/music/halloween").Any(s => s.Contains("The Sleepy Sneaky Sway"))
+			&& ResourceLoader.Load<AudioStream>("res://assets/music/halloween/ES_The Sleepy Sneaky Sway - Luella Gren.ogg") != null,
+			"Halloween songs: October's intro song is there and plays");
 		Check(Ui.Skins.Valid("pinke-geilheit") == Ui.Skins.Default && Ui.Skins.All.First(s => s.Id == Ui.Skins.Default).Label == "Quiznight Purple"
 			&& Ui.Skins.Valid(Ui.Skins.Pink) == Ui.Skins.Pink, "skins: the old Pinke Geilheit id is Quiznight Purple now, the pastel Pinke Geilheit is its own");
 		Check(Ui.Seasons.IsHalloween(new DateTime(2026, 10, 31)) && !Ui.Seasons.IsHalloween(new DateTime(2026, 11, 1))

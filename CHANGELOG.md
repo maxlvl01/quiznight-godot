@@ -13,6 +13,11 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.11.4b]
+
+### Added
+- **A Halloween song for October:** "The Sleepy Sneaky Sway" by Luella Gren. All through October it's the first song after the welcome voice line when you open the game (instead of "Easy Breezy"), and it plays with the others in the shuffle after that. From 1 November it's gone again until next October, the same way the Christmas songs only play in December. It's in the credits (the "i" button in the music player) with its Epidemic Sound link.
+
 ## [0.11.3b] — "Opening Night": an intro like a console game's, a title screen, New Year, credits, signed updates and undo
 
 ### Added

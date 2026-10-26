@@ -1,0 +1,19 @@
+[remap]
+
+importer="oggvorbisstr"
+type="AudioStreamOggVorbis"
+uid="uid://oywn37vpgyq0"
+path="res://.godot/imported/ES_The Sleepy Sneaky Sway - Luella Gren.ogg-8290d11020e918d0e62ab67fbefe90f8.oggvorbisstr"
+
+[deps]
+
+source_file="res://assets/music/halloween/ES_The Sleepy Sneaky Sway - Luella Gren.ogg"
+dest_files=["res://.godot/imported/ES_The Sleepy Sneaky Sway - Luella Gren.ogg-8290d11020e918d0e62ab67fbefe90f8.oggvorbisstr"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

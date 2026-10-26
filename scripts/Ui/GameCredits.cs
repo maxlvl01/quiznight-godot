@@ -21,6 +21,7 @@ public static class GameCredits
 	/// <summary>Every song the game can play (also the seasonal ones), as title and artist.</summary>
 	public static List<(string Title, string Artist)> Songs() =>
 		UiAudio.SongsIn("res://assets/music").Concat(UiAudio.SongsIn("res://assets/music/christmas"))
+			.Concat(UiAudio.SongsIn("res://assets/music/halloween"))
 			.Select(UiAudio.Describe).OrderBy(s => s.Title).ToList();
 
 	/// <summary>A text file shipped with the game (the fonts' licences), or "" if it's missing.</summary>
