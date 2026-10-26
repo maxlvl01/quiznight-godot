@@ -2,6 +2,8 @@
 // next start uploads the end of that run's log to Max's private results repo (maxlvl01/quiznight-results, crashes/),
 // with the same token as the results. Godot writes the log itself (%APPDATA%\Quiznight\logs, the last few runs); this
 // only notices a bad run and sends it, once. Editor and dev runs never upload.
+// Test builds (Updater.TestChannel) send every run's whole log (up to TestLines), crashed or not, to test-logs/: they
+// also log every step in detail (Shared/Trace) and run with Godot's verbose output (override.cfg from release.sh).
 
 using System;
 using System.IO;
@@ -21,6 +23,7 @@ public static class CrashReports
 	/// <summary>Log files already sent (one name per line), so a log is never sent twice.</summary>
 	const string Sent = "user://crash-reports-sent.txt";
 	const int TailLines = 400;
+	const int TestLines = 20000;
 
 	static bool Enabled => OS.HasFeature("template") && ResultsUpload.Token != null && OS.GetCmdlineUserArgs().Length == 0;
 
@@ -80,13 +83,16 @@ public static class CrashReports
 		// (the run that left the marker is the one that wrote this log, not an older one or a dev run in between)
 		if (crashed && DateTime.TryParse(since, null, System.Globalization.DateTimeStyles.RoundtripKind, out var start) && log.LastWriteTimeUtc < start) crashed = false;
 		var text = File.ReadAllText(log.FullName);
-		if (!crashed && !HasError(text)) return;
+		var test = Updater.TestChannel;
+		var error = HasError(text);
+		if (!crashed && !error && !test) return;
 		var lines = text.Split('\n');
-		var tail = string.Join('\n', lines.Skip(Math.Max(0, lines.Length - TailLines)));
+		var keep = test ? TestLines : TailLines;
+		var tail = string.Join('\n', lines.Skip(Math.Max(0, lines.Length - keep)));
 		var report = new StringBuilder()
-			.AppendLine($"Quiznight {App.Version} · {OS.GetName()} {OS.GetVersion()} · {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC")
-			.AppendLine(crashed ? "The game didn't close normally (crashed or was killed)." : "The game ran into an error.")
-			.AppendLine($"Log: {log.Name} (last {Math.Min(lines.Length, TailLines)} of {lines.Length} lines)")
+			.AppendLine($"Quiznight {App.Version}{(test ? " (test build)" : "")} · {OS.GetName()} {OS.GetVersion()} · {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC")
+			.AppendLine(crashed ? "The game didn't close normally (crashed or was killed)." : error ? "The game ran into an error." : "A normal run (test builds send every run).")
+			.AppendLine($"Log: {log.Name} (last {Math.Min(lines.Length, keep)} of {lines.Length} lines)")
 			.AppendLine()
 			.Append(tail)
 			.ToString();
@@ -96,7 +102,8 @@ public static class CrashReports
 		{
 			try
 			{
-				await Put($"{DateTime.UtcNow:yyyy-MM-dd HH-mm} {App.Version} {(crashed ? "crash" : "error")} {Guid.NewGuid().ToString("N")[..6]}.log", report);
+				var kind = crashed ? "crash" : error ? "error" : "run";
+				await Put((test ? "test-logs/" : "crashes/") + $"{DateTime.UtcNow:yyyy-MM-dd HH-mm} {App.Version} {kind} {Guid.NewGuid().ToString("N")[..6]}.log", report);
 				Callable.From(() =>
 				{
 					using var f = Godot.FileAccess.Open(Sent, Godot.FileAccess.FileExists(Sent) ? Godot.FileAccess.ModeFlags.ReadWrite : Godot.FileAccess.ModeFlags.Write);
@@ -117,10 +124,10 @@ public static class CrashReports
 		using var http = ResultsUpload.Client(ResultsUpload.Token!);
 		var body = new JsonObject
 		{
-			["message"] = $"Crash report: {file}",
+			["message"] = $"Log: {file}",
 			["content"] = Convert.ToBase64String(Encoding.UTF8.GetBytes(report)),
 		}.ToJsonString();
-		var url = $"https://api.github.com/repos/{ResultsUpload.Repo}/contents/crashes/{Uri.EscapeDataString(file)}";
+		var url = $"https://api.github.com/repos/{ResultsUpload.Repo}/contents/{string.Join('/', file.Split('/').Select(Uri.EscapeDataString))}";
 		using var response = await http.PutAsync(url, new StringContent(body, Encoding.UTF8, "application/json"));
 		if (!response.IsSuccessStatusCode) throw new HttpRequestException($"GitHub said {(int)response.StatusCode}");
 	}

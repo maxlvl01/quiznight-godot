@@ -246,6 +246,7 @@ public sealed class Game
 	/// <summary>The host shows the hidden question to everyone.</summary>
 	public bool ShowQuestion()
 	{
+		Trace.Log("game", $"show question {Index + 1} ({Question.Type}{(Question.IsTyped ? ", typed" : "")}) stage={Stage} shown={Shown} paused={Paused}");
 		if (Stage != Shared.Stage.Open || Shown || Paused) return false;
 		StartShown(_hooks.Now());
 		return true;
@@ -328,6 +329,7 @@ public sealed class Game
 	public bool BuzzIn(string playerId)
 	{
 		var q = Question;
+		Trace.Log("game", $"buzz from {playerId} on question {Index + 1}: open={BuzzersOpen} shown={Shown} paused={Paused} fastPass={Played(playerId, Joker.FastPass, Index)} queue={string.Join(",", _buzzes.Select(b => $"{b.PlayerId}:{b.Status}"))}");
 		if (Stage != Shared.Stage.Open || !q.IsBuzzer || !Shown || !BuzzersOpen || Paused || _late.Contains(playerId) || _buzzes.Any(b => b.PlayerId == playerId)) return false;
 		var now = _hooks.Now();
 		var someoneAnswering = _buzzes.Any(b => b.Status == BuzzStatus.Answering);
@@ -364,6 +366,7 @@ public sealed class Game
 	public bool Judge(bool correct)
 	{
 		var current = _buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Answering);
+		Trace.Log("game", $"judge {current?.PlayerId ?? "(nobody answering)"}: {(correct ? "right" : "wrong")}");
 		if (Stage != Shared.Stage.Open || current == null) return false;
 		if (correct)
 		{
@@ -383,6 +386,7 @@ public sealed class Game
 	public Result Answer(string playerId, int index, AnswerValue? raw)
 	{
 		var q = Question;
+		Trace.Log("game", $"answer from {playerId} for question {index + 1} (now {Index + 1}, {Stage}): {(raw == null ? "null" : raw.Text ?? raw.Num?.ToString() ?? (raw.Picks != null ? string.Join(",", raw.Picks) : raw.Point?.ToString() ?? "?"))}");
 		if (index != Index || Stage != Shared.Stage.Open) return Result.Fail("This question is already closed.");
 		if (!Shown) return Result.Fail("The host hasn't shown this question yet.");
 		if (Paused) return Result.Fail("The game is paused until everyone is back.");
@@ -469,6 +473,7 @@ public sealed class Game
 	void DoReveal()
 	{
 		if (Stage == Shared.Stage.Reveal) return;
+		Trace.Log("game", $"reveal question {Index + 1}");
 		SetMedia(false);
 		Stage = Shared.Stage.Reveal;
 		_tlTurn = null;
@@ -1331,6 +1336,7 @@ public sealed class Game
 
 	public Result PlayJoker(string playerId, string kind, bool on)
 	{
+		Trace.Log("game", $"joker {kind} {(on ? "played" : "taken back")} by {playerId} (for question {(JokerIndex is { } j ? j + 1 : 0)})");
 		if (!Joker.All.Contains(kind) || !_hooks.JokerAllowed(kind)) return Result.Fail("The host didn't allow that joker tonight.");
 		var mine = _jokers.FirstOrDefault(j => j.PlayerId == playerId && j.Kind == kind);
 		if (!on)

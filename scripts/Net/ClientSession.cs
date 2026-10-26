@@ -80,6 +80,7 @@ public sealed class ClientSession : IDisposable
 			net?.Dispose();
 			return;
 		}
+		Trace.Log("client", net == null ? $"couldn't connect: {error}" : "connected");
 		if (net == null)
 		{
 			if (MyId == null) End(error);
@@ -95,6 +96,7 @@ public sealed class ClientSession : IDisposable
 	void OnLost(IClientTransport net, string reason)
 	{
 		if (net != _net || _ended) return;
+		Trace.Log("client", $"connection lost: {reason}");
 		_net = null;
 		net.Dispose();
 		FailPendingAnswers("The connection dropped. Try again in a moment.");
@@ -227,6 +229,7 @@ public sealed class ClientSession : IDisposable
 	void End(string? reason)
 	{
 		if (_ended) return;
+		Trace.Log("client", $"left the room: {reason ?? "(by choice)"}");
 		_ended = true;
 		FailPendingAnswers("You left the room.");
 		_net?.Dispose();

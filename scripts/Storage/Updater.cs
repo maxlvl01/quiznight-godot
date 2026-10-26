@@ -122,6 +122,7 @@ public static class Updater
 				.Where(r => r.Version != null)
 				.OrderByDescending(r => r.Version!.Value)
 				.FirstOrDefault();
+			Trace.Log("update", $"test repo: newest {newest?.Version?.ToString() ?? "none"}, this is {App.Version}");
 			if (newest?.Version is not { } v) return null;
 			if (newerOnly && (AppVersion.Parse(App.Version) is not { } c || !(v > c))) return null;
 			var assets = (newest.Value.Release["assets"] as JsonArray)?.OfType<JsonObject>().ToList() ?? new();
@@ -133,6 +134,7 @@ public static class Updater
 		catch (Exception e)
 		{
 			GD.Print($"Test update check skipped: {e.Message}");
+			Trace.Log("update", $"test repo check failed: {e.Message}");
 			return null;
 		}
 	}

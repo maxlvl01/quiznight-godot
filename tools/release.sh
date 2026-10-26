@@ -88,8 +88,10 @@ echo "== Zipping"
 for dir in "$OUT" "$OUT_LINUX"; do
 	if [ -n "$TEST" ]; then
 		echo "Internal Quiznight? test build: updates come from the private maxlvl01/quiznight-test-releases." > "$dir/test-channel.txt"
+		# (and Godot's verbose output, for the detailed logs test builds send: Storage/CrashReports)
+		printf '[debug]\n\nsettings/stdout/verbose_stdout=true\n' > "$dir/override.cfg"
 	else
-		rm -f "$dir/test-channel.txt"
+		rm -f "$dir/test-channel.txt" "$dir/override.cfg"
 	fi
 done
 rm -f "$ZIP"

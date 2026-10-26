@@ -278,6 +278,7 @@ public sealed class Room : IGameHooks
 	/// </summary>
 	public (Player? Player, string? Error) Join(string id, string rawName)
 	{
+		Trace.Log("room", $"join {id} as \"{rawName}\" ({Phase}, {Players.Count} in the room)");
 		var existing = GetPlayer(id);
 		if (existing != null)
 		{
@@ -326,6 +327,7 @@ public sealed class Room : IGameHooks
 	/// <summary>The connection dropped. During a game the seat and score stay, and the game waits for them.</summary>
 	public void Disconnect(string id)
 	{
+		Trace.Log("room", $"disconnected {id} ({Phase})");
 		var p = GetPlayer(id);
 		if (p == null || !p.Connected) return;
 		p.Connected = false;
@@ -338,6 +340,7 @@ public sealed class Room : IGameHooks
 	/// <summary>A player leaves: in the lobby their seat goes; during a game it's kept so they can come back.</summary>
 	public void Leave(string id)
 	{
+		Trace.Log("room", $"leave {id} ({Phase})");
 		if (Playing) Disconnect(id);
 		else Remove(id);
 	}
@@ -369,6 +372,7 @@ public sealed class Room : IGameHooks
 
 	public Result Start()
 	{
+		Trace.Log("room", $"start: {string.Join(", ", Players.Select(p => $"{p.Name}{(p.Connected ? "" : " (away)")}"))}");
 		if (Phase != Shared.Phase.Lobby) return Result.Fail("The quiz is already running.");
 		var connected = Players.Count(p => p.Connected);
 		if (connected < Limits.MinPlayersToStart) return Result.Fail(Lang.F("You need at least {0} connected players.", Limits.MinPlayersToStart));
@@ -389,6 +393,7 @@ public sealed class Room : IGameHooks
 	/// <summary>Reveal if still open, otherwise the next question (or the podium after the last one).</summary>
 	public void Next()
 	{
+		Trace.Log("room", $"next (question {(Game?.Index ?? -1) + 1}, {Game?.Stage})");
 		if (Game == null || Phase != Shared.Phase.Playing || Game.Paused) return;
 		if (Game.Stage == Stage.Open) Game.HostReveal();
 		else

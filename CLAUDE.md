@@ -176,7 +176,10 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
   run by `release.sh`; commit CHANGELOG.md afterwards), so players see one version with everything. Test builds have
   `test-channel.txt` next to the exe (release.sh puts it in test zips) and update from the test repo instead
   (`Updater.TestChannel`: the release list via the API, as pre-releases aren't "latest"; zips only; read with the shipped
-  `results-token.txt`, which needs Contents: read on quiznight-test-releases). 0.10.3b was public for a few minutes and is a
+  `results-token.txt`, which needs Contents: read on quiznight-test-releases). Test builds also start in developer mode, log every step
+  (`Shared/Trace.Log`, timestamped: screens, connections, messages, the game's steps) with Godot's verbose output
+  (`override.cfg` in test zips), and send each run's whole log to the results repo's `test-logs/` on the next start
+  (`Storage/CrashReports`; public builds send crash/error logs to `crashes/` only). 0.10.3b was public for a few minutes and is a
   draft on the public repo now (nobody had downloaded it); drafts aren't deleted either.
 - **Releases & updates:** `tools/release.sh` exports, zips and publishes a GitHub release on the public
   `maxlvl01/quiznight-releases` repo (code lives in the private `maxlvl01/quiznight-godot`; `maxlvl01/quiznight` is the web version). Exported games check

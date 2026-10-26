@@ -150,6 +150,7 @@ public sealed class HostSession : IDisposable
 
 	void OnPeerDisconnected(string peer)
 	{
+		Trace.Log("host", $"connection {peer} closed");
 		_videoSent.Remove(peer);
 		_peerClient.Remove(peer);
 		if (!_peerPlayer.Remove(peer, out var playerId)) return;
@@ -163,6 +164,8 @@ public sealed class HostSession : IDisposable
 	{
 		if (Msg.Decode(bytes) is not { } msg) return;
 		_peerPlayer.TryGetValue(peer, out var playerId);
+		// (download progress comes several times a second: not worth a line each)
+		if (msg.Type != Msg.MediaProgress) Trace.Log("host", $"from {playerId ?? peer}: {msg.Type}");
 		switch (msg.Type)
 		{
 			case Msg.Join:

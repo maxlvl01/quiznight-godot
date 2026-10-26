@@ -52,7 +52,10 @@ public partial class App : Control
 		var firstStart = Settings.NothingSaved;
 		var volumesReset = Settings.ResetVolumesOnce(firstStart);
 		// (sends the last run's log if it crashed or hit an error; exported builds only)
+		// (test builds log every step in detail, and send the log after each session: CrashReports)
+		Trace.On = Updater.TestChannel;
 		CrashReports.Start();
+		Trace.Log("start", $"Quiznight {Version} test build · {OS.GetName()} {OS.GetVersion()} · {DisplayServer.ScreenGetSize()} · skin {Settings.Skin} · {Settings.Language} · {Settings.WindowMode} {Settings.WindowSize}");
 		// (dev runs: --skin ID, --dyslexic and --colour-vision MODE try them without saving)
 		var devArgs = OS.GetCmdlineUserArgs();
 		var skinArg = Array.IndexOf(devArgs, "--skin");
@@ -197,6 +200,7 @@ public partial class App : Control
 		_shownAgain = again;
 		Sfx.StopPreview();
 		_screens.Clear();
+		Trace.Log("screen", screen.GetType().Name);
 		_screen = screen;
 		screen.SetAnchorsPreset(LayoutPreset.FullRect);
 		_screens.AddChild(screen);
