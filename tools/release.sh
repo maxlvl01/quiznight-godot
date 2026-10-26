@@ -27,6 +27,10 @@ grep -q "^## \[$VERSION\]" CHANGELOG.md || { echo "CHANGELOG.md has no section '
 # (keeps Godot from importing what's in build/, e.g. the maps copied next to the Windows build)
 mkdir -p build && touch build/.gdignore
 dotnet build "QuizNight!.csproj" -nologo -v q
+# The Windows build uses our slim engine (export_presets custom_template/release; built from the Godot source with
+# tools/engine_profile.py, see CLAUDE.md): 37 MB instead of the stock 105 MB.
+SLIM_TEMPLATE="C:/godot-src/templates/quiznight-windows-release.exe"
+[ -f "$SLIM_TEMPLATE" ] || { echo "Slim engine template missing at $SLIM_TEMPLATE (build it: see CLAUDE.md, Exporting)"; exit 1; }
 rm -rf "$OUT" && mkdir -p "$OUT"
 "$G" --headless --path . --export-release "Windows Desktop" "$OUT/Quiznight.exe" > build/export.log 2>&1 || true
 [ -f "$OUT/Quiznight.exe" ] && [ -d "$OUT/data_QuizNight!_windows_x86_64" ] || { echo "Export failed, see build/export.log"; exit 1; }

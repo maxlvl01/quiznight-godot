@@ -187,6 +187,12 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
   game crashes at start, `hostfxr_get_runtime_delegate failed`) and `JsonSerializerIsReflectionEnabledByDefault` (our
   JSON goes through reflection). `release.sh` also deletes .NET's debugger/dump files (`strip_dotnet`). Editor runs aren't
   trimmed: test trimming-related changes on an export (`--selftest` on the exported exe).
+- **Slim engine (Windows):** the Windows export uses a custom export template built from the Godot 4.7.2-stable source
+  (`C:\godot-src\godot-4.7.2-stable`) with `tools/engine_profile.py`: no 3D, physics, navigation, XR, Vulkan/D3D12,
+  GDScript, networking modules, ZIP, regex … (37 MB instead of 105 MB). `export_presets.cfg` points at
+  `C:/godot-src/templates/quiznight-windows-release.exe`; `release.sh` stops if it's missing. If the game starts using
+  an engine feature that's left out (a 3D node, physics, Godot's RegEx/ZIPReader …), it works in the editor but not in the
+  export: put the module back in the profile and rebuild (~9 min). Linux uses the stock template (no WSL here).
 - **AnyConverter** (the user's separate Python/tkinter converter, `C:\Users\Xbox3\Desktop\AnyConverter`, not in git)
   ships in the Windows zip as `AnyConverter/AnyConverter.exe` and in the Linux zip as `AnyConverter/AnyConverter`;
   `release.sh` copies them from its `dist/` (`AnyConverter.exe`, and `linux/AnyConverter-linux-x86_64.tar.gz` from its
