@@ -403,7 +403,6 @@ public static class LangDe
 		["Loading map…"] = "Karte wird geladen…",
 		["Jump to zone…"] = "Zu Zone springen…",
 		["Zoom in for more detail: first the zones, then the cities. Click to place the pin."] = "Zoome hinein für mehr Details: erst die Zonen, dann die Städte. Klicke, um den Pin zu setzen.",
-		["WoW Classic – Azeroth (one seamless map, zoom into any zone)"] = "WoW Classic – Azeroth (eine nahtlose Karte, in jede Zone zoomen)",
 
 		// ---------- opening / joining ----------
 		["Opening the lobby on Steam…"] = "Lobby wird auf Steam geöffnet…",

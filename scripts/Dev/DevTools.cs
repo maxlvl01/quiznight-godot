@@ -223,6 +223,8 @@ public sealed class DevTools
 				pin.MapId = map.Id;
 				pin.Target = new NormPoint(0.5, 0.5);
 			}
+			// --map-grid (with --open mapPin): no map chosen yet, so the editor shows the map grid
+			if (Has("--map-grid")) sample.Questions.First(x => x.Type == QuestionType.MapPin).MapId = null;
 			var quiz = QuizStore.Save(sample);
 			var q = quiz.Questions.FirstOrDefault(x => x.Type == type || (type == "choice" && x.Mode == ClassicMode.Choice) || (type == "multi" && x.IsMulti) || (type == "image" && x.Type == QuestionType.Image) || (type == "timeline" && x.IsTimeline) || (type == "wow" && x.MapId != null && quiz.MapById(x.MapId)?.PresetId == WowAtlas.PresetId)) ?? quiz.Questions[0];
 			_app.GoQuestion(quiz.Id, q.Id, null);

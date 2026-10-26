@@ -816,9 +816,16 @@ public partial class QuestionEditorScreen : Control
 		button.AddThemeStyleboxOverride("focus", new StyleBoxEmpty());
 		button.SetMeta(UiAudio.NoBounce, true);
 		button.Pressed += pick;
-		var image = picture != null
-			? new TextureRect { Texture = picture, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, ClipContents = true }
-			: (Control)U.Panel(U.Text("+", 30, C.Muted, Fonts.Bold, false, HorizontalAlignment.Center), "Inset");
+		Control image;
+		if (picture != null)
+		{
+			// (rounded like the "+" tile: the picture is clipped to a rounded panel)
+			var frame = new PanelContainer { ClipChildren = ClipChildrenMode.Only, MouseFilter = MouseFilterEnum.Ignore };
+			frame.AddThemeStyleboxOverride("panel", UiTheme.Box(Colors.White, 10, null, 0, 0, 0));
+			frame.AddChild(new TextureRect { Texture = picture, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, ClipContents = true });
+			image = frame;
+		}
+		else image = U.Panel(U.Text("+", 30, C.Muted, Fonts.Bold, false, HorizontalAlignment.Center), "Inset");
 		image.CustomMinimumSize = new Vector2(0, 72);
 		if (isNew)
 		{

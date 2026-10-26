@@ -90,7 +90,7 @@ public static class MapPresets
 		new("pubg-vikendi", "PUBG – Vikendi", 8.16, "res://assets/maps/pubg-vikendi.webp", "Official map © KRAFTON (PUBG API assets)."),
 		new("pubg-deston", "PUBG – Deston", 8.16, "res://assets/maps/pubg-deston.webp", "Official map © KRAFTON (PUBG API assets)."),
 		new("pubg-sanhok", "PUBG – Sanhok", 4.08, "res://assets/maps/pubg-sanhok.webp", "Official map © KRAFTON (PUBG API assets)."),
-		new(WowAtlas.PresetId, "WoW Classic – Azeroth (one seamless map, zoom into any zone)", null, WowAtlas.ImagePath(WowAtlas.World),
+		new(WowAtlas.PresetId, "WoW Classic – Azeroth", null, WowAtlas.ImagePath(WowAtlas.World),
 			"Maps © Blizzard Entertainment; zones stitched by the OpenMap addon (MIT). Distances in game yards, exact per zone."),
 	};
 
