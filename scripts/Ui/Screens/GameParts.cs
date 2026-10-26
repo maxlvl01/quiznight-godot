@@ -467,19 +467,23 @@ public static class GameParts
 			if (q.Choices![i] is not { } text) continue;
 			var color = C.Choice[i];
 			var correct = reveal?.CorrectIndices?.Contains(i) == true;
-			var bg = correct ? C.Panel2.Lerp(color, 0.22f) : C.Panel2;
-			var tile = U.Panel(GameParts.Row(14, Letter(i, 44), U.Text(text, 22, null, Fonts.Bold, true).Raw(),
-				reveal?.Counts is { } counts ? U.Mono($"{counts[i]}", 20, C.Muted) : U.Gap(0)), "Clear").Grow();
-			tile.AddThemeStyleboxOverride("panel", UiTheme.Box(bg, 14, correct ? color : C.Border, correct ? 3 : 1, 16, 14));
+			// (a key in the answer's own colour, like the players' buttons; at the reveal the right ones stay bright)
+			var tile = U.Panel(GameParts.Row(14, Letter(i, 44, true), U.Text(text, 22, ChoiceInk, Fonts.Bold, true).Raw(),
+				reveal?.Counts is { } counts ? U.Mono($"{counts[i]}", 20, ChoiceInk) : U.Gap(0)), "Clear").Grow();
+			tile.AddThemeStyleboxOverride("panel", new KeyBox(color, 16, 16, 14, 3, 7, false));
 			if (reveal != null && !correct) tile.Modulate = new Color(1, 1, 1, 0.35f);
 			grid.AddChild(tile);
 		}
 		return grid;
 	}
 
-	public static Control Letter(int i, int size) =>
-		U.Panel(U.Text(QuizRules.ChoiceLetters[i], size / 2, new Color("#14151b"), Fonts.Black, false, HorizontalAlignment.Center), "Clear")
-			.With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Choice[i], 10, null, 0, 0, 2))).MinSize(size, size);
+	/// <summary>Dark text on the bright answer colours.</summary>
+	public static readonly Color ChoiceInk = new("#14151b");
+
+	/// <param name="onKey">On a key in the answer's own colour: a dark badge with the letter in that colour.</param>
+	public static Control Letter(int i, int size, bool onKey = false) =>
+		U.Panel(U.Text(QuizRules.ChoiceLetters[i], size / 2, onKey ? C.Choice[i] : ChoiceInk, Fonts.Black, false, HorizontalAlignment.Center), "Clear")
+			.With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(onKey ? ChoiceInk with { A = 0.85f } : C.Choice[i], 10, null, 0, 0, 2))).MinSize(size, size);
 
 	public static List<MapPin> RevealPins(RoomState room) =>
 		room.Game!.Reveal!.Entries

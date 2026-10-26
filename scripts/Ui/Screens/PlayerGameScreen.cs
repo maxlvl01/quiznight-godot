@@ -345,17 +345,23 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			if (game.Question.Choices![i] is not { } text) continue;
 			var index = i;
 			var b = new Button { MouseDefaultCursorShape = CursorShape.PointingHand, CustomMinimumSize = new Vector2(0, 72) };
+			// (a key in the answer's own colour, like every button: KeyBox; a picked answer stays pushed in)
 			void Style(bool picked)
 			{
-				b.AddThemeStyleboxOverride("normal", UiTheme.Box(picked && multi ? C.Panel2.Lerp(C.Choice[index], 0.2f) : C.Panel2, 14, picked ? C.Choice[index] : C.Border, picked ? 3 : 1, 14, 10));
-				b.AddThemeStyleboxOverride("hover", UiTheme.Box(C.Panel2.Lerp(C.Choice[index], picked && multi ? 0.3f : 0.15f), 14, C.Choice[index], picked ? 3 : 1, 14, 10));
-				b.AddThemeStyleboxOverride("pressed", UiTheme.Box(C.Panel2.Lerp(C.Choice[index], 0.25f), 14, C.Choice[index], 2, 14, 10));
-				b.AddThemeStyleboxOverride("disabled", UiTheme.Box(C.Panel2, 14, picked ? C.Choice[index] : C.Border, picked ? 3 : 1, 14, 10));
+				var color = C.Choice[index];
+				b.AddThemeStyleboxOverride("normal", new KeyBox(picked ? color.Darkened(0.06f) : color, 16, 14, 10, 3, 7, picked));
+				b.AddThemeStyleboxOverride("hover", new KeyBox(color.Lightened(0.12f), 16, 14, 10, 3, 7, picked));
+				b.AddThemeStyleboxOverride("pressed", new KeyBox(color.Darkened(0.06f), 16, 14, 10, 3, 7, true));
+				b.AddThemeStyleboxOverride("hover_pressed", new KeyBox(color.Darkened(0.03f), 16, 14, 10, 3, 7, true));
+				b.AddThemeStyleboxOverride("disabled", new KeyBox(color, 16, 14, 10, 3, 7, picked));
+				b.AddThemeStyleboxOverride("focus", new StyleBoxEmpty());
+				// (the text sits on the key's face: it moves down with it when pushed in)
+				if (b.GetChildCount() > 0 && b.GetChild(0) is MarginContainer m) (m.OffsetTop, m.OffsetBottom) = picked ? (5, -3) : (0, -7);
 			}
 			Style(picks.Contains(i));
 			b.Disabled = locked != null;
 			if (locked != null && !picks.Contains(i)) b.Modulate = new Color(1, 1, 1, 0.4f);
-			var row = GameParts.Row(14, GameParts.Letter(i, 44), U.Text(text, 20, C.Text, Fonts.Bold, true).Raw());
+			var row = GameParts.Row(14, GameParts.Letter(i, 44, true), U.Text(text, 20, GameParts.ChoiceInk, Fonts.Bold, true).Raw());
 			row.MouseFilter = MouseFilterEnum.Ignore;
 			foreach (var c in row.GetChildren().OfType<Control>()) c.MouseFilter = MouseFilterEnum.Ignore;
 			b.AddChild(U.Pad(row, 14, 0, 14, 0).With(m =>
@@ -363,6 +369,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 				m.SetAnchorsPreset(LayoutPreset.FullRect);
 				m.MouseFilter = MouseFilterEnum.Ignore;
 			}));
+			Style(picks.Contains(i));
 			b.Pressed += () =>
 			{
 				if (!multi)
