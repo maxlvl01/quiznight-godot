@@ -4,8 +4,9 @@ Called **Quiznight?** since 0.9.0b (was "Quiznight!"): only what players see cha
 icon `tools/make_icon.py`, release titles). File and folder names stay "Quiznight"/"QuizNight!" (`config/name` names the
 exported data folder the updater's file lists use, `config/custom_user_dir_name` the saved quizzes), so don't rename those.
 
-A desktop app for hosting quiz nights with friends (Jackbox style: the host's screen goes on the
-TV or into a Discord stream). The **host is the quizmaster and never plays**. Players join with a
+A desktop app for hosting quiz nights with friends. **Everyone plays on their own PC** (talking on Discord): nobody
+watches a shared TV or a stream of the host's screen, so don't design for that. The **host is the quizmaster and never
+plays** the quiz. Players join with a
 4-character room code on their own PC.
 
 This is the Godot 4.7 / C# port of the web version at `C:\Users\Xbox3\Desktop\Quiznight!`

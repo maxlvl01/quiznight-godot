@@ -20,6 +20,11 @@ off (`- [x]`) when they're done, with the version they came in.
   one-off dev mask of land in the zone art (`overview-2`) that no Classic zone covers. Names known so far: Gilneas,
   Riverglades; any other new areas the mask shows need their names from Max. Tooltip/jump only: scoring stays in
   Classic's game yards. Screenshot from Max, 26 October 2026.
+- [ ] **No more "on the TV / in a stream" in the game's texts.** Quiznight? is played with everyone on their own PC
+  (talking on Discord), never from one shared screen. The home screen's tagline "Quiz nights with your friends — on
+  Discord or on the couch." (and LangDe) and the README's "over Discord or in the same room … the host's screen goes on
+  the TV or into a Discord stream" need new wording; HostNotes' tooltip "not in your stream if you share only the game
+  window" too (the notes window may still be handy, just not for that reason).
 - [ ] **Mini games in the lobby while waiting.** In the waiting room (and the host's lobby) a "Play something" button
   opens a 4:3 window over the lobby with a few small games:
   - **Tetris** — single player; best scores shown in the lobby.
@@ -31,8 +36,9 @@ off (`- [x]`) when they're done, with the version they came in.
     Pong needs it fast, ~30 updates/s over Steam's relay, so test with real lag); when the host starts the quiz
     every mini game closes at once (a match that's cut off counts for nobody); downloads of the quiz's files carry on
     underneath; a player who's in a match still counts as ready. Older games (version check) just don't see the button.
+  - Everyone plays on their own PC (nobody watches a shared TV or stream), so the host plays like anyone else.
   - Open: do the versus stats last only for this lobby, or are they kept (per player id, like the eternal table:
-    an all-time Pong table)? Can the host play while the lobby is on the TV/stream (everyone watches the host's match)?
+    an all-time Pong table)?
 
 ---
 
