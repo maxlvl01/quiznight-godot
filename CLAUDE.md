@@ -148,6 +148,14 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
 
 ## Gotchas learned so far
 
+- **The game starts as a small borderless window (800×450, project.godot's window size override + borderless):** that's
+  the anti-cheat splash (`Ui/IntroSequence.cs`: `AntiCheatSplash`, its first frame is the boot splash, `--make-splash`).
+  App then turns it into the saved window (`Prefs.ApplyWindow`) and plays the intro (`IntroSequence`: video, cards,
+  title screen whose logo glides into `HomeScreen.Logo`). Runs with arguments after `--` get their window at once, no
+  intro. Dev: `--splash [--intro-from N] [--intro-start]`, `--anti-cheat`. No music while `IntroSequence.HoldsMusic`.
+- **Custom cursors** (`assets/cursors`, `tools/make_cursors.py`) are set in `App.UseCursors`, cleared in `App._ExitTree`
+  (else Godot reports their textures as leaked at exit).
+
 - **`default_texture_filter=3` is Nearest Mipmap** (the project setting's order differs from CanvasItem's enum), so
   scaled art looks blocky. Maps set `TextureFilter = LinearWithMipmaps` on their canvas.
 - **Headless runs (bots, self-test) have a dummy renderer**: don't build textures there (`WowMapCanvas` skips drawing).

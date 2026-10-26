@@ -13,6 +13,30 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.11.0b] — "Opening Night": an intro like a console game's, a title screen, New Year, credits and drag and drop
+
+### Added
+- **An intro when the game starts,** like a console game's:
+  - the **Pinke Geilheit Neural-Level Anti-Cheat** opens first, in a small window of its own while the game loads, like Easy Anti-Cheat's (it checks nothing, it just looks very serious);
+  - then the game's window: the Xbox "World Premiere" sting, Made with Godot, maxlvl01 presents, Pinke Geilheit Publishing (with its moving logo), music by Epidemic Sound, sponsored by TrackGlow, and the credits;
+  - and a **title screen**: the animated logo big in the middle and "Press any button". Pressing one plays the welcome line, and the logo glides up into its place on the home screen while the menu fades in around it.
+  - A key or a click skips the card showing, and Escape skips straight to the title screen. With "less motion" switched on, the intro is left out.
+- **The title screen has a TrackGlow button** in the corner that opens IBassGaming's Patreon.
+- **Credits:** an "i" button in the home screen's music player opens them: every song and its artist, every map's source, the engine, the fonts and the full licence texts.
+- **Happy New Year skin,** 27 December to 7 January, right after Christmas: midnight blue and gold, the same snow as at Christmas (also on the lobby and the BETA sticker), fireworks bursting over the home screen and the lobby, and a party hat on the logo.
+- **Custom mouse cursors** in the game's style: white with a dark outline and a small shadow, like the buttons. There is one for every kind of pointer: the arrow, the hand over buttons, the grabbing hand while dragging, the text cursor, "not allowed", busy, the crosshair and the resize and move arrows.
+- **Settings: what the Neural-Level Anti-Cheat does.** It reads your thoughts and bans you if you even think about cheating.
+
+### Changed
+- **The Fast Pass always answers first.** Before, it only took over from someone who had buzzed less than a second earlier; anyone who had been answering for longer kept their turn, and the Fast Pass waited second in line. Now whoever holds the Fast Pass answers first whenever they buzz. The one who was answering goes back to the front of the line, and anyone already marked wrong stays out. It's played blind, before the question is shown, so it stays a gamble.
+- **Questions in a quiz are moved by dragging** (a line shows where the question lands), or by typing its new number into the number box in front of it. The ↑ and ↓ buttons are gone.
+- **The welcome line runs straight into the music.** There was a gap of about two seconds. The recording ended in near-silence, and some songs start with up to 1.4 seconds of silence. The line's silent end is trimmed, the music comes in just before the line ends, and songs start where their sound starts.
+- **No music during the intro.** The music waits for the title screen to be left and for the welcome line.
+
+### Fixed
+- **"Now playing" covered buttons:** in the quiz overview, the card slid in over "Copy share code" at the bottom left (it read "y share code"). It now slides in above a screen's bottom buttons.
+- **German text for the "Step by step" points note** was missing; it showed in English.
+
 ## [0.10.8b]
 
 ### Changed
