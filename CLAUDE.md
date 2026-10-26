@@ -171,8 +171,9 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
   `data_QuizNight!_windows_x86_64` folder and Steam works from there (checked with `--steam-check`).
 - **Test builds first (from 0.10.3b):** every new version goes to the private `maxlvl01/quiznight-test-releases` with
   `tools/release.sh --test` (zips only, title "… (test)"); Max downloads and tries it there. Only when he says a version is
-  ready does it go public with plain `tools/release.sh` (players shouldn't download every hotfix). The public release's
-  "What's new" covers every version since the last public one (the shipped CHANGELOG has them all). Test builds still
+  ready does it go public with plain `tools/release.sh` (players shouldn't download every hotfix). Going public folds the test
+  versions' changelog sections since the last public release into that version's one section (`tools/fold_changelog.py`,
+  run by `release.sh`; commit CHANGELOG.md afterwards), so players see one version with everything. Test builds still
   check the public repo for updates, so they don't update themselves. 0.10.3b was public for a few minutes and is a
   draft on the public repo now (nobody had downloaded it); drafts aren't deleted either.
 - **Releases & updates:** `tools/release.sh` exports, zips and publishes a GitHub release on the public

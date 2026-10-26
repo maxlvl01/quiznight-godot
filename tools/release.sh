@@ -33,6 +33,12 @@ NOTES="build/notes-$VERSION.md"
 
 echo "== Quiznight $VERSION"
 grep -q "^## \[$VERSION\]" CHANGELOG.md || { echo "CHANGELOG.md has no section '## [$VERSION]'"; exit 1; }
+# Public release: the test versions since the last public one are folded into this version's section, so players see
+# one version with everything (tools/fold_changelog.py; commit CHANGELOG.md afterwards). Test builds keep their own.
+if [ -z "$TEST" ] && [ -z "$DRY" ]; then
+	LAST_PUBLIC=$(gh api "repos/$REPO/releases/latest" --jq .tag_name | sed 's/^v//')
+	py -I tools/fold_changelog.py CHANGELOG.md "$VERSION" "$LAST_PUBLIC"
+fi
 # The token that lets games upload their results to maxlvl01/quiznight-results (Storage/ResultsUpload.cs); not in git.
 [ -s results-token.txt ] || echo "Warning: results-token.txt is missing: this build won't upload quiz night results."
 
@@ -135,3 +141,4 @@ find "$PACKS" -name '*.zip' -print0 | xargs -0 -r gh release upload "v$VERSION" 
 gh release upload "v$VERSION" build/update-windows.json build/update-linux.json --repo "$REPO" --clobber
 gh release edit "v$VERSION" --repo "$REPO" --draft=false --latest
 echo "Done: https://github.com/$REPO/releases/tag/v$VERSION"
+git diff --quiet CHANGELOG.md || echo "CHANGELOG.md changed (test versions folded in): commit it."
