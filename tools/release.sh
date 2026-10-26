@@ -84,6 +84,14 @@ echo "== Self-test of the exported build"
 tail -1 build/selftest.log
 
 echo "== Zipping"
+# Test builds carry test-channel.txt next to the game: it updates from the private test repo (Storage/Updater.cs).
+for dir in "$OUT" "$OUT_LINUX"; do
+	if [ -n "$TEST" ]; then
+		echo "Internal Quiznight? test build: updates come from the private maxlvl01/quiznight-test-releases." > "$dir/test-channel.txt"
+	else
+		rm -f "$dir/test-channel.txt"
+	fi
+done
 rm -f "$ZIP"
 powershell -NoProfile -Command "Compress-Archive -Path '$OUT/*' -DestinationPath '$ZIP' -CompressionLevel Optimal"
 ls -la "$ZIP"

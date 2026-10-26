@@ -6,6 +6,9 @@
 // pack, about a MB) — or the whole zip when a release has no update list. Then a small script (PowerShell on Windows, sh on Linux) waits for the game to
 // close, copies the new files over the install folder and starts it again.
 // Only in exported builds — never while running from the Godot editor or a dev build.
+// Test builds (a test-channel.txt next to the game, put there by `tools/release.sh --test`) update from the private
+// TestRepo instead: its releases are pre-releases (GitHub's "latest" skips those, so the newest is picked from the
+// list), read with the token the game ships with, and only have the zips (no update lists).
 
 using System;
 using System.IO;
@@ -25,6 +28,12 @@ namespace QuizNight.Storage;
 public static class Updater
 {
 	public const string ReleasesRepo = "maxlvl01/quiznight-releases";
+	public const string TestRepo = "maxlvl01/quiznight-test-releases";
+
+	/// <summary>An internal test build: it has test-channel.txt next to the game and updates from TestRepo.</summary>
+	public static bool TestChannel => OS.HasFeature("template") && File.Exists(Path.Combine(Path.GetDirectoryName(OS.GetExecutablePath()) ?? "", "test-channel.txt"));
+
+	static string Repo => TestChannel ? TestRepo : ReleasesRepo;
 	static bool IsWindows => OS.GetName() == "Windows";
 	/// <summary>The release asset for this system: "Quiznight-0.5.0a-windows.zip" or "…-linux.zip".</summary>
 	public static string ZipSuffix => IsWindows ? "-windows.zip" : "-linux.zip";
@@ -32,7 +41,8 @@ public static class Updater
 	/// <summary>The update list for this system.</summary>
 	static string ManifestName => IsWindows ? "update-windows.json" : "update-linux.json";
 
-	public sealed record Release(AppVersion Version, string ZipUrl, long Size, string? ManifestUrl);
+	/// <param name="Private">From the private test repo: downloads need the token.</param>
+	public sealed record Release(AppVersion Version, string ZipUrl, long Size, string? ManifestUrl, bool Private = false);
 	sealed record FileEntry(string Path, long Size, string Sha256, string Pack);
 	sealed record Pack(string Url, long Size, string Sha256);
 
@@ -52,6 +62,8 @@ public static class Updater
 	/// </summary>
 	public static async Task<AppVersion?> LatestVersionAsync()
 	{
+		// (test builds: the private repo has no public page to look at, the API with the token it is; 5000 checks an hour)
+		if (TestChannel) return (await CheckTestAsync(false))?.Version;
 		try
 		{
 			using var http = NewClient(TimeSpan.FromSeconds(10));
@@ -68,6 +80,7 @@ public static class Updater
 	/// <summary>The newest release if it's newer than this game, else null (also when offline).</summary>
 	public static async Task<Release?> CheckAsync()
 	{
+		if (TestChannel) return await CheckTestAsync(true);
 		try
 		{
 			using var http = NewClient(TimeSpan.FromSeconds(10));
@@ -87,6 +100,39 @@ public static class Updater
 		catch (Exception e)
 		{
 			GD.Print($"Update check skipped: {e.Message}");
+			return null;
+		}
+	}
+
+	/// <summary>
+	/// Test builds: the newest release in the private TestRepo (pre-releases included, drafts not), if newer than this game.
+	/// </summary>
+	/// <param name="newerOnly">False: the newest version whatever it is (for the every-minute check).</param>
+	static async Task<Release?> CheckTestAsync(bool newerOnly)
+	{
+		try
+		{
+			if (ResultsUpload.Token is not { } token) return null;
+			using var http = NewClient(TimeSpan.FromSeconds(10));
+			http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+			var json = await http.GetStringAsync($"https://api.github.com/repos/{TestRepo}/releases?per_page=20");
+			var newest = (JsonNode.Parse(json) as JsonArray)?.OfType<JsonObject>()
+				.Where(r => r["draft"]?.GetValue<bool>() != true)
+				.Select(r => (Release: r, Version: AppVersion.Parse(r["tag_name"]?.GetValue<string>())))
+				.Where(r => r.Version != null)
+				.OrderByDescending(r => r.Version!.Value)
+				.FirstOrDefault();
+			if (newest?.Version is not { } v) return null;
+			if (newerOnly && (AppVersion.Parse(App.Version) is not { } c || !(v > c))) return null;
+			var assets = (newest.Value.Release["assets"] as JsonArray)?.OfType<JsonObject>().ToList() ?? new();
+			var zip = assets.FirstOrDefault(a => a["name"]?.GetValue<string>().EndsWith(ZipSuffix, StringComparison.OrdinalIgnoreCase) == true);
+			// (the asset's API address: with the token and "octet-stream" it sends you on to the file)
+			if (zip?["url"]?.GetValue<string>() is not { } url) return null;
+			return new Release(v, url, zip["size"]?.GetValue<long>() ?? 0, null, true);
+		}
+		catch (Exception e)
+		{
+			GD.Print($"Test update check skipped: {e.Message}");
 			return null;
 		}
 	}
@@ -237,8 +283,16 @@ public static class Updater
 	{
 		var zipPath = Path.Combine(UpdateDir, "update.zip");
 		using (var http = NewClient(TimeSpan.FromMinutes(30)))
-		using (var response = await http.GetAsync(release.ZipUrl, HttpCompletionOption.ResponseHeadersRead))
+		using (var request = new HttpRequestMessage(HttpMethod.Get, release.ZipUrl))
 		{
+			// (the private test repo: the token, and the file itself rather than its description; GitHub sends the download on
+			// to its file storage, and the token isn't passed on there)
+			if (release.Private && ResultsUpload.Token is { } token)
+			{
+				request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+				request.Headers.Accept.ParseAdd("application/octet-stream");
+			}
+			using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
 			response.EnsureSuccessStatusCode();
 			var total = response.Content.Headers.ContentLength ?? release.Size;
 			await using var from = await response.Content.ReadAsStreamAsync();
