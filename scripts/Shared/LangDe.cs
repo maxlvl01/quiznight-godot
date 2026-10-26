@@ -1486,5 +1486,16 @@ public static class LangDe
 		["Hit the {0} first"] = "Triff zuerst die {0}",
 		["Your ball: white for the left player, yellow for the right. First to 20."] = "Deine Kugel: Weiß für links, Gelb für rechts. Wer zuerst 20 hat, gewinnt.",
 		["Your ball: white for the left player, yellow for the right. First to 3."] = "Deine Kugel: Weiß für links, Gelb für rechts. Wer zuerst 3 hat, gewinnt.",
+		["Back: the song from the start (twice: the previous song)"] = "Zurück: das Lied von vorn (zweimal: das vorige Lied)",
+		["Shuffle"] = "Zufällig",
+		["Shuffle: on"] = "Zufällig: an",
+		["Shuffle: off (by title)"] = "Zufällig: aus (nach Titel)",
+		["Repeat"] = "Wiederholen",
+		["Repeat this song: on"] = "Dieses Lied wiederholen: an",
+		["Repeat this song: off"] = "Dieses Lied wiederholen: aus",
+		["Click to jump"] = "Klicken zum Springen",
+		["Lag for the break: shoot your ball off the right cushion and back. Whoever stops closest to the left cushion breaks."] = "Ausstoßen: Stoß deine Kugel an die rechte Bande und zurück. Wer am nächsten an der linken Bande liegen bleibt, darf anstoßen.",
+		["Who's closer?"] = "Wer ist näher dran?",
+		["Waiting for the other shot …"] = "Warte auf den anderen Stoß …",
 	};
 }

@@ -69,7 +69,8 @@ public partial class UiAudio : Node
 			&& (n == name || n.Length == name.Length + 1 && n.StartsWith(name) && char.IsDigit(n[^1]));
 		var own = all.Where(t => IsPlace(t, place)).ToList();
 		var list = own.Count > 0 ? own : all.Where(t => !Places.Any(pl => IsPlace(t, pl))).ToList();
-		var shuffled = list.OrderBy(_ => Random.Shared.Next()).ToList();
+		// (shuffled, or by title when the jukebox's shuffle is off)
+		var shuffled = Settings.MusicShuffle ? list.OrderBy(_ => Random.Shared.Next()).ToList() : list.OrderBy(t => Describe(t).Title, StringComparer.CurrentCulture).ToList();
 		// (the very first music of a run starts with the intro song)
 		if (!_introDone && shuffled.FirstOrDefault(t => t.Contains(IntroSong, StringComparison.OrdinalIgnoreCase)) is { } intro)
 		{
@@ -126,9 +127,9 @@ public partial class UiAudio : Node
 		if (Find("res://assets/soundeffects/ui/back") is { } back) _backSound = GD.Load<AudioStream>(back);
 		_music.Finished += () =>
 		{
-			// (one track after another; a single one starts over)
+			// (one track after another; a single one starts over; with repeat on, the same one again)
 			if (_tracks.Count == 0) return;
-			_track = (_track + 1) % _tracks.Count;
+			if (!Settings.MusicRepeat) _track = (_track + 1) % _tracks.Count;
 			StartTrack();
 		};
 	}
@@ -198,6 +199,48 @@ public partial class UiAudio : Node
 	{
 		if (_tracks.Count == 0) return;
 		PlaySong((_track + by + _tracks.Count) % _tracks.Count);
+	}
+
+	ulong _backAt;
+
+	/// <summary>
+	/// The back button: the song starts over; pressed again within two seconds, the previous song plays (like a car
+	/// radio).
+	/// </summary>
+	public void Back()
+	{
+		if (_tracks.Count == 0) return;
+		var now = Time.GetTicksMsec();
+		var twice = now - _backAt < 2000;
+		_backAt = now;
+		if (twice) Skip(-1);
+		else PlaySong(_track);
+	}
+
+	/// <summary>Shuffle on or off (saved): the songs are put in the new order, and the one playing carries on.</summary>
+	public void SetShuffle(bool on)
+	{
+		Settings.MusicShuffle = on;
+		var current = CurrentSong;
+		_tracks = on ? _tracks.OrderBy(_ => Random.Shared.Next()).ToList() : _tracks.OrderBy(t => Describe(t).Title, StringComparer.CurrentCulture).ToList();
+		// (shuffled: the one playing goes first, so the rest are all still to come)
+		if (current != null && on)
+		{
+			_tracks.Remove(current);
+			_tracks.Insert(0, current);
+		}
+		_track = current != null ? Math.Max(0, _tracks.IndexOf(current)) : 0;
+	}
+
+	/// <summary>How far into the song it is, and how long it is, in seconds (0 when nothing plays).</summary>
+	public double Position => _music.Stream != null && (_music.Playing || _music.StreamPaused) ? _music.GetPlaybackPosition() : 0;
+	public double Length => _music.Stream?.GetLength() ?? 0;
+
+	/// <summary>Jumps to a point in the song (the progress bar).</summary>
+	public void Seek(double seconds)
+	{
+		if (_music.Stream == null || !_music.Playing) return;
+		_music.Seek((float)Math.Clamp(seconds, 0, Math.Max(0, Length - 0.5)));
 	}
 
 	public void PlaySong(int index)

@@ -247,6 +247,20 @@ public static class Settings
 		set => Set("music_on", value ? "on" : "off");
 	}
 
+	/// <summary>The jukebox plays the songs shuffled (on) or by title (off).</summary>
+	public static bool MusicShuffle
+	{
+		get => Get("music_shuffle", "on") != "off";
+		set => Set("music_shuffle", value ? "on" : "off");
+	}
+
+	/// <summary>The jukebox plays the same song again and again.</summary>
+	public static bool MusicRepeat
+	{
+		get => Get("music_repeat", "off") == "on";
+		set => Set("music_repeat", value ? "on" : "off");
+	}
+
 	/// <summary>Whether the space picture beside the screens (wide monitors) moves with the mouse.</summary>
 	public static bool BackgroundMotion
 	{

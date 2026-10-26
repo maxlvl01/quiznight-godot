@@ -10,7 +10,7 @@ namespace QuizNight.Ui;
 
 public partial class MediaIcon : Control
 {
-	public enum Kind { Play, Pause, Previous, Next, List, Note, Gear, Info }
+	public enum Kind { Play, Pause, Previous, Next, List, Note, Gear, Info, Shuffle, Repeat }
 
 	Kind _kind;
 	public Kind Shape
@@ -105,6 +105,27 @@ public partial class MediaIcon : Control
 				DrawCircle(P(0.5f, 0.28f), 0.075f * m, Color);
 				DrawRect(new Rect2(P(0.43f, 0.42f), new Vector2(0.14f, 0.34f) * m), Color);
 				break;
+			case Kind.Shuffle:
+			{
+				// (two arrows crossing on their way to the right)
+				var w = Mathf.Max(1.5f, 0.11f * m);
+				DrawPolyline(new[] { P(0.04f, 0.22f), P(0.3f, 0.22f), P(0.66f, 0.78f), P(0.84f, 0.78f) }, Color, w, true);
+				DrawPolyline(new[] { P(0.04f, 0.78f), P(0.3f, 0.78f), P(0.66f, 0.22f), P(0.84f, 0.22f) }, Color, w, true);
+				DrawColoredPolygon(new[] { P(0.8f, 0.06f), P(1f, 0.22f), P(0.8f, 0.38f) }, Color);
+				DrawColoredPolygon(new[] { P(0.8f, 0.62f), P(1f, 0.78f), P(0.8f, 0.94f) }, Color);
+				break;
+			}
+			case Kind.Repeat:
+			{
+				// (the usual loop of two arrows, round the corners, with a small "1": this song again)
+				var w = Mathf.Max(1.5f, 0.1f * m);
+				DrawPolyline(new[] { P(0.1f, 0.62f), P(0.1f, 0.34f), P(0.22f, 0.22f), P(0.76f, 0.22f) }, Color, w, true);
+				DrawColoredPolygon(new[] { P(0.72f, 0.06f), P(0.94f, 0.22f), P(0.72f, 0.38f) }, Color);
+				DrawPolyline(new[] { P(0.9f, 0.38f), P(0.9f, 0.66f), P(0.78f, 0.78f), P(0.24f, 0.78f) }, Color, w, true);
+				DrawColoredPolygon(new[] { P(0.28f, 0.62f), P(0.06f, 0.78f), P(0.28f, 0.94f) }, Color);
+				DrawRect(new Rect2(P(0.46f, 0.36f), new Vector2(0.09f, 0.28f) * m), Color);
+				break;
+			}
 			case Kind.Note:
 				DrawCircle(P(0.26f, 0.78f), 0.15f * m, Color);
 				DrawCircle(P(0.76f, 0.68f), 0.15f * m, Color);
@@ -113,6 +134,89 @@ public partial class MediaIcon : Control
 				DrawColoredPolygon(new[] { P(0.34f, 0.12f), P(0.94f, 0.02f), P(0.94f, 0.2f), P(0.34f, 0.3f) }, Color);
 				break;
 		}
+	}
+}
+
+/// <summary>The jukebox's shuffle and repeat buttons: lit (in the accent colour) while on; saved.</summary>
+public static class Toggles
+{
+	static UiAudio Audio => App.I.Audio;
+
+	public static Button Shuffle(float size = 36)
+	{
+		Button? b = null;
+		b = MediaIcon.Button(MediaIcon.Kind.Shuffle, "Shuffle", () =>
+		{
+			Audio.SetShuffle(!Settings.MusicShuffle);
+			Lit(b!, Settings.MusicShuffle, "Shuffle: on", "Shuffle: off (by title)");
+		}, size);
+		Lit(b, Settings.MusicShuffle, "Shuffle: on", "Shuffle: off (by title)");
+		return b;
+	}
+
+	public static Button Repeat(float size = 36)
+	{
+		Button? b = null;
+		b = MediaIcon.Button(MediaIcon.Kind.Repeat, "Repeat", () =>
+		{
+			Settings.MusicRepeat = !Settings.MusicRepeat;
+			Lit(b!, Settings.MusicRepeat, "Repeat this song: on", "Repeat this song: off");
+		}, size);
+		Lit(b, Settings.MusicRepeat, "Repeat this song: on", "Repeat this song: off");
+		return b;
+	}
+
+	static void Lit(Button b, bool on, string onTip, string offTip)
+	{
+		MediaIcon.Of(b).Color = on ? C.Accent : C.Muted;
+		MediaIcon.Of(b).QueueRedraw();
+		b.TooltipText = on ? onTip : offTip;
+	}
+}
+
+/// <summary>
+/// How far into the song it is: a bar with the time played on the left and the time left on the right ("1:23", "-2:04");
+/// click or drag on it to jump.
+/// </summary>
+public partial class SongProgress : Control
+{
+	static UiAudio Audio => App.I.Audio;
+	bool _dragging;
+
+	public SongProgress()
+	{
+		CustomMinimumSize = new Vector2(0, 30);
+		MouseDefaultCursorShape = CursorShape.PointingHand;
+		TooltipText = Lang.T("Click to jump");
+	}
+
+	Rect2 Bar => new(0, 4, Size.X, 6);
+
+	public override void _Process(double delta) => QueueRedraw();
+
+	public override void _GuiInput(InputEvent e)
+	{
+		if (e is InputEventMouseButton { ButtonIndex: MouseButton.Left } button) _dragging = button.Pressed;
+		if (!_dragging || Audio.Length <= 0 || e is not InputEventMouse mouse) return;
+		Audio.Seek(Mathf.Clamp(mouse.Position.X / Size.X, 0, 1) * Audio.Length);
+		AcceptEvent();
+	}
+
+	static string Time(double seconds) => $"{(int)seconds / 60}:{(int)seconds % 60:00}";
+
+	public override void _Draw()
+	{
+		var length = Audio.Length;
+		var at = Settings.MusicOn ? Audio.Position : 0;
+		var share = length > 0 ? (float)Math.Clamp(at / length, 0, 1) : 0;
+		var bar = Bar;
+		DrawStyleBox(UiTheme.Box(C.Well, 3, null, 0, 0, 0), bar);
+		if (share > 0) DrawStyleBox(UiTheme.Box(C.Accent, 3, null, 0, 0, 0), new Rect2(bar.Position, new Vector2(Mathf.Max(6, bar.Size.X * share), bar.Size.Y)));
+		DrawCircle(new Vector2(bar.Size.X * share, bar.GetCenter().Y), 6, C.Text);
+		if (length <= 0) return;
+		var font = Fonts.Bold;
+		DrawString(font, new Vector2(0, 28), Time(at), HorizontalAlignment.Left, -1, 12, C.Muted);
+		DrawString(font, new Vector2(0, 28), "-" + Time(Math.Max(0, length - at)), HorizontalAlignment.Right, Size.X, 12, C.Muted);
 	}
 }
 
@@ -137,12 +241,14 @@ public partial class MusicPlayer : VBoxContainer
 			Refresh();
 		}, 40);
 		AddChild(U.H(14, disc, U.V(0, U.Text(Lang.T("Now playing").ToUpper(), 11, C.Muted, Fonts.Spaced), _title, _artist).Grow().With(v => v.SizeFlagsVertical = SizeFlags.ShrinkCenter)));
+		AddChild(new SongProgress());
 		var controls = U.H(6,
-			MediaIcon.Button(MediaIcon.Kind.Previous, "Previous song", () => Audio.Skip(-1)),
+			MediaIcon.Button(MediaIcon.Kind.Previous, "Back: the song from the start (twice: the previous song)", () => Audio.Back()),
 			_toggle,
 			MediaIcon.Button(MediaIcon.Kind.Next, "Next song", () => Audio.Skip(1)),
 			MediaIcon.Button(MediaIcon.Kind.List, "All songs", () => Jukebox.I?.Open(true)),
 			U.Fill(),
+			Toggles.Shuffle(), Toggles.Repeat(),
 			MediaIcon.Button(MediaIcon.Kind.Info, "Credits and licences", CreditsWindow.Open));
 		AddChild(controls);
 		_disc = disc;

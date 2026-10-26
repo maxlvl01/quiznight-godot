@@ -61,12 +61,14 @@ public partial class Jukebox : Control
 			Refresh();
 		}, 40);
 		var controls = U.H(8,
-			MediaIcon.Button(MediaIcon.Kind.Previous, "Previous song", () => Audio.Skip(-1), 40),
+			Toggles.Shuffle(32),
+			MediaIcon.Button(MediaIcon.Kind.Previous, "Back: the song from the start (twice: the previous song)", () => Audio.Back(), 40),
 			_toggle,
-			MediaIcon.Button(MediaIcon.Kind.Next, "Next song", () => Audio.Skip(1), 40)).Center();
+			MediaIcon.Button(MediaIcon.Kind.Next, "Next song", () => Audio.Skip(1), 40),
+			Toggles.Repeat(32)).Center();
 		var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 200), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
 		scroll.AddChild(_list.With(l => l.SizeFlagsHorizontal = SizeFlags.ExpandFill));
-		_panel = U.Panel(U.V(10, U.Eyebrow("Jukebox"), U.V(0, _title, _artist), controls, new HSeparator(), scroll), "Clear");
+		_panel = U.Panel(U.V(10, U.Eyebrow("Jukebox"), U.V(0, _title, _artist), new SongProgress(), controls, new HSeparator(), scroll), "Clear");
 		_panel.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel, 14, C.Border, 2, 14, 12));
 		_panel.CustomMinimumSize = new Vector2(340, 0);
 		_panel.Visible = false;
@@ -83,7 +85,8 @@ public partial class Jukebox : Control
 		Audio.TrackStarted += _ => Refresh();
 		Refresh();
 		// (dev runs: --jukebox opens it, for screenshots)
-		if (OS.GetCmdlineUserArgs().Contains("--jukebox")) Callable.From(() => Open(true)).CallDeferred();
+		// (after a moment: the screen the run opens on comes first, and the home screen would close it)
+		if (OS.GetCmdlineUserArgs().Contains("--jukebox")) GetTree().CreateTimer(1.5).Timeout += () => Open(true);
 	}
 
 	public void Open(bool open)
