@@ -10,7 +10,7 @@ off (`- [x]`) when they're done, with the version they came in.
 
 ---
 
-## 0.12.0d3 — collecting (nothing built yet)
+## 0.12.0d4 — collecting (nothing built yet)
 
 **Before 0.12.0b goes public, check:** a public 0.11.4b (it has no results token, see 0.12.0d3's changelog; its update
 check doesn't need one) updates itself to 0.12.0b, and the new build then uploads results and crash logs again.
@@ -34,6 +34,14 @@ check doesn't need one) updates itself to 0.12.0b, and the new build then upload
   screenshot of the screen as it was when 🐞 was pressed (`.png`, same name). "Thanks, Max will look at it"
   afterwards; if the upload fails it's kept and sent on the next start. Max reads them in the repo and hands them to
   Claude. (Settings' "What the game sends" mentions it.)
+
+---
+
+## 0.12.0d3 — test build (done)
+
+- [x] (0.12.0d3) Builds carry the results token again (0.11.4b, 0.12.0d1 and d2 had none: no test updates, logs or
+  results uploads); `release.sh` stops without it.
+- [x] (0.12.0d3) The buzzer's TRACKGLOW engraving moved to the plate's top strip, above the key.
 
 ---
 
