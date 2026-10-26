@@ -188,7 +188,7 @@ public partial class ProfileScreen : Control
 		var form = U.H(6);
 		foreach (var (night, p) in mine.TakeLast(5))
 		{
-			var pill = U.Panel(U.Mono(Lang.Ordinal(p.Place), 14, p.Place <= 3 ? C.Bg : C.Text).With(l => l.HorizontalAlignment = HorizontalAlignment.Center));
+			var pill = U.Panel(U.Mono(Lang.Ordinal(p.Place), 14, p.Place <= 3 ? C.OnBright : C.Text).With(l => l.HorizontalAlignment = HorizontalAlignment.Center));
 			pill.AddThemeStyleboxOverride("panel", UiKitBox(C.Medal(p.Place) ?? C.Panel2));
 			pill.CustomMinimumSize = new Vector2(46, 28);
 			pill.TooltipText = $"{EternalTableScreen.Date(night.Date)} · {night.Quiz} · {Lang.F("{0} pts", p.Points)}";
@@ -216,7 +216,7 @@ public partial class ProfileScreen : Control
 	/// <summary>The award for whoever the hosts handed the most points to.</summary>
 	public static Control PuppyBadge(int size)
 	{
-		var badge = U.Panel(U.Text(Lang.T("Host's Favourite Puppy"), size, C.Bg, Fonts.Black).Raw());
+		var badge = U.Panel(U.Text(Lang.T("Host's Favourite Puppy"), size, C.OnBright, Fonts.Black).Raw());
 		badge.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Pink, 999, null, 0, 10, 3));
 		badge.SizeFlagsVertical = SizeFlags.ShrinkCenter;
 		badge.TooltipText = Lang.T("Award: the hosts handed them more points than anyone else (bonuses and score changes by hand).");
@@ -451,7 +451,7 @@ public partial class ProfilePitch : Control
 			// (the attribute's name, short enough for its spot; the keeper's above, out of the box)
 			if (Spots[type].Y < 0.9f) DrawString(Fonts.Mono, p + new Vector2(-55, 26), Lang.T(a.Name), HorizontalAlignment.Center, 110, 11, new Color(1, 1, 1, 0.85f));
 			else DrawString(Fonts.Mono, p + new Vector2(16, 5), Lang.T(a.Name), HorizontalAlignment.Left, 110, 11, new Color(1, 1, 1, 0.85f));
-			if (a.Rating is { } r) DrawString(Fonts.Mono, p + new Vector2(-15, 5), $"{r}", HorizontalAlignment.Center, 30, 11, C.Bg);
+			if (a.Rating is { } r) DrawString(Fonts.Mono, p + new Vector2(-15, 5), $"{r}", HorizontalAlignment.Center, 30, 11, C.OnBright);
 		}
 	}
 

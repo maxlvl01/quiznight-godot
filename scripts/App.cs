@@ -24,7 +24,8 @@ public partial class App : Control
 	/// LAN play is for testing: exported games hide it until the developer code is typed on the home screen
 	/// (until the game closes). Runs from the editor always have it.
 	/// </summary>
-	public static bool LanUnlocked { get; set; } = !OS.HasFeature("template");
+	// (test builds always start in developer mode)
+	public static bool LanUnlocked { get; set; } = !OS.HasFeature("template") || Updater.TestChannel;
 	public const string DevCode = "61969";
 
 	static readonly string LanClientId = QuizStore.MakeId();

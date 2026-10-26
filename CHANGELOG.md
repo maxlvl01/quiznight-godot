@@ -13,8 +13,16 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+### Added
+- **Six new skins** (Settings → Skin): **Formula 1** (carbon black, F1 red and white), **AMOLED black** (true black, for OLED screens), **Daylight** (a light skin that's easy on the eyes: warm off-white instead of glaring white, dark plum text and outlines), **#effzeh** (red and white, for 1. FC Köln fans), and two that only show up in their season: **Halloween** in October (pumpkin orange and purple, cobwebs in the corners, bats flapping across, carved pumpkins, and the logo gets pumpkins, a cobweb and a bat) and **Christmas** from 1 to 26 December (pine green, red and gold, snow falling, fairy lights along the top, and the logo gets a snow cap and a Santa hat). After its season a seasonal skin goes back to Quiznight Purple. The decorations sit behind everything you need to read, and stand still with "less motion".
+
 ### Changed
+- **"Magic of December" only plays at Christmas time** (1 to 26 December), like "Merriest Christmas of All".
 - **The map cards in a map pin question are keys like the other buttons;** the chosen map stays pushed in. Long map names wrap onto a second line instead of being cut off ("Cyberpunk 2077 – Night City").
+- **Developer mode shows as a small "DEV" badge** in the home screen's corner instead of a notice that pushed the page down (and made it scroll).
+
+### Fixed
+- **The lobby code and name fields disappeared** after switching "Play over" to LAN and back to Steam: rebuilding the join card freed the two fields along with their old rows. They're kept now.
 
 ## [0.10.4b]
 

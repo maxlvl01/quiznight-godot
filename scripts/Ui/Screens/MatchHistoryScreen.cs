@@ -79,7 +79,7 @@ public partial class MatchHistoryScreen : Control
 			var who = new PublicPlayer { Id = p.Id, Name = p.Name, Connected = true, Color = Limits.PlayerColors[p.Id.Aggregate(0, (h, ch) => (h * 31 + ch) & 0xffffff) % Limits.PlayerColors.Length] };
 			var avatar = new Avatar(who, place == 1 ? 40 : 32) { TooltipText = Lang.F("{0}: {1} · {2} pts", Lang.Ordinal(place), p.Name, p.Points) };
 			// (steps of clearly different heights: 1st highest, then 2nd, then 3rd)
-			var label = U.Text(Lang.Ordinal(place), 11, C.Bg, Fonts.Black, false, HorizontalAlignment.Center).With(l => l.VerticalAlignment = VerticalAlignment.Center);
+			var label = U.Text(Lang.Ordinal(place), 11, C.OnBright, Fonts.Black, false, HorizontalAlignment.Center).With(l => l.VerticalAlignment = VerticalAlignment.Center);
 			var step = U.Panel(label, "Clear")
 				.With(x => x.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Medal(place) ?? C.Muted, 5, p.Id == me ? C.Text : null, p.Id == me ? 2 : 0, 2, 0)))
 				.MinSize(46, place == 1 ? 38 : place == 2 ? 28 : 19);

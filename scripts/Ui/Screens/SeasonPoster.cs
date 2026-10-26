@@ -221,7 +221,7 @@ public static class SeasonPoster
 			if (standings.Count < place) continue;
 			var s = standings[place - 1];
 			var color = C.Medal(place)!.Value;
-			var block = U.Panel(Line(Lang.Ordinal(place), 40, C.Bg, Fonts.Black));
+			var block = U.Panel(Line(Lang.Ordinal(place), 40, C.OnBright, Fonts.Black));
 			block.AddThemeStyleboxOverride("panel", UiTheme.Box(color, 14, null, 0, 10, 10));
 			block.CustomMinimumSize = new Vector2(250, place switch { 1 => 170, 2 => 125, _ => 90 });
 			var col = U.V(8, Centered(new Avatar(EternalTableScreen.Who(s.Id, s.Name), 84)), Line(s.Name, 28, C.Text, Fonts.Black), Line($"{s.Points}", 26, color, Fonts.Mono), block);

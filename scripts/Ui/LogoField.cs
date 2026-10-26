@@ -35,7 +35,8 @@ public partial class LogoField : PanelContainer
 	{
 		_size = size;
 		MouseFilter = MouseFilterEnum.Ignore;
-		var box = UiTheme.Box(C.Bg.Darkened(0.35f), 22, C.Accent, 4, size * 0.4f, size * 0.12f);
+		// (a dark field, or a light one in a light skin)
+		var box = UiTheme.Box(C.Light ? C.Panel : C.Bg.Darkened(0.35f), 22, C.Accent, 4, size * 0.4f, size * 0.12f);
 		box.BorderWidthBottom = 10;
 		box.BorderColor = C.Accent;
 		AddThemeStyleboxOverride("panel", box);
@@ -45,6 +46,8 @@ public partial class LogoField : PanelContainer
 		var row = U.H(2, _text, _question, U.Gap(4), _caret);
 		row.Alignment = BoxContainer.AlignmentMode.Begin;
 		AddChild(row);
+		// (seasonal skins dress the logo up: snow and a Santa hat, pumpkins and a cobweb)
+		if (C.Skin is Skins.Christmas or Skins.Halloween) AddChild(new LogoDecor(C.Skin == Skins.Christmas));
 		// (as wide as "Quiznight?", so the field doesn't jump while it types something shorter)
 		var width = Fonts.Black.GetStringSize(Logo, HorizontalAlignment.Left, -1, size).X + size * 0.9f;
 		CustomMinimumSize = new Vector2(width, 0);

@@ -1031,6 +1031,7 @@ public static class LangDe
 		["No music on this screen."] = "Auf diesem Bildschirm läuft keine Musik.",
 		["Music is off"] = "Musik ist aus",
 		["My profile"] = "Mein Profil",
+		["Developer mode (test build): LAN play is unlocked."] = "Entwicklermodus (Testversion): LAN-Spiel ist freigeschaltet.",
 		["Change this on the home screen's Settings."] = "Das kannst du in den Einstellungen auf dem Startbildschirm ändern.",
 		["No quiz night yet"] = "Noch kein Quizabend",
 		["Newcomer"] = "Neuling",

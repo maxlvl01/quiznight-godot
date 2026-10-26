@@ -114,6 +114,13 @@ public partial class HomeScreen : Control
 		AddChild(new Spotlights { Target = 120 });
 		AddChild(U.Page(page, 960, 56));
 		var corner = U.H(8, U.Small("☀ Light mode", LightMode), U.Small("Settings", App.I.GoSettings), U.Small("Quit", () => App.I.AskQuit()));
+		// (developer mode: a small badge in the corner, so the page doesn't get longer)
+		if (App.LanUnlocked)
+			corner.AddChild(U.Pill("DEV", C.Teal).With(p =>
+			{
+				p.TooltipText = Updater.TestChannel ? Lang.T("Developer mode (test build): LAN play is unlocked.") : Lang.T("Developer mode: LAN play is unlocked until Quiznight closes.");
+				p.MouseFilter = MouseFilterEnum.Stop;
+			}));
 		corner.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight, LayoutPresetMode.KeepSize, 20);
 		corner.GrowHorizontal = GrowDirection.Begin;
 		AddChild(corner);
@@ -148,6 +155,9 @@ public partial class HomeScreen : Control
 
 	void BuildJoinFields()
 	{
+		// (the code and name fields are reused: taken out of their old rows first, else clearing frees them with the rows and
+		// they were gone after switching to LAN and back)
+		foreach (var field in new Control[] { _target, _name }) field.GetParent()?.RemoveChild(field);
 		_joinFields.Clear();
 		if (_mode == NetMode.Steam)
 		{
@@ -197,7 +207,7 @@ public partial class HomeScreen : Control
 		if (_typed.Length > App.DevCode.Length) _typed = _typed[^App.DevCode.Length..];
 		if (_typed != App.DevCode) return;
 		App.LanUnlocked = true;
-		Callable.From(() => App.I.GoHome("Developer mode: LAN play is unlocked until Quiznight closes.")).CallDeferred();
+		Callable.From(() => App.I.GoHome()).CallDeferred();
 	}
 
 	public override void _Ready() => (_mode == NetMode.Steam && _name.Text != "" ? _target : (Control)_name).CallDeferred(Control.MethodName.GrabFocus);

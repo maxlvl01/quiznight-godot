@@ -17,7 +17,7 @@ credits later, so keep the columns as they are (leave a cell empty if you don't 
 | `ES_Drive-Through Dinner - Magnus Ringblom.ogg` | Drive-Through Dinner | Magnus Ringblom | | menus, lobby and quizzes (shuffled) |
 | `ES_Easy Breezy - Megan Wofford.ogg` | Easy Breezy | Megan Wofford | | first song when the game opens, then with the others |
 | `ES_Lavender Sky - Megan Wofford.ogg` | Lavender Sky | Megan Wofford | | menus, lobby and quizzes (shuffled) |
-| `ES_Magic of December - Hara Noda.ogg` | Magic of December | Hara Noda | | menus, lobby and quizzes (shuffled) |
+| `christmas/ES_Magic of December - Hara Noda.ogg` | Magic of December | Hara Noda | | only 1 to 26 December, with the others |
 | `ES_Seth - Martin Landstrom.ogg` | Seth | Martin Landstrom | | menus, lobby and quizzes (shuffled) |
 | `ES_Sugarsnaps - Ennio Mano.ogg` | Sugarsnaps | Ennio Mano | | menus, lobby and quizzes (shuffled) |
 | `ES_Sunny San Francisco - Oakwood Station.ogg` | Sunny San Francisco | Oakwood Station | | menus, lobby and quizzes (shuffled) |

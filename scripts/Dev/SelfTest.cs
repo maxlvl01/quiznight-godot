@@ -762,6 +762,11 @@ public static class SelfTest
 		Check(Ui.UiAudio.Describe("res://assets/music/ES_Easy Breezy - Megan Wofford.ogg") == ("Easy Breezy", "Megan Wofford"), "a song's title and artist come from its Epidemic Sound name");
 		Check(Ui.Skins.Valid("pinke-geilheit") == Ui.Skins.Default && Ui.Skins.All.First(s => s.Id == Ui.Skins.Default).Label == "Quiznight Purple"
 			&& Ui.Skins.Valid(Ui.Skins.Pink) == Ui.Skins.Pink, "skins: the old Pinke Geilheit id is Quiznight Purple now, the pastel Pinke Geilheit is its own");
+		Check(Ui.Seasons.IsHalloween(new DateTime(2026, 10, 31)) && !Ui.Seasons.IsHalloween(new DateTime(2026, 11, 1))
+			&& Ui.Seasons.IsChristmas(new DateTime(2026, 12, 1)) && !Ui.Seasons.IsChristmas(new DateTime(2027, 1, 2)),
+			"seasonal skins: Halloween all October, Christmas 1 to 26 December");
+		Check(Ui.Skins.Valid(Ui.Skins.Effzeh) == Ui.Skins.Effzeh && Ui.Skins.Valid("nonsense") == Ui.Skins.Default
+			&& Ui.Skins.Available.All(a => Ui.Skins.InSeason(a.Id)), "skins: the new ones are valid, unknown ones fall back, Settings only offers what's in season");
 		Check(Storage.Sfx.Podiums.First(p => p.Id == "f1-podium").Db == 10, "the F1 podium sound plays 10 dB louder");
 		Check(AppVersion.Parse("hello") == null, "not a version");
 		var notes = Changelog.Parse(Godot.FileAccess.GetFileAsString("res://CHANGELOG.md"));

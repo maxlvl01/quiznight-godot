@@ -97,7 +97,7 @@ public partial class SettingsScreen : Control
 			U.Field("Window size", size),
 			sizeHint,
 			// (the skin and the font build every screen again: from the home screen only, not in the middle of a game)
-			U.Field("Skin", U.Select(Skins.All, Settings.Skin, id => Callable.From(() => App.I.UseSkin(id)).CallDeferred()).With(o => o.Disabled = inWindow),
+			U.Field("Skin", U.Select(Skins.Available, Settings.Skin, id => Callable.From(() => App.I.UseSkin(id)).CallDeferred()).With(o => o.Disabled = inWindow),
 				inWindow ? "Change this on the home screen's Settings." : null),
 			U.Field("Background picture", U.Select(Backgrounds.All, d.Background, id => Change(Draft with { Background = id }))),
 			U.Field("Background movement", U.Segmented(new[] { ("on", "On"), ("off", "Off") }, d.BackgroundMotion ? "on" : "off", id => Change(Draft with { BackgroundMotion = id == "on" }))),

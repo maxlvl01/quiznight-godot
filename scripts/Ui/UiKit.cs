@@ -32,6 +32,13 @@ public static class C
 	/// <summary>A–D tiles: coral, sky, the accent, teal.</summary>
 	public static Color[] Choice = Array.Empty<Color>();
 
+	/// <summary>Dark text on bright patches (medals, badges, coloured pills), the same in every skin (C.Bg is light in Daylight).</summary>
+	public static readonly Color OnBright = new("#14151b");
+	/// <summary>A light skin (Daylight): the logo's field is light too.</summary>
+	public static bool Light;
+	/// <summary>Text fields, insets and slider tracks: sunk into the background (near-white in a light skin).</summary>
+	public static Color Well => Light ? new Color("#fbf8f3") : Bg.Darkened(0.3f);
+
 	public static readonly Color Gold = new("#ffc93c");
 	public static readonly Color Silver = new("#c7cbe0");
 	public static readonly Color Bronze = new("#d39a6a");
@@ -42,25 +49,69 @@ public static class C
 	static C() => Use(Skins.Default);
 
 	/// <summary>Switches the skin's colours. The theme and screens built before keep the old ones: rebuild them (App.UseSkin).</summary>
+	/// <summary>The skin in use now.</summary>
+	public static string Skin = Skins.Default;
+
 	public static void Use(string skin)
 	{
-		if (Skins.Valid(skin) == Skins.Classic)
+		Skin = Skins.Valid(skin);
+		// (Bg, Panel, Panel2, Border, Blue), (Text, Muted, Accent, AccentInk, Orange), Ink
+		Color H(string hex) => new(hex);
+		Light = false;
+		switch (Skins.Valid(skin))
 		{
-			(Bg, Panel, Panel2, Border, Blue) = (new("#121318"), new("#20232e"), new("#2b2f40"), new("#2e3142"), Teal);
-			(Text, Muted, Accent, AccentInk, Orange) = (new("#ecedf3"), new("#8b8fa3"), new("#f5b942"), new("#1a1408"), new("#ff9f43"));
-			Ink = new("#07080c");
-		}
-		else if (Skins.Valid(skin) == Skins.Pink)
-		{
-			(Bg, Panel, Panel2, Border, Blue) = (new("#26101f"), new("#3f1a37"), new("#532548"), new("#7a4a80"), new("#c9a7ff"));
-			(Text, Muted, Accent, AccentInk, Orange) = (new("#fff0f7"), new("#d6abc7"), new("#ff9fd0"), new("#3a0f26"), new("#ffc9a3"));
-			Ink = new("#14060f");
-		}
-		else
-		{
-			(Bg, Panel, Panel2, Border, Blue) = (new("#150023"), new("#2b0b47"), new("#3a1260"), new("#1a5a85"), new("#00c9f6"));
-			(Text, Muted, Accent, AccentInk, Orange) = (new("#efeaf6"), new("#a593bd"), new("#ff8201"), new("#2a1200"), new("#ffd23f"));
-			Ink = new("#0d0016");
+			case Skins.Classic:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#121318"), H("#20232e"), H("#2b2f40"), H("#2e3142"), Teal);
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#ecedf3"), H("#8b8fa3"), H("#f5b942"), H("#1a1408"), H("#ff9f43"));
+				Ink = H("#07080c");
+				break;
+			case Skins.Pink:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#26101f"), H("#3f1a37"), H("#532548"), H("#7a4a80"), H("#c9a7ff"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#fff0f7"), H("#d6abc7"), H("#ff9fd0"), H("#3a0f26"), H("#ffc9a3"));
+				Ink = H("#14060f");
+				break;
+			// (Formula 1: carbon black and grey, F1 red, white, the yellow flag)
+			case Skins.F1:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#0b0b0e"), H("#18181d"), H("#24242b"), H("#3b3b45"), H("#c8ccd6"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#f5f5f7"), H("#9b9ba8"), H("#e10600"), H("#ffffff"), H("#ffd400"));
+				Ink = H("#000000");
+				break;
+			// (true black for OLED screens: the pixels are off)
+			case Skins.Amoled:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#000000"), H("#0b0b0e"), H("#16161b"), H("#2a2a33"), H("#7c9cff"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#f2f2f5"), H("#8c8c99"), H("#ff8201"), H("#1a0b00"), H("#ffd23f"));
+				Ink = H("#000000");
+				break;
+			// (light, but easy on the eyes: warm off-white, never pure white, dark plum text and outlines)
+			case Skins.Daylight:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#e6e0d6"), H("#f4efe7"), H("#e9e2d6"), H("#c4b8a8"), H("#2f7fd8"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#2a2230"), H("#74697a"), H("#e8730c"), H("#ffffff"), H("#c98a00"));
+				Ink = H("#3b3142");
+				Light = true;
+				break;
+			// (1. FC Köln: red and white)
+			case Skins.Effzeh:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#1a0507"), H("#2e0a0e"), H("#3e1015"), H("#7d1f27"), H("#f4f4f4"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#ffffff"), H("#dcaaae"), H("#ed1c24"), H("#ffffff"), H("#ffd23f"));
+				Ink = H("#0d0203");
+				break;
+			// (October: pumpkin orange, witch purple, slime green)
+			case Skins.Halloween:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#120a14"), H("#22122a"), H("#2f1839"), H("#5a2d6e"), H("#a06bff"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#f7efe6"), H("#b49cb9"), H("#ff7a00"), H("#1f0d00"), H("#a8e05f"));
+				Ink = H("#07040a");
+				break;
+			// (December: pine green, Christmas red, gold)
+			case Skins.Christmas:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#0a1912"), H("#12291f"), H("#1a392b"), H("#2f6a4e"), H("#e9f3ff"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#f5f9f5"), H("#a6c3b2"), H("#d8263c"), H("#ffffff"), H("#ffd23f"));
+				Ink = H("#03100a");
+				break;
+			default:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#150023"), H("#2b0b47"), H("#3a1260"), H("#1a5a85"), H("#00c9f6"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#efeaf6"), H("#a593bd"), H("#ff8201"), H("#2a1200"), H("#ffd23f"));
+				Ink = H("#0d0016");
+				break;
 		}
 		Choice = new[] { Coral, Sky, Accent, Teal };
 	}
@@ -82,22 +133,61 @@ public static class C
 	};
 }
 
-/// <summary>The colour skins to choose from in Settings.</summary>
+/// <summary>The colour skins to choose from in Settings. Halloween and Christmas only in their season.</summary>
 public static class Skins
 {
 	/// <summary>Quiznight Purple (its id is from when it was called Pinke Geilheit, so saved settings keep it).</summary>
 	public const string Default = "pinke-geilheit";
 	public const string Pink = "pastel-pink";
 	public const string Classic = "classic";
+	public const string F1 = "f1";
+	public const string Amoled = "amoled";
+	public const string Daylight = "daylight";
+	public const string Effzeh = "effzeh";
+	public const string Halloween = "halloween";
+	public const string Christmas = "christmas";
 
 	public static readonly (string Id, string Label)[] All =
 	{
 		(Default, "Quiznight Purple"),
 		(Pink, "Pinke Geilheit"),
 		(Classic, "Classic"),
+		(F1, "Formula 1"),
+		(Amoled, "AMOLED black"),
+		(Daylight, "Daylight"),
+		(Effzeh, "#effzeh"),
+		(Halloween, "Halloween"),
+		(Christmas, "Christmas"),
 	};
 
-	public static string Valid(string? id) => All.Any(s => s.Id == id) ? id! : Default;
+	/// <summary>Whether a skin can be used today (the seasonal ones only in their season).</summary>
+	public static bool InSeason(string id) => id switch
+	{
+		Halloween => Seasons.IsHalloween(Seasons.Today),
+		Christmas => Seasons.IsChristmas(Seasons.Today),
+		_ => true,
+	};
+
+	/// <summary>The skins Settings offers today.</summary>
+	public static (string Id, string Label)[] Available => All.Where(s => InSeason(s.Id)).ToArray();
+
+	/// <summary>A known skin that's in season, else Quiznight Purple (a Christmas skin chosen in December is purple again in January).</summary>
+	public static string Valid(string? id) => All.Any(s => s.Id == id) && InSeason(id!) ? id! : Default;
+}
+
+/// <summary>Seasons for the Christmas song and the seasonal skins. Dev runs can pretend another day: --date 2026-12-10.</summary>
+public static class Seasons
+{
+	static DateTime? _today;
+
+	public static DateTime Today => _today ??= OS.GetCmdlineUserArgs() is var args && Array.IndexOf(args, "--date") is var i and >= 0 && i + 1 < args.Length
+		&& DateTime.TryParse(args[i + 1], System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var d) ? d : DateTime.Now;
+
+	/// <summary>1 to 26 December.</summary>
+	public static bool IsChristmas(DateTime day) => day.Month == 12 && day.Day <= 26;
+
+	/// <summary>All of October.</summary>
+	public static bool IsHalloween(DateTime day) => day.Month == 10;
 }
 
 /// <summary>
@@ -292,7 +382,7 @@ public static class UiTheme
 		foreach (var (name, box) in new (string, StyleBox)[]
 		{
 			("Card2", Chunky(C.Panel2, 18, 14, 12, 3, 4)),
-			("Inset", Box(C.Bg.Darkened(0.25f), 16, C.Ink, 3, 14, 12)),
+			("Inset", Box(C.Light ? C.Well : C.Bg.Darkened(0.25f), 16, C.Ink, 3, 14, 12)),
 			("Chip", Chunky(C.Panel2, 12, 10, 4, 2, 0)),
 			("ChipMe", Chunky(C.Blue.Darkened(0.45f), 12, 10, 4, 2, 0)),
 			("Pill", Chunky(C.Panel2, 12, 12, 4, 2, 0)),
@@ -310,7 +400,7 @@ public static class UiTheme
 		// Text inputs
 		foreach (var type in new[] { "LineEdit", "TextEdit" })
 		{
-			t.SetStylebox("normal", type, Box(C.Bg.Darkened(0.3f), 14, C.Ink, 3, 14, 9));
+			t.SetStylebox("normal", type, Box(C.Well, 14, C.Ink, 3, 14, 9));
 			t.SetStylebox("focus", type, Outline(C.Accent, 14, 3));
 			t.SetStylebox("read_only", type, Box(C.Panel2, 14, C.Ink, 3, 14, 9));
 			t.SetColor("font_color", type, C.Text);
@@ -386,7 +476,7 @@ public static class UiTheme
 		t.SetStylebox("panel", "ScrollContainer", new StyleBoxEmpty());
 
 		// Volume sliders: thin track, teal fill.
-		t.SetStylebox("slider", "HSlider", Box(C.Bg.Darkened(0.3f), 8, C.Ink, 2, 0, 5));
+		t.SetStylebox("slider", "HSlider", Box(C.Light ? C.Border : C.Well, 8, C.Ink, 2, 0, 5));
 		t.SetStylebox("grabber_area", "HSlider", Box(C.Accent, 8, C.Ink, 2, 0, 5));
 		t.SetStylebox("grabber_area_highlight", "HSlider", Box(C.Accent.Lightened(0.15f), 8, C.Ink, 2, 0, 5));
 		t.SetConstant("separation", "HSeparator", 12);

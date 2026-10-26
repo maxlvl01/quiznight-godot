@@ -32,7 +32,7 @@ public static class GameParts
 	public static Control PlaceBox(int? place)
 	{
 		var medal = place is { } n ? C.Medal(n) : null;
-		var label = U.Mono(place is { } m ? Lang.Ordinal(m) : "–", 13, medal != null ? C.Bg : C.Muted).Raw();
+		var label = U.Mono(place is { } m ? Lang.Ordinal(m) : "–", 13, medal != null ? C.OnBright : C.Muted).Raw();
 		label.HorizontalAlignment = HorizontalAlignment.Center;
 		var box = U.Panel(label, "Clear").MinSize(44);
 		box.AddThemeStyleboxOverride("panel", UiTheme.Box(medal ?? C.Panel2, 6, null, 0, 6, 2));

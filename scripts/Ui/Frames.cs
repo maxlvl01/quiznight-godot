@@ -39,6 +39,17 @@ public partial class ScreenFrame : Container
 		DrawRect(frame, C.Bg);
 		// (the party show stage: a warm spotlight glow from above the middle)
 		DrawTextureRect(StageGlow(), frame, false);
+		// (seasonal skins: snow and fairy lights, or cobwebs, bats and pumpkins, behind the screens' cards)
+		if (Seasonal.On) Seasonal.DrawScreen(this, frame, _t);
+	}
+
+	double _t;
+
+	public override void _Process(double delta)
+	{
+		if (!Seasonal.On || Announcer.ReduceMotion) return;
+		_t += delta;
+		QueueRedraw();
 	}
 
 	static GradientTexture2D? _glow;

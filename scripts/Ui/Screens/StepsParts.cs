@@ -23,7 +23,7 @@ public partial class HintCard : PanelContainer
 		_size = size;
 		SizeFlagsHorizontal = SizeFlags.ExpandFill;
 		MouseFilter = MouseFilterEnum.Ignore;
-		var badge = U.Text(number.ToString(), size, C.Bg, Fonts.Black, false, HorizontalAlignment.Center).MinSize(size * 1.8f, 0);
+		var badge = U.Text(number.ToString(), size, C.OnBright, Fonts.Black, false, HorizontalAlignment.Center).MinSize(size * 1.8f, 0);
 		var badgePanel = U.Panel(badge, "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Accent, 999, null, 0, 6, 2)));
 		badgePanel.SizeFlagsVertical = SizeFlags.ShrinkCenter;
 		var points = U.Mono(worth == 1 ? Lang.T("1 pt") : Lang.F("{0} pts", worth), 14, C.Muted);

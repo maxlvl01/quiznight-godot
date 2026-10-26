@@ -43,12 +43,12 @@ public partial class UiAudio : Node
 	static List<string> AllSongs()
 	{
 		var songs = SongsIn("res://assets/music");
-		if (IsChristmas(DateTime.Now)) songs.AddRange(SongsIn("res://assets/music/christmas"));
+		if (IsChristmas(Seasons.Today)) songs.AddRange(SongsIn("res://assets/music/christmas"));
 		return songs;
 	}
 
 	/// <summary>Christmas time: 1 to 26 December (the christmas folder's songs join the others then).</summary>
-	public static bool IsChristmas(DateTime day) => day.Month == 12 && day.Day <= 26;
+	public static bool IsChristmas(DateTime day) => Seasons.IsChristmas(day);
 
 	static List<string> SongsIn(string dir)
 	{
