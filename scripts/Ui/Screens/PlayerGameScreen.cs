@@ -742,15 +742,15 @@ public partial class BuzzButton : Button
 		// (shadow on the table, then the silver base plate)
 		DrawStyleBox(KeyBox.Fill(new Color(0, 0, 0, 0.3f), (int)(40 * k)), new Rect2(origin + new Vector2(-6, 14) * k, new Vector2(plate + 12 * k, plate + plateDepth)));
 		DrawKey(new Rect2(origin, new Vector2(plate, plate + plateDepth)), metal, plateDepth, 36 * k, 5 * k, light);
-		// (the sponsor engraved in the plate's front edge, under the key: cut into the metal, not in its colours, so a dark
+		// (the sponsor engraved in the plate's top strip, above the key: cut into the metal, not in its colours, so a dark
 		// edge on top and a lit one underneath, like light falling into the letters from above)
-		var engraving = (int)(11 * k);
+		var engraving = (int)(10 * k);
 		if (engraving >= 6)
 		{
 			var brand = Fonts.Spaced;
 			const string Sponsor = "TRACKGLOW";
 			var width = brand.GetStringSize(Sponsor, HorizontalAlignment.Left, -1, engraving).X;
-			var at = new Vector2(origin.X + (plate - width) / 2, origin.Y + plate - 5.5f * k);
+			var at = new Vector2(origin.X + (plate - width) / 2, origin.Y + 14.5f * k);
 			DrawString(brand, at + new Vector2(0, -0.9f * k), Sponsor, HorizontalAlignment.Left, -1, engraving, new Color(metal.Darkened(0.45f), 0.55f * light));
 			DrawString(brand, at + new Vector2(0, 0.9f * k), Sponsor, HorizontalAlignment.Left, -1, engraving, new Color(metal.Lightened(0.6f), 0.7f * light));
 			DrawString(brand, at, Sponsor, HorizontalAlignment.Left, -1, engraving, new Color(metal.Darkened(0.12f), light));
