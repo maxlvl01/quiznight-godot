@@ -95,7 +95,14 @@ public partial class EternalTableScreen : Control
 		var home = U.Link("← Home", () => App.I.GoHome());
 		home.SizeFlagsHorizontal = SizeFlags.ShrinkBegin | SizeFlags.Expand;
 		home.SizeFlagsVertical = SizeFlags.ShrinkCenter;
-		return U.H(12, home, tabs);
+		if (tab != "table") return U.H(12, home, tabs);
+		// (your own profile, found by your Steam ID like everywhere in the results)
+		var me = MatchHistoryScreen.MyId;
+		var profile = U.Small("My profile", () => App.I.GoProfile(me!));
+		profile.Disabled = me == null;
+		profile.TooltipText = me == null ? "Needs Steam: your results are found by your Steam account." : "";
+		profile.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+		return U.H(12, home, profile, tabs);
 	}
 
 	/// <summary>Someone as an avatar can draw them: their Steam picture, or initials in a colour of their own.</summary>

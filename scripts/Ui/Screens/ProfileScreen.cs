@@ -78,7 +78,10 @@ public partial class ProfileScreen : Control
 		var back = U.Link("← Ewige Tabelle", App.I.GoEternalTable).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin);
 		if (me == null)
 		{
-			AddChild(U.Page(U.V(14, back, U.Card(8, U.Heading("No quiz nights here", 24), U.Muted(Lang.F("This player has no quiz nights in {0}.", tableLabel), 15))), 1180, 20));
+			// (someone who only hosted: a quizmaster card with the nights they ran)
+			var hostedOnly = nights.Where(n => n.HostId == playerId).ToList();
+			AddChild(U.Page(U.V(14, back, hostedOnly.Count > 0 ? HostOnly(playerId, hostedOnly)
+				: U.Card(8, U.Heading("No quiz nights here", 24), U.Muted(Lang.F("This player has no quiz nights in {0}.", tableLabel), 15))), 1180, 20));
 			return;
 		}
 		var mine = nights.Where(n => n.Players.Any(p => p.Id == playerId)).Select(n => (Night: n, Me: n.Players.First(p => p.Id == playerId))).ToList();
@@ -157,6 +160,24 @@ public partial class ProfileScreen : Control
 			new("Big-game player", Rate(podium, id, true), Lang.T("How often they make the podium")),
 			new("Joker timing", Rate(jokers, id, true), jokers.GetValueOrDefault(id) is { } j ? Lang.F("Ø {0} extra points per Double", j.ToString("0.0", Inv)) : Lang.T("No Double played yet")),
 		};
+	}
+
+	/// <summary>The profile of someone who hosted but never played: picture, name, "Quizmaster", and their nights.</summary>
+	static Control HostOnly(string id, List<Results.Night> hosted)
+	{
+		var name = hosted[^1].Host;
+		var list = U.V(6);
+		foreach (var night in hosted.AsEnumerable().Reverse())
+		{
+			var n = night;
+			list.AddChild(U.Link($"{MatchHistoryScreen.Date(n.Date)} · {n.Quiz}", () => App.I.GoMatchNight(n), 15).Raw().With(b => b.Alignment = HorizontalAlignment.Left));
+		}
+		return U.V(16,
+			U.Card(10, U.H(18, new Avatar(EternalTableScreen.Who(id, name), 84),
+				U.V(4, U.Heading(name, 34, false).Raw(), U.Text(Lang.T("Quizmaster"), 16, C.Accent, Fonts.Bold),
+					U.H(28, U.V(2, U.Eyebrow("Hosted"), U.Text($"{hosted.Count}", 22, C.Text, Fonts.Black).Raw()),
+						U.V(2, U.Eyebrow("Nights"), U.Text("0", 22, C.Text, Fonts.Black).Raw()))))),
+			U.Card(8, U.Eyebrow("Nights they hosted"), list));
 	}
 
 	static Control Header(Results.Career me, List<(Results.Night Night, Results.NightPlayer Me)> mine, int place, int hosted,

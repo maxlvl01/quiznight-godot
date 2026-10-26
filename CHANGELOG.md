@@ -18,6 +18,9 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 ### Added
 - **A music player on the home screen,** under "Host a quiz night": the song playing, back, play/pause, next and a button for the jukebox's list of songs. The long text in the host card is gone, so the card is smaller. (The note button in the corner stays on every other screen.)
 - **"Fußspuren?"** joins the title screen's easter eggs.
+- **"My profile" on the Ewige Tabelle,** next to the tabs: it opens your own profile (needs Steam, which is how your results are found).
+- **Quizmasters get a profile too.** Someone who has hosted but never played used to see "No quiz nights here"; now their profile shows their picture, "Quizmaster", how many nights they hosted and those nights (click one for its details).
+- **Two test nights from 24 October are in the Beta table and the match history** (21:25 and 22:40, hosted by maxlvl01).
 
 ### Changed
 - **The first download is much smaller.** The music is now encoded at 128 kbps from the original recordings (was ~150 kbps; it sounds the same), the F1 Podium sound is a compressed Ogg instead of a 23 MB WAV (it was 134 seconds of uncompressed audio), the built-in maps are re-compressed (a little more compression; when you zoom in all the way you can't tell the difference), and the game leaves out the parts of .NET it never uses and .NET's debugging tools (the folder next to the game went from 79 MB to 23 MB). This update itself is bigger than usual, once, because those files all changed.
@@ -26,6 +29,7 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **The jukebox's buttons are drawn icons** (back, play/pause, next) instead of the ⏮ ⏭ characters, which didn't look right in every font. The song playing is marked with a drawn note.
 - **The music waits for the voice intro.** When the game opens, the voice line plays on its own and the first song starts from the beginning once it's done (before, the song already played underneath, turned down).
 - **"Add a question" lists the question types alphabetically** (by the name you see, so in German too), and the type cards are keys like the buttons.
+- **Numbers are in the game's own font:** scores, places, timers and the room code used the system's Consolas, which looked out of place. They're Fredoka now, with all digits the same width so columns still line up, and the score next to the host's − and + buttons sits in the middle of its row.
 - **The BETA stamp is a sticker on the logo's corner,** so "Quiznight?" sits exactly in the middle of the home screen again (the stamp next to it pushed it to the left).
 
 ### Removed

@@ -148,7 +148,7 @@ public partial class MatchHistoryScreen : Control
 	}
 
 	/// <summary>"2026-10-24 21:25" → "24.10.2026 21:25" (the date style used everywhere in the game).</summary>
-	static string Date(string date) =>
+	public static string Date(string date) =>
 		System.DateTime.TryParseExact(date, "yyyy-MM-dd HH:mm", Inv, DateTimeStyles.None, out var d) ? d.ToString("dd.MM.yyyy HH:mm", Inv) : date;
 }
 

@@ -160,7 +160,14 @@ public static class GameParts
 			AddJokers(row, room, p.Id);
 			if (Moved(room, rows, gained, p.Id) is { } moved) row.AddChild(moved);
 			if (gained.TryGetValue(p.Id, out var g) && g != 0) row.AddChild(U.Text($"+{g}", 14, C.Teal, Fonts.Bold));
-			row.AddChild(U.Mono($"{room.Score(p.Id)}", 16));
+			// (centred in the row, level with the − and + keys' faces, which sit 1–2 px above their middle)
+			row.AddChild(U.Mono($"{room.Score(p.Id)}", 18).With(l =>
+			{
+				l.VerticalAlignment = VerticalAlignment.Center;
+				l.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
+				l.HorizontalAlignment = HorizontalAlignment.Right;
+				l.CustomMinimumSize = new Vector2(28, 0);
+			}));
 			if (adjust != null)
 			{
 				var id = p.Id;

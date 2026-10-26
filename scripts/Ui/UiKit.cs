@@ -160,7 +160,24 @@ public static class Fonts
 	static Font? _spaced;
 	/// <summary>Small caps labels ("eyebrows") get extra letter spacing.</summary>
 	public static Font Spaced => _spaced ??= _dyslexic ? Bold : new FontVariation { BaseFont = Bold, SpacingGlyph = 2 };
-	public static readonly Font Mono =new SystemFont { FontNames = new[] { "JetBrains Mono", "Consolas", "Courier New" }, FontWeight = 700 };
+	/// <summary>
+	/// Numbers (scores, places, times, room codes, number inputs): Fredoka bold with tabular figures, so digits are all one
+	/// width and columns of numbers line up, in the game's own type (it was the system's Consolas, which looked out of place).
+	/// </summary>
+	public static Font Mono => _dyslexic ? DyslexicBold! : PartyNumbers;
+	static readonly Font PartyNumbers = Numbers();
+
+	static Font Numbers()
+	{
+		if (Fredoka == null) return new SystemFont { FontNames = new[] { "Consolas", "Courier New" }, FontWeight = 700 };
+		var ts = TextServerManager.GetPrimaryInterface();
+		return new FontVariation
+		{
+			BaseFont = Fredoka,
+			VariationOpentype = new Godot.Collections.Dictionary { [(long)ts.NameToTag("wght")] = 650 },
+			OpentypeFeatures = new Godot.Collections.Dictionary { [(long)ts.NameToTag("tnum")] = 1 },
+		};
+	}
 }
 
 public static class UiTheme

@@ -5,12 +5,9 @@
 #   then copy bin/godot.windows.template_release.x86_64.mono.exe to C:/godot-src/templates/quiznight-windows-release.exe
 optimize = "size"
 lto = "full"
-disable_3d = "yes"
-disable_physics_2d = "yes"
-disable_physics_3d = "yes"
-disable_navigation_2d = "yes"
-disable_navigation_3d = "yes"
-disable_xr = "yes"
+# (no disable_3d / disable_physics_* / disable_navigation_* / disable_xr: those also take methods out of core classes
+# like Viewport, and the stock GodotSharp.dll the game is built against binds all of a class's methods at once, so
+# Viewport broke. Leaving out whole modules is fine: their classes are just never touched.)
 vulkan = "no"
 d3d12 = "no"
 for _m in ["astcenc", "basis_universal", "betsy", "camera", "csg", "cvtt", "dds", "enet", "etcpak", "fbx", "gdscript",
