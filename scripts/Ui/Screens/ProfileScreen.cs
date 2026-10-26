@@ -76,12 +76,15 @@ public partial class ProfileScreen : Control
 		var rows = Results.Questions(csvs, from, until);
 		var me = careers.FirstOrDefault(c => c.Id == playerId);
 		var back = U.Link("← Ewige Tabelle", App.I.GoEternalTable).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin);
+		// (someone not in the table yet, who only hosted or is opening "My profile", gets the full page too: empty
+		// attributes, an empty form)
+		if (me == null && nights.LastOrDefault(n => n.HostId == playerId) is { } hostedNight)
+			me = new Results.Career { Id = playerId, Name = hostedNight.Host };
+		if (me == null && playerId == MatchHistoryScreen.MyId)
+			me = new Results.Career { Id = playerId, Name = Net.SteamService.PlayerName };
 		if (me == null)
 		{
-			// (someone who only hosted: a quizmaster card with the nights they ran)
-			var hostedOnly = nights.Where(n => n.HostId == playerId).ToList();
-			AddChild(U.Page(U.V(14, back, hostedOnly.Count > 0 ? HostOnly(playerId, hostedOnly)
-				: U.Card(8, U.Heading("No quiz nights here", 24), U.Muted(Lang.F("This player has no quiz nights in {0}.", tableLabel), 15))), 1180, 20));
+			AddChild(U.Page(U.V(14, back, U.Card(8, U.Heading("No quiz nights here", 24), U.Muted(Lang.F("This player has no quiz nights in {0}.", tableLabel), 15))), 1180, 20));
 			return;
 		}
 		var mine = nights.Where(n => n.Players.Any(p => p.Id == playerId)).Select(n => (Night: n, Me: n.Players.First(p => p.Id == playerId))).ToList();
@@ -156,28 +159,10 @@ public partial class ProfileScreen : Control
 				? Lang.F("{0} of {1} right typed answers spelled perfectly", mySpelled.Count(x => x.Typos == 0), mySpelled.Count)
 				: Lang.F("Fewer than {0} right typed answers so far", MinQuestions)),
 			new("Consistency", Rate(spread, id, false), Lang.T("How little their place changes from night to night")),
-			new("Winning habit", Rate(wins, id, true), Lang.F("Won {0} of {1} nights", careers.First(x => x.Id == id).Wins, careers.First(x => x.Id == id).Nights)),
+			new("Winning habit", Rate(wins, id, true), Lang.F("Won {0} of {1} nights", careers.FirstOrDefault(x => x.Id == id)?.Wins ?? 0, careers.FirstOrDefault(x => x.Id == id)?.Nights ?? 0)),
 			new("Big-game player", Rate(podium, id, true), Lang.T("How often they make the podium")),
 			new("Joker timing", Rate(jokers, id, true), jokers.GetValueOrDefault(id) is { } j ? Lang.F("Ø {0} extra points per Double", j.ToString("0.0", Inv)) : Lang.T("No Double played yet")),
 		};
-	}
-
-	/// <summary>The profile of someone who hosted but never played: picture, name, "Quizmaster", and their nights.</summary>
-	static Control HostOnly(string id, List<Results.Night> hosted)
-	{
-		var name = hosted[^1].Host;
-		var list = U.V(6);
-		foreach (var night in hosted.AsEnumerable().Reverse())
-		{
-			var n = night;
-			list.AddChild(U.Link($"{MatchHistoryScreen.Date(n.Date)} · {n.Quiz}", () => App.I.GoMatchNight(n), 15).Raw().With(b => b.Alignment = HorizontalAlignment.Left));
-		}
-		return U.V(16,
-			U.Card(10, U.H(18, new Avatar(EternalTableScreen.Who(id, name), 84),
-				U.V(4, U.Heading(name, 34, false).Raw(), U.Text(Lang.T("Quizmaster"), 16, C.Accent, Fonts.Bold),
-					U.H(28, U.V(2, U.Eyebrow("Hosted"), U.Text($"{hosted.Count}", 22, C.Text, Fonts.Black).Raw()),
-						U.V(2, U.Eyebrow("Nights"), U.Text("0", 22, C.Text, Fonts.Black).Raw()))))),
-			U.Card(8, U.Eyebrow("Nights they hosted"), list));
 	}
 
 	static Control Header(Results.Career me, List<(Results.Night Night, Results.NightPlayer Me)> mine, int place, int hosted,
@@ -189,14 +174,13 @@ public partial class ProfileScreen : Control
 		if (other[0].Rating >= 16) roles.Add(Lang.T("Speed buzzer"));
 		else if (other[3].Rating >= 18) roles.Add(Lang.T("Spelling bee"));
 		roles.AddRange(best.Take(2 - roles.Count).Where(t => t.A.Rating >= 11).Select(t => Lang.T(TypeRole[t.Type])));
-		var role = roles.Count > 0 ? string.Join(" · ", roles) : Lang.T("All-rounder");
+		var role = roles.Count > 0 ? string.Join(" · ", roles) : me.Nights == 0 ? Lang.T("Newcomer") : Lang.T("All-rounder");
 		var avg = mine.Count > 0 ? mine.Average(m => m.Me.Points) : 0;
 		Control Fact(string label, string value, Color? color = null) =>
 			U.V(2, U.Eyebrow(label), U.Text(value, 22, color ?? C.Text, Fonts.Black).Raw());
 		var facts = U.Flow(28,
-			Fact("Ewige Tabelle", Lang.Ordinal(place), C.Medal(place) ?? C.Text),
+			Fact("Ewige Tabelle", place > 0 ? Lang.Ordinal(place) : "–", C.Medal(place) ?? C.Text),
 			Fact("Nights", $"{me.Nights}"), Fact("Wins", $"{me.Wins}", me.Wins > 0 ? C.Gold : null), Fact("Podiums", $"{me.Podiums}"),
-			Fact("Hosted", $"{hosted}").Tip(Lang.T("Quiz nights they were the quizmaster of (like international caps). Recorded from 0.9.4b on.")),
 			Fact("Points", $"{me.Points}", C.Accent), Fact("Ø points", avg.ToString("0.0", Inv)),
 			Fact("From the host", (me.HostPoints > 0 ? "+" : "") + me.HostPoints, me.HostPoints > 0 ? C.Pink : null)
 				.Tip(Lang.T("Points the hosts handed them: bonuses and score changes by hand (recorded from 0.10.0b on).")));
@@ -206,10 +190,12 @@ public partial class ProfileScreen : Control
 		{
 			var pill = U.Panel(U.Mono(Lang.Ordinal(p.Place), 14, p.Place <= 3 ? C.Bg : C.Text).With(l => l.HorizontalAlignment = HorizontalAlignment.Center));
 			pill.AddThemeStyleboxOverride("panel", UiKitBox(C.Medal(p.Place) ?? C.Panel2));
-			pill.CustomMinimumSize = new Vector2(46, 0);
+			pill.CustomMinimumSize = new Vector2(46, 28);
 			pill.TooltipText = $"{EternalTableScreen.Date(night.Date)} · {night.Quiz} · {Lang.F("{0} pts", p.Points)}";
 			form.AddChild(pill);
 		}
+		// (fewer than five nights: the rest are empty slots)
+		for (var i = Math.Min(5, mine.Count); i < 5; i++) form.AddChild(new EmptySlot { CustomMinimumSize = new Vector2(46, 28), TooltipText = Lang.T("No quiz night yet") });
 		var since = mine.Count > 0 ? Lang.F("First quiz night: {0}", EternalTableScreen.Date(mine[0].Night.Date)) : "";
 		var right = U.V(8, U.Eyebrow("Form"), form, U.Muted(since, 13), U.Muted(tableLabel, 12));
 		right.SizeFlagsHorizontal = SizeFlags.ShrinkEnd;
@@ -218,7 +204,12 @@ public partial class ProfileScreen : Control
 		form.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
 		var awards = U.H(8);
 		if (puppy) awards.AddChild(PuppyBadge(15));
-		var name = U.V(6, U.Text(me.Name, 38, C.Text, Fonts.Black).Raw(), U.H(12, U.Text(role, 18, C.Accent, Fonts.Bold).Raw(), awards), U.Gap(4), facts).Grow();
+		// (hosted nights under the name, where FM puts a player's international caps)
+		var caps = U.H(8, new TypeIcon(QuestionType.Interactive, 18).With(i => i.SizeFlagsVertical = SizeFlags.ShrinkCenter),
+			hosted > 0 ? U.Text(hosted == 1 ? Lang.T("Hosted 1 quiz night") : Lang.F("Hosted {0} quiz nights", hosted), 15, C.Text, Fonts.Bold)
+				: U.Muted("Never hosted", 15));
+		caps.TooltipText = Lang.T("Quiz nights they were the quizmaster of (like international caps). Recorded from 0.9.4b on.");
+		var name = U.V(6, U.Text(me.Name, 38, C.Text, Fonts.Black).Raw(), U.H(12, U.Text(role, 18, C.Accent, Fonts.Bold).Raw(), awards), caps, U.Gap(4), facts).Grow();
 		return U.Panel(U.Pad(U.H(24, new Avatar(who, 120).With(a => a.SizeFlagsVertical = SizeFlags.ShrinkBegin), name, right), 8));
 	}
 
@@ -490,7 +481,8 @@ public partial class ProfileBars : Control
 	{
 		var max = Math.Max(1, _nights.Max(n => n.Points));
 		var w = (Size.X - 40) / Math.Max(1, _nights.Count);
-		var h = (Size.Y - 24) * Math.Max(0, _nights[i].Points) / max;
+		// (room above the tallest bar for the hover label, so it never lands on a bar)
+		var h = (Size.Y - 42) * Math.Max(0, _nights[i].Points) / max;
 		return new Rect2(40 + i * w + w * 0.15f, Size.Y - 20 - h, w * 0.7f, h);
 	}
 
@@ -499,7 +491,7 @@ public partial class ProfileBars : Control
 		if (_nights.Count == 0) return;
 		var max = Math.Max(1, _nights.Max(n => n.Points));
 		DrawLine(new Vector2(40, Size.Y - 20), new Vector2(Size.X, Size.Y - 20), C.Border, 1);
-		DrawString(Fonts.Mono, new Vector2(0, 14), $"{max}", HorizontalAlignment.Right, 34, 11, C.Muted);
+		DrawString(Fonts.Mono, new Vector2(0, 32), $"{max}", HorizontalAlignment.Right, 34, 11, C.Muted);
 		DrawString(Fonts.Mono, new Vector2(0, Size.Y - 16), "0", HorizontalAlignment.Right, 34, 11, C.Muted);
 		for (var i = 0; i < _nights.Count; i++)
 		{
@@ -512,7 +504,7 @@ public partial class ProfileBars : Control
 			var r = Bar(h);
 			var label = $"{Lang.Ordinal(_nights[h].Place)} · {Lang.F("{0} pts", _nights[h].Points)}";
 			var x = Math.Clamp(r.GetCenter().X - 60, 0, Math.Max(0, Size.X - 120));
-			DrawString(Fonts.Bold, new Vector2(x, Math.Max(13, r.Position.Y - 6)), label, HorizontalAlignment.Center, 120, 13, C.Text);
+			DrawString(Fonts.Bold, new Vector2(x, r.Position.Y - 6), label, HorizontalAlignment.Center, 120, 13, C.Text);
 		}
 	}
 
@@ -548,4 +540,16 @@ public partial class ProfileBars : Control
 
 	public override string _GetTooltip(Vector2 at) =>
 		At(at) is int i ? $"{_nights[i].Date} · {_nights[i].Quiz}\n{Lang.Ordinal(_nights[i].Place)} · {Lang.F("{0} pts", _nights[i].Points)}" : "";
+}
+
+/// <summary>An empty place in the form strip: a dashed grey outline (fewer than five nights played).</summary>
+public partial class EmptySlot : Control
+{
+	public override void _Draw()
+	{
+		var r = new Rect2(Vector2.One, Size - Vector2.One * 2);
+		var color = C.Muted with { A = 0.6f };
+		Vector2[] corners = { r.Position, new(r.End.X, r.Position.Y), r.End, new(r.Position.X, r.End.Y) };
+		for (var i = 0; i < 4; i++) DrawDashedLine(corners[i], corners[(i + 1) % 4], color, 1.5f, 4);
+	}
 }

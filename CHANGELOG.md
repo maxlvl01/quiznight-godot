@@ -19,7 +19,9 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **A music player on the home screen,** under "Host a quiz night": the song playing, back, play/pause, next and a button for the jukebox's list of songs. The long text in the host card is gone, so the card is smaller. (The note button in the corner stays on every other screen.)
 - **"Fußspuren?"** joins the title screen's easter eggs.
 - **"My profile" on the Ewige Tabelle,** next to the tabs: it opens your own profile (needs Steam, which is how your results are found).
-- **Quizmasters get a profile too.** Someone who has hosted but never played used to see "No quiz nights here"; now their profile shows their picture, "Quizmaster", how many nights they hosted and those nights (click one for its details).
+- **Hosted nights on every profile, where FM shows international caps:** a microphone under the name with "Hosted 2 quiz nights" (or "Never hosted"), instead of a number among the stats.
+- **Profiles for people who aren't in the Ewige Tabelle yet** (they only hosted so far, or it's your own "My profile"): the full page instead of "No quiz nights here", with empty attributes until they play.
+- **The form shows five places:** nights not played yet are dashed empty squares, so a new player's form is five empty slots.
 - **Two test nights from 24 October are in the Beta table and the match history** (21:25 and 22:40, hosted by maxlvl01).
 
 ### Changed
@@ -38,6 +40,7 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 ### Fixed
 - **The Fast Pass lost to someone who buzzed at the same moment.** Bob had the Fast Pass, but Ann's buzz arrived a few milliseconds earlier (both showed 2.6 s), so Ann was already answering and the Fast Pass only put Bob first among those still waiting, behind her. A Fast Pass now also takes over from someone who started answering less than a second earlier (they couldn't have said anything yet); they're next in line instead. Someone who has been answering for longer keeps their turn, as before.
 - **The text on big buttons sat too low** ("My quizzes", "Join!"). The dark edge under each button counted as part of the button when the text was centred, so the text was centred on the button plus its edge and ended up below the middle of the coloured part. It's now centred on the coloured part.
+- **The place and points over a hovered bar on a profile were unreadable on the tallest bar:** there was no room above it, so the white text landed on the gold bar. The bars leave room for it now.
 - **"What's new" showed the notes in a narrow column** on the left half of the window. The window's scroll area didn't give its content the full width, so the wrapped text was only as wide as the heading. It now uses the whole width, and opens at the top instead of sometimes scrolled to the end.
 
 ## [0.10.2b]
