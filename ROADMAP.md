@@ -25,6 +25,11 @@ off (`- [x]`) when they're done, with the version they came in.
   Discord or on the couch." (and LangDe) and the README's "over Discord or in the same room … the host's screen goes on
   the TV or into a Discord stream" need new wording; HostNotes' tooltip "not in your stream if you share only the game
   window" too (the notes window may still be handy, just not for that reason).
+- [ ] **"The TrackGlow Podium"** — poking fun at American sports ads where everything has a sponsor's name. The podium
+  screen (`PodiumScreen` in `RoomScreens.cs`: "And the winner is …") gets the title "The TrackGlow Podium" with the
+  TrackGlow logo (`TrackGlowLogo`, like the intro's sponsor card and the title screen), for host and players alike.
+  More branded names later (Max has none for the other awards yet: the season poster's awards, the eternal table's
+  "Fastest buzz" … could each get one, e.g. "the TrackGlow Fastest Buzz of the Night", once he picks them).
 - [ ] **Mini games in the lobby while waiting.** In the waiting room (and the host's lobby) a "Play something" button
   opens a 4:3 window over the lobby with a few small games:
   - **Tetris** — single player; best scores shown in the lobby.
