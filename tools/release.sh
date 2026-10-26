@@ -7,7 +7,7 @@
 # Each version is a test build first; only the ones Max decides on are released publicly (players shouldn't have to
 # download every hotfix).
 # The release notes are this version's section of CHANGELOG.md. The release goes to the public
-# builds-only repo (the code repo, maxlvl01/quiznight-godot, stays private). Needs `gh` logged in and the export templates.
+# builds-only repo (the code is in maxlvl01/quiznight-godot). Needs `gh` logged in and the export templates.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -39,6 +39,16 @@ if [ -z "$TEST" ] && [ -z "$DRY" ]; then
 	LAST_PUBLIC=$(gh api "repos/$REPO/releases/latest" --jq .tag_name | sed 's/^v//')
 	py -I tools/fold_changelog.py CHANGELOG.md "$VERSION" "$LAST_PUBLIC"
 fi
+# Every file the game installs from is signed with Max's release key (ECDSA P-256), which never leaves his PC: the game
+# carries the public half (Storage/Updater.cs, tools/release-signing-public.pem) and installs nothing whose signature
+# doesn't check out. Back the key up somewhere safe: without it no update can be published any more.
+SIGNING_KEY="${QUIZNIGHT_SIGNING_KEY:-$HOME/.quiznight/release-signing-key.pem}"
+[ -f "$SIGNING_KEY" ] || { echo "Release signing key missing at $SIGNING_KEY (set QUIZNIGHT_SIGNING_KEY)"; exit 1; }
+# (file.sig next to the file; checked right away against the public key the game has)
+sign() {
+	openssl dgst -sha256 -sign "$SIGNING_KEY" -out "$1.sig" "$1"
+	openssl dgst -sha256 -verify tools/release-signing-public.pem -signature "$1.sig" "$1" >/dev/null || { echo "Signing $1 failed"; exit 1; }
+}
 # The token that lets games upload their results to maxlvl01/quiznight-results (Storage/ResultsUpload.cs); not in git.
 [ -s results-token.txt ] || echo "Warning: results-token.txt is missing: this build won't upload quiz night results."
 
@@ -101,6 +111,7 @@ ls -la "$ZIP"
 rm -f "$ZIP_LINUX"
 (cd "$OUT_LINUX" && /c/Windows/System32/tar.exe -a -c -f "../../$ZIP_LINUX" *)
 ls -la "$ZIP_LINUX"
+sign "$ZIP"; sign "$ZIP_LINUX"
 
 if [ -z "$TEST" ]; then
 	echo "== Update lists"
@@ -113,6 +124,8 @@ if [ -z "$TEST" ]; then
 	BASE="https://github.com/$REPO/releases/download/v$VERSION/"
 	py -I tools/manifest.py "$VERSION" windows "$OUT" build/update-windows.json "$PACKS" "$BASE" "$PREV"/update-*.json
 	py -I tools/manifest.py "$VERSION" linux "$OUT_LINUX" build/update-linux.json "$PACKS" "$BASE" "$PREV"/update-*.json build/update-windows.json
+	# (the packs are covered by the lists: each pack's SHA-256 is in them)
+	sign build/update-windows.json; sign build/update-linux.json
 fi
 
 # Big updates (x.y.0) get a name: '## [0.8.0b] — "Jokers Wild": …' makes the release "Quiznight 0.8.0b — Jokers Wild".
@@ -133,7 +146,7 @@ if [ -n "$TEST" ]; then
 	else
 		gh release create "v$VERSION" --repo "$REPO" --title "$TITLE" --notes-file "$NOTES" --prerelease
 	fi
-	gh release upload "v$VERSION" "$ZIP" "$ZIP_LINUX" --repo "$REPO" --clobber
+	gh release upload "v$VERSION" "$ZIP" "$ZIP_LINUX" "$ZIP.sig" "$ZIP_LINUX.sig" --repo "$REPO" --clobber
 	echo "Done: https://github.com/$REPO/releases/tag/v$VERSION"
 	exit 0
 fi
@@ -146,8 +159,9 @@ if gh release view "v$VERSION" --repo "$REPO" >/dev/null 2>&1; then
 else
 	gh release create "v$VERSION" --repo "$REPO" --title "$TITLE" --notes-file "$NOTES" --draft
 fi
-gh release upload "v$VERSION" "$ZIP" "$ZIP_LINUX" --repo "$REPO" --clobber
+gh release upload "v$VERSION" "$ZIP" "$ZIP_LINUX" "$ZIP.sig" "$ZIP_LINUX.sig" --repo "$REPO" --clobber
 find "$PACKS" -name '*.zip' -print0 | xargs -0 -r gh release upload "v$VERSION" --repo "$REPO" --clobber
+gh release upload "v$VERSION" build/update-windows.json.sig build/update-linux.json.sig --repo "$REPO" --clobber
 gh release upload "v$VERSION" build/update-windows.json build/update-linux.json --repo "$REPO" --clobber
 gh release edit "v$VERSION" --repo "$REPO" --draft=false --latest
 echo "Done: https://github.com/$REPO/releases/tag/v$VERSION"

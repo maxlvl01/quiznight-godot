@@ -198,6 +198,10 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
   `maxlvl01/quiznight-releases` repo (code lives in the private `maxlvl01/quiznight-godot`; `maxlvl01/quiznight` is the web version). Exported games check
   it at startup (`Storage/Updater.cs`) and update themselves; "What's new" is read from the shipped
   CHANGELOG.md, so its `## [version]` / `### Added|Changed|Fixed|Removed` layout matters.
+  **Updates are signed:** `release.sh` signs each zip and update list (`<file>.sig`, `openssl dgst -sha256 -sign`) with Max's
+  release key, `~/.quiznight/release-signing-key.pem` (ECDSA P-256, never in git: back it up; `QUIZNIGHT_SIGNING_KEY`
+  overrides the path). The game has the public half (`Updater.ReleaseKey`, also `tools/release-signing-public.pem`) and
+  installs nothing whose signature doesn't check out (from 0.11.2b on; older builds don't check).
   Updates come in packs: each release has `update-windows.json` / `update-linux.json` (every file's SHA-256 and the
   pack it's in, made by `tools/manifest.py`). Packs are zips by kind (game, engine, maps, anyconverter) named by a
   hash of their contents; only new packs are uploaded (usually just the two game packs), the rest point into older

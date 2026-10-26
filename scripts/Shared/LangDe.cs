@@ -1039,6 +1039,7 @@ public static class LangDe
 		["Kölle Alaaf (Carnival)"] = "Kölle Alaaf (Karneval)",
 		["Valentine's Day"] = "Valentinstag",
 		["Christmas"] = "Weihnachten",
+		["It isn't signed with Max's release key, so it wasn't installed."] = "Es ist nicht mit Max' Release-Schlüssel signiert und wurde deshalb nicht installiert.",
 		["Only my Steam friends can join"] = "Nur meine Steam-Freunde dürfen rein",
 		["Over Steam: players who aren't on your Steam friends list can't come in, even with the code."] = "Über Steam: Wer nicht in deiner Steam-Freundesliste ist, kommt nicht rein, auch nicht mit dem Code.",
 		["Steam couldn't confirm who you are. Try joining again."] = "Steam konnte nicht bestätigen, wer du bist. Versuch noch einmal beizutreten.",

@@ -425,6 +425,15 @@ public static class SelfTest
 			&& Guard.CsvSafe("Max") == "Max" && Guard.CsvValue("'Tis") == "'Tis", "CSV cells can't run as formulas, and read back as they were");
 		Check(Guard.SafeId("A1B2C3D4E5F6A7B8") && !Guard.SafeId("../x") && !Guard.SafeId("CON:") && !Guard.SafeId(""), "file ids: plain ones only");
 
+		// updates: only what Max's release key signed (this signature was made with it by tools/release.sh's openssl call)
+		var signedText = System.Text.Encoding.UTF8.GetBytes("Quiznight release key check");
+		var signature = Convert.FromBase64String("MEUCIBij/xJylBdwaDkg46yuAFrSM8U/0jkq26qAjoc7FOa6AiEAoLAghQoExALTgJgGVqvYKtBUIaAPWgpJceahXv5pCzM=");
+		Check(Storage.Updater.SignedByMax(System.Security.Cryptography.SHA256.HashData(signedText), signature),
+			"updates: a file signed with Max's release key checks out");
+		Check(!Storage.Updater.SignedByMax(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("Quiznight release key check!")), signature)
+			&& !Storage.Updater.SignedByMax(System.Security.Cryptography.SHA256.HashData(signedText), new byte[70]),
+			"updates: a changed file, or a made-up signature, doesn't");
+
 		// frames: a player's game can't announce a 200 MB message
 		var reader = new FrameReader(1024 * 1024);
 		var threw = false;

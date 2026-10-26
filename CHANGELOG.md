@@ -13,6 +13,11 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.11.2b]
+
+### Changed
+- **Updates are signed.** Every update is now signed with Max's release key, which never leaves his PC, and the game checks the signature before installing anything. Before, the game trusted whatever GitHub handed it: someone who got into the GitHub account (or swapped files on the way) could have sent every player a game of their own. Now an update without a valid signature isn't installed, and the game says so.
+
 ## [0.11.1b]
 
 ### Added

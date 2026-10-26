@@ -9,6 +9,9 @@
 // Test builds (a test-channel.txt next to the game, put there by `tools/release.sh --test`) update from the private
 // TestRepo instead: its releases are pre-releases (GitHub's "latest" skips those, so the newest is picked from the
 // list), read with the token the game ships with, and only have the zips (no update lists).
+// Every zip and update list is signed with Max's release key (tools/release.sh, ECDSA P-256): the game installs nothing
+// whose signature doesn't match the public key below. So even someone who got into the GitHub account, or swapped files
+// on the way, can't hand players a game of their own. (Packs are covered by the signed update lists' SHA-256s.)
 
 using System;
 using System.IO;
@@ -42,7 +45,39 @@ public static class Updater
 	static string ManifestName => IsWindows ? "update-windows.json" : "update-linux.json";
 
 	/// <param name="Private">From the private test repo: downloads need the token.</param>
-	public sealed record Release(AppVersion Version, string ZipUrl, long Size, string? ManifestUrl, bool Private = false);
+	/// <param name="ZipSigUrl">The zip's signature (zip name + ".sig"); without one the zip isn't installed.</param>
+	/// <param name="ManifestSigUrl">The update list's signature; without one the list isn't used.</param>
+	public sealed record Release(AppVersion Version, string ZipUrl, long Size, string? ManifestUrl, bool Private = false,
+		string? ZipSigUrl = null, string? ManifestSigUrl = null);
+
+	/// <summary>The public half of Max's release key (tools/release-signing-public.pem). The private half never leaves his PC.</summary>
+	const string ReleaseKey = """
+		-----BEGIN PUBLIC KEY-----
+		MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEGoZCVqxhgqBL1ZguwN2L0qrkjqX3
+		ctjziNufZgVQWFyznvK2R+KK7tvHPMa2OrU1YSJwDs+glmSTOItGL+Wgnw==
+		-----END PUBLIC KEY-----
+		""";
+
+	/// <summary>Whether sig is the release key's signature of data with this SHA-256 (as openssl dgst -sha256 -sign makes it).</summary>
+	public static bool SignedByMax(byte[] sha256, byte[] sig)
+	{
+		try
+		{
+			using var key = ECDsa.Create();
+			key.ImportFromPem(ReleaseKey);
+			return key.VerifyHash(sha256, sig, DSASignatureFormat.Rfc3279DerSequence);
+		}
+		catch (CryptographicException)
+		{
+			return false;
+		}
+	}
+
+	static string NotSigned => Lang.T("It isn't signed with Max's release key, so it wasn't installed.");
+
+	/// <summary>A release's asset by name: its download address (public) or its API address (private test repo).</summary>
+	static string? AssetUrl(System.Collections.Generic.List<JsonObject> assets, string name, bool api) =>
+		assets.FirstOrDefault(a => a["name"]?.GetValue<string>() == name)?[api ? "url" : "browser_download_url"]?.GetValue<string>();
 	sealed record FileEntry(string Path, long Size, string Sha256, string Pack);
 	sealed record Pack(string Url, long Size, string Sha256);
 
@@ -96,7 +131,9 @@ public static class Updater
 			var zip = assets.FirstOrDefault(a => a["name"]?.GetValue<string>().EndsWith(ZipSuffix, StringComparison.OrdinalIgnoreCase) == true);
 			if (zip?["browser_download_url"]?.GetValue<string>() is not { } url) return null;
 			var manifest = assets.FirstOrDefault(a => a["name"]?.GetValue<string>() == ManifestName);
-			return new Release(v, url, zip["size"]?.GetValue<long>() ?? 0, manifest?["browser_download_url"]?.GetValue<string>());
+			var zipName = zip["name"]!.GetValue<string>();
+			return new Release(v, url, zip["size"]?.GetValue<long>() ?? 0, manifest?["browser_download_url"]?.GetValue<string>(), false,
+				AssetUrl(assets, zipName + ".sig", false), AssetUrl(assets, ManifestName + ".sig", false));
 		}
 		catch (Exception e)
 		{
@@ -130,7 +167,7 @@ public static class Updater
 			var zip = assets.FirstOrDefault(a => a["name"]?.GetValue<string>().EndsWith(ZipSuffix, StringComparison.OrdinalIgnoreCase) == true);
 			// (the asset's API address: with the token and "octet-stream" it sends you on to the file)
 			if (zip?["url"]?.GetValue<string>() is not { } url) return null;
-			return new Release(v, url, zip["size"]?.GetValue<long>() ?? 0, null, true);
+			return new Release(v, url, zip["size"]?.GetValue<long>() ?? 0, null, true, AssetUrl(assets, zip["name"]!.GetValue<string>() + ".sig", true));
 		}
 		catch (Exception e)
 		{
@@ -183,7 +220,7 @@ public static class Updater
 			{
 				try
 				{
-					await DownloadChangedFiles(release.ManifestUrl, installDir, newFiles, exeName, Report);
+					await DownloadChangedFiles(release, installDir, newFiles, exeName, Report);
 					return;
 				}
 				catch (Exception e)
@@ -222,10 +259,14 @@ public static class Updater
 	/// Finds the files this install doesn't have exactly (same size and SHA-256), downloads the packs they're in
 	/// (a few at a time, checked against their SHA-256) and unpacks those files into newFiles (keeping the folders).
 	/// </summary>
-	static async Task DownloadChangedFiles(string manifestUrl, string installDir, string newFiles, string exeName, Action<float> report)
+	static async Task DownloadChangedFiles(Release release, string installDir, string newFiles, string exeName, Action<float> report)
 	{
 		using var http = NewClient(TimeSpan.FromMinutes(30));
-		var list = JsonNode.Parse(await http.GetStringAsync(manifestUrl)) ?? throw new InvalidOperationException("The update list is empty.");
+		// (the list says which files and packs, with their SHA-256: only a signed one is used)
+		var listBytes = await http.GetByteArrayAsync(release.ManifestUrl);
+		if (release.ManifestSigUrl == null || !SignedByMax(SHA256.HashData(listBytes), await http.GetByteArrayAsync(release.ManifestSigUrl)))
+			throw new InvalidOperationException(NotSigned);
+		var list = JsonNode.Parse(listBytes) ?? throw new InvalidOperationException("The update list is empty.");
 		var files = (list["files"] as JsonArray)?.OfType<JsonObject>()
 			.Select(f => new FileEntry(f["path"]!.GetValue<string>(), f["size"]!.GetValue<long>(), f["sha256"]!.GetValue<string>(), f["pack"]!.GetValue<string>()))
 			.ToList() ?? throw new InvalidOperationException("The update's file list is empty.");
@@ -285,16 +326,30 @@ public static class Updater
 	static async Task DownloadZip(Release release, string newFiles, Action<float> report)
 	{
 		var zipPath = Path.Combine(UpdateDir, "update.zip");
-		using (var http = NewClient(TimeSpan.FromMinutes(30)))
-		using (var request = new HttpRequestMessage(HttpMethod.Get, release.ZipUrl))
+		if (release.ZipSigUrl == null) throw new InvalidOperationException(NotSigned);
+		// (the private test repo: the token, and the file itself rather than its description; GitHub sends the download on
+		// to its file storage, and the token isn't passed on there)
+		HttpRequestMessage Request(string url)
 		{
-			// (the private test repo: the token, and the file itself rather than its description; GitHub sends the download on
-			// to its file storage, and the token isn't passed on there)
+			var request = new HttpRequestMessage(HttpMethod.Get, url);
 			if (release.Private && ResultsUpload.Token is { } token)
 			{
 				request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 				request.Headers.Accept.ParseAdd("application/octet-stream");
 			}
+			return request;
+		}
+		byte[] sig;
+		using (var http = NewClient(TimeSpan.FromMinutes(1)))
+		using (var request = Request(release.ZipSigUrl))
+		using (var response = await http.SendAsync(request))
+		{
+			response.EnsureSuccessStatusCode();
+			sig = await response.Content.ReadAsByteArrayAsync();
+		}
+		using (var http = NewClient(TimeSpan.FromMinutes(30)))
+		using (var request = Request(release.ZipUrl))
+		{
 			using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
 			response.EnsureSuccessStatusCode();
 			var total = response.Content.Headers.ContentLength ?? release.Size;
@@ -310,6 +365,9 @@ public static class Updater
 				if (total > 0) report((float)done / total * 0.9f);
 			}
 		}
+		// (checked before a single file is unpacked)
+		await using (var check = File.OpenRead(zipPath))
+			if (!SignedByMax(SHA256.HashData(check), sig)) throw new InvalidOperationException(NotSigned);
 		// (System.IO.Compression keeps memory low for the big files)
 		ZipFile.ExtractToDirectory(zipPath, newFiles, true);
 		File.Delete(zipPath);
