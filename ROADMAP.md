@@ -12,6 +12,9 @@ off (`- [x]`) when they're done, with the version they came in.
 
 ## 0.12.0d3 — collecting (nothing built yet)
 
+**Before 0.12.0b goes public, check:** a public 0.11.4b (it has no results token, see 0.12.0d3's changelog; its update
+check doesn't need one) updates itself to 0.12.0b, and the new build then uploads results and crash logs again.
+
 - [ ] **Videos at most 720p.** Still sharp on everyone's screen, and much less to send to every player (helps the stress
   test night). Today only the copy-paste ffmpeg command (`Media.ConvertCommand`) caps the width at 1280; AnyConverter's
   `--format ogv` (what `VideoGuide` opens) keeps the full size, and an .ogv added as it is isn't checked. Plan:
