@@ -174,6 +174,12 @@ public partial class App : Control
 		Use("move", Input.CursorShape.Move, 20, 20);
 	}
 
+	// (the cursors let go of their pictures before the engine shuts down, else it reports them as leaked)
+	public override void _ExitTree()
+	{
+		foreach (var shape in Enum.GetValues<Input.CursorShape>()) Input.SetCustomMouseCursor(null, shape);
+	}
+
 	Action? _afterWelcome;
 
 	/// <summary>The first start's accessibility screen (again, after a language or font change rebuilt it).</summary>
