@@ -40,11 +40,12 @@ public sealed class DevTools
 	double? _shotAt;
 	bool _mapZoomed;
 	bool _rowDragged;
+	int _introKeys;
 	bool _scrolled;
 
 	async void MakeSplash(string path)
 	{
-		await Ui.SplashIntro.Save(_app, path);
+		await Ui.IntroSequence.Save(_app, path);
 		_app.Quit(0);
 	}
 
@@ -188,8 +189,8 @@ public sealed class DevTools
 			_app.AddChild(timer);
 		}
 
-		// (--make-splash FILE: the splash as the boot splash picture, then quit; --splash: play the splash in this run)
-		if (Has("--splash")) _app.AddChild(new Ui.SplashIntro());
+		// (--make-splash FILE: the intro's first card as the boot splash picture, then quit; --splash: play the intro in this run)
+		if (Has("--splash")) _app.AddChild(new Ui.IntroSequence(null));
 		if (Value("--make-splash") is { } splashFile)
 		{
 			TakesOver = true;
@@ -473,6 +474,13 @@ public sealed class DevTools
 				var center = mapAt is { Length: 2 } ? new NormPoint(double.Parse(mapAt[0], System.Globalization.CultureInfo.InvariantCulture), double.Parse(mapAt[1], System.Globalization.CultureInfo.InvariantCulture)) : canvas.Target ?? new NormPoint(0.5, 0.5);
 				canvas.ZoomTo(center, mapZoom);
 			}
+		}
+		// --intro-start (with --splash): Escape skips the cards at 1 s, a key starts from the title screen at 2.5 s
+		if (Has("--intro-start") && _introKeys < 2 && _time >= (_introKeys == 0 ? 1 : 2.5))
+		{
+			_introKeys++;
+			var key = new InputEventKey { Keycode = _introKeys == 1 ? Key.Escape : Key.Space, Pressed = true };
+			_app.GetViewport().PushInput(key, true);
 		}
 		// --drag-row (with --screen quiz): drags question 1 below question 3 with real mouse events and prints the new order
 		if (_time >= 1 && !_rowDragged && Has("--drag-row"))

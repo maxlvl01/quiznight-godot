@@ -13,6 +13,9 @@ public partial class HomeScreen : Control
 	LineEdit _name = null!;
 	Button _join = null!;
 	Label _error = null!;
+
+	/// <summary>The logo (the intro's title screen logo glides into its place).</summary>
+	public LogoField Logo { get; }
 	VBoxContainer _joinFields = null!;
 
 	public HomeScreen() : this(null) { }
@@ -23,7 +26,7 @@ public partial class HomeScreen : Control
 		_mode = App.NetMode;
 
 		// (the logo is an answer field that now and then types something else: LogoField)
-		var logo = new LogoField(64);
+		var logo = Logo = new LogoField(64);
 		var brand = U.H(0, logo);
 		// The stamp on the logo follows the version letter: 0.5.0a = alpha, 0.7.1b = beta, none when finished. It's a sticker
 		// on the logo's top right corner (in a zero-width holder, so the logo itself stays centred).

@@ -107,9 +107,10 @@ public partial class App : Control
 	/// <summary>The splash (not in dev and test runs, which pass arguments after --), then the home screen.</summary>
 	void Start(bool splash, string? notice = null)
 	{
-		SplashIntro? intro = null;
-		if (splash && !Announcer.ReduceMotion) AddChild(intro = new SplashIntro());
-		// (the music waits for the voice line, which comes once the splash is gone: Popups → Greet)
+		IntroSequence? intro = null;
+		// (the intro's title screen plays the voice line when it's left; the music follows it)
+		if (splash && !Announcer.ReduceMotion) AddChild(intro = new IntroSequence(() => { if (_screen is HomeScreen) _audio.Greet(); }));
+		// (the music waits for the voice line, which comes once the intro is gone: Popups → Greet)
 		_audio.HoldForGreeting();
 		GoHome(notice);
 		// (What's new and the update prompt are windows of their own: they wait until the splash is gone)
@@ -225,7 +226,7 @@ public partial class App : Control
 	public override void _UnhandledKeyInput(InputEvent e)
 	{
 		if (e is not InputEventKey { Pressed: true, Echo: false } key || _screen == null) return;
-		if (GetChildren().OfType<SplashIntro>().Any()) return;
+		if (GetChildren().OfType<IntroSequence>().Any()) return;
 		// (the credits window: Escape closes it)
 		if (CreditsWindow.Current != null)
 		{
@@ -263,7 +264,7 @@ public partial class App : Control
 		// (a right-click on empty space goes back too, like Escape: not on buttons, fields, sliders or lists)
 		var rightClick = button.ButtonIndex == MouseButton.Right && OnEmptySpace();
 		if (button.ButtonIndex is not (MouseButton.Xbutton1 or MouseButton.Xbutton2) && !rightClick) return;
-		if (GetChildren().OfType<SplashIntro>().Any()) return;
+		if (GetChildren().OfType<IntroSequence>().Any()) return;
 		var back = rightClick || button.ButtonIndex == MouseButton.Xbutton1;
 		if (CreditsWindow.Current != null)
 		{
