@@ -58,7 +58,7 @@ public partial class HomeScreen : Control
 			U.Heading("Host a quiz night", 30),
 			U.Btn("My quizzes  ▶", "AccentButton", App.I.GoQuizzes, 22).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin));
 		// (under it the music player, filling the rest of the column next to "Join a game")
-		var music = U.Card(10, U.Eyebrow("Jukebox"), U.Fill(), new MusicPlayer(), U.Fill()).GrowV();
+		var music = U.Card(10, U.Fill(), new MusicPlayer(), U.Fill()).GrowV();
 
 		_target = U.Input("", "", _ => Validate(), 0, "CodeInput");
 		// (Steam names can be longer than names in a room may be: the field starts with the part that fits)

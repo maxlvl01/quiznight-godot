@@ -45,7 +45,8 @@ public partial class QuizOverviewScreen : Control
 		var types = new GridContainer { Columns = 3 };
 		types.AddThemeConstantOverride("h_separation", 12);
 		types.AddThemeConstantOverride("v_separation", 12);
-		foreach (var type in QuestionType.All)
+		// (alphabetical by the name shown, so also in German)
+		foreach (var type in QuestionType.All.OrderBy(t => Lang.T(QuestionType.Infos[t].Label), System.StringComparer.CurrentCultureIgnoreCase))
 		{
 			var info = QuestionType.Infos[type];
 			// Layers: the clickable card, the name on top (it sets the height: long names wrap, e.g. in German), and the "?"
@@ -53,9 +54,12 @@ public partial class QuizOverviewScreen : Control
 			var card = new MarginContainer { MouseFilter = MouseFilterEnum.Ignore }.Grow();
 			var button = new Button { ThemeTypeVariation = "", MouseDefaultCursorShape = CursorShape.PointingHand, CustomMinimumSize = new Vector2(0, 76) };
 			button.SetMeta(UiAudio.NoBounce, true);
-			button.AddThemeStyleboxOverride("normal", UiTheme.Box(C.Panel, 14, C.Border, 1, 16, 14));
-			button.AddThemeStyleboxOverride("hover", UiTheme.Box(C.Panel2, 14, C.ForType(type), 1, 16, 14));
-			button.AddThemeStyleboxOverride("pressed", UiTheme.Box(C.Panel2, 14, C.ForType(type), 1, 16, 14));
+			// (a key like every button, KeyBox: lighter under the mouse, pushed in when clicked)
+			button.AddThemeStyleboxOverride("normal", new KeyBox(C.Panel2, 16, 16, 14, 3, 6, false));
+			button.AddThemeStyleboxOverride("hover", new KeyBox(C.Panel2.Lightened(0.1f), 16, 16, 14, 3, 6, false));
+			button.AddThemeStyleboxOverride("pressed", new KeyBox(C.Panel2.Darkened(0.05f), 16, 16, 14, 3, 6, true));
+			button.AddThemeStyleboxOverride("hover_pressed", new KeyBox(C.Panel2, 16, 16, 14, 3, 6, true));
+			button.AddThemeStyleboxOverride("focus", new StyleBoxEmpty());
 			var t = type;
 			button.Pressed += () => App.I.GoQuestion(_quiz.Id, null, t);
 			card.AddChild(button);
@@ -63,12 +67,12 @@ public partial class QuizOverviewScreen : Control
 			// (the row and everything in it let clicks through to the card underneath)
 			inner.MouseFilter = MouseFilterEnum.Ignore;
 			foreach (var c in inner.GetChildren().OfType<Control>()) c.MouseFilter = MouseFilterEnum.Ignore;
-			card.AddChild(U.Pad(inner, 16, 14, 44, 14).With(m => m.MouseFilter = MouseFilterEnum.Ignore));
+			card.AddChild(U.Pad(inner, 18, 12, 44, 18).With(m => m.MouseFilter = MouseFilterEnum.Ignore));
 			var corner = new Control { MouseFilter = MouseFilterEnum.Ignore };
 			var help = U.Link("?", () => Dialogs.Info(this, TypeHelp(info), info.Label), 20);
 			help.AnchorLeft = help.AnchorRight = 1;
 			help.AnchorTop = help.AnchorBottom = 0.5f;
-			(help.OffsetLeft, help.OffsetTop, help.OffsetRight, help.OffsetBottom) = (-38, -21, -10, 11);
+			(help.OffsetLeft, help.OffsetTop, help.OffsetRight, help.OffsetBottom) = (-40, -24, -12, 8);
 			corner.AddChild(help);
 			card.AddChild(corner);
 			types.AddChild(card);

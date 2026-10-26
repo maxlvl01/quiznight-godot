@@ -92,7 +92,7 @@ public partial class MediaIcon : Control
 }
 
 /// <summary>The home screen's music player: what's playing, back, play/pause (music on/off, saved), next, all songs.</summary>
-public partial class MusicPlayer : HBoxContainer
+public partial class MusicPlayer : VBoxContainer
 {
 	readonly Label _title = U.Text("", 18, C.Text, Fonts.Bold).Raw();
 	readonly Label _artist = U.Muted("", 13).Raw();
@@ -104,21 +104,19 @@ public partial class MusicPlayer : HBoxContainer
 	{
 		AddThemeConstantOverride("separation", 14);
 		var disc = new NoteIcon { CustomMinimumSize = new Vector2(48, 48), SizeFlagsVertical = SizeFlags.ShrinkCenter };
-		_title.TextOverrunBehavior = _artist.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
-		_title.ClipText = _artist.ClipText = true;
+		// (long titles wrap: the buttons have their own row underneath)
+		_title.AutowrapMode = _artist.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 		_toggle = MediaIcon.Button(MediaIcon.Kind.Pause, "Turn music off", () =>
 		{
 			Audio.SetMusicOn(!Settings.MusicOn);
 			Refresh();
 		}, 40);
-		AddChild(disc);
-		AddChild(U.V(0, U.Text(Lang.T("Now playing").ToUpper(), 11, C.Muted, Fonts.Spaced), _title, _artist).Grow().With(v => v.SizeFlagsVertical = SizeFlags.ShrinkCenter));
+		AddChild(U.H(14, disc, U.V(0, U.Text(Lang.T("Now playing").ToUpper(), 11, C.Muted, Fonts.Spaced), _title, _artist).Grow().With(v => v.SizeFlagsVertical = SizeFlags.ShrinkCenter)));
 		var controls = U.H(6,
 			MediaIcon.Button(MediaIcon.Kind.Previous, "Previous song", () => Audio.Skip(-1)),
 			_toggle,
 			MediaIcon.Button(MediaIcon.Kind.Next, "Next song", () => Audio.Skip(1)),
 			MediaIcon.Button(MediaIcon.Kind.List, "All songs", () => Jukebox.I?.Open(true)));
-		controls.SizeFlagsVertical = SizeFlags.ShrinkCenter;
 		AddChild(controls);
 		_disc = disc;
 	}
