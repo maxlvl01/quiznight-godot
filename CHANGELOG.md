@@ -24,6 +24,9 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **No question editor scrolls any more** (checked for every question type, in English and German): short fields sit side by side in the round settings (time limit and points, start time and points), explanations moved to the roomier left side, and the notes under check boxes became tooltips. Before, pick one, multiple choice, estimation, map pin, sound, put in order and timeline were a little too tall and scrolled.
 - **Developer mode:** a "Test update" button next to the DEV badge shows the home screen as if an update were out (the logo pulses green), and stops it again.
 
+### Fixed
+- **Halloween bats no longer flood the log with errors:** when a bat flapped its wings all the way down, the wing folded over itself and Godot couldn't draw it (one "Invalid polygon data" error every frame, also in the test logs). The wings now flap a little less far down.
+
 ## [0.10.7b]
 
 ### Added

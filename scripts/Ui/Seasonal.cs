@@ -179,7 +179,8 @@ public static class Seasonal
 	/// <summary>A bat with its wings at <paramref name="flap"/> (a phase: it flaps as it grows).</summary>
 	public static void Bat(CanvasItem ci, Vector2 at, float scale, float flap, float alpha = 1)
 	{
-		var up = Mathf.Sin(flap) * 9 * scale;
+		// (the wing tips only go a little below level: further down the wing folds over itself and can't be drawn)
+		var up = (Mathf.Sin(flap) * 0.5f + 0.5f) * 13 * scale - 3 * scale;
 		var ink = new Color(C.Ink, alpha);
 		foreach (var side in new[] { -1f, 1f })
 			ci.DrawColoredPolygon(new[]
