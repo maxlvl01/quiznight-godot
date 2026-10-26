@@ -42,6 +42,7 @@ public sealed class DevTools
 	bool _rowDragged;
 	int _introKeys;
 	bool _undoChecked;
+	bool _dropdownOpened;
 	bool _scrolled;
 
 	async void MakeSplash(string path)
@@ -484,6 +485,12 @@ public sealed class DevTools
 			_introKeys++;
 			var key = new InputEventKey { Keycode = _introKeys == 1 ? Key.Escape : Key.Space, Pressed = true };
 			_app.GetViewport().PushInput(key, true);
+		}
+		// --open-dropdown: opens the screen's first dropdown at 1 s (to see its arrow and how it unfolds)
+		if (_time >= 1 && !_dropdownOpened && Has("--open-dropdown"))
+		{
+			_dropdownOpened = true;
+			Bot.All(_app).OfType<OptionButton>().FirstOrDefault(o => o.IsVisibleInTree())?.ShowPopup();
 		}
 		if (_time >= 1.5 && !_undoChecked && Has("--undo-check"))
 		{

@@ -80,6 +80,7 @@ public partial class App : Control
 		_audio.TrackStarted += path => AddChild(new NowPlaying(path));
 		GetTree().AutoAcceptQuit = false;
 		if (DisplayServer.GetName() != "headless") UseCursors();
+		DropDowns.Install(GetTree());
 		// (the name players see; project.godot keeps "QuizNight!", which names the exported data folder that updates rely on)
 		GetWindow().Title = "Quiznight?";
 		GetWindow().FilesDropped += OnFilesDropped;
