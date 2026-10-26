@@ -96,6 +96,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 			if (GameParts.NextPill(game) is { } next) row.AddChild(next);
 			row.AddChild(U.Fill());
 			row.AddChild(new RoomCodeButton(room.Code));
+			row.AddChild(MediaIcon.SettingsGear());
 			return U.Panel(row, "Bar");
 		});
 

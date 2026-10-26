@@ -218,6 +218,13 @@ public partial class App : Control
 	{
 		if (e is not InputEventKey { Pressed: true, Echo: false } key || _screen == null) return;
 		if (GetChildren().OfType<SplashIntro>().Any()) return;
+		// (Settings open over a lobby or a game: Escape closes it, Ctrl+S applies; the room underneath isn't touched)
+		if (SettingsWindow.Current is { } window)
+		{
+			var used = key.Keycode == Key.Escape ? window.Leave() : key.Keycode == Key.S && key.CtrlPressed && window.ApplyKey();
+			if (used) GetViewport().SetInputAsHandled();
+			return;
+		}
 		var handled = key.Keycode switch
 		{
 			Key.Escape => _screen is HomeScreen ? AskQuit() : Back(),
@@ -240,6 +247,13 @@ public partial class App : Control
 		if (e is not InputEventMouseButton { Pressed: true } button || _screen == null) return;
 		if (button.ButtonIndex is not (MouseButton.Xbutton1 or MouseButton.Xbutton2)) return;
 		if (GetChildren().OfType<SplashIntro>().Any()) return;
+		// (the mouse's back button closes Settings open over a game, instead of leaving the room)
+		if (SettingsWindow.Current is { } window)
+		{
+			if (button.ButtonIndex == MouseButton.Xbutton1) window.Leave();
+			GetViewport().SetInputAsHandled();
+			return;
+		}
 		if (button.ButtonIndex == MouseButton.Xbutton1 ? _screen is not HomeScreen && Back() : Forward()) GetViewport().SetInputAsHandled();
 	}
 

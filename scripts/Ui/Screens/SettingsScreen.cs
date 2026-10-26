@@ -30,12 +30,17 @@ public partial class SettingsScreen : Control
 	}
 
 	readonly Label _status = U.Muted("", 13, false, HorizontalAlignment.Right);
+	/// <summary>Opened from a lobby or a game (SettingsWindow): closing goes back there, not home.</summary>
+	readonly bool _inWindow;
 	readonly Button _apply;
 	readonly Button _discard;
 	readonly Button _reset;
 
-	public SettingsScreen()
+	public SettingsScreen() : this(false) { }
+
+	public SettingsScreen(bool inWindow)
 	{
+		_inWindow = inWindow;
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		var d = Draft;
 
@@ -78,7 +83,7 @@ public partial class SettingsScreen : Control
 		{
 			Change(Draft with { Screen = int.Parse(id) });
 			// The sizes depend on the screen.
-			Callable.From(App.I.GoSettings).CallDeferred();
+			Callable.From(Rebuild).CallDeferred();
 		});
 		var mode = U.Segmented(new[] { ("windowed", "Windowed"), ("fullscreen", "Fullscreen"), ("borderless", "Borderless") }, d.WindowMode, id =>
 		{
@@ -91,7 +96,9 @@ public partial class SettingsScreen : Control
 			U.Field("Window mode", mode),
 			U.Field("Window size", size),
 			sizeHint,
-			U.Field("Skin", U.Select(Skins.All, Settings.Skin, id => Callable.From(() => App.I.UseSkin(id)).CallDeferred())),
+			// (the skin and the font build every screen again: from the home screen only, not in the middle of a game)
+			U.Field("Skin", U.Select(Skins.All, Settings.Skin, id => Callable.From(() => App.I.UseSkin(id)).CallDeferred()).With(o => o.Disabled = inWindow),
+				inWindow ? "Change this on the home screen's Settings." : null),
 			U.Field("Background picture", U.Select(Backgrounds.All, d.Background, id => Change(Draft with { Background = id }))),
 			U.Field("Background movement", U.Segmented(new[] { ("on", "On"), ("off", "Off") }, d.BackgroundMotion ? "on" : "off", id => Change(Draft with { BackgroundMotion = id == "on" }))),
 			U.Muted("On wide monitors, the space picture beside the game sways with the mouse. Off keeps it still.", 12),
@@ -104,7 +111,8 @@ public partial class SettingsScreen : Control
 		var dyslexic = new CheckBox
 		{
 			Text = Lang.T("Dyslexia-friendly font"), ButtonPressed = Settings.DyslexicFont && Fonts.DyslexicAvailable,
-			Disabled = !Fonts.DyslexicAvailable, MouseDefaultCursorShape = CursorShape.PointingHand,
+			Disabled = !Fonts.DyslexicAvailable || inWindow, MouseDefaultCursorShape = CursorShape.PointingHand,
+			TooltipText = inWindow ? Lang.T("Change this on the home screen's Settings.") : "",
 		};
 		dyslexic.Toggled += on => Callable.From(() => App.I.UseDyslexicFont(on)).CallDeferred();
 		var accessibility = U.Card(12,
@@ -121,7 +129,7 @@ public partial class SettingsScreen : Control
 			{
 				Change(Draft with { Language = code });
 				// Rebuild so text made from parts (Lang.F) switches too.
-				Callable.From(App.I.GoSettings).CallDeferred();
+				Callable.From(Rebuild).CallDeferred();
 			}),
 			U.Muted("Changes all menus and game screens. Quiz questions stay in the language they were written in.", 12),
 			U.Gap(4),
@@ -133,21 +141,23 @@ public partial class SettingsScreen : Control
 			_draft = Settings.Defaults;
 			_note = "reset";
 			Preview();
-			App.I.GoSettings();
+			Rebuild();
 		});
 		_discard = U.Btn("Discard", "", () =>
 		{
 			_draft = Settings.Current;
 			_note = null;
 			Preview();
-			App.I.GoSettings();
+			Rebuild();
 		});
 		_apply = U.Btn("Apply", "AccentButton", Apply).With(b => b.TooltipText = "Ctrl+S");
 		var bar = U.H(10, _reset, _status.Grow(), _discard, _apply);
 		_status.SizeFlagsVertical = SizeFlags.ShrinkCenter;
 
-		var page = U.V(14,
-			U.H(16, U.Link("← Home", Leave).With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter), U.Heading("Settings", 34)),
+		var top = inWindow
+			? U.H(16, U.Heading("Settings", 34).Grow(), U.Small("Close", () => Leave()).With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter))
+			: U.H(16, U.Link("← Home", () => Leave()).With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter), U.Heading("Settings", 34));
+		var page = U.V(14, top,
 			U.H(14, U.V(14, audio, accessibility).Grow(), U.V(14, video, language).Grow()));
 		// The buttons stay at the bottom of the screen; the settings scroll above them.
 		var scroll = U.Page(page, 980, 20);
@@ -195,8 +205,15 @@ public partial class SettingsScreen : Control
 		UpdateBar();
 	}
 
-	/// <summary>Back home; unsaved changes are dropped (after asking).</summary>
-	void Leave()
+	/// <summary>This screen again (a language or screen change shows new text and sizes), here or in the window.</summary>
+	void Rebuild()
+	{
+		if (_inWindow) SettingsWindow.Rebuild();
+		else App.I.GoSettings();
+	}
+
+	/// <summary>Back home, or closing the window over a game; unsaved changes are dropped (after asking).</summary>
+	public bool Leave()
 	{
 		void Go()
 		{
@@ -204,10 +221,12 @@ public partial class SettingsScreen : Control
 			_note = null;
 			Prefs.ApplyAudio();
 			Lang.Use(Settings.Language);
-			App.I.GoHome();
+			if (_inWindow) SettingsWindow.Close();
+			else App.I.GoHome();
 		}
 		if (Dirty) Dialogs.Confirm(this, "You have changes you haven't applied. Leave without saving them?", "Discard changes", Go);
 		else Go();
+		return true;
 	}
 
 	void UpdateBar()
@@ -236,7 +255,7 @@ public partial class SettingsScreen : Control
 				Sfx.SetCustom(path);
 				Sfx.PlayBuzzer(Sfx.Custom);
 				_draft = Draft with { Buzzer = Sfx.Custom };
-				App.I.GoSettings();
+				Rebuild();
 			}
 			catch (UserError e)
 			{

@@ -58,7 +58,7 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 		_content.Clear();
 		var connected = room.Players.Count(p => p.Connected);
 		_content.AddChild(U.H(8, U.Heading("Lobby", 28, false).Grow(), new RoomCodeButton(room.Code, 32),
-			U.Pill(U.Plural(room.Players.Count, "player", "players"))));
+			U.Pill(U.Plural(room.Players.Count, "player", "players")), MediaIcon.SettingsGear()));
 		_content.AddChild(U.Muted($"{room.Quiz.Title} · {U.Plural(room.Quiz.QuestionCount, "question", "questions")}", 15).Raw());
 
 		if (_host.Mode == NetMode.Steam)
@@ -166,7 +166,7 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 		_content.Clear();
 		_content.AddChild(U.H(8, U.Heading("Waiting room", 28, false).Grow(),
 			_client.Mode == NetMode.Steam ? new RoomCodeButton(room.Code) : U.Pill(Lang.F("Host {0}", _client.Target)),
-			U.Pill(U.Plural(room.Players.Count, "player", "players"))));
+			U.Pill(U.Plural(room.Players.Count, "player", "players")), MediaIcon.SettingsGear()));
 		_content.AddChild(U.Muted(room.Quiz.Title, 15).Raw());
 
 		var grid = new GridContainer { Columns = 4 };

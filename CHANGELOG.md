@@ -13,6 +13,9 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+### Added
+- **Settings during a game:** a gear in the top bar of the lobby, the waiting room and the host's and players' game screens opens Settings as a window over it, so you can turn the volume down or change the window size without leaving the room. Close, Escape or the mouse's back button close it again (asking first if you changed something without applying it). The skin and the dyslexia-friendly font are only changed from the home screen's Settings, because they rebuild every screen.
+
 ## [0.10.3b]
 
 ### Added

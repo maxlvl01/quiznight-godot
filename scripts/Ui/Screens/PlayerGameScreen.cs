@@ -87,6 +87,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			row.AddChild(new Avatar(me, 28));
 			row.AddChild(U.Bold(me.Name, 17).Raw());
 			row.AddChild(U.Pill(Lang.F("{0} pts", room.Score(MyId)), C.Accent));
+			row.AddChild(MediaIcon.SettingsGear());
 			return U.Panel(row, "Bar");
 		});
 

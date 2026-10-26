@@ -10,7 +10,7 @@ namespace QuizNight.Ui;
 
 public partial class MediaIcon : Control
 {
-	public enum Kind { Play, Pause, Previous, Next, List, Note }
+	public enum Kind { Play, Pause, Previous, Next, List, Note, Gear }
 
 	Kind _kind;
 	public Kind Shape
@@ -49,6 +49,10 @@ public partial class MediaIcon : Control
 
 	public static MediaIcon Of(Button b) => b.GetChild<MediaIcon>(0);
 
+	/// <summary>The gear in a lobby's or game's top bar: Settings as a window over it, without leaving the room.</summary>
+	public static Button SettingsGear() =>
+		Button(Kind.Gear, "Settings", Ui.Screens.SettingsWindow.Open, 30).With(b => b.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter);
+
 	public override void _Draw()
 	{
 		var s = Size;
@@ -80,6 +84,21 @@ public partial class MediaIcon : Control
 					DrawRect(new Rect2(P(0.32f, y - 0.07f), new Vector2(0.64f, 0.14f) * m), Color);
 				}
 				break;
+			case Kind.Gear:
+			{
+				// (eight teeth around a ring, a hole in the middle)
+				var c = P(0.5f, 0.5f);
+				for (var t = 0; t < 8; t++)
+				{
+					var a = t * Mathf.Tau / 8;
+					var dir = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
+					var side = new Vector2(-dir.Y, dir.X) * 0.1f * m;
+					DrawColoredPolygon(new[] { c + dir * 0.28f * m - side, c + dir * 0.5f * m - side * 0.8f, c + dir * 0.5f * m + side * 0.8f, c + dir * 0.28f * m + side }, Color);
+				}
+				DrawCircle(c, 0.34f * m, Color);
+				DrawCircle(c, 0.14f * m, C.Panel2);
+				break;
+			}
 			case Kind.Note:
 				DrawCircle(P(0.26f, 0.78f), 0.15f * m, Color);
 				DrawCircle(P(0.76f, 0.68f), 0.15f * m, Color);

@@ -11,6 +11,7 @@
 //   --lang en|de                   use that language this run (not saved)
 //   --video-guide [FILE]           open a new video question with the MP4 → .ogv guide
 //   --whats-new                    the home screen with this version's What's new open
+//   --settings-window              with --host-sample: Settings open as a window over the lobby
 //   --buzzer                       the BUZZ! button alone (unlocked and locked)
 //   --shot FILE [--after SEC]      save a screenshot after SEC seconds (default 2) and quit
 //   --shots DIR                    save a screenshot of every new game moment into DIR
@@ -204,6 +205,8 @@ public sealed class DevTools
 			var sample = WithTestMedia(SampleQuiz.Build());
 			var quiz = Value("--host") is { } file ? QuizStore.Import(file) : QuizStore.Save(sample);
 			_app.HostQuiz(quiz, NetMode.Lan);
+			// --settings-window: Settings open over the lobby (or the game), for screenshots
+			if (Has("--settings-window")) _app.GetTree().CreateTimer(1.5).Timeout += Ui.Screens.SettingsWindow.Open;
 		}
 		else if (Value("--open") is { } type)
 		{
