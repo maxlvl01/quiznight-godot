@@ -340,6 +340,8 @@ public partial class PodiumScreen : Control, IRoomScreen
 		var rest = ranked.Where(r => r.Place > 3).ToList();
 		var me = ranked.FirstOrDefault(r => r.P.Id == _myId);
 
+		// (everything has a sponsor's name, like in American sports)
+		_content.AddChild(U.H(10, U.Eyebrow("The"), new TrackGlowLogo(0.55f) { SizeFlagsVertical = SizeFlags.ShrinkCenter }, U.Eyebrow("Podium")).Center());
 		_content.AddChild(U.Eyebrow(Lang.F("{0} · final results", room.Quiz.Title)).Center());
 		_content.AddChild(U.H(0, U.Heading(top.Count(r => r.Place == 1) > 1 ? "It's a tie at the top" : "And the winner is", 48, false), U.Text("…", 48, C.Accent, Fonts.Black)).Center());
 		if (me.P != null) _content.AddChild(U.H(4, U.Muted("You finished", 16, false), U.Text(Lang.Ordinal(me.Place), 16, C.Accent, Fonts.Bold).Raw(), U.Muted(Lang.F("with {0} points.", me.Score), 16, false)).Center());

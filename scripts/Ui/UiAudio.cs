@@ -150,7 +150,7 @@ public partial class UiAudio : Node
 	/// <summary>Meta for a button that shouldn't grow under the mouse (list rows, cards in a grid).</summary>
 	public const string NoBounce = "no_bounce";
 
-	/// <summary>The party show bounce: buttons grow a little under the mouse and squash when clicked (links don't move).</summary>
+	/// <summary>The party show bounce: buttons grow a little under the mouse (links don't move).</summary>
 	static void Bounce(BaseButton button, float to, double time)
 	{
 		if (button.ThemeTypeVariation == "LinkButton2" || button is Ui.Screens.BuzzButton or CheckBox || !button.IsVisibleInTree() || Announcer.ReduceMotion) return;
@@ -169,8 +169,7 @@ public partial class UiAudio : Node
 			if (!button.Disabled) Bounce(button, 1.04f, 0.15);
 		};
 		button.MouseExited += () => Bounce(button, 1f, 0.15);
-		button.ButtonDown += () => Bounce(button, 0.94f, 0.06);
-		button.ButtonUp += () => Bounce(button, button.IsHovered() ? 1.04f : 1f, 0.25);
+		// (no squash when pressed: the buttons' 3D style already shows them pressed in)
 		button.MouseEntered += () =>
 		{
 			if (_hover.Stream != null && !button.Disabled && button.IsVisibleInTree()) _hover.Play();

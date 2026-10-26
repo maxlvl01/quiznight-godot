@@ -50,7 +50,7 @@ public partial class HomeScreen : Control
 		brand.Center();
 
 		var page = U.V(18, brand,
-			U.Muted("Quiz nights with your friends — on Discord or on the couch.", 17, false, HorizontalAlignment.Center).Center());
+			U.Muted("Quiz nights with your friends — everyone on their own PC.", 17, false, HorizontalAlignment.Center).Center());
 		// "Update available" under the logo, once a check found a newer version.
 		if (notice != null) page.AddChild(U.Panel(U.Text(notice, 15, null, null, true), "Notice").With(p =>
 			p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel2, 10, C.Accent, 1, 14, 10))));

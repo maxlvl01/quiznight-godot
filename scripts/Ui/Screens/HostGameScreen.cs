@@ -205,7 +205,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 			if (game.Stage == Stage.Open && !game.Shown)
 			{
 				row.AddChild(U.Muted("Players don't see this question yet.", 15, false).Grow());
-				row.AddChild(U.Btn("Host notes", "", HostNotes.Open).Tip("The question and answer in a separate window (not in your stream if you share only the game window)"));
+				row.AddChild(U.Btn("Host notes", "", HostNotes.Open).Tip("The question and answer in a separate window, e.g. for your second monitor"));
 				row.AddChild(U.Btn("Show question  (Space)", "AccentButton", _host.ShowQuestion, 20));
 				return row;
 			}

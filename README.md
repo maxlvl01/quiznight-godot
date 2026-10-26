@@ -1,8 +1,8 @@
 # Quiznight! (Godot)
 
-Host quiz nights with friends — over Discord or in the same room. The host is the quizmaster
-(builds the quiz and runs the show, doesn't play); players join with a 4-character room code on
-their own PC. Jackbox style: the host's screen goes on the TV or into a Discord stream.
+Host quiz nights with friends, everyone on their own PC (talking on Discord). The host is the quizmaster
+(builds the quiz and runs the show, doesn't play); players join with a 4-character room code. Everyone sees and
+hears the questions, pictures, sounds and videos on their own screen.
 
 This is the Godot 4.7 (C#) version of Quiznight. It plays over **Steam** (using Valve's Spacewar
 test app, so everyone needs Steam running) or over **LAN** (same Wi-Fi, or several windows on one PC).

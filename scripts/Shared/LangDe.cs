@@ -10,7 +10,7 @@ public static class LangDe
 	public static readonly Dictionary<string, string> Strings = new()
 	{
 		// ---------- home ----------
-		["Quiz nights with your friends — on Discord or on the couch."] = "Quizabende mit deinen Freunden – auf Discord oder auf der Couch.",
+		["Quiz nights with your friends — everyone on their own PC."] = "Quizabende mit deinen Freunden – jeder an seinem eigenen PC.",
 		["Play over"] = "Spielen über",
 		["Steam (internet)"] = "Steam (Internet)",
 		["LAN / same PC"] = "LAN / gleicher PC",
@@ -159,7 +159,7 @@ public static class LangDe
 		["I unlock the buzzers myself (after reading the question out — Space)"] = "Ich gebe die Buzzer selbst frei (nachdem ich die Frage vorgelesen habe – Leertaste)",
 		["Show question  (Space)"] = "Frage zeigen  (Leertaste)",
 		["Host notes"] = "Host-Notizen",
-		["The question and answer in a separate window (not in your stream if you share only the game window)"] = "Frage und Antwort in einem eigenen Fenster (nicht in deinem Stream, wenn du nur das Spielfenster teilst)",
+		["The question and answer in a separate window, e.g. for your second monitor"] = "Frage und Antwort in einem eigenen Fenster, z. B. für deinen zweiten Bildschirm",
 		["Unlock buzzers  (Space)"] = "Buzzer freigeben  (Leertaste)",
 		["Lock buzzers"] = "Buzzer sperren",
 		["Buzzers locked"] = "Buzzer gesperrt",
@@ -1424,5 +1424,6 @@ public static class LangDe
 		["New since your last update"] = "Neu seit deinem letzten Update",
 		["Mark all as read"] = "Alle als gelesen markieren",
 		["Removes the yellow dots on what's new since your last update"] = "Entfernt die gelben Punkte bei allem, was seit deinem letzten Update neu ist",
+		["The"] = "Das",
 	};
 }
