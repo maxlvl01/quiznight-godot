@@ -18,6 +18,8 @@ public static class Sfx
 	{
 		new("soft-beep", "Soft beep", "res://assets/soundeffects/Soft Beep Buzzer.ogg"),
 		new("metal-pipe", "Metal pipe", "res://assets/soundeffects/metal pipe buzzer.ogg"),
+		// (recorded about 12 dB quieter than the other two)
+		new("buzzer-3", "Buzzer 3", "res://assets/soundeffects/Buzzer 3.ogg", 12),
 	};
 
 	/// <summary>assets/soundeffects/Podium.mp3, .wav or .ogg — whichever is there (MP3 and WAV first).</summary>
@@ -112,7 +114,8 @@ public static class Sfx
 	public static void PlayBuzzer(string id)
 	{
 		if (id == Off || Load(Valid(id)) is not { } stream) return;
-		Play(stream);
+		// (a quiet recording plays louder: its Db)
+		Play(ref _player, Prefs.SfxBus, stream, Buzzers.FirstOrDefault(b => b.Id == Valid(id))?.Db ?? 0);
 	}
 
 	/// <summary>
@@ -170,7 +173,6 @@ public static class Sfx
 		if (Previewing) StopAll();
 	}
 
-	static void Play(AudioStream stream) => Play(ref _player, Prefs.SfxBus, stream);
 
 	static void Play(ref AudioStreamPlayer? player, string bus, AudioStream stream, float db = 0)
 	{

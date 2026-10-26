@@ -31,6 +31,7 @@ credits later, so keep the columns as they are (leave a cell empty if you don't 
 | `ui/hover.ogg` | | | | mouse over a button |
 | `ui/click.ogg` | | | | clicking a button |
 | `Correct Answer.ogg` | | | | a buzz judged right, a right timeline placement, the reveal (right) |
+| `Buzzer 3.ogg` | | | | a buzzer sound to choose in Settings and the lobby (played 12 dB louder) |
 | `Wrong Answer.ogg` | | | | a buzz judged wrong, a wrong timeline placement, the reveal (wrong) |
 | `voice/intro.ogg` | Intro voice line | [who recorded it] | | when the game opens (with a little reverb) |
 | | | | | |
