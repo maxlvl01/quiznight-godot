@@ -10,7 +10,7 @@ namespace QuizNight.Ui;
 
 public partial class MediaIcon : Control
 {
-	public enum Kind { Play, Pause, Previous, Next, List, Note, Gear }
+	public enum Kind { Play, Pause, Previous, Next, List, Note, Gear, Info }
 
 	Kind _kind;
 	public Kind Shape
@@ -99,6 +99,12 @@ public partial class MediaIcon : Control
 				DrawCircle(c, 0.14f * m, C.Panel2);
 				break;
 			}
+			case Kind.Info:
+				// (an "i" in a ring)
+				DrawArc(P(0.5f, 0.5f), 0.44f * m, 0, Mathf.Tau, 32, Color, Mathf.Max(1.5f, 0.1f * m), true);
+				DrawCircle(P(0.5f, 0.28f), 0.075f * m, Color);
+				DrawRect(new Rect2(P(0.43f, 0.42f), new Vector2(0.14f, 0.34f) * m), Color);
+				break;
 			case Kind.Note:
 				DrawCircle(P(0.26f, 0.78f), 0.15f * m, Color);
 				DrawCircle(P(0.76f, 0.68f), 0.15f * m, Color);
@@ -135,7 +141,9 @@ public partial class MusicPlayer : VBoxContainer
 			MediaIcon.Button(MediaIcon.Kind.Previous, "Previous song", () => Audio.Skip(-1)),
 			_toggle,
 			MediaIcon.Button(MediaIcon.Kind.Next, "Next song", () => Audio.Skip(1)),
-			MediaIcon.Button(MediaIcon.Kind.List, "All songs", () => Jukebox.I?.Open(true)));
+			MediaIcon.Button(MediaIcon.Kind.List, "All songs", () => Jukebox.I?.Open(true)),
+			U.Fill(),
+			MediaIcon.Button(MediaIcon.Kind.Info, "Credits and licences", CreditsWindow.Open));
 		AddChild(controls);
 		_disc = disc;
 	}

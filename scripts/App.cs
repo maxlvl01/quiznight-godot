@@ -226,6 +226,13 @@ public partial class App : Control
 	{
 		if (e is not InputEventKey { Pressed: true, Echo: false } key || _screen == null) return;
 		if (GetChildren().OfType<SplashIntro>().Any()) return;
+		// (the credits window: Escape closes it)
+		if (CreditsWindow.Current != null)
+		{
+			if (key.Keycode == Key.Escape) CreditsWindow.Close();
+			GetViewport().SetInputAsHandled();
+			return;
+		}
 		// (Settings open over a lobby or a game: Escape closes it, Ctrl+S applies; the room underneath isn't touched)
 		if (SettingsWindow.Current is { } window)
 		{
@@ -258,6 +265,12 @@ public partial class App : Control
 		if (button.ButtonIndex is not (MouseButton.Xbutton1 or MouseButton.Xbutton2) && !rightClick) return;
 		if (GetChildren().OfType<SplashIntro>().Any()) return;
 		var back = rightClick || button.ButtonIndex == MouseButton.Xbutton1;
+		if (CreditsWindow.Current != null)
+		{
+			if (back) CreditsWindow.Close();
+			GetViewport().SetInputAsHandled();
+			return;
+		}
 		// (the mouse's back button closes Settings open over a game, instead of leaving the room)
 		if (SettingsWindow.Current is { } window)
 		{

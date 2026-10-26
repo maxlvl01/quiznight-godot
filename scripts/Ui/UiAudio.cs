@@ -50,7 +50,7 @@ public partial class UiAudio : Node
 	/// <summary>Christmas time: 1 to 26 December (the christmas folder's songs join the others then).</summary>
 	public static bool IsChristmas(DateTime day) => Seasons.IsChristmas(day);
 
-	static List<string> SongsIn(string dir)
+	internal static List<string> SongsIn(string dir)
 	{
 		if (!DirAccess.DirExistsAbsolute(dir)) return new();
 		return DirAccess.GetFilesAt(dir).Select(f => f.EndsWith(".import") ? f[..^7] : f.EndsWith(".remap") ? f[..^6] : f)

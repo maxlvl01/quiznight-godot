@@ -297,6 +297,22 @@ public sealed class DevTools
 				case "settings":
 					_app.GoSettings();
 					break;
+				case "credits":
+					_app.GoHome();
+					Ui.CreditsWindow.Open();
+					break;
+				case "credits-wall":
+				{
+					_app.GoHome();
+					var bg = new ColorRect { Color = Ui.C.Bg };
+					bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+					var center = new CenterContainer();
+					center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+					center.AddChild(new Ui.CreditsWall());
+					_app.AddChild(bg);
+					_app.AddChild(center);
+					break;
+				}
 				case "eternal":
 					// (--sort COL [--ascending]: the table sorted by that column)
 					if (Value("--sort") is { } col) EternalTableScreen.SortBy(col, Has("--ascending"));
