@@ -128,16 +128,16 @@ public partial class App : Control
 
 	const string VolumesNotice = "All volume sliders are at 50 % now, the new standard. Turn them up again in Settings if you liked it louder.";
 
-	/// <summary>The splash (not in dev and test runs, which pass arguments after --), then the home screen.</summary>
-	void Start(bool splash, string? notice = null)
+	/// <summary>The intro (not in dev and test runs, which pass arguments after --), then the home screen.</summary>
+	void Start(bool intro, string? notice = null)
 	{
-		IntroSequence? intro = null;
+		IntroSequence? cards = null;
 		// (the intro's title screen plays the voice line when it's left; the music follows it)
-		if (splash && !Announcer.ReduceMotion) AddChild(intro = new IntroSequence(() => { if (_screen is HomeScreen) _audio.Greet(); }));
+		if (intro && !Announcer.ReduceMotion) AddChild(cards = new IntroSequence(() => { if (_screen is HomeScreen) _audio.Greet(); }));
 		// (the music waits for the voice line, which comes once the intro is gone: Popups → Greet)
 		_audio.HoldForGreeting();
 		GoHome(notice);
-		// (What's new and the update prompt are windows of their own: they wait until the splash is gone)
+		// (What's new and the update prompt are windows of their own: they wait until the intro is gone)
 		void Popups()
 		{
 			if (_screen is HomeScreen) _audio.Greet();
@@ -146,7 +146,7 @@ public partial class App : Control
 			if (Updater.Enabled) Updater.CleanUp();
 			UpdatePrompt.CheckAndInstall(this);
 		}
-		if (intro != null) intro.TreeExited += Popups;
+		if (cards != null) cards.TreeExited += Popups;
 		else Popups();
 	}
 

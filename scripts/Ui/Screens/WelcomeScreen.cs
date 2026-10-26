@@ -1,4 +1,4 @@
-// The very first start on a PC (no settings saved yet, so never after an update): before the splash and the home screen,
+// The very first start on a PC (no settings saved yet, so never after an update): before the intro and the home screen,
 // the accessibility settings (colour vision, the dyslexia-friendly font) and the language, so nobody has to find
 // Settings first to be able to read the game. Everything applies and saves at once; "Let's go!" carries on.
 

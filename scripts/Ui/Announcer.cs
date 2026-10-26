@@ -31,7 +31,7 @@ public partial class Announcer : Label
 		AccessibilityName = text;
 	}
 
-	/// <summary>Whether Windows asks apps for less motion (then the splash, spotlights, typing logo and bounces keep still).</summary>
+	/// <summary>Whether Windows asks apps for less motion (then the intro is left out, and the spotlights, typing logo and bounces keep still).</summary>
 	public static bool ReduceMotion
 	{
 		get

@@ -1039,6 +1039,8 @@ public static class LangDe
 		["Kölle Alaaf (Carnival)"] = "Kölle Alaaf (Karneval)",
 		["Valentine's Day"] = "Valentinstag",
 		["Christmas"] = "Weihnachten",
+		["What the game sends"] = "Was das Spiel sendet",
+		["When a quiz night over Steam ends, the host's game sends its results (everyone's name, Steam ID and points) to Max's private results list, for the eternal table. \"Copy share code\" uploads that quiz (without its sounds and videos), and the game asks GitHub if there's an update. Nothing else leaves your PC."] = "Wenn ein Quizabend über Steam endet, schickt das Spiel des Hosts die Ergebnisse (Name, Steam-ID und Punkte von allen) an Max' private Ergebnisliste, für die ewige Tabelle. „Teilen-Code kopieren“ lädt dieses Quiz hoch (ohne Sounds und Videos), und das Spiel fragt bei GitHub nach Updates. Sonst verlässt nichts deinen PC.",
 		["It isn't signed with Max's release key, so it wasn't installed."] = "Es ist nicht mit Max' Release-Schlüssel signiert und wurde deshalb nicht installiert.",
 		["Only my Steam friends can join"] = "Nur meine Steam-Freunde dürfen rein",
 		["Over Steam: players who aren't on your Steam friends list can't come in, even with the code."] = "Über Steam: Wer nicht in deiner Steam-Freundesliste ist, kommt nicht rein, auch nicht mit dem Code.",

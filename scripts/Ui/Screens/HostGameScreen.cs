@@ -375,16 +375,16 @@ public partial class PeekButton : Button
 		Text = HiddenText;
 		MouseDefaultCursorShape = CursorShape.PointingHand;
 		// (the answer shows in a box above the button: a long one would stretch the whole row)
-		ButtonDown += Show;
-		ButtonUp += Hide;
-		MouseExited += Hide;
+		ButtonDown += ShowAnswer;
+		ButtonUp += HideAnswer;
+		MouseExited += HideAnswer;
 	}
 
 	PanelContainer? _box;
 
-	void Show()
+	void ShowAnswer()
 	{
-		Hide();
+		HideAnswer();
 		var label = U.Text(_answer, 17, C.Text, Fonts.Bold, true).Raw();
 		label.CustomMinimumSize = new Vector2(Mathf.Min(560, _answer.Length * 9 + 20), 0);
 		_box = U.Panel(label, "Clear");
@@ -402,7 +402,7 @@ public partial class PeekButton : Button
 		}).CallDeferred();
 	}
 
-	void Hide()
+	void HideAnswer()
 	{
 		_box?.QueueFree();
 		_box = null;

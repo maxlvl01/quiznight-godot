@@ -1,8 +1,8 @@
 // The intro when the game starts, like a console game's. Before it, while the game loads, the Pinke Geilheit
-// Anti-Cheat shows in a small window of its own, like Easy Anti-Cheat's (AntiCheatSplash; a joke: it checks nothing; the
-// boot splash is its first frame). Then in the game's window a few cards one after the other: the Xbox "World Premiere"
-// video, Made with Godot (on black), maxlvl01 presents, Pinke Geilheit Publishing (its logo is an animated GIF's frames,
-// assets/intro/publisher.webp), music by Epidemic Sound, the credits wall, then the title screen with the animated logo.
+// Neural-Level Anti-Cheat shows in a small window of its own (AntiCheatSplash; the boot splash is its first frame). Then in
+// the game's window a few cards one after the other: the Xbox "World Premiere" video, Made with Godot (on black),
+// maxlvl01 presents, Pinke Geilheit Publishing (its logo is an animated GIF's frames, assets/intro/publisher.webp), music
+// by Epidemic Sound, sponsored by TrackGlow, the credits wall, then the title screen (TitleScreen) with the animated logo.
 // A key or a click skips the card showing (Escape skips them all); on the title screen it starts: the voice line plays,
 // the logo glides up into its place on the home screen and the home screen fades in around it. Dev and test runs (any
 // arguments after --) and "less motion" don't show any of it.
@@ -203,12 +203,18 @@ public partial class IntroSequence : Control
 
 	static Texture2D? Picture(string name) => ResourceLoader.Exists($"res://assets/intro/{name}") ? GD.Load<Texture2D>($"res://assets/intro/{name}") : null;
 
-	static TextureRect Image(string name, float width) => new()
+	/// <summary>A picture from assets/intro at this width, as tall as its shape says.</summary>
+	static TextureRect Image(string name, float width)
 	{
-		Texture = Picture(name), ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-		CustomMinimumSize = new Vector2(width, width * ((Picture(name)?.GetHeight() ?? 1) / (float)(Picture(name)?.GetWidth() ?? 1))),
-		MouseFilter = MouseFilterEnum.Ignore, SizeFlagsHorizontal = SizeFlags.ShrinkCenter, TextureFilter = TextureFilterEnum.LinearWithMipmaps,
-	};
+		var picture = Picture(name);
+		var aspect = picture == null ? 1f : picture.GetHeight() / (float)picture.GetWidth();
+		return new TextureRect
+		{
+			Texture = picture, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+			CustomMinimumSize = new Vector2(width, width * aspect), MouseFilter = MouseFilterEnum.Ignore, SizeFlagsHorizontal = SizeFlags.ShrinkCenter,
+			TextureFilter = TextureFilterEnum.LinearWithMipmaps,
+		};
+	}
 
 	static Label Spaced(string text, int size, Color color) => U.Text(text, size, color, Fonts.Spaced, false, HorizontalAlignment.Center).Raw();
 
@@ -318,224 +324,5 @@ public partial class IntroSequence : Control
 		await owner.ToSignal(RenderingServer.Singleton, RenderingServer.SignalName.FramePostDraw);
 		viewport.GetTexture().GetImage().SavePng(path);
 		viewport.QueueFree();
-	}
-}
-
-/// <summary>
-/// The Pinke Geilheit Anti-Cheat, like Easy Anti-Cheat's launcher: the game opens as a small borderless window with a banner
-/// (the woman from the publisher's logo, moving), a progress bar and very serious status lines, then becomes the game's
-/// real window (App). It checks nothing.
-/// </summary>
-public partial class AntiCheatSplash : Control
-{
-	static readonly string[] Steps =
-	{
-		"Initialising…", "Connecting to your brain…", "Verifying game files…", "Scanning for big brains…", "Reading your thoughts…",
-		"No cheats found. Probably.",
-	};
-
-	/// <summary>The small window it shows in (project.godot's window size override and borderless are the same).</summary>
-	public static readonly Vector2I WindowSize = new(800, 450);
-
-	readonly ColorRect _fill;
-	readonly Label _status;
-	readonly Label _percent;
-	readonly Action? _done;
-	double _t;
-	public bool Frozen;
-	const double Duration = 3.2;
-	static readonly Color Pink = new("#ff4f8b");
-
-	public AntiCheatSplash() : this(null) { }
-
-	public static bool Showing { get; private set; }
-
-	public override void _EnterTree() => Showing = true;
-
-	public override void _ExitTree() => Showing = false;
-
-	public AntiCheatSplash(Action? done)
-	{
-		_done = done;
-		SetAnchorsPreset(LayoutPreset.FullRect);
-		MouseFilter = MouseFilterEnum.Stop;
-		var bg = new ColorRect { Color = new Color("#1c1b22"), MouseFilter = MouseFilterEnum.Ignore };
-		bg.SetAnchorsPreset(LayoutPreset.FullRect);
-		AddChild(bg);
-		// the banner: the woman's face and shoulders out of the GIF, darkened towards the bottom for the title
-		var banner = new IntroSequence.GifPlayer(new Rect2(0, 58, 360, 141)) { StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered };
-		banner.SetAnchorsPreset(LayoutPreset.TopWide);
-		banner.OffsetBottom = 500;
-		AddChild(banner);
-		var shade = new TextureRect
-		{
-			Texture = new GradientTexture2D
-			{
-				Width = 4, Height = 64, FillFrom = new Vector2(0, 0), FillTo = new Vector2(0, 1),
-				Gradient = new Gradient { Colors = new[] { new Color("#1c1b22", 0), new Color("#1c1b22", 0.15f), new Color("#1c1b22", 1) }, Offsets = new[] { 0f, 0.45f, 1f } },
-			},
-			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, MouseFilter = MouseFilterEnum.Ignore,
-		};
-		shade.SetAnchorsPreset(LayoutPreset.TopWide);
-		shade.OffsetBottom = 502;
-		AddChild(shade);
-		var title = U.H(22,
-			new ShieldIcon { CustomMinimumSize = new Vector2(70, 84), SizeFlagsVertical = SizeFlags.ShrinkCenter },
-			U.V(-6, U.Text("PINKE GEILHEIT", 66, Colors.White, Fonts.Black).Raw(), U.Text("NEURAL-LEVEL ANTI-CHEAT", 30, Pink, Fonts.Spaced).Raw()));
-		title.Position = new Vector2(56, 330);
-		AddChild(title);
-		_status = U.Text(Lang.T(Steps[0]), 28, new Color("#d8d6e0")).Raw();
-		_percent = U.Text("0 %", 28, new Color("#8e8a9c"), Fonts.Bold).Raw();
-		var track = new ColorRect { Color = new Color("#2e2c37"), CustomMinimumSize = new Vector2(0, 16), MouseFilter = MouseFilterEnum.Ignore };
-		_fill = new ColorRect { Color = Pink, MouseFilter = MouseFilterEnum.Ignore };
-		track.AddChild(_fill);
-		track.Resized += () => _fill.Size = new Vector2(_fill.Size.X, track.Size.Y);
-		var foot = U.V(14, U.H(8, _status.Grow(), _percent), track, U.Text(Lang.T("Protected game: Quiznight?"), 22, new Color("#6f6b7d")).Raw());
-		foot.SetAnchorsPreset(LayoutPreset.BottomWide);
-		foot.OffsetLeft = 56;
-		foot.OffsetRight = -56;
-		foot.OffsetTop = -190;
-		foot.OffsetBottom = -44;
-		AddChild(foot);
-	}
-
-	public override void _Process(double delta)
-	{
-		if (Frozen) return;
-		_t += delta;
-		var f = (float)Mathf.Min(1, _t / Duration);
-		// (it stalls a little at the scary step, like the real thing)
-		var shown = f < 0.5f ? f : f < 0.62f ? 0.5f : (f - 0.12f) / 0.88f;
-		_fill.Size = new Vector2(((Control)_fill.GetParent()).Size.X * shown, _fill.Size.Y);
-		_percent.Text = $"{Mathf.RoundToInt(shown * 100)} %";
-		_status.Text = Lang.T(Steps[Mathf.Min(Steps.Length - 1, (int)(f * (Steps.Length - 1) + 0.0001f))]);
-		if (_t >= Duration + 0.5 && _done != null)
-		{
-			Frozen = true;
-			QueueFree();
-			_done();
-		}
-	}
-
-	partial class ShieldIcon : Control
-	{
-		public ShieldIcon() => MouseFilter = MouseFilterEnum.Ignore;
-
-		public override void _Draw()
-		{
-			var s = Size;
-			Vector2 P(float x, float y) => new(x * s.X, y * s.Y);
-			DrawColoredPolygon(new[] { P(0.5f, 0), P(1, 0.15f), P(0.95f, 0.55f), P(0.5f, 1), P(0.05f, 0.55f), P(0, 0.15f) }, Pink);
-			DrawPolyline(new[] { P(0.27f, 0.5f), P(0.44f, 0.67f), P(0.75f, 0.33f) }, Colors.White, 6f, true);
-		}
-	}
-}
-
-/// <summary>The title screen: the animated logo big in the middle, "Press any button" blinking underneath.</summary>
-public partial class TitleScreen : Control
-{
-	public readonly LogoField Logo;
-	public readonly Label Prompt;
-	public readonly TextureRect Glow;
-	public readonly Button Sponsor;
-	/// <summary>Started: the prompt and logo are the glide's now.</summary>
-	public bool Leaving;
-	double _t;
-
-	public TitleScreen()
-	{
-		SetAnchorsPreset(LayoutPreset.FullRect);
-		MouseFilter = MouseFilterEnum.Ignore;
-		Glow = new TextureRect
-		{
-			Texture = new GradientTexture2D
-			{
-				Width = 128, Height = 128, Fill = GradientTexture2D.FillEnum.Radial, FillFrom = new Vector2(0.5f, 0.5f), FillTo = new Vector2(1f, 0.5f),
-				Gradient = new Gradient { Colors = new[] { new Color(C.Accent, 0.28f), new Color(C.Purple, 0.1f), new Color(C.Bg, 0) }, Offsets = new[] { 0f, 0.45f, 1f } },
-			},
-			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, MouseFilter = MouseFilterEnum.Ignore,
-		};
-		Glow.SetAnchorsPreset(LayoutPreset.FullRect);
-		AddChild(Glow);
-		Logo = new LogoField(104);
-		var center = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };
-		center.SetAnchorsPreset(LayoutPreset.FullRect);
-		center.OffsetBottom = -60;
-		center.AddChild(Logo);
-		AddChild(center);
-		Prompt = U.Text(Lang.T("Press any button").ToUpper(), 22, C.Text, Fonts.Spaced, false, HorizontalAlignment.Center);
-		Prompt.SetAnchorsPreset(LayoutPreset.CenterBottom);
-		Prompt.GrowHorizontal = GrowDirection.Both;
-		Prompt.GrowVertical = GrowDirection.Begin;
-		Prompt.OffsetBottom = -90;
-		AddChild(Prompt);
-		// the sponsor, bottom right: opens their Patreon
-		Sponsor = new Button { Flat = true, MouseDefaultCursorShape = CursorShape.PointingHand, TooltipText = IntroSequence.SponsorUrl };
-		Sponsor.AddChild(U.V(2, U.Text(Lang.T("Sponsored by").ToUpper(), 11, C.Muted, Fonts.Spaced, false, HorizontalAlignment.Right), new TrackGlowLogo(0.7f))
-			.With(v => { v.MouseFilter = MouseFilterEnum.Ignore; v.SetAnchorsPreset(LayoutPreset.FullRect); }));
-		Sponsor.CustomMinimumSize = new Vector2(250, 70);
-		Sponsor.SetAnchorsPreset(LayoutPreset.BottomRight);
-		Sponsor.GrowHorizontal = GrowDirection.Begin;
-		Sponsor.GrowVertical = GrowDirection.Begin;
-		Sponsor.OffsetRight = -28;
-		Sponsor.OffsetBottom = -24;
-		Sponsor.Pressed += () => OS.ShellOpen(IntroSequence.SponsorUrl);
-		AddChild(Sponsor);
-	}
-
-	public override void _Process(double delta)
-	{
-		if (Leaving) return;
-		_t += delta;
-		// (fades in, then breathes)
-		var a = _t < 0.6 ? _t / 0.6 * 0.5 : 0.55 + 0.45 * Mathf.Cos((float)(_t - 0.6) * 2.6f);
-		if (Prompt.Modulate.A > 0 || _t < 1) Prompt.Modulate = new Color(1, 1, 1, (float)a);
-		if (_t < 0.6) Logo.Modulate = new Color(1, 1, 1, (float)(_t / 0.6));
-		else if (Logo.Modulate.A < 1 && _t < 0.7) Logo.Modulate = Colors.White;
-	}
-}
-
-/// <summary>
-/// TrackGlow's logo: its app icon (three glowing dots, assets/intro/trackglow.png, from TrackGlow.exe) and the name beside
-/// it in the game's chunky letters, glowing in the icon's purple to blue.
-/// </summary>
-public partial class TrackGlowLogo : Control
-{
-	readonly float _k;
-	double _t;
-	static readonly Color Purple = new("#b07cff");
-	static readonly Color Blue = new("#4a90ff");
-	static readonly Texture2D? Icon = ResourceLoader.Exists("res://assets/intro/trackglow.png") ? GD.Load<Texture2D>("res://assets/intro/trackglow.png") : null;
-	const string Wordmark = "TrackGlow";
-
-	public TrackGlowLogo() : this(1) { }
-
-	public TrackGlowLogo(float k)
-	{
-		_k = k;
-		MouseFilter = MouseFilterEnum.Ignore;
-		var text = Fonts.Black.GetStringSize(Wordmark, HorizontalAlignment.Left, -1, (int)(48 * k)).X;
-		CustomMinimumSize = new Vector2(72 * k + 16 * k + text, 76 * k);
-		SizeFlagsHorizontal = SizeFlags.ShrinkCenter;
-	}
-
-	public override void _Process(double delta)
-	{
-		_t += delta;
-		QueueRedraw();
-	}
-
-	public override void _Draw()
-	{
-		var icon = 72 * _k;
-		var top = (Size.Y - icon) / 2;
-		if (Icon != null) DrawTextureRect(Icon, new Rect2(0, top, icon, icon), false);
-		var size = (int)(48 * _k);
-		var at = new Vector2(icon + 16 * _k, Size.Y / 2 + size * 0.36f);
-		var pulse = 0.7f + 0.3f * Mathf.Sin((float)_t * 2.2f);
-		// (the glow: the name drawn wider and see-through behind itself, purple fading into blue)
-		for (var r = 3; r >= 1; r--)
-			DrawStringOutline(Fonts.Black, at, Wordmark, HorizontalAlignment.Left, -1, size, (int)(r * 5 * _k), new Color(Purple.Lerp(Blue, r / 3f), 0.1f * pulse));
-		DrawString(Fonts.Black, at, Wordmark, HorizontalAlignment.Left, -1, size, Colors.White);
 	}
 }

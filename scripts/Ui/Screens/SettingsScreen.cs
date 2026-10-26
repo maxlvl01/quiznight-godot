@@ -143,8 +143,9 @@ public partial class SettingsScreen : Control
 			}),
 			U.Muted("Changes all menus and game screens. Quiz questions stay in the language they were written in.", 12),
 			U.Gap(4),
-			U.Eyebrow("Crash reports"),
+			U.Eyebrow("What the game sends"),
 			U.Muted("If Quiznight crashes or runs into an error, the next start sends the end of its log to Max, so he can fix it. Your Windows user name is left out.", 12),
+			U.Muted("When a quiz night over Steam ends, the host's game sends its results (everyone's name, Steam ID and points) to Max's private results list, for the eternal table. \"Copy share code\" uploads that quiz (without its sounds and videos), and the game asks GitHub if there's an update. Nothing else leaves your PC.", 12),
 			U.Gap(4),
 			U.Eyebrow("Anti-cheat"),
 			U.Muted("Quiznight? is protected by the Pinke Geilheit Neural-Level Anti-Cheat. Neural level means it reads your thoughts and bans you if you even think about cheating.", 12));

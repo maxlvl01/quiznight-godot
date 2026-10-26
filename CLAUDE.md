@@ -17,7 +17,7 @@ the original design decisions; most still apply.
 - **Steam networking with the Spacewar app ID (480).** Internal program for friends, never
   published, so Valve's public test app is enough. Consequences: everyone needs Steam running and
   shows as "playing Spacewar"; lobby searches see every Spacewar lobby, so ours are tagged
-  (`quiznight`, `quiznight_code`, `quiznight_host` lobby data).
+  (`quiznight`, `quiznight_room` = a hash of the room code, `quiznight_host` lobby data).
 - **The host's app is the server.** `HostSession` runs the `Room`/`Game` in-process; players
   connect to the host's Steam ID through Steam's relay (`SteamNetworkingSockets`). The lobby only
   makes the room code findable. Host leaves = room closed.
@@ -195,7 +195,7 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
   (`Storage/CrashReports`; public builds send crash/error logs to `crashes/` only). 0.10.3b was public for a few minutes and is a
   draft on the public repo now (nobody had downloaded it); drafts aren't deleted either.
 - **Releases & updates:** `tools/release.sh` exports, zips and publishes a GitHub release on the public
-  `maxlvl01/quiznight-releases` repo (code lives in the private `maxlvl01/quiznight-godot`; `maxlvl01/quiznight` is the web version). Exported games check
+  `maxlvl01/quiznight-releases` repo (code lives in `maxlvl01/quiznight-godot`, which is public on GitHub; `maxlvl01/quiznight` is the web version). Exported games check
   it at startup (`Storage/Updater.cs`) and update themselves; "What's new" is read from the shipped
   CHANGELOG.md, so its `## [version]` / `### Added|Changed|Fixed|Removed` layout matters.
   **Updates are signed:** `release.sh` signs each zip and update list (`<file>.sig`, `openssl dgst -sha256 -sign`) with Max's

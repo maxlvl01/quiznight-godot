@@ -193,8 +193,8 @@ public static class SelfTest
 		Check(g.BuzzIn("ann"), "the next (buzzer) question still buzzes");
 	}
 
-	/// <summary>A Fast Pass buzz right after someone else's (the same moment, as far as anyone can tell) answers first.</summary>
-	static void FastPassTie()
+	/// <summary>A Fast Pass buzz answers first, also when someone else buzzed just before it.</summary>
+	static void FastPassFirst()
 	{
 		var (room, clock) = NewRoom(Dev.SampleQuiz.Build(), "ann", "bob");
 		room.UpdateSettings(hostShows: true);
@@ -480,7 +480,7 @@ public static class SelfTest
 		Rules();
 		TypedAndBonus();
 		JokersAndSeats();
-		FastPassTie();
+		FastPassFirst();
 		Safety();
 		Undo();
 		Files();

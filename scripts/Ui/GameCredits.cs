@@ -11,7 +11,7 @@ namespace QuizNight.Ui;
 
 public static class GameCredits
 {
-	/// <summary>The names on the intro's wall: whose work is in the game (music, engine, the maps' games).</summary>
+	/// <summary>The names on the intro's wall: whose work is in the game (engine, Steam, the maps' games). The music has its own card.</summary>
 	public static readonly string[] Wall =
 	{
 		"Godot Engine", "Steamworks", "Bethesda", "Rockstar Games", "Nintendo", "FromSoftware",
@@ -29,7 +29,7 @@ public static class GameCredits
 	public const string Disclaimer = "All names, games and trademarks belong to their owners. Quiznight? is a fan-made game for friends, not affiliated with or endorsed by any of them.";
 }
 
-/// <summary>The intro's credits card: the names in tiles, the music's licence underneath.</summary>
+/// <summary>The intro's credits card: the names in tiles, the trademark note underneath.</summary>
 public partial class CreditsWall : VBoxContainer
 {
 	public CreditsWall()

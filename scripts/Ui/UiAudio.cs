@@ -316,10 +316,9 @@ public partial class UiAudio : Node
 		}
 	}
 
-	/// <summary>The voice line for opening the game, once per run (on the first home screen, after the splash).</summary>
 	/// <summary>
-	/// The game is opening (the splash, then the home screen and the voice line): no music until the voice line is over,
-	/// so the song doesn't play for a moment behind the splash and then stop for it.
+	/// The game is opening (the intro, then the home screen and the voice line): no music until the voice line is over,
+	/// so the song doesn't play for a moment behind the intro and then stop for it.
 	/// </summary>
 	public void HoldForGreeting() => _voiceFirst = true;
 
