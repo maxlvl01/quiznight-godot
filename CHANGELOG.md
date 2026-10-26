@@ -13,6 +13,23 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.10.3b]
+
+### Added
+- **A music player on the home screen,** under "Host a quiz night": the song playing, back, play/pause, next and a button for the jukebox's list of songs. The long text in the host card is gone, so the card is smaller. (The note button in the corner stays on every other screen.)
+- **"Fußspuren?"** joins the title screen's easter eggs.
+
+### Changed
+- **The first download is much smaller.** The music is now encoded at 128 kbps from the original recordings (was ~150 kbps; it sounds the same), the F1 Podium sound is a compressed Ogg instead of a 23 MB WAV (it was 134 seconds of uncompressed audio), the built-in maps are re-compressed (a little more compression; when you zoom in all the way you can't tell the difference), and the game leaves out the parts of .NET it never uses (the folder next to the game went from 79 MB to 29 MB). This update itself is bigger than usual, once, because those files all changed.
+- **Buttons look like real 3D keys:** under the coloured top there's a side in a darker shade of the button's own colour, with a light edge along the top and a soft shine. Pressing one pushes it down into its side.
+- **The buzzer is a big square red key on a silver base,** in the same style, with the Quiznight Q? embossed on it instead of "BUZZ!".
+- **The jukebox's buttons are drawn icons** (back, play/pause, next) instead of the ⏮ ⏭ characters, which didn't look right in every font. The song playing is marked with a drawn note.
+- **The BETA stamp is a sticker on the logo's corner,** so "Quiznight?" sits exactly in the middle of the home screen again (the stamp next to it pushed it to the left).
+
+### Fixed
+- **The text on big buttons sat too low** ("My quizzes", "Join!"). The dark edge under each button counted as part of the button when the text was centred, so the text was centred on the button plus its edge and ended up below the middle of the coloured part. It's now centred on the coloured part.
+- **"What's new" showed the notes in a narrow column** on the left half of the window. The window's scroll area didn't give its content the full width, so the wrapped text was only as wide as the heading. It now uses the whole width, and opens at the top instead of sometimes scrolled to the end.
+
 ## [0.10.2b]
 
 ### Added

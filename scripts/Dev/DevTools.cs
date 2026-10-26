@@ -10,6 +10,7 @@
 //   --screen home|quizzes|quiz|settings|eternal|history|delete  open that screen (delete: the delete question, deleting nothing)
 //   --lang en|de                   use that language this run (not saved)
 //   --video-guide [FILE]           open a new video question with the MP4 → .ogv guide
+//   --whats-new                    the home screen with this version's What's new open
 //   --buzzer                       the BUZZ! button alone (unlocked and locked)
 //   --shot FILE [--after SEC]      save a screenshot after SEC seconds (default 2) and quit
 //   --shots DIR                    save a screenshot of every new game moment into DIR
@@ -221,6 +222,13 @@ public sealed class DevTools
 			var quiz = QuizStore.Save(sample);
 			var q = quiz.Questions.FirstOrDefault(x => x.Type == type || (type == "choice" && x.Mode == ClassicMode.Choice) || (type == "multi" && x.IsMulti) || (type == "image" && x.Type == QuestionType.Image) || (type == "timeline" && x.IsTimeline) || (type == "wow" && x.MapId != null && quiz.MapById(x.MapId)?.PresetId == WowAtlas.PresetId)) ?? quiz.Questions[0];
 			_app.GoQuestion(quiz.Id, q.Id, null);
+		}
+		else if (Has("--whats-new"))
+		{
+			// --whats-new: the home screen with this version's notes open
+			TakesOver = true;
+			_app.GoHome();
+			Callable.From(() => Ui.Screens.WhatsNew.ShowCurrent(_app)).CallDeferred();
 		}
 		else if (Has("--buzzer"))
 		{

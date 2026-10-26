@@ -665,7 +665,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 }
 
 /// <summary>
-/// The big BUZZ! button: a big red key with rounded corners on a silver base plate, like the buttons (KeyBox), drawn (so it stays
+/// The big buzzer: a big red key with rounded corners on a silver base plate, like the buttons (KeyBox), the logo's Q? embossed on it, drawn (so it stays
 /// sharp at any size). It goes down when pressed and is grey while the buzzers are locked. Space works too.
 /// </summary>
 public partial class BuzzButton : Button
@@ -728,14 +728,24 @@ public partial class BuzzButton : Button
 		var depth = (26 - 18 * _press) * k;
 		var key = new Rect2(well.Position + new Vector2(10, 4 + 26 - depth / k) * k, new Vector2(well.Size.X - 20 * k, well.Size.Y - 14 * k - (26 * k - depth)));
 		var face = DrawKey(key, red, depth, 26 * k, 6 * k, light);
-		// (the label)
+		// (the brand embossed on the key instead of a label: the logo's Q and its orange ?, raised out of the face, lit from
+		// above: a light edge on top, a shadow under)
 		var font = Fonts.Black;
-		var size = (int)(50 * k);
-		var text = Lang.T("BUZZ!");
-		var textSize = font.GetStringSize(text, HorizontalAlignment.Left, -1, size);
-		var pos = new Vector2(face.GetCenter().X - textSize.X / 2, face.GetCenter().Y + size * 0.36f);
-		DrawStringOutline(font, pos, text, HorizontalAlignment.Left, -1, size, (int)(9 * k), ink);
-		DrawString(font, pos, text, HorizontalAlignment.Left, -1, size, off ? C.Muted : C.Text);
+		var size = (int)(92 * k);
+		var q = font.GetStringSize("Q", HorizontalAlignment.Left, -1, size).X;
+		var mark = font.GetStringSize("?", HorizontalAlignment.Left, -1, size).X;
+		var x = face.GetCenter().X - (q + mark) / 2;
+		var y = face.GetCenter().Y + size * 0.3f;
+		var question = off ? C.Muted : C.Accent;
+		void Raised(string text, float at, Color color)
+		{
+			var pos = new Vector2(at, y);
+			DrawString(font, pos + new Vector2(0, 4 * k), text, HorizontalAlignment.Left, -1, size, new Color(color.Darkened(0.55f), 0.9f));
+			DrawString(font, pos + new Vector2(0, -2.5f * k), text, HorizontalAlignment.Left, -1, size, new Color(color.Lightened(0.55f), light * 0.9f));
+			DrawString(font, pos, text, HorizontalAlignment.Left, -1, size, color);
+		}
+		Raised("Q", x, red.Lightened(0.12f));
+		Raised("?", x + q, question);
 	}
 
 	/// <summary>A key like <see cref="KeyBox"/>, at this size: outline, side, face with a bevel and a shine. Returns the face.</summary>

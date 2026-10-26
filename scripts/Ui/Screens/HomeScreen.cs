@@ -23,16 +23,24 @@ public partial class HomeScreen : Control
 		_mode = App.NetMode;
 
 		// (the logo is an answer field that now and then types something else: LogoField)
-		var brand = U.H(22, new LogoField(64));
-		// The stamp next to the logo follows the version letter: 0.5.0a = alpha, 0.7.1b = beta, none when finished.
+		var brand = U.H(0, new LogoField(64));
+		// The stamp on the logo follows the version letter: 0.5.0a = alpha, 0.7.1b = beta, none when finished. It's a sticker
+		// on the logo's top right corner (in a zero-width holder, so the logo itself stays centred).
 		var stage = AppVersion.Parse(App.Version)?.Suffix switch { "a" => "ALPHA", "b" => "BETA", _ => null };
 		if (stage != null)
-			brand.AddChild(U.Panel(U.Text(stage, 24, C.Ink, Fonts.Black), "Clear").With(p =>
+		{
+			var holder = new Control { MouseFilter = MouseFilterEnum.Ignore };
+			var stamp = U.Panel(U.Text(stage, 22, C.Ink, Fonts.Black), "Clear").With(p =>
 			{
 				p.AddThemeStyleboxOverride("panel", UiTheme.Chunky(C.Coral, 12, 12, 2, 3, 3));
-				p.RotationDegrees = 8;
-				p.SizeFlagsVertical = SizeFlags.ShrinkCenter;
-			}));
+				p.RotationDegrees = 12;
+				p.MouseFilter = MouseFilterEnum.Ignore;
+			});
+			holder.AddChild(stamp);
+			// (placed once its size is known: its middle a little inside the corner)
+			stamp.Resized += () => stamp.Position = new Vector2(-stamp.Size.X * 0.55f, -stamp.Size.Y * 0.45f);
+			brand.AddChild(holder);
+		}
 		brand.Center();
 
 		var page = U.V(18, brand,

@@ -16,7 +16,7 @@ public partial class LogoField : PanelContainer
 	/// <summary>What the field types now and then (in a new random order each round).</summary>
 	static readonly string[] Eggs =
 	{
-		"Klaus?", "Mond?", "Autobahn?", "Mars?", "Grownz?", "Tazor?", "Max?", "Phil?", "Lars?", "Rematch?", "Big Brain?", "Patty?", "Olf?",
+		"Klaus?", "Mond?", "Autobahn?", "Mars?", "Grownz?", "Tazor?", "Max?", "Phil?", "Lars?", "Rematch?", "Big Brain?", "Patty?", "Olf?", "Fußspuren?",
 	};
 
 	readonly Label _text;

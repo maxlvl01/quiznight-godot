@@ -38,6 +38,10 @@ mkdir -p "$OUT/AnyConverter" && cp "$ANYCONVERTER" "$OUT/AnyConverter/AnyConvert
 # files, so updates only download the maps that changed (Images.BuiltinFile).
 copy_maps() { mkdir -p "$1/maps" && (cd assets/maps && find . -name '*.webp' -exec cp --parents {} "../../$1/maps/" \;); }
 copy_maps "$OUT"
+# .NET's debugger and crash-dump helpers and its spare garbage collector come with every export; players never use them
+# (crash reports are our own, Storage/CrashReports). ~6.5 MB.
+strip_dotnet() { (cd "$1" && rm -f mscordbi.dll mscordaccore.dll mscordaccore_amd64_amd64_*.dll Microsoft.DiaSymReader.Native.amd64.dll createdump.exe clrgc.dll   libmscordbi.so libmscordaccore.so createdump libclrgc.so); }
+strip_dotnet "$OUT/data_QuizNight!_windows_x86_64"
 
 echo "== Linux build"
 rm -rf "$OUT_LINUX" && mkdir -p "$OUT_LINUX"
@@ -49,6 +53,7 @@ rm -rf build/anyconverter-linux && mkdir -p build/anyconverter-linux "$OUT_LINUX
 /c/Windows/System32/tar.exe -x -f "$ANYCONVERTER_LINUX" -C build/anyconverter-linux
 cp build/anyconverter-linux/AnyConverter-linux/AnyConverter "$OUT_LINUX/AnyConverter/AnyConverter"
 copy_maps "$OUT_LINUX"
+strip_dotnet "$OUT_LINUX/data_QuizNight!_linuxbsd_x86_64"
 # (the export builds the C# for Linux; build it for Windows again for the editor and the self-test)
 dotnet build "QuizNight!.csproj" -nologo -v q
 

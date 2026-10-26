@@ -124,7 +124,12 @@ public static partial class VideoGuide
 			content.MinimumSizeChanged += FitToWindow;
 		}
 
-		public override void _Ready() => FitToWindow();
+		public override void _Ready()
+		{
+			FitToWindow();
+			// (opens at the top: while the text was still being wrapped, the scroll could end up at the bottom)
+			GetTree().CreateTimer(0.1).Timeout += () => { if (IsInstanceValid(_scroll)) _scroll.ScrollVertical = 0; };
+		}
 
 		public override void _Notification(int what)
 		{
@@ -135,6 +140,9 @@ public static partial class VideoGuide
 		void FitToWindow()
 		{
 			var w = Mathf.Min(740, Size.X - 48);
+			// (the content gets the card's width itself, less the scroll bar: left to the scroll container, wrapped text
+			// ended up only as wide as the heading)
+			if (_scroll.GetChildCount() > 0) _scroll.GetChild<Control>(0).CustomMinimumSize = new Vector2(w - 14, 0);
 			var contentH = _scroll.GetChildCount() > 0 ? _scroll.GetChild<Control>(0).GetCombinedMinimumSize().Y : 0;
 			_scroll.CustomMinimumSize = new Vector2(w, Mathf.Min(contentH, Size.Y - 120));
 		}
