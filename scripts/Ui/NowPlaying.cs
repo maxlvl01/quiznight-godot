@@ -2,6 +2,7 @@
 // and artist (from the song's file name, or assets/music/CREDITS.md), stays a few seconds and slides out.
 
 using System.IO;
+using System.Linq;
 using Godot;
 using QuizNight.Shared;
 
@@ -33,7 +34,7 @@ public partial class NowPlaying : PanelContainer
 		Callable.From(() =>
 		{
 			var parent = GetParentControl()?.Size ?? GetViewportRect().Size;
-			var y = parent.Y - Size.Y - 20;
+			var y = ClearOfButtons(Jukebox.Right + 10f, parent.Y - Size.Y - 20);
 			Position = new Vector2(-Size.X - 10, y);
 			var t = CreateTween();
 			t.TweenProperty(this, "position:x", Jukebox.Right + 10f, 0.45).SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
@@ -41,6 +42,34 @@ public partial class NowPlaying : PanelContainer
 			t.TweenProperty(this, "position:x", -Size.X - 10, 0.35).SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.In);
 			t.TweenCallback(Callable.From(QueueFree));
 		}).CallDeferred();
+	}
+
+	/// <summary>
+	/// The card's height: above any of the screen's buttons it would cover there (the quiz overview's "Copy share code"
+	/// sits in the bottom left), else at the bottom.
+	/// </summary>
+	float ClearOfButtons(float x, float y)
+	{
+		var buttons = new System.Collections.Generic.List<Rect2>();
+		void Collect(Node node)
+		{
+			foreach (var child in node.GetChildren())
+			{
+				// (lists scroll under it anyway: only fixed buttons like a screen's bottom row count)
+				if (child == this || child is Jukebox or NowPlaying or ScrollContainer) continue;
+				if (child is BaseButton b && b.IsVisibleInTree()) buttons.Add(b.GetGlobalRect());
+				Collect(child);
+			}
+		}
+		Collect(GetParent());
+		for (var tries = 0; tries < 8; tries++)
+		{
+			var card = new Rect2(x, y, Size);
+			var hit = buttons.Where(r => r.Intersects(card)).ToList();
+			if (hit.Count == 0) break;
+			y = hit.Min(r => r.Position.Y) - Size.Y - 10;
+		}
+		return y;
 	}
 }
 
