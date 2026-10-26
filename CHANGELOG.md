@@ -21,6 +21,7 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **"My profile" on the Ewige Tabelle,** next to the tabs: it opens your own profile (needs Steam, which is how your results are found).
 - **Hosted nights on every profile, where FM shows international caps:** a microphone under the name with "Hosted 2 quiz nights" (or "Never hosted"), instead of a number among the stats.
 - **Profiles for people who aren't in the Ewige Tabelle yet** (they only hosted so far, or it's your own "My profile"): the full page instead of "No quiz nights here", with empty attributes until they play.
+- **The match history shows when a night started** instead of when it ended (the results now save the start time). Nights from before this version only saved the end, so they show just the day.
 - **The form shows five places:** nights not played yet are dashed empty squares, so a new player's form is five empty slots.
 - **Two test nights from 24 October are in the Beta table and the match history** (21:25 and 22:40, hosted by maxlvl01).
 

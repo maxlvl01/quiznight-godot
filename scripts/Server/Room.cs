@@ -364,12 +364,16 @@ public sealed class Room : IGameHooks
 		if (hostUnlocks is { } unlocks) Settings.HostUnlocksBuzzers = unlocks;
 	}
 
+	/// <summary>When the quiz started (local time), for the results: the match history shows the night's start.</summary>
+	public DateTime? StartedAt;
+
 	public Result Start()
 	{
 		if (Phase != Shared.Phase.Lobby) return Result.Fail("The quiz is already running.");
 		var connected = Players.Count(p => p.Connected);
 		if (connected < Limits.MinPlayersToStart) return Result.Fail(Lang.F("You need at least {0} connected players.", Limits.MinPlayersToStart));
 		Phase = Shared.Phase.Playing;
+		StartedAt = DateTime.Now;
 		Scores.Clear();
 		Stats.Clear();
 		QuestionStats.Clear();

@@ -723,6 +723,10 @@ public static class SelfTest
 		var nights = Storage.Results.Nights(new[] { nightCsv, nightCsv });
 		Check(nights.Count == 2 && nights[0].Quiz == "Quiz A" && nights[0].Host == "Max" && nights[0].Players.Count == 2 && nights[0].Players[0].Name == "Ann" && nights[1].Host == "",
 			"match history: nights newest first, with the host and places (the same night twice counts once)");
+		var started = Storage.Results.Nights(new[] { "date,quiz,place,player_id,player,points,started\n2026-11-02 22:41,Quiz C,1,steam:1,Ann,5,2026-11-02 20:03\n" })[0];
+		Check(Ui.Screens.MatchHistoryScreen.When(started) == "02.11.2026 20:03" && Ui.Screens.MatchHistoryScreen.When(nights[1]) == "01.10.2026",
+			"the match history shows when a night started (older nights without it: just the day)");
+		Check(Storage.Results.Columns.Contains("started"), "results record when the quiz started");
 		Eq(Game.Fmt(0.00000034), "0.00000034", "small numbers keep every digit");
 		Eq(Game.Fmt(0.1 + 0.2), "0.3", "no float noise");
 		Eq(Ui.NumberField.Parse("2,5"), 2.5, "a comma reads as the decimal point");

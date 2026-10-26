@@ -62,7 +62,7 @@ public partial class MatchHistoryScreen : Control
 			night.Host != "" ? Mid(U.Muted(Lang.F("by {0}", night.Host), size - 5, false).Raw()) : U.Gap(0),
 			U.Fill(),
 			night.Beta ? U.Pill("Beta", C.Muted) : U.Gap(0),
-			Mid(U.Mono(Date(night.Date), 14, C.Muted)));
+			Mid(U.Mono(When(night), 14, C.Muted)));
 	}
 
 	/// <summary>
@@ -148,6 +148,10 @@ public partial class MatchHistoryScreen : Control
 	}
 
 	/// <summary>"2026-10-24 21:25" → "24.10.2026 21:25" (the date style used everywhere in the game).</summary>
+	/// <summary>The day and start time of a night (nights before 0.10.3b only saved when they ended: just the day).</summary>
+	public static string When(Results.Night night) =>
+		night.Started != "" ? Date(night.Started) : EternalTableScreen.Date(night.Date);
+
 	public static string Date(string date) =>
 		System.DateTime.TryParseExact(date, "yyyy-MM-dd HH:mm", Inv, DateTimeStyles.None, out var d) ? d.ToString("dd.MM.yyyy HH:mm", Inv) : date;
 }

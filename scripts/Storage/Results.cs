@@ -24,6 +24,8 @@ public static class Results
 		"date", "quiz", "questions", "players", "place", "player_id", "player", "points", "questions_scored",
 		"avg_answer_s", "answers", "avg_km_off", "map_answers", "joined_at", "left_at", "avg_pct_off", "estimate_answers",
 		"host", "host_id", "avg_buzz_s", "buzzes", "host_points",
+		// (from 0.10.3b: when the quiz started; "date" is when it ended and the results were saved)
+		"started",
 		// (from 0.10.0b: after the players' rows, one row per player and question, with "question" set and the night's
 		// own columns empty but date, quiz and player)
 		"question", "type", "subtype", "category", "q_points", "right", "answered", "q_buzzes", "wrong_buzzes", "buzz_s",
@@ -60,6 +62,7 @@ public static class Results
 				["avg_pct_off"] = N(s.AvgPercentOff), ["estimate_answers"] = s.PercentAnswers.ToString(Inv),
 				["host"] = host?.Name ?? "", ["host_id"] = host?.Id ?? "",
 				["avg_buzz_s"] = N(s.AvgBuzzMs / 1000), ["buzzes"] = s.Buzzes.ToString(Inv), ["host_points"] = s.HostPoints.ToString(Inv),
+				["started"] = room.StartedAt?.ToString("yyyy-MM-dd HH:mm", Inv) ?? "",
 			});
 		}
 		foreach (var ((index, id), q) in room.QuestionStats.OrderBy(x => x.Key.Question).ThenBy(x => order.IndexOf(x.Key.Player)))
@@ -164,6 +167,8 @@ public static class Results
 		/// <summary>Empty for nights before 0.9.4b (they didn't record the host).</summary>
 		public string Host = "";
 		public string HostId = "";
+		/// <summary>When the quiz started ("yyyy-MM-dd HH:mm"); empty for nights before 0.10.3b.</summary>
+		public string Started = "";
 		public bool Beta;
 		public readonly List<NightPlayer> Players = new();
 	}
@@ -190,6 +195,7 @@ public static class Results
 				night.Host = host;
 				night.HostId = row.GetValueOrDefault("host_id", "");
 			}
+			if (row.GetValueOrDefault("started", "") is { Length: > 0 } started) night.Started = started;
 			int I(string k) => int.TryParse(row.GetValueOrDefault(k), NumberStyles.Integer, Inv, out var v) ? v : 0;
 			double? D(string k) => double.TryParse(row.GetValueOrDefault(k), NumberStyles.Float, Inv, out var v) ? v : null;
 			night.Players.Add(new NightPlayer(I("place"), id, row.GetValueOrDefault("player", ""), I("points"), I("questions_scored"),
