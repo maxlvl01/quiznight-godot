@@ -181,7 +181,7 @@ public partial class WowMapCanvas : MapCanvas
 	static string? PlaceName(NormPoint p)
 	{
 		if (WowAtlas.WorldToLocation(p) is not { } loc) return null;
-		return WowAtlas.ZoneAt(loc)?.Name ?? WowAtlas.ContinentMap(loc.Continent).Name;
+		return WowAtlas.ExtraZoneAt(p) ?? WowAtlas.ZoneAt(loc)?.Name ?? WowAtlas.ContinentMap(loc.Continent).Name;
 	}
 
 	static float Ramp(float from, float to, float x) => Mathf.SmoothStep(from, to, x);
@@ -263,9 +263,17 @@ public partial class WowAtlasView : VBoxContainer
 
 		var places = WowAtlas.Maps.Where(m => m.Kind == WowAtlas.Kind.Zone).OrderBy(m => m.Name, StringComparer.Ordinal).ToList();
 		var items = new List<(string, string)> { ("", "Jump to zone…") };
-		items.AddRange(places.Select(z => (z.Id.ToString(), z.Name)));
+		// (WoW Forever's new zones too, by name: they have no Classic zone map)
+		items.AddRange(places.Select(z => (z.Id.ToString(), z.Name))
+			.Concat(WowAtlas.ExtraZones.Select(z => ("extra:" + z.Name, z.Name))).OrderBy(i => i.Item2, StringComparer.Ordinal));
 		var jump = U.Select(items.ToArray(), "", id =>
 		{
+			if (id.StartsWith("extra:"))
+			{
+				var e = WowAtlas.ExtraZoneRect(id[6..]);
+				Canvas.Show(new NormPoint(e.X + e.W / 2, e.Y + e.H / 2), WowMapCanvas.ZoomFor(e.W, e.H));
+				return;
+			}
 			if (!int.TryParse(id, out var zoneId)) return;
 			var r = WowAtlas.WorldRect(WowAtlas.Get(zoneId));
 			Canvas.Show(new NormPoint(r.X + r.W / 2, r.Y + r.H / 2), WowMapCanvas.ZoomFor(r.W, r.H));

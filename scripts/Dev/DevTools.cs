@@ -201,6 +201,24 @@ public sealed class DevTools
 			TakesOver = true;
 			Callable.From(() => MakeSplash(splashFile)).CallDeferred();
 		}
+		// (--unzoned-mask FILE: the WoW map's land (zone art) that no Classic zone covers, red, the rest grey; to find
+		// where new zones are, WowAtlas.ExtraZones)
+		else if (Value("--unzoned-mask") is { } maskFile)
+		{
+			TakesOver = true;
+			var art = Images.LoadBuiltinImage(Ui.WowMapArt.Overview(2))!;
+			var mask = Image.CreateEmpty(WowAtlas.ImageWidth, WowAtlas.ImageHeight, false, Image.Format.Rgba8);
+			for (var y = 0; y < WowAtlas.ImageHeight; y++)
+			for (var x = 0; x < WowAtlas.ImageWidth; x++)
+			{
+				var land = art.GetPixel(x * 2, y * 2).A > 0.6f;
+				var p = new NormPoint((x + 0.5) / WowAtlas.ImageWidth, (y + 0.5) / WowAtlas.ImageHeight);
+				var zoned = WowAtlas.WorldToLocation(p) is { } loc && WowAtlas.ZoneAt(loc) != null;
+				mask.SetPixel(x, y, !land ? new Color(0, 0, 0, 0) : zoned ? new Color(0.5f, 0.5f, 0.5f) : new Color(1, 0, 0));
+			}
+			mask.SavePng(maskFile);
+			_app.GetTree().Quit();
+		}
 		else if (Has("--selftest"))
 		{
 			TakesOver = true;

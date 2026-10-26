@@ -980,6 +980,9 @@ public static class SelfTest
 		var back = WowAtlas.WorldToLocation(world)!.Value;
 		Check(Math.Abs(back.X - loc.X) < 0.01 && Math.Abs(back.Y - loc.Y) < 0.01, "world/zone round trip");
 		Eq(WowAtlas.ZoneAt(loc)?.Id, 1429, "zone lookup");
+		Check(WowAtlas.ExtraZoneAt(new NormPoint(690.0 / WowAtlas.ImageWidth, 265.0 / WowAtlas.ImageHeight)) == "Gilneas"
+			&& WowAtlas.ExtraZoneAt(new NormPoint(850.0 / WowAtlas.ImageWidth, 415.0 / WowAtlas.ImageHeight)) == "Riverglades"
+			&& WowAtlas.ExtraZoneAt(new NormPoint(0.5, 0.5)) == null, "WoW Forever's new zones are named on the map");
 		var a = WowAtlas.LocationToWorld(new WowAtlas.Location(0, -9000, 0));
 		var b = WowAtlas.LocationToWorld(new WowAtlas.Location(0, -9100, 0));
 		Check(Math.Abs(WowAtlas.DistanceKm(a, b) - 100 * 0.9144 / 1000) < 0.001, "same-continent distance in yards");
