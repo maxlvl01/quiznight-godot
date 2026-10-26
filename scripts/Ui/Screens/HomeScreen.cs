@@ -140,6 +140,9 @@ public partial class HomeScreen : Control
 				if (UpdatePrompt.Available is { } shown && !UpdatePrompt.IsPretend(shown)) return;
 				UpdatePrompt.Pretend(UpdatePrompt.Available == null ? "99.0.0b" : "");
 			}).With(b => b.TooltipText = Lang.T("Developer mode: pretend an update is out (the logo pulses green). Click again to stop.")));
+		// (developer mode: quick checks, Screens/TestLabScreen)
+		if (App.LanUnlocked)
+			corner.AddChild(U.Small("Test lab", App.I.GoTestLab).Tip("Developer mode: buzzers, sounds, microphone, question screens, bots …"));
 		corner.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight, LayoutPresetMode.KeepSize, 20);
 		corner.GrowHorizontal = GrowDirection.Begin;
 		AddChild(corner);

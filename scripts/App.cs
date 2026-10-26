@@ -453,6 +453,7 @@ public partial class App : Control
 	public void GoHome(string? notice = null) => Show(new HomeScreen(notice), () => GoHome());
 	public void GoQuizzes() => Show(new QuizListScreen(), GoQuizzes);
 	public void GoSettings() => Show(new SettingsScreen(), GoSettings);
+	public void GoTestLab() => Show(new TestLabScreen(), GoTestLab);
 
 	/// <summary>Switches the colour skin now: a new theme, and the settings screen built again in its colours.</summary>
 	public void UseSkin(string skin)

@@ -11,6 +11,9 @@ namespace QuizNight.Net;
 
 public sealed class ClientSession : IDisposable
 {
+	/// <summary>Dev (--pretend-version X, Test lab's old bot): join as a game of that version from before 0.12.</summary>
+	public static string? PretendVersion;
+
 	/// <summary>How long we keep trying to get back in after the connection drops.</summary>
 	const double ReconnectForSec = 60;
 	const double ReconnectEverySec = 3;
@@ -88,7 +91,7 @@ public sealed class ClientSession : IDisposable
 			return;
 		}
 		_net = net;
-		net.Connected += () => net.Send(Msg.Encode(Msg.Join, new JoinRequest { Name = _name, ClientId = _clientId, Code = Mode == NetMode.Steam ? Target : "", Version = App.Version, Protocol = Limits.Protocol }));
+		net.Connected += () => net.Send(Msg.Encode(Msg.Join, new JoinRequest { Name = _name, ClientId = _clientId, Code = Mode == NetMode.Steam ? Target : "", Version = PretendVersion ?? App.Version, Protocol = PretendVersion != null ? 0 : Limits.Protocol }));
 		net.Disconnected += reason => OnLost(net, reason);
 		net.Received += OnReceived;
 	}
