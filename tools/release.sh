@@ -113,9 +113,9 @@ fi
 if [ -n "$TEST" ]; then
 	echo "== Publishing test build v$VERSION to $REPO"
 	if gh release view "v$VERSION" --repo "$REPO" >/dev/null 2>&1; then
-		gh release edit "v$VERSION" --repo "$REPO" --title "$TITLE" --notes-file "$NOTES"
+		gh release edit "v$VERSION" --repo "$REPO" --title "$TITLE" --notes-file "$NOTES" --prerelease
 	else
-		gh release create "v$VERSION" --repo "$REPO" --title "$TITLE" --notes-file "$NOTES"
+		gh release create "v$VERSION" --repo "$REPO" --title "$TITLE" --notes-file "$NOTES" --prerelease
 	fi
 	gh release upload "v$VERSION" "$ZIP" "$ZIP_LINUX" --repo "$REPO" --clobber
 	echo "Done: https://github.com/$REPO/releases/tag/v$VERSION"
