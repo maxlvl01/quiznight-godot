@@ -70,7 +70,7 @@ the original design decisions; most still apply.
   `GameView.FastPassTaken`, not who); Double is open to everyone. They're played for `Game.JokerIndex` (the hidden current question, or the next one
   during a reveal), can be taken back until that question is shown, and are secret until then. Double multiplies the
   reveal's points (`RevealEntry.Doubled`; timeline points as they're placed; written ticks and bonuses too). A Fast
-  Pass buzz is inserted ahead of everyone waiting, and takes over from one answering for under `Game.FastPassTieMs` (a tie).
+  Pass buzz always answers first: it takes over from whoever is answering (they wait first in line) and goes ahead of everyone waiting.
 - **Leaving during a game keeps the seat** (`Room.Leave`/`Disconnect`): the game pauses (`Game.Paused`: no timers,
   buzzes, answers, Show or Next; the host's media pauses) until everyone is back (`Room.Join` with the same id) or the host
   continues. New players can join a running game (`Player.JoinedAt`); during an open question they sit it out

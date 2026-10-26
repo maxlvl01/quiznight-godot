@@ -235,12 +235,11 @@ public static class SelfTest
 		Eq(g.View("cat").Jokers.Count, 2, "everyone sees them now");
 		clock.Now += 1000;
 		g.BuzzIn("cat");
-		clock.Now += Game.FastPassTieMs + 500;
+		clock.Now += 5000;
 		g.BuzzIn("bob");
 		g.BuzzIn("ann");
-		Eq(string.Join(",", g.View("host").Buzzes.Select(b => b.PlayerId)), "cat,ann,bob", "the Fast Pass goes ahead of the line, not the one answering for a while already");
-		Check(g.View("host").Buzzes[1].FastPass, "the buzz shows its Fast Pass");
-		g.Judge(false);
+		Eq(string.Join(",", g.View("host").Buzzes.Select(b => b.PlayerId)), "ann,cat,bob", "the Fast Pass always answers first, even after someone answered for a while");
+		Check(g.View("host").Buzzes[0].FastPass && g.View("host").Buzzes[0].Status == BuzzStatus.Answering, "the buzz shows its Fast Pass");
 		g.Judge(true);
 		Eq(room.Scores["ann"], 1, "fast pass scores normally");
 		Eq(g.JokerIndex, 1, "during the reveal: jokers for the next question");

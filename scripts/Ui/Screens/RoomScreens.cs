@@ -105,7 +105,7 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 			U.Muted("Jokers (once per player and match)", 13).With(l => l.TooltipText = Lang.T("Played before a question starts.")),
 			Rule("×2 Double points", "Whatever the next question gives counts twice. Anyone can play it.", room.Settings.Jokers.Contains(Joker.Double),
 				on => _host.UpdateSettings(joker: (Joker.Double, on))),
-			Rule("Fast Pass", "On the next buzzer question, your buzz goes ahead of the line. One player per question.", room.Settings.Jokers.Contains(Joker.FastPass),
+			Rule("Fast Pass", "On the next buzzer question, you answer first, even if someone is already answering. One player per question.", room.Settings.Jokers.Contains(Joker.FastPass),
 				on => _host.UpdateSettings(joker: (Joker.FastPass, on))).With(b => b.Icon = Bolt.Icon(15)));
 		var right = U.V(8,
 			Stepper.Make("Answer time per buzz", room.Settings.AnswerTimeSec, Limits.AnswerTimeMin, Limits.AnswerTimeMax,
@@ -213,7 +213,7 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 			var on = settings.Jokers.Contains(kind);
 			var row = U.H(8, Bolt.JokerPill(kind, on ? C.Accent : C.Muted), U.Muted(!on ? Lang.T("Off tonight.") : kind == Joker.Double
 				? Lang.T("The next question counts twice. Anyone can play it.")
-				: Lang.T("Your buzz goes ahead of the line. One player per question."), 13).Grow());
+				: Lang.T("You answer first, even if someone is already answering. One player per question."), 13).Grow());
 			if (!on) row.Modulate = new Color(1, 1, 1, 0.45f);
 			jokers.AddChild(row);
 		}

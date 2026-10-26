@@ -388,7 +388,7 @@ public sealed class BuzzEntry
 	public string Status = BuzzStatus.Waiting;
 	/// <summary>Sound/video: seconds of playback heard before buzzing. Classic: seconds since the question opened.</summary>
 	public double AtSec;
-	/// <summary>Buzzed with a Fast Pass (went ahead of the line).</summary>
+	/// <summary>Buzzed with a Fast Pass (answers first).</summary>
 	public bool FastPass;
 }
 

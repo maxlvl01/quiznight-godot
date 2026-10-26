@@ -538,7 +538,7 @@ public partial class QuestionEditorScreen : Control
 		var settings = RoundSettings.Panel(
 			U.Muted("Players buzz in when they know it and say the answer out loud; you judge Correct or Wrong.", 13),
 			U.Muted(sentence
-				? "Points: a right buzz after the first part gets as many points as there are parts (5 with five), each part after one less. Double points doubles them, a Fast Pass goes ahead of the line."
+				? "Points: a right buzz after the first part gets as many points as there are parts (5 with five), each part after one less. Double points doubles them, a Fast Pass answers first."
 				: "Points: right on the first hint gets as many points as there are hints (5 with five), each hint after one less. Double points doubles them.", 13),
 			U.Muted(sentence
 				? "A buzz stops the reading: you can only read on once the answer is judged. Every new part gives everyone another go, also who was wrong before."

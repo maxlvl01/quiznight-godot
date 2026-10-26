@@ -323,9 +323,6 @@ public sealed class Game
 		return false;
 	}
 
-	/// <summary>A Fast Pass buzz this soon after the one answering counts as at the same time: it answers first.</summary>
-	public const int FastPassTieMs = 1000;
-
 	public bool BuzzIn(string playerId)
 	{
 		var q = Question;
@@ -340,11 +337,10 @@ public sealed class Game
 			AtMs = q.HasPlayClock ? PlayTimeMs(now) : now - _openedAt,
 			FastPass = Played(playerId, Joker.FastPass, Index),
 		};
-		// A Fast Pass goes ahead of everyone waiting (after earlier Fast Passes), and also takes over from whoever buzzed
-		// just before (FastPassTieMs: as good as at the same moment, they can't have said anything yet). Without that, a
-		// buzz a few ms earlier was already answering and the Fast Pass ended up second.
+		// A Fast Pass always answers first: it takes over from whoever is answering (they wait first in line again) and
+		// goes ahead of everyone waiting. It was played blind, before the question was shown: that's the gamble.
 		var answering = _buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Answering);
-		if (buzz.FastPass && answering is { FastPass: false } && _answeringSince is { } since && now - since <= FastPassTieMs)
+		if (buzz.FastPass && answering is { FastPass: false })
 		{
 			answering.Status = BuzzStatus.Waiting;
 			buzz.Status = BuzzStatus.Answering;
