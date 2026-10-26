@@ -17,21 +17,34 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ### Added
 - **Undo and redo in the editors:** Ctrl+Z takes back the last change in the question editor and in the quiz overview (moving, deleting and renaming questions), Ctrl+Y or Ctrl+Shift+Z does it again. Typing counts as one step while you're at it, so one Ctrl+Z takes back a word or a sentence, not a single letter. A text field you're typing in undoes its own typing first.
+- **"Only my Steam friends can join"** as a lobby rule: over Steam, players who aren't on the host's Steam friends list can't come in, even with the code.
+- **An intro when the game starts,** like a console game's:
+  - the **Pinke Geilheit Neural-Level Anti-Cheat** opens first, in a small window of its own while the game loads, like Easy Anti-Cheat's (it checks nothing, it just looks very serious);
+  - then the game's window: the Xbox "World Premiere" sting, Made with Godot, maxlvl01 presents, Pinke Geilheit Publishing (with its moving logo), music by Epidemic Sound, sponsored by TrackGlow, and the credits;
+  - and a **title screen**: the animated logo big in the middle and "Press any button". Pressing one plays the welcome line, and the logo glides up into its place on the home screen while the menu fades in around it.
+  - A key or a click skips the card showing, and Escape skips straight to the title screen. With "less motion" switched on, the intro is left out.
+- **The title screen has a TrackGlow button** in the corner that opens IBassGaming's Patreon.
+- **Credits:** an "i" button in the home screen's music player opens them: every song and its artist, every map's source, the engine, the fonts and the full licence texts.
+- **Happy New Year skin,** 27 December to 7 January, right after Christmas: midnight blue and gold, the same snow as at Christmas (also on the lobby and the BETA sticker), fireworks bursting over the home screen and the lobby, and a party hat on the logo.
+- **Custom mouse cursors** in the game's style: white with a dark outline and a small shadow, like the buttons. There is one for every kind of pointer: the arrow, the hand over buttons, the grabbing hand while dragging, the text cursor, "not allowed", busy, the crosshair and the resize and move arrows.
+- **Settings: what the Neural-Level Anti-Cheat does.** It reads your thoughts and bans you if you even think about cheating.
+- **A third buzzer sound, "Buzzer 3",** to pick in Settings and in the lobby. Its recording is quieter than the other two, so the game plays it 12 dB louder to match.
+- **Two more seasonal skins:** **Kölle Alaaf** for the Cologne carnival, on 11 November (the season opens at 11:11) and in the street carnival week from Weiberfastnacht to Veilchendienstag (worked out from Easter each year): red and white, confetti tumbling down, streamers along the top, and a jester's cap with bells on the logo. And **Valentine's Day** all of February: rose and pink, hearts floating up, hearts on the logo.
+- **Right-click on empty space goes back a screen,** like Escape or the mouse's back button (not on the home screen, and not on buttons, text fields, sliders or lists).
+- **Six new skins** (Settings → Skin): **Formula 1** (carbon black, F1 red and white), **AMOLED black** (true black, for OLED screens), **Daylight** (a light skin that's easy on the eyes: warm off-white instead of glaring white, dark plum text and outlines), **#effzeh** (red and white, for 1. FC Köln fans), and two that only show up in their season: **Halloween** in October (pumpkin orange and purple, cobwebs in the corners, bats flapping across, carved pumpkins, and the logo gets pumpkins, a cobweb and a bat) and **Christmas** from 1 to 26 December (pine green, red and gold, snow falling, fairy lights along the top, and the logo gets a snow cap and a Santa hat). After its season a seasonal skin goes back to Quiznight Purple. The decorations sit behind everything you need to read, and stand still with "less motion".
+- **Settings during a game:** a gear in the top bar of the lobby, the waiting room and the host's and players' game screens opens Settings as a window over it, so you can turn the volume down or change the window size without leaving the room. Close, Escape or the mouse's back button close it again (asking first if you changed something without applying it). The skin and the dyslexia-friendly font are only changed from the home screen's Settings, because they rebuild every screen.
+- **A music player on the home screen,** under "Host a quiz night": the song playing, back, play/pause, next and a button for the jukebox's list of songs. The long text in the host card is gone, so the card is smaller. (The note button in the corner stays on every other screen.)
+- **"Fußspuren?"** joins the title screen's easter eggs.
+- **"My profile" on the Ewige Tabelle,** next to the tabs: it opens your own profile (needs Steam, which is how your results are found).
+- **Hosted nights on every profile, where FM shows international caps:** a microphone under the name with "Hosted 2 quiz nights" (or "Never hosted"), instead of a number among the stats.
+- **Profiles for people who aren't in the Ewige Tabelle yet** (they only hosted so far, or it's your own "My profile"): the full page instead of "No quiz nights here", with empty attributes until they play.
+- **The match history shows when a night started** instead of when it ended (the results now save the start time). Nights from before this version only saved the end, so they show just the day.
+- **The form shows five places:** nights not played yet are dashed empty squares, so a new player's form is five empty slots.
+- **Two test nights from 24 October are in the Beta table and the match history** (21:25 and 22:40, hosted by maxlvl01).
 
 ### Changed
 - **Dropdowns:** a chunky arrow in the game's style that points up while the list is open, and the list unfolds smoothly instead of popping up.
-
-## [0.11.2b]
-
-### Changed
 - **Updates are signed.** Every update is now signed with Max's release key, which never leaves his PC, and the game checks the signature before installing anything. Before, the game trusted whatever GitHub handed it: someone who got into the GitHub account (or swapped files on the way) could have sent every player a game of their own. Now an update without a valid signature isn't installed, and the game says so.
-
-## [0.11.1b]
-
-### Added
-- **"Only my Steam friends can join"** as a lobby rule: over Steam, players who aren't on the host's Steam friends list can't come in, even with the code.
-
-### Changed
 - **Security check of everything online,** with these fixes:
   - **Nobody gets into a room without its code.** Before, a game that knew the host's Steam ID could connect straight to the host and take a seat without ever typing the code. Now the host checks the code on every join.
   - **Room codes aren't readable in Steam's lobby list any more.** The list (which anyone with Steam can read) had every open room's code in it as it is. Now it only has a one-way hash of the code that takes many hours to work back.
@@ -43,34 +56,10 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
   - **LAN: no more huge messages or idle connections.** A connection that announced a 256 MB message got that much memory reserved, and connections that never joined stayed open. Now a player's messages are limited to what the game sends (1 MB), connections must join within 15 seconds, and at most 48 can be open.
   - **Results files are spreadsheet-safe.** A player name like "=HYPERLINK(…)" would run as a formula when a results CSV is opened in Excel; such cells now get a ' in front, which the game takes off again when reading them.
   - **Only debug builds can be pointed at a different update server** (a testing setting that released builds also listened to).
-
-## [0.11.0b] — "Opening Night": an intro like a console game's, a title screen, New Year, credits and drag and drop
-
-### Added
-- **An intro when the game starts,** like a console game's:
-  - the **Pinke Geilheit Neural-Level Anti-Cheat** opens first, in a small window of its own while the game loads, like Easy Anti-Cheat's (it checks nothing, it just looks very serious);
-  - then the game's window: the Xbox "World Premiere" sting, Made with Godot, maxlvl01 presents, Pinke Geilheit Publishing (with its moving logo), music by Epidemic Sound, sponsored by TrackGlow, and the credits;
-  - and a **title screen**: the animated logo big in the middle and "Press any button". Pressing one plays the welcome line, and the logo glides up into its place on the home screen while the menu fades in around it.
-  - A key or a click skips the card showing, and Escape skips straight to the title screen. With "less motion" switched on, the intro is left out.
-- **The title screen has a TrackGlow button** in the corner that opens IBassGaming's Patreon.
-- **Credits:** an "i" button in the home screen's music player opens them: every song and its artist, every map's source, the engine, the fonts and the full licence texts.
-- **Happy New Year skin,** 27 December to 7 January, right after Christmas: midnight blue and gold, the same snow as at Christmas (also on the lobby and the BETA sticker), fireworks bursting over the home screen and the lobby, and a party hat on the logo.
-- **Custom mouse cursors** in the game's style: white with a dark outline and a small shadow, like the buttons. There is one for every kind of pointer: the arrow, the hand over buttons, the grabbing hand while dragging, the text cursor, "not allowed", busy, the crosshair and the resize and move arrows.
-- **Settings: what the Neural-Level Anti-Cheat does.** It reads your thoughts and bans you if you even think about cheating.
-
-### Changed
 - **The Fast Pass always answers first.** Before, it only took over from someone who had buzzed less than a second earlier; anyone who had been answering for longer kept their turn, and the Fast Pass waited second in line. Now whoever holds the Fast Pass answers first whenever they buzz. The one who was answering goes back to the front of the line, and anyone already marked wrong stays out. It's played blind, before the question is shown, so it stays a gamble.
 - **Questions in a quiz are moved by dragging** (a line shows where the question lands), or by typing its new number into the number box in front of it. The ↑ and ↓ buttons are gone.
 - **The welcome line runs straight into the music.** There was a gap of about two seconds. The recording ended in near-silence, and some songs start with up to 1.4 seconds of silence. The line's silent end is trimmed, the music comes in just before the line ends, and songs start where their sound starts.
 - **No music during the intro.** The music waits for the title screen to be left and for the welcome line.
-
-### Fixed
-- **"Now playing" covered buttons:** in the quiz overview, the card slid in over "Copy share code" at the bottom left (it read "y share code"). It now slides in above a screen's bottom buttons.
-- **German text for the "Step by step" points note** was missing; it showed in English.
-
-## [0.10.8b]
-
-### Changed
 - **A new version shows on the logo instead of a line under it:** the logo's outline pulses green while an update is out (hover over it to see which version; the green arrow next to the version number installs it). The line "An update is available" made the home screen longer, so it started to scroll.
 - **Bonus points have − and + buttons** next to the number (it can still be typed in), and the box is only as wide as two digits.
 - **Image reveal editor fits on one screen:** the bonus and the category were at the bottom of the left column and made the editor scroll. They're in the round settings on the right now, like every other question type, and the picture and its preview sit side by side.
@@ -80,63 +69,13 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **Christmas: snow on the lobby** (a snow cap on the lobby's panel, with snow falling over it, for the host and the players) and a little snow on the BETA sticker.
 - **No question editor scrolls any more** (checked for every question type, in English and German): short fields sit side by side in the round settings (time limit and points, start time and points), explanations moved to the roomier left side, and the notes under check boxes became tooltips. Before, pick one, multiple choice, estimation, map pin, sound, put in order and timeline were a little too tall and scrolled.
 - **Developer mode:** a "Test update" button next to the DEV badge shows the home screen as if an update were out (the logo pulses green), and stops it again.
-
-### Fixed
-- **Halloween bats no longer flood the log with errors:** when a bat flapped its wings all the way down, the wing folded over itself and Godot couldn't draw it (one "Invalid polygon data" error every frame, also in the test logs). The wings now flap a little less far down.
-
-## [0.10.7b]
-
-### Added
-- **A third buzzer sound, "Buzzer 3",** to pick in Settings and in the lobby. Its recording is quieter than the other two, so the game plays it 12 dB louder to match.
-
-## [0.10.6b]
-
-### Added
-- **Two more seasonal skins:** **Kölle Alaaf** for the Cologne carnival, on 11 November (the season opens at 11:11) and in the street carnival week from Weiberfastnacht to Veilchendienstag (worked out from Easter each year): red and white, confetti tumbling down, streamers along the top, and a jester's cap with bells on the logo. And **Valentine's Day** all of February: rose and pink, hearts floating up, hearts on the logo.
-- **Right-click on empty space goes back a screen,** like Escape or the mouse's back button (not on the home screen, and not on buttons, text fields, sliders or lists).
-
-### Changed
 - **Seasonal skins come on by themselves:** in their season (Halloween in October, Christmas in December, the carnival days, Valentine's Day in February) the game shows that skin, and afterwards the skin you chose is back. Untick "Seasonal skins" in Settings to keep your own all year. They can't be picked by hand any more (developer mode can pick every skin, any time).
 - **The Classic skin is called Alpha now** (saved settings keep it).
 - **The voice line at the start is a little louder, and the music waits for it:** a few seconds of music used to play behind the intro, stop for the voice line and start again. Now the first song starts once the voice line is over.
-
-### Fixed
-- **Christmas lights and snow, and Halloween's bats, reached past the game onto the space picture** on ultrawide monitors. They stay inside the 16:9 screen now; the bats fade in and out at its edges.
-
-## [0.10.5b]
-
-### Added
-- **Six new skins** (Settings → Skin): **Formula 1** (carbon black, F1 red and white), **AMOLED black** (true black, for OLED screens), **Daylight** (a light skin that's easy on the eyes: warm off-white instead of glaring white, dark plum text and outlines), **#effzeh** (red and white, for 1. FC Köln fans), and two that only show up in their season: **Halloween** in October (pumpkin orange and purple, cobwebs in the corners, bats flapping across, carved pumpkins, and the logo gets pumpkins, a cobweb and a bat) and **Christmas** from 1 to 26 December (pine green, red and gold, snow falling, fairy lights along the top, and the logo gets a snow cap and a Santa hat). After its season a seasonal skin goes back to Quiznight Purple. The decorations sit behind everything you need to read, and stand still with "less motion".
-
-### Changed
 - **"Magic of December" only plays at Christmas time** (1 to 26 December), like "Merriest Christmas of All".
 - **The map cards in a map pin question are keys like the other buttons;** the chosen map stays pushed in. Long map names wrap onto a second line instead of being cut off ("Cyberpunk 2077 – Night City").
 - **Developer mode shows as a small "DEV" badge** in the home screen's corner instead of a notice that pushed the page down (and made it scroll).
-
-### Fixed
-- **The lobby code and name fields disappeared** after switching "Play over" to LAN and back to Steam: rebuilding the join card freed the two fields along with their old rows. They're kept now.
-
-## [0.10.4b]
-
-### Added
-- **Settings during a game:** a gear in the top bar of the lobby, the waiting room and the host's and players' game screens opens Settings as a window over it, so you can turn the volume down or change the window size without leaving the room. Close, Escape or the mouse's back button close it again (asking first if you changed something without applying it). The skin and the dyslexia-friendly font are only changed from the home screen's Settings, because they rebuild every screen.
-
-### Changed
 - **The joker buttons are small keys with just an icon:** the lightning bolt for the Fast Pass and a big ×2 for Double points. Their name and what you can do with them are in the tooltip, and one line underneath says what matters now (e.g. which question a played joker is on).
-
-## [0.10.3b]
-
-### Added
-- **A music player on the home screen,** under "Host a quiz night": the song playing, back, play/pause, next and a button for the jukebox's list of songs. The long text in the host card is gone, so the card is smaller. (The note button in the corner stays on every other screen.)
-- **"Fußspuren?"** joins the title screen's easter eggs.
-- **"My profile" on the Ewige Tabelle,** next to the tabs: it opens your own profile (needs Steam, which is how your results are found).
-- **Hosted nights on every profile, where FM shows international caps:** a microphone under the name with "Hosted 2 quiz nights" (or "Never hosted"), instead of a number among the stats.
-- **Profiles for people who aren't in the Ewige Tabelle yet** (they only hosted so far, or it's your own "My profile"): the full page instead of "No quiz nights here", with empty attributes until they play.
-- **The match history shows when a night started** instead of when it ended (the results now save the start time). Nights from before this version only saved the end, so they show just the day.
-- **The form shows five places:** nights not played yet are dashed empty squares, so a new player's form is five empty slots.
-- **Two test nights from 24 October are in the Beta table and the match history** (21:25 and 22:40, hosted by maxlvl01).
-
-### Changed
 - **The first download is much smaller.** The music is now encoded at 128 kbps from the original recordings (was ~150 kbps; it sounds the same), the F1 Podium sound is a compressed Ogg instead of a 23 MB WAV (it was 134 seconds of uncompressed audio), the built-in maps are re-compressed (a little more compression; when you zoom in all the way you can't tell the difference), the game leaves out the parts of .NET it never uses and .NET's debugging tools (the folder next to the game went from 79 MB to 23 MB), and on Windows the game runs on a slimmed-down engine without the parts Quiznight never uses (3D physics, VR, Vulkan, …): `Quiznight.exe` went from 105 MB to 51 MB. This update itself is bigger than usual, once, because those files all changed.
 - **Buttons look like real 3D keys:** under the coloured top there's a side in a darker shade of the button's own colour, with a light edge along the top and a soft shine. Pressing one pushes it down into its side.
 - **The buzzer is a big square red key on a silver base,** in the same style, with the Quiznight Q? embossed on it instead of "BUZZ!".
@@ -147,14 +86,19 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **Numbers are in the game's own font:** scores, places, timers and the room code used the system's Consolas, which looked out of place. They're Fredoka now, with all digits the same width so columns still line up, and the score next to the host's − and + buttons sits in the middle of its row.
 - **The BETA stamp is a sticker on the logo's corner,** so "Quiznight?" sits exactly in the middle of the home screen again (the stamp next to it pushed it to the left).
 
-### Removed
-- **"Write the answer" as its own question type.** It was the same as a classic question with "Everyone types the answer", so that's what it is now: older quizzes and share codes with "Write the answer" questions open them as classic questions played that way (question, answers, picture, time limit, points and bonus kept), and old nights' stats for it count under Classic → Everyone types.
-
 ### Fixed
+- **"Now playing" covered buttons:** in the quiz overview, the card slid in over "Copy share code" at the bottom left (it read "y share code"). It now slides in above a screen's bottom buttons.
+- **German text for the "Step by step" points note** was missing; it showed in English.
+- **Halloween bats no longer flood the log with errors:** when a bat flapped its wings all the way down, the wing folded over itself and Godot couldn't draw it (one "Invalid polygon data" error every frame, also in the test logs). The wings now flap a little less far down.
+- **Christmas lights and snow, and Halloween's bats, reached past the game onto the space picture** on ultrawide monitors. They stay inside the 16:9 screen now; the bats fade in and out at its edges.
+- **The lobby code and name fields disappeared** after switching "Play over" to LAN and back to Steam: rebuilding the join card freed the two fields along with their old rows. They're kept now.
 - **The Fast Pass lost to someone who buzzed at the same moment.** Bob had the Fast Pass, but Ann's buzz arrived a few milliseconds earlier (both showed 2.6 s), so Ann was already answering and the Fast Pass only put Bob first among those still waiting, behind her. A Fast Pass now also takes over from someone who started answering less than a second earlier (they couldn't have said anything yet); they're next in line instead. Someone who has been answering for longer keeps their turn, as before.
 - **The text on big buttons sat too low** ("My quizzes", "Join!"). The dark edge under each button counted as part of the button when the text was centred, so the text was centred on the button plus its edge and ended up below the middle of the coloured part. It's now centred on the coloured part.
 - **The place and points over a hovered bar on a profile were unreadable on the tallest bar:** there was no room above it, so the white text landed on the gold bar. The bars leave room for it now.
 - **"What's new" showed the notes in a narrow column** on the left half of the window. The window's scroll area didn't give its content the full width, so the wrapped text was only as wide as the heading. It now uses the whole width, and opens at the top instead of sometimes scrolled to the end.
+
+### Removed
+- **"Write the answer" as its own question type.** It was the same as a classic question with "Everyone types the answer", so that's what it is now: older quizzes and share codes with "Write the answer" questions open them as classic questions played that way (question, answers, picture, time limit, points and bonus kept), and old nights' stats for it count under Classic → Everyone types.
 
 ## [0.10.2b]
 
