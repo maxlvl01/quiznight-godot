@@ -353,6 +353,30 @@ public static class SelfTest
 		void Unused() => PeerConnected?.Invoke("");
 	}
 
+	/// <summary>The editors' undo and redo (EditHistory) and the question snapshots they keep.</summary>
+	static void Undo()
+	{
+		var value = 0;
+		var history = new Ui.EditHistory<int>(() => value, v => value = v);
+		value = 1; history.Record();
+		value = 2; history.Record();
+		Check(history.Undo() && value == 1 && history.Undo() && value == 0 && !history.Undo(), "undo goes back step by step, to the start");
+		Check(history.Redo() && value == 1 && history.Redo() && value == 2 && !history.Redo(), "redo goes forward again");
+		history.Undo();
+		value = 5; history.Record();
+		Check(!history.Redo() && history.Undo() && value == 1, "a new change after undoing: the undone step is gone");
+		value = 6; history.Record(mergeable: true);
+		value = 7; history.Record(mergeable: true);
+		Check(history.Undo() && value == 1, "typing in one go is one step");
+
+		var quiz = Dev.SampleQuiz.Build();
+		var q = quiz.Questions.First(x => x.HasImageField && x.Image != null);
+		var snapshot = Ui.QuestionSnapshot.Take(q, quiz.Maps);
+		var (back, _) = snapshot.Restore();
+		Check(QuizJson.WriteQuestion(back).ToJsonString() == QuizJson.WriteQuestion(q).ToJsonString(), "a question comes back from its undo step as it was");
+		Check(ReferenceEquals(back.Image!.DataUrl, q.Image!.DataUrl), "undo steps share the picture, not copy it (memory stays small)");
+	}
+
 	/// <summary>What comes from outside: joins over Steam, pictures, packed quizzes, recordings, CSV cells, frames.</summary>
 	static void Safety()
 	{
@@ -458,6 +482,7 @@ public static class SelfTest
 		JokersAndSeats();
 		FastPassTie();
 		Safety();
+		Undo();
 		Files();
 		// Load, not just Exists: an Opus .ogg exists but Godot can't import it.
 		foreach (var b in Storage.Sfx.Buzzers) Check(ResourceLoader.Load<AudioStream>(b.Path) != null, $"buzzer sound {b.Id} plays");

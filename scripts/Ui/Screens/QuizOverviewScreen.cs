@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using QuizNight.Shared;
@@ -12,6 +13,9 @@ public partial class QuizOverviewScreen : Control
 	readonly VBoxContainer _questions = U.V(6);
 	readonly VBoxContainer _foot = U.V(8);
 	readonly Label _error = U.Error();
+	readonly LineEdit _title;
+	/// <summary>Ctrl+Z / Ctrl+Y: moving, deleting and renaming, back and forth (the questions themselves aren't copied).</summary>
+	readonly EditHistory<(string Title, List<Question> Questions)> _history;
 
 	public QuizOverviewScreen() : this(new Quiz()) { }
 
@@ -21,7 +25,7 @@ public partial class QuizOverviewScreen : Control
 		SetAnchorsPreset(LayoutPreset.FullRect);
 
 		// Saving rewrites the whole file (images included), so the title is saved when you leave the field.
-		var title = U.Input(quiz.Title, "Quiz title", t =>
+		var title = _title = U.Input(quiz.Title, "Quiz title", t =>
 		{
 			_quiz.Title = t;
 			_titleDirty = true;
@@ -83,7 +87,20 @@ public partial class QuizOverviewScreen : Control
 		layout.SetAnchorsPreset(LayoutPreset.FullRect);
 		AddChild(layout);
 		RefreshList();
+		_history = new(() => (_quiz.Title, _quiz.Questions.ToList()), state =>
+		{
+			_quiz.Title = state.Title;
+			_quiz.Questions = state.Questions.ToList();
+			_title.Text = state.Title;
+			_titleDirty = false;
+			Save();
+			RefreshList();
+		});
 	}
+
+	public bool Undo() => _history.Undo();
+
+	public bool Redo() => _history.Redo();
 
 	bool _titleDirty;
 
@@ -92,6 +109,7 @@ public partial class QuizOverviewScreen : Control
 		if (!_titleDirty) return;
 		_titleDirty = false;
 		Save();
+		_history.Record();
 	}
 
 	public override void _ExitTree() => SaveTitle();
@@ -168,6 +186,7 @@ public partial class QuizOverviewScreen : Control
 		{
 			_quiz.Questions.RemoveAt(i);
 			Save();
+			_history.Record();
 			RefreshList();
 		})).Tip("Delete");
 		return U.Panel(U.H(10, num, open, del), "Card2").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel2, 10, C.Border, 1, 8, 4)));
@@ -180,6 +199,7 @@ public partial class QuizOverviewScreen : Control
 		_quiz.Questions.RemoveAt(from);
 		_quiz.Questions.Insert(to, item);
 		Save();
+		_history.Record();
 		RefreshList();
 	}
 

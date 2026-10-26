@@ -305,6 +305,19 @@ public partial class App : Control
 				QuestionEditorScreen editor => editor.SaveKey(),
 				_ => false,
 			},
+			// Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z): undo and redo in the editors (a focused text field undoes its own typing first)
+			Key.Z when key.CtrlPressed && !key.ShiftPressed => _screen switch
+			{
+				QuestionEditorScreen editor => editor.Undo(),
+				QuizOverviewScreen overview => overview.Undo(),
+				_ => false,
+			},
+			Key.Y or Key.Z when key.CtrlPressed => _screen switch
+			{
+				QuestionEditorScreen editor => editor.Redo(),
+				QuizOverviewScreen overview => overview.Redo(),
+				_ => false,
+			},
 			_ => false,
 		};
 		if (handled) GetViewport().SetInputAsHandled();

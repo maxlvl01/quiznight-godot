@@ -11,8 +11,10 @@ namespace QuizNight.Ui.Screens;
 public partial class QuestionEditorScreen : Control
 {
 	readonly Quiz _quiz;
-	readonly Question _draft;
-	readonly List<MapAsset> _maps;
+	Question _draft;
+	List<MapAsset> _maps;
+	/// <summary>Ctrl+Z / Ctrl+Y: every change to the draft, back and forth (EditHistory).</summary>
+	readonly EditHistory<QuestionSnapshot> _history;
 	readonly bool _isNew;
 	bool _dirty;
 	readonly Label _issues = U.Text("", 13, C.Muted, null, true);
@@ -44,10 +46,27 @@ public partial class QuestionEditorScreen : Control
 		layout.SetAnchorsPreset(LayoutPreset.FullRect);
 		AddChild(layout);
 		BuildForm();
+		_history = new EditHistory<QuestionSnapshot>(() => QuestionSnapshot.Take(_draft, _maps), snapshot =>
+		{
+			(_draft, _maps) = snapshot.Restore();
+			_dirty = true;
+			BuildForm();
+		});
 	}
+
+	/// <summary>The draft as it is now (dev checks).</summary>
+	public Question Draft => _draft;
+
+	/// <summary>Ctrl+Z: takes back the last change.</summary>
+	public bool Undo() => _history.Undo();
+
+	/// <summary>Ctrl+Y (or Ctrl+Shift+Z): does it again.</summary>
+	public bool Redo() => _history.Redo();
 
 	void Changed(bool rebuild = false)
 	{
+		// (typing changes without rebuilding: those merge into one step while it goes on)
+		_history?.Record(mergeable: !rebuild);
 		_dirty = true;
 		if (rebuild) BuildForm();
 		else UpdateIssues();

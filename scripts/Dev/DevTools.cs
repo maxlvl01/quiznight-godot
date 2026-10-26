@@ -41,6 +41,7 @@ public sealed class DevTools
 	bool _mapZoomed;
 	bool _rowDragged;
 	int _introKeys;
+	bool _undoChecked;
 	bool _scrolled;
 
 	async void MakeSplash(string path)
@@ -484,6 +485,11 @@ public sealed class DevTools
 			var key = new InputEventKey { Keycode = _introKeys == 1 ? Key.Escape : Key.Space, Pressed = true };
 			_app.GetViewport().PushInput(key, true);
 		}
+		if (_time >= 1.5 && !_undoChecked && Has("--undo-check"))
+		{
+			_undoChecked = true;
+			UndoCheck();
+		}
 		// --drag-row (with --screen quiz): drags question 1 below question 3 with real mouse events and prints the new order
 		if (_time >= 1 && !_rowDragged && Has("--drag-row"))
 		{
@@ -523,7 +529,42 @@ public sealed class DevTools
 		if (_shotPath != null) Screenshot(_shotPath.Replace(".png", "-drag.png"));
 		vp.PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false, Position = b, GlobalPosition = b }, true);
 		for (var i = 0; i < 5; i++) await _app.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
-		GD.Print("ORDER " + string.Join(" | ", Bot.All(_app).OfType<Ui.Screens.QuestionRowButton>().Take(4).Select(row => Bot.All(row).OfType<Label>().First().Text)));
+		string Order() => string.Join(" | ", Bot.All(_app).OfType<Ui.Screens.QuestionRowButton>().Take(4).Select(row => Bot.All(row).OfType<Label>().First().Text));
+		GD.Print("ORDER " + Order());
+		// (and Ctrl+Z puts it back, Ctrl+Y moves it again)
+		await Keys(Key.Z, false);
+		GD.Print("UNDO " + Order());
+		await Keys(Key.Y, false);
+		GD.Print("REDO " + Order());
+	}
+
+	/// <summary>Ctrl + a key (with Shift if asked), as real key presses, then a few frames.</summary>
+	async Task Keys(Key key, bool shift)
+	{
+		var vp = _app.GetViewport();
+		vp.PushInput(new InputEventKey { Keycode = key, CtrlPressed = true, ShiftPressed = shift, Pressed = true }, true);
+		vp.PushInput(new InputEventKey { Keycode = key, CtrlPressed = true, ShiftPressed = shift, Pressed = false }, true);
+		for (var i = 0; i < 5; i++) await _app.ToSignal(_app.GetTree(), SceneTree.SignalName.ProcessFrame);
+	}
+
+	/// <summary>--undo-check (with --open classic): presses a + button twice, then Ctrl+Z, Ctrl+Y, Ctrl+Z, Ctrl+Shift+Z.</summary>
+	async void UndoCheck()
+	{
+		if (_app.CurrentScreen is not Ui.Screens.QuestionEditorScreen editor) return;
+		string Now() => QuizJson.WriteQuestion(((Ui.Screens.QuestionEditorScreen)_app.CurrentScreen!).Draft).ToJsonString();
+		var before = Now();
+		if (Bot.All(editor).OfType<Button>().FirstOrDefault(x => x.Text == "+" && x.IsVisibleInTree() && !x.Disabled) is not { } plus) return;
+		plus.EmitSignal(BaseButton.SignalName.Pressed);
+		for (var i = 0; i < 3; i++) await _app.ToSignal(_app.GetTree(), SceneTree.SignalName.ProcessFrame);
+		plus.EmitSignal(BaseButton.SignalName.Pressed);
+		var changed = Now();
+		await Keys(Key.Z, false);
+		var undone = Now();
+		await Keys(Key.Y, false);
+		var redone = Now();
+		await Keys(Key.Z, false);
+		await Keys(Key.Z, true);
+		GD.Print($"UNDOCHECK changed={changed != before} undo-back={undone == before} redo-again={redone == changed} shiftZ-redo={Now() == changed}");
 	}
 
 	void Screenshot(string path)
