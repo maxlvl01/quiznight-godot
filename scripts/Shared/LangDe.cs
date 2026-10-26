@@ -1039,6 +1039,7 @@ public static class LangDe
 		["Kölle Alaaf (Carnival)"] = "Kölle Alaaf (Karneval)",
 		["Valentine's Day"] = "Valentinstag",
 		["Christmas"] = "Weihnachten",
+		["Happy New Year"] = "Frohes neues Jahr",
 		["AMOLED black"] = "AMOLED-Schwarz",
 		["Formula 1"] = "Formel 1",
 		["They come on by themselves in their season, and your own skin is back afterwards."] = "Sie kommen in ihrer Saison von selbst, danach ist dein eigener Skin wieder da.",

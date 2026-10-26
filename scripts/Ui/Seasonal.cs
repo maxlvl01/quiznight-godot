@@ -1,6 +1,7 @@
 // The seasonal skins' decorations (Halloween in October, Christmas in December, Cologne carnival on 11 November and in
 // the carnival week, Valentine's Day in February). Carnival: confetti and streamers, a jester's cap on the logo;
-// Valentine's: hearts floating up, hearts on the logo. On the screen, behind the
+// Valentine's: hearts floating up, hearts on the logo. New Year (27 December to 7 January): Christmas's snow,
+// fireworks bursting over the screen, a party hat on the logo. On the screen, behind the
 // cards (ScreenFrame draws them over its background): Christmas snow falling and fairy lights along the top, Halloween
 // cobwebs in the corners, bats flapping across and pumpkins in the corner. On the logo (LogoDecor): a snow cap and a
 // Santa hat, or pumpkins, a cobweb and a bat. With less motion asked for, nothing moves.
@@ -17,10 +18,13 @@ public static class Seasonal
 	/// <summary>Whether the skin in use has decorations.</summary>
 	public static bool On => Skins.IsSeasonal(C.Skin);
 
-	/// <summary>Christmas: snow on top of a panel (the lobby's), falling over it too.</summary>
+	/// <summary>Skins with snow: Christmas and New Year.</summary>
+	public static bool Snowy => C.Skin is Skins.Christmas or Skins.NewYear;
+
+	/// <summary>Christmas and New Year: snow on top of a panel (the lobby's), falling over it too.</summary>
 	public static void SnowOn(Control panel)
 	{
-		if (C.Skin == Skins.Christmas) panel.AddChild(new SnowCap(true, 1));
+		if (Snowy) panel.AddChild(new SnowCap(true, 1));
 	}
 
 	/// <summary>Whether the screen shown gets the decorations behind it: only the home screen and the lobby (not editors, games, settings …).</summary>
@@ -48,6 +52,7 @@ public static class Seasonal
 		else if (C.Skin == Skins.Halloween) HalloweenScreen(ci, frame, (float)t);
 		else if (C.Skin == Skins.Carnival) CarnivalScreen(ci, frame, (float)t);
 		else if (C.Skin == Skins.Valentine) ValentineScreen(ci, frame, (float)t);
+		else if (C.Skin == Skins.NewYear) NewYearScreen(ci, frame, (float)t);
 	}
 
 	static readonly Color[] Confetti = { new("#ff4757"), new("#ffd23f"), new("#2ed573"), new("#5cc8ff"), new("#ff8ad8"), new("#ffffff"), new("#ff9f43") };
@@ -107,9 +112,9 @@ public static class Seasonal
 		ci.DrawColoredPolygon(pts, color);
 	}
 
-	static void ChristmasScreen(CanvasItem ci, Rect2 frame, float t)
+	/// <summary>Snow falling slowly over the whole screen.</summary>
+	static void Snowfall(CanvasItem ci, Rect2 frame, float t)
 	{
-		// snow falling slowly over the whole screen
 		foreach (var (x, speed, phase, r) in Flakes)
 		{
 			var y = (phase + t * speed) % 1f;
@@ -117,6 +122,65 @@ public static class Seasonal
 			var px = Mathf.Clamp(frame.Position.X + x * frame.Size.X + Mathf.Sin(t * 0.8f + phase * 11) * 14, frame.Position.X + r, frame.End.X - r);
 			ci.DrawCircle(new Vector2(px, frame.Position.Y + y * frame.Size.Y), r, new Color("#f4f8ff", 0.45f));
 		}
+	}
+
+	static readonly Color[] FireworkColors = { new("#ffd23f"), new("#ff6fb0"), new("#5cf2d6"), new("#7fb8ff"), new("#ffffff"), new("#ff9f43"), new("#c58bff") };
+
+	static void NewYearScreen(CanvasItem ci, Rect2 frame, float t)
+	{
+		// fireworks behind the snow: four launch spots, each sending up a rocket now and then (another spot, height and
+		// colour each time: everything follows from the time, nothing is stored)
+		for (var i = 0; i < 4; i++)
+		{
+			var period = 3.4f + i * 0.9f;
+			var at = t + i * 1.3f;
+			var round = Mathf.FloorToInt(at / period);
+			var local = at - round * period;
+			var rng = new Random(round * 31 + i * 977);
+			var x = frame.Position.X + frame.Size.X * (0.12f + (float)rng.NextDouble() * 0.76f);
+			var peak = new Vector2(x + ((float)rng.NextDouble() - 0.5f) * 80, frame.Position.Y + frame.Size.Y * (0.14f + (float)rng.NextDouble() * 0.28f));
+			var color = FireworkColors[rng.Next(FireworkColors.Length)];
+			var second = FireworkColors[rng.Next(FireworkColors.Length)];
+			var sparks = 26 + rng.Next(10);
+			var speedOut = 150 + (float)rng.NextDouble() * 80;
+			const float rise = 0.9f;
+			if (local < rise)
+			{
+				// (the rocket: slows as it climbs, a short trail behind it)
+				var f = local / rise;
+				var start = new Vector2(x, frame.End.Y + 10);
+				var p = start.Lerp(peak, 1 - (1 - f) * (1 - f));
+				var back = p + (start - peak).Normalized() * (34 * (1 - f) + 8);
+				ci.DrawLine(back, p, new Color(color, 0.5f), 2, true);
+				ci.DrawCircle(p, 2.6f, color.Lerp(Colors.White, 0.5f));
+				continue;
+			}
+			var age = local - rise;
+			const float life = 1.8f;
+			if (age > life) continue;
+			var fade = 1 - age / life;
+			// (a flash, then the sparks fly out, slow down and drop, twinkling as they go out)
+			if (age < 0.2f) ci.DrawCircle(peak, 40 * (1 - age / 0.2f) + 8, new Color(color, 0.4f));
+			var travel = speedOut * (1 - Mathf.Exp(-age * 2.6f));
+			var drop = new Vector2(0, 38 * age * age);
+			for (var k = 0; k < sparks; k++)
+			{
+				var dir = Vector2.FromAngle(k * Mathf.Tau / sparks + (k * 0.37f) % 0.12f);
+				var reach = travel * (0.85f + 0.15f * (k % 3));
+				var p = peak + dir * reach + drop;
+				var tail = peak + dir * reach * 0.8f + drop * 0.9f;
+				var c = k % 2 == 0 ? color : second;
+				var twinkle = age > life * 0.55f ? 0.5f + 0.5f * Mathf.Sin(age * 40 + k) : 1;
+				ci.DrawLine(tail, p, new Color(c, 0.55f * fade), 2.2f, true);
+				ci.DrawCircle(p, 2.8f, new Color(c.Lerp(Colors.White, 0.3f), fade * twinkle));
+			}
+		}
+		Snowfall(ci, frame, t);
+	}
+
+	static void ChristmasScreen(CanvasItem ci, Rect2 frame, float t)
+	{
+		Snowfall(ci, frame, t);
 		// fairy lights along the top: a sagging wire, bulbs that twinkle
 		var colors = new[] { new Color("#ff4757"), new Color("#ffd23f"), new Color("#2ed573"), new Color("#5cc8ff") };
 		// (whole spans that end exactly at the screen's edges)
@@ -273,6 +337,7 @@ public partial class LogoDecor : Control
 		}
 		var snow = new Color("#f4f8ff");
 		var shade = new Color("#c9d6ea");
+		// (Christmas and New Year: falling snow and a snow cap, then a Santa hat or a party hat)
 		// falling snow, around and in front of the field
 		foreach (var (x, speed, phase, r) in _flakes)
 		{
@@ -293,6 +358,11 @@ public partial class LogoDecor : Control
 			DrawCircle(new Vector2(x, top + 8), 3.5f, snow);
 			DrawCircle(new Vector2(x, top + 12), 2.4f, snow);
 		}
+		if (_skin == Skins.NewYear)
+		{
+			PartyHat(box, t);
+			return;
+		}
 		// a Santa hat on the top left corner, tilted
 		DrawSetTransformMatrix(Transform2D.Identity.Rotated(-0.35f).Translated(box.Position + new Vector2(18, 2)));
 		DrawColoredPolygon(new[] { new Vector2(-30, 0), new Vector2(30, 0), new Vector2(14, -34), new Vector2(-6, -48), new Vector2(-24, -30) }, C.Ink);
@@ -302,6 +372,36 @@ public partial class LogoDecor : Control
 		DrawCircle(new Vector2(-8, -48), 7, snow);
 		DrawColoredPolygon(Seasonal.Ellipse(Vector2.Zero, 34, 9.5f), C.Ink);
 		DrawColoredPolygon(Seasonal.Ellipse(Vector2.Zero, 32, 8), snow);
+		DrawSetTransformMatrix(Transform2D.Identity);
+	}
+
+	/// <summary>New Year: a gold party hat with pink stripes and a pompom on the top left corner, sparkles twinkling around the field.</summary>
+	void PartyHat(Rect2 box, float t)
+	{
+		var gold = new Color("#ffc83d");
+		var pink = new Color("#ff6fb0");
+		var white = new Color("#fff8e6");
+		// (sparkles: four-pointed stars that blink in turn)
+		Vector2[] spots = { new(0.32f, -0.06f), new(0.78f, -0.1f), new(0.96f, 0.35f), new(0.9f, 1.04f), new(0.5f, 1.08f) };
+		for (var i = 0; i < spots.Length; i++)
+		{
+			var size = 7 * Mathf.Max(0, Mathf.Sin(t * 2.4f + i * 1.9f));
+			if (size < 0.5f) continue;
+			var c = box.Position + spots[i] * box.Size;
+			DrawColoredPolygon(new[] { c + new Vector2(0, -size), c + new Vector2(size * 0.25f, 0), c + new Vector2(0, size), c + new Vector2(-size * 0.25f, 0) }, white);
+			DrawColoredPolygon(new[] { c + new Vector2(-size, 0), c + new Vector2(0, size * 0.25f), c + new Vector2(size, 0), c + new Vector2(0, -size * 0.25f) }, white);
+		}
+		DrawSetTransformMatrix(Transform2D.Identity.Rotated(-0.32f + 0.03f * Mathf.Sin(t * 2)).Translated(box.Position + new Vector2(20, 4)));
+		DrawColoredPolygon(new[] { new Vector2(-25, 3), new Vector2(25, 3), new Vector2(0, -58) }, C.Ink);
+		DrawColoredPolygon(new[] { new Vector2(-22, 0), new Vector2(22, 0), new Vector2(0, -53) }, gold);
+		// (pink stripes across the cone: each a band between two heights, as wide as the cone there)
+		static float Half(float f) => 22 * (1 - f);
+		foreach (var (lo, hi) in new[] { (0.12f, 0.24f), (0.42f, 0.54f), (0.72f, 0.82f) })
+			DrawColoredPolygon(new[] { new Vector2(-Half(lo), -53 * lo), new Vector2(Half(lo), -53 * lo), new Vector2(Half(hi), -53 * hi), new Vector2(-Half(hi), -53 * hi) }, pink);
+		DrawCircle(new Vector2(0, -56), 8.5f, C.Ink);
+		DrawCircle(new Vector2(0, -56), 7, white);
+		DrawColoredPolygon(Seasonal.Ellipse(new Vector2(0, 1), 25, 5.5f), C.Ink);
+		DrawColoredPolygon(Seasonal.Ellipse(new Vector2(0, 1), 23, 4), white);
 		DrawSetTransformMatrix(Transform2D.Identity);
 	}
 

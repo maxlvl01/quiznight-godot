@@ -764,6 +764,8 @@ public static class SelfTest
 		Check(Ui.Seasons.IsHalloween(new DateTime(2026, 10, 31)) && !Ui.Seasons.IsHalloween(new DateTime(2026, 11, 1))
 			&& Ui.Seasons.IsChristmas(new DateTime(2026, 12, 1)) && !Ui.Seasons.IsChristmas(new DateTime(2027, 1, 2)),
 			"seasonal skins: Halloween all October, Christmas 1 to 26 December");
+		Check(Ui.Seasons.IsNewYear(new DateTime(2026, 12, 27)) && Ui.Seasons.IsNewYear(new DateTime(2027, 1, 7)) && !Ui.Seasons.IsNewYear(new DateTime(2026, 12, 26))
+			&& !Ui.Seasons.IsNewYear(new DateTime(2027, 1, 8)), "New Year skin: 27 December to 7 January");
 		Check(Ui.Seasons.Easter(2026) == new DateTime(2026, 4, 5) && Ui.Seasons.Easter(2027) == new DateTime(2027, 3, 28),
 			"Easter Sunday 2026 and 2027");
 		Check(Ui.Seasons.IsCarnival(new DateTime(2026, 2, 12)) && Ui.Seasons.IsCarnival(new DateTime(2026, 2, 16)) && Ui.Seasons.IsCarnival(new DateTime(2026, 2, 17))
@@ -773,7 +775,8 @@ public static class SelfTest
 		Check(Ui.Seasons.IsValentine(new DateTime(2027, 2, 14)) && !Ui.Seasons.IsValentine(new DateTime(2027, 3, 1)), "Valentine's Day skin: all of February");
 		Check(Ui.Skins.Valid(Ui.Skins.Effzeh) == Ui.Skins.Effzeh && Ui.Skins.Valid("nonsense") == Ui.Skins.Default,
 			"skins: the new ones are valid, unknown ones fall back to Quiznight Purple");
-		var seasonNow = Ui.Seasons.IsHalloween(Ui.Seasons.Today) ? Ui.Skins.Halloween : Ui.Seasons.IsChristmas(Ui.Seasons.Today) ? Ui.Skins.Christmas : null;
+		var seasonNow = Ui.Seasons.IsCarnival(Ui.Seasons.Today) ? Ui.Skins.Carnival : Ui.Seasons.IsHalloween(Ui.Seasons.Today) ? Ui.Skins.Halloween : Ui.Seasons.IsChristmas(Ui.Seasons.Today) ? Ui.Skins.Christmas
+			: Ui.Seasons.IsNewYear(Ui.Seasons.Today) ? Ui.Skins.NewYear : Ui.Seasons.IsValentine(Ui.Seasons.Today) ? Ui.Skins.Valentine : null;
 		Check(Ui.Skins.Effective(Ui.Skins.F1, false) == Ui.Skins.F1 && Ui.Skins.Effective(Ui.Skins.F1, true) == (seasonNow ?? Ui.Skins.F1),
 			"skins: the season's skin comes on by itself (unless seasonal skins are off), else the chosen one shows");
 		Check(Ui.Skins.Available.Any(a => Ui.Skins.IsSeasonal(a.Id)) == App.LanUnlocked, "skins: the seasonal ones can only be picked in developer mode");

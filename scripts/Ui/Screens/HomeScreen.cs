@@ -36,8 +36,8 @@ public partial class HomeScreen : Control
 				p.AddThemeStyleboxOverride("panel", UiTheme.Chunky(C.Coral, 12, 12, 2, 3, 3));
 				p.RotationDegrees = 12;
 				p.MouseFilter = MouseFilterEnum.Ignore;
-				// (Christmas: a little snow on the sticker too)
-				if (C.Skin == Skins.Christmas) p.AddChild(new SnowCap(false, 0.55f));
+				// (Christmas and New Year: a little snow on the sticker too)
+				if (Seasonal.Snowy) p.AddChild(new SnowCap(false, 0.55f));
 			});
 			holder.AddChild(stamp);
 			// (placed once its size is known: its middle a little inside the corner)

@@ -119,6 +119,12 @@ public static class C
 				(Text, Muted, Accent, AccentInk, Orange) = (H("#f5f9f5"), H("#a6c3b2"), H("#d8263c"), H("#ffffff"), H("#ffd23f"));
 				Ink = H("#03100a");
 				break;
+			// (New Year: midnight blue, gold and champagne)
+			case Skins.NewYear:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#070b1f"), H("#111a3a"), H("#18244d"), H("#3a4f8f"), H("#e9f3ff"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#f7f3e8"), H("#a9b2d2"), H("#ffc83d"), H("#1d1300"), H("#f3e2b0"));
+				Ink = H("#02040d");
+				break;
 			default:
 				(Bg, Panel, Panel2, Border, Blue) = (H("#150023"), H("#2b0b47"), H("#3a1260"), H("#1a5a85"), H("#00c9f6"));
 				(Text, Muted, Accent, AccentInk, Orange) = (H("#efeaf6"), H("#a593bd"), H("#ff8201"), H("#2a1200"), H("#ffd23f"));
@@ -161,6 +167,7 @@ public static class Skins
 	public const string Effzeh = "effzeh";
 	public const string Halloween = "halloween";
 	public const string Christmas = "christmas";
+	public const string NewYear = "new-year";
 	public const string Carnival = "carnival";
 	public const string Valentine = "valentine";
 
@@ -175,6 +182,7 @@ public static class Skins
 		(Effzeh, "#effzeh"),
 		(Halloween, "Halloween"),
 		(Christmas, "Christmas"),
+		(NewYear, "Happy New Year"),
 		(Carnival, "Kölle Alaaf (Carnival)"),
 		(Valentine, "Valentine's Day"),
 	};
@@ -184,12 +192,13 @@ public static class Skins
 	{
 		Halloween => Seasons.IsHalloween(Seasons.Today),
 		Christmas => Seasons.IsChristmas(Seasons.Today),
+		NewYear => Seasons.IsNewYear(Seasons.Today),
 		Carnival => Seasons.IsCarnival(Seasons.Today),
 		Valentine => Seasons.IsValentine(Seasons.Today),
 		_ => true,
 	};
 
-	public static bool IsSeasonal(string id) => id is Halloween or Christmas or Carnival or Valentine;
+	public static bool IsSeasonal(string id) => id is Halloween or Christmas or NewYear or Carnival or Valentine;
 
 	/// <summary>The skins Settings offers: all of them in developer mode, else the ones that aren't seasonal.</summary>
 	public static (string Id, string Label)[] Available => All.Where(s => App.LanUnlocked || !IsSeasonal(s.Id)).ToArray();
@@ -215,6 +224,7 @@ public static class Skins
 		if (Seasons.IsCarnival(today)) return Carnival;
 		if (Seasons.IsHalloween(today)) return Halloween;
 		if (Seasons.IsChristmas(today)) return Christmas;
+		if (Seasons.IsNewYear(today)) return NewYear;
 		if (Seasons.IsValentine(today)) return Valentine;
 		return chosen;
 	}
@@ -230,6 +240,9 @@ public static class Seasons
 
 	/// <summary>1 to 26 December.</summary>
 	public static bool IsChristmas(DateTime day) => day.Month == 12 && day.Day <= 26;
+
+	/// <summary>27 December to 7 January (right after Christmas).</summary>
+	public static bool IsNewYear(DateTime day) => day.Month == 12 && day.Day >= 27 || day.Month == 1 && day.Day <= 7;
 
 	/// <summary>All of October.</summary>
 	public static bool IsHalloween(DateTime day) => day.Month == 10;
