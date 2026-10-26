@@ -34,6 +34,11 @@ check doesn't need one) updates itself to 0.12.0b, and the new build then upload
   screenshot of the screen as it was when 🐞 was pressed (`.png`, same name). "Thanks, Max will look at it"
   afterwards; if the upload fails it's kept and sent on the next start. Max reads them in the repo and hands them to
   Claude. (Settings' "What the game sends" mentions it.)
+- [ ] **Test lab: the buzzer is free to press.** Today the BUZZ! button in the Test lab is locked until Start's
+  reaction test unlocks it (Max: "I just want to press the button and hear my standard sound"). Instead: the button
+  is always unlocked, presses down like in a game and plays the buzzer sound picked in Settings, every time. The
+  reaction test becomes optional (its own small "Reaction test" button next to it, which locks the buzzer until the
+  random moment as now).
 
 ---
 
