@@ -96,6 +96,13 @@ off (`- [x]`) when they're done, with the version they came in.
   - Open: do the versus stats last only for this lobby, or are they kept (per player id, like the eternal table:
     an all-time Pong table)?
 
+- [x] (0.12.0d2) **Billiard modes:** quick pool, 8-ball, 9-ball, 4-ball (Yotsudama), three-cushion, with their rules
+  (`BilliardMode`, `BilliardRules.Settle`); 8-ball and 9-ball start with the lag for the break.
+- [x] (0.12.0d2) **Buttons don't grow under the mouse** either; just the pressed-in look.
+- [x] (0.12.0d2) **TRACKGLOW engraved in the buzzer's silver base** (subtle, cut in, not in TrackGlow's colours).
+- [x] (0.12.0d2) **Jukebox:** shuffle and repeat (saved), back restarts the song (twice: previous), a progress bar with
+  time played / left that you can click to jump.
+
 ---
 
 ## 0.12.0d1 — first test build (done)
