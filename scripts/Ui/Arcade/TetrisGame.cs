@@ -50,11 +50,11 @@ public partial class TetrisGame : Control
 		_over = over;
 		FocusMode = FocusModeEnum.All;
 		CustomMinimumSize = new Vector2(0, 420);
-		_next = Draw();
+		_next = FromBag();
 		Spawn();
 	}
 
-	int Draw()
+	int FromBag()
 	{
 		if (_bag.Count == 0) _bag.AddRange(Enumerable.Range(0, 7).OrderBy(_ => Random.Shared.Next()));
 		var k = _bag[0];
@@ -65,7 +65,7 @@ public partial class TetrisGame : Control
 	void Spawn()
 	{
 		_kind = _next;
-		_next = Draw();
+		_next = FromBag();
 		_piece = Shapes[_kind].ToArray();
 		_at = new Vector2I(3, 0);
 		if (!Fits(_piece, _at)) End();

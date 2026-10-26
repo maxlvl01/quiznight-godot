@@ -243,14 +243,25 @@ public sealed class BilliardState
 	/// <summary>9-ball: the lowest ball on the table when the shot was taken.</summary>
 	public int Lowest;
 
+	/// <summary>
+	/// 8-ball and 9-ball start with the lag, like in real life: both shoot a ball at once from their end, off the far
+	/// cushion and back; the one that stops closest to its own end cushion breaks (one that doesn't reach the far cushion
+	/// loses the lag). Ball 0 is A's, ball 1 B's.
+	/// </summary>
+	public bool Lag;
+	public List<bool> LagShot = new();
+	public List<bool> LagFar = new();
+
 	public bool Pockets => !BilliardMode.Carom(Mode);
+
+	public static bool Lags(string mode) => mode is BilliardMode.Eight or BilliardMode.Nine;
 
 	public static readonly (double X, double Y)[] PocketSpots =
 	{
 		(0, 0), (W / 2, -0.01), (W, 0), (0, H), (W / 2, H + 0.01), (W, H),
 	};
 
-	public static BilliardState New(string mode)
+	public static BilliardState New(string mode, bool lag = true)
 	{
 		var s = new BilliardState { Mode = mode };
 		void Add(double x, double y)
@@ -274,6 +285,16 @@ public sealed class BilliardState
 			for (var n = 1; n <= numbers.Count; n++) Add(placed[n].X, placed[n].Y);
 		}
 		var rng = Random.Shared;
+		if (lag && Lags(mode))
+		{
+			// (two lanes, A's above, B's below, both balls behind the head string)
+			s.Lag = true;
+			Add(0.3, H * 0.3);
+			Add(0.3, H * 0.7);
+			s.LagShot = new() { false, false };
+			s.LagFar = new() { false, false };
+			return s;
+		}
 		switch (mode)
 		{
 			case BilliardMode.Eight:
@@ -319,8 +340,41 @@ public static class BilliardRules
 {
 	const double MaxSpeed = 3.2, Friction = 0.55, Cushion = 0.85;
 
-	/// <summary>The ball the shooter plays: the white in pool; in carom A's white or B's yellow.</summary>
-	public static int CueFor(BilliardState s) => s.Pockets ? 0 : s.Turn == "A" ? 0 : 1;
+	/// <summary>The ball the shooter plays: the white in pool; in carom A's white or B's yellow; in the lag each their own.</summary>
+	public static int CueFor(BilliardState s) => s.Lag || !s.Pockets ? (s.Turn == "A" ? 0 : 1) : 0;
+
+	/// <summary>The lag: a side's shot (each shoots once, both at the same time; the other's turn doesn't matter).</summary>
+	public static bool LagShoot(BilliardState s, string side, double angle, double power)
+	{
+		var i = side == "A" ? 0 : 1;
+		if (!s.Lag || s.LagShot[i]) return false;
+		s.LagShot[i] = true;
+		var speed = Math.Clamp(power, 0.05, 1) * MaxSpeed;
+		s.VX[i] = Math.Cos(angle) * speed;
+		s.VY[i] = Math.Sin(angle) * speed;
+		s.Moving = true;
+		return true;
+	}
+
+	/// <summary>
+	/// After the lag's balls stopped and both have shot: who breaks (closest to their own end cushion, having touched the
+	/// far one), and the table racked for the game. Null while it isn't decided yet.
+	/// </summary>
+	public static string? EndLag(BilliardState s)
+	{
+		if (!s.Lag || s.Moving || !s.LagShot.All(x => x)) return null;
+		var far = s.LagFar;
+		var winner = far[0] && !far[1] ? "A" : far[1] && !far[0] ? "B" : s.X[0] <= s.X[1] ? "A" : "B";
+		var rack = BilliardState.New(s.Mode, false);
+		s.Lag = false;
+		s.X = rack.X;
+		s.Y = rack.Y;
+		s.VX = rack.VX;
+		s.VY = rack.VY;
+		s.In = rack.In;
+		s.Turn = winner;
+		return winner;
+	}
 
 	public static void Shoot(BilliardState s, double angle, double power)
 	{
@@ -351,7 +405,7 @@ public static class BilliardRules
 				s.VX[i] *= slower;
 				s.VY[i] *= slower;
 			}
-			if (s.Pockets && BilliardState.PocketSpots.Any(p => (s.X[i] - p.X) * (s.X[i] - p.X) + (s.Y[i] - p.Y) * (s.Y[i] - p.Y) < BilliardState.Pocket * BilliardState.Pocket))
+			if (s.Pockets && !s.Lag && BilliardState.PocketSpots.Any(p => (s.X[i] - p.X) * (s.X[i] - p.X) + (s.Y[i] - p.Y) * (s.Y[i] - p.Y) < BilliardState.Pocket * BilliardState.Pocket))
 			{
 				s.In[i] = true;
 				s.VX[i] = s.VY[i] = 0;
@@ -359,6 +413,7 @@ public static class BilliardRules
 				continue;
 			}
 			var cushion = false;
+			if (s.Lag && s.X[i] > BilliardState.W - BilliardState.R && i < s.LagFar.Count) s.LagFar[i] = true;
 			if (s.X[i] < BilliardState.R && s.VX[i] < 0 || s.X[i] > BilliardState.W - BilliardState.R && s.VX[i] > 0)
 			{
 				s.VX[i] = -s.VX[i] * Cushion;
@@ -373,8 +428,8 @@ public static class BilliardRules
 			s.X[i] = Math.Clamp(s.X[i], BilliardState.R, BilliardState.W - BilliardState.R);
 			s.Y[i] = Math.Clamp(s.Y[i], BilliardState.R, BilliardState.H - BilliardState.R);
 		}
-		// (equal balls: an elastic hit swaps their speeds along the line between them)
-		for (var i = 0; i < n; i++)
+		// (equal balls: an elastic hit swaps their speeds along the line between them; the lag's two lanes don't meet)
+		for (var i = 0; i < n && !s.Lag; i++)
 		for (var j = i + 1; j < n; j++)
 		{
 			if (s.In[i] || s.In[j]) continue;

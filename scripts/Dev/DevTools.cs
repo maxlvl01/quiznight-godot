@@ -790,7 +790,13 @@ public sealed class DevTools
 				var y = mine + Math.Clamp(aim - mine, -0.35, 0.35);
 				client.Arcade(new ArcadeRequest { Kind = ArcadeRequest.Paddle, Value = y / PongState.H });
 			}
-			else if (_arcade.Billiard is { Moving: false } b && (b.Turn == "A" ? _arcade.A : _arcade.B) == client.MyId && now - _arcadeShotAt > 2)
+			else if (_arcade.Billiard is { Lag: true } lag && !lag.LagShot[_arcade.A == client.MyId ? 0 : 1] && now - _arcadeShotAt > 2)
+			{
+				// (the lag for the break: straight at the far cushion, about hard enough to come back)
+				_arcadeShotAt = now;
+				client.Arcade(new ArcadeRequest { Kind = ArcadeRequest.Shot, Angle = (_rng.NextDouble() - 0.5) * 0.02, Power = 0.55 + _rng.NextDouble() * 0.15 });
+			}
+			else if (_arcade.Billiard is { Moving: false, Lag: false } b && (b.Turn == "A" ? _arcade.A : _arcade.B) == client.MyId && now - _arcadeShotAt > 2)
 			{
 				_arcadeShotAt = now;
 				var cue = BilliardRules.CueFor(b);

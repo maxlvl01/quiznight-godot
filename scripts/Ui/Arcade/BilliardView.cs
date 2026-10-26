@@ -52,7 +52,16 @@ public partial class BilliardView : Control
 		QueueRedraw();
 	}
 
-	bool MyTurn => _frame.Billiard is { Moving: false } b && (b.Turn == "A" ? _frame.A : _frame.B) == _link.MyId;
+	/// <summary>My side ("A" left, "B" right).</summary>
+	string Me => _frame.A == _link.MyId ? "A" : "B";
+
+	/// <summary>
+	/// Whether I can shoot now: my turn with the table at rest, or in the lag (for the break) as long as I haven't shot
+	/// (both shoot at the same time).
+	/// </summary>
+	bool MyTurn => _frame.Billiard is { } b && (b.Lag
+		? !b.LagShot[Me == "A" ? 0 : 1]
+		: !b.Moving && (b.Turn == "A" ? _frame.A : _frame.B) == _link.MyId);
 
 	Rect2 Table()
 	{
@@ -66,7 +75,7 @@ public partial class BilliardView : Control
 	{
 		var t = Table();
 		var b = _frame.Billiard!;
-		var cue = BilliardRules.CueFor(b);
+		var cue = b.Lag ? (Me == "A" ? 0 : 1) : BilliardRules.CueFor(b);
 		return t.Position + new Vector2((float)b.X[cue], (float)b.Y[cue]) * (t.Size.X / (float)BilliardState.W);
 	}
 
@@ -121,7 +130,8 @@ public partial class BilliardView : Control
 			// (moved on between the host's frames by its speed)
 			var dt = s.Moving ? Math.Min(_since, 0.05) : 0;
 			var at = t.Position + new Vector2((float)(s.X[i] + s.VX[i] * dt), (float)(s.Y[i] + s.VY[i] * dt)) * k;
-			var (colour, stripe, number) = Look(s.Mode, i);
+			// (the lag's two balls are both plain white)
+			var (colour, stripe, number) = s.Lag ? (Colors.White, false, "") : Look(s.Mode, i);
 			DrawCircle(at + new Vector2(1.5f, 2), r, new Color(0, 0, 0, 0.35f));
 			DrawCircle(at, r, stripe ? Colors.White : colour);
 			if (stripe) DrawRect(new Rect2(at.X - r * 0.95f, at.Y - r * 0.5f, r * 1.9f, r), colour);
@@ -141,9 +151,19 @@ public partial class BilliardView : Control
 			DrawLine(white, mouse, new Color(C.Gold, 0.8f), 4);
 		}
 		var font = Fonts.Black;
-		string Side(string id, int score, bool turn) => $"{(turn ? "▶ " : "")}{_link.Name(id)}  {score}";
+		string Side(string id, int score, bool turn) => $"{(turn && !s.Lag ? "▶ " : "")}{_link.Name(id)}  {score}";
 		DrawString(font, new Vector2(t.Position.X, 34), Side(_frame.A, _frame.ScoreA, s.Turn == "A"), HorizontalAlignment.Left, t.Size.X / 2 - 10, 20, s.Turn == "A" ? C.Accent : C.Text);
 		DrawString(font, new Vector2(t.Position.X + t.Size.X / 2 + 10, 34), Side(_frame.B, _frame.ScoreB, s.Turn == "B"), HorizontalAlignment.Right, t.Size.X / 2 - 10, 20, s.Turn == "B" ? C.Accent : C.Text);
+		if (s.Lag)
+		{
+			// (the lag: whose ball is whose, and what it's for)
+			for (var i = 0; i < 2; i++)
+				DrawString(Fonts.Bold, t.Position + new Vector2((float)s.X[i], (float)s.Y[i]) * k + new Vector2(-60, -r - 6), _link.Name(i == 0 ? _frame.A : _frame.B), HorizontalAlignment.Center, 120, 12, C.Text);
+			var lag = MyTurn ? Lang.T("Lag for the break: shoot your ball off the right cushion and back. Whoever stops closest to the left cushion breaks.")
+				: s.LagShot.All(x => x) ? Lang.T("Who's closer?") : Lang.T("Waiting for the other shot …");
+			DrawString(Fonts.Bold, new Vector2(t.Position.X, t.End.Y + 38), lag, HorizontalAlignment.Center, t.Size.X, 15, C.Muted);
+			return;
+		}
 		var line = s.Moving ? "" : MyTurn ? Lang.T("Your shot") : Lang.F("{0}'s shot", _link.Name(s.Turn == "A" ? _frame.A : _frame.B));
 		var extra = s.Mode switch
 		{

@@ -1007,7 +1007,7 @@ public static class SelfTest
 			// and the pool games end with a winner.
 			foreach (var mode in BilliardMode.All)
 			{
-				var table = BilliardState.New(mode);
+				var table = BilliardState.New(mode, lag: false);
 				int scoreA = 0, scoreB = 0, shots = 0;
 				string? won = null;
 				var ok = table.X.Count == mode switch { BilliardMode.Eight => 16, BilliardMode.Nine => 10, BilliardMode.Four => 4, BilliardMode.Three => 3, _ => 8 };
@@ -1025,6 +1025,15 @@ public static class SelfTest
 				}
 				Check(ok && turns.Count == 2 && (BilliardMode.Carom(mode) || won != null), $"billiard {mode}: plays through ({shots} shots, {scoreA}–{scoreB}, winner {won ?? "none"})");
 			}
+			// The lag for 8-ball: both shoot off the far cushion; the one that comes back closer to its end breaks.
+			var lagTable = BilliardState.New(BilliardMode.Eight);
+			var lagOk = lagTable.Lag && BilliardRules.LagShoot(lagTable, "A", 0, 0.62) && !BilliardRules.LagShoot(lagTable, "A", 0, 0.62);
+			for (var t = 0; t < 240 * 30 && lagTable.Moving; t++) BilliardRules.Step(lagTable, 1 / 240.0);
+			lagOk &= BilliardRules.EndLag(lagTable) == null && BilliardRules.LagShoot(lagTable, "B", 0, 0.3);
+			for (var t = 0; t < 240 * 30 && lagTable.Moving; t++) BilliardRules.Step(lagTable, 1 / 240.0);
+			// (A's came off the far cushion; B's was too soft to reach it: A breaks, and the rack is set)
+			Check(lagOk && lagTable.LagFar[0] && !lagTable.LagFar[1] && BilliardRules.EndLag(lagTable) == "A" && !lagTable.Lag && lagTable.Turn == "A" && lagTable.X.Count == 16,
+				"8-ball starts with the lag: whoever comes back closest after the far cushion breaks");
 			arcade.Request("ann", new ArcadeRequest { Kind = ArcadeRequest.Score, Value = 1200 });
 			arcade.Request("ann", new ArcadeRequest { Kind = ArcadeRequest.Score, Value = 800 });
 			Check(arcade.View().TetrisBest["ann"] == 1200, "mini games: Tetris keeps each player's best score");

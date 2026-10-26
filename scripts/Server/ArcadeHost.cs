@@ -80,6 +80,11 @@ public sealed class ArcadeHost
 				if (from == m.A) m.Pong!.PaddleA = y;
 				else m.Pong!.PaddleB = y;
 				return (false, frames);
+			// (the lag for the break: each shoots once, whenever they like, even while the other's ball rolls)
+			case ArcadeRequest.Shot when _matches.FirstOrDefault(m => m.Has(from) && m.Billiard is { Lag: true }) is { } m
+				&& double.IsFinite(r.Angle) && double.IsFinite(r.Power):
+				if (BilliardRules.LagShoot(m.Billiard!, from == m.A ? "A" : "B", r.Angle, r.Power)) frames.Add(Frame(m));
+				return (false, frames);
 			case ArcadeRequest.Shot when _matches.FirstOrDefault(m => m.Has(from) && m.Billiard != null) is { } m
 				&& !m.Billiard!.Moving && (m.Billiard.Turn == "A" ? m.A : m.B) == from && double.IsFinite(r.Angle) && double.IsFinite(r.Power):
 				BilliardRules.Shoot(m.Billiard, r.Angle, r.Power);
@@ -138,6 +143,12 @@ public sealed class ArcadeHost
 					BilliardRules.Step(b, step);
 					if (!b.Moving)
 					{
+						if (b.Lag)
+						{
+							BilliardRules.EndLag(b);
+							urgent = true;
+							break;
+						}
 						decided = BilliardRules.Settle(b, ref m.ScoreA, ref m.ScoreB);
 						urgent = true;
 						break;
@@ -191,7 +202,7 @@ public sealed class ArcadeHost
 		{
 			X = m.Billiard.X.ToList(), Y = m.Billiard.Y.ToList(), VX = m.Billiard.VX.ToList(), VY = m.Billiard.VY.ToList(),
 			In = m.Billiard.In.ToList(), Turn = m.Billiard.Turn, Moving = m.Billiard.Moving, Mode = m.Billiard.Mode,
-			GroupA = m.Billiard.GroupA, Cue = m.Billiard.Cue,
+			GroupA = m.Billiard.GroupA, Cue = m.Billiard.Cue, Lag = m.Billiard.Lag, LagShot = m.Billiard.LagShot.ToList(), LagFar = m.Billiard.LagFar.ToList(),
 		},
 	};
 }
