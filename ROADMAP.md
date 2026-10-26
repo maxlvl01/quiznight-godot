@@ -10,7 +10,20 @@ off (`- [x]`) when they're done, with the version they came in.
 
 ---
 
-## 0.12 — collecting (nothing built yet)
+## 0.12.0d2 — collecting (nothing built yet)
+
+- [ ] **Hover names for WoW Forever's new zones, rough outlines for now.** Hovering Riverglades (and Gilneas) on the
+  WoW Forever map says "Eastern Kingdoms" (or a neighbour like "Silverpine Forest"): `WowAtlas.ZoneAt` only knows
+  Classic's zones, by their map rectangles, and new land outside them falls back to the continent. Until Forever's
+  zone data is out (after 4 November; then it replaces these), draw rough outlines on the world map (0–1 points) for
+  each new zone, checked before `ZoneAt` in `WowMapCanvas.PlaceName` and listed in "Jump to zone…". Finding them: a
+  one-off dev mask of land in the zone art (`overview-2`) that no Classic zone covers. Names known so far: Gilneas,
+  Riverglades; any other new areas the mask shows need their names from Max. Tooltip/jump only: scoring stays in
+  Classic's game yards. Screenshot from Max, 26 October 2026.
+
+---
+
+## 0.12.0d1 — first test build (done)
 
 - [x] (0.12.0d1) **Licence: MIT → PolyForm Noncommercial 1.0.0** (from 0.12 on; nobody may sell it, free forever). Swap `LICENSE` for
   the official text (copyright line: Max and Quiznight contributors). The in-game credits read that file, so they follow.
