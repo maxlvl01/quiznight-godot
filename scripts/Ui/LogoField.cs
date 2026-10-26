@@ -28,6 +28,22 @@ public partial class LogoField : PanelContainer
 	double _wait;
 	double _blink;
 	readonly List<string> _deck = new();
+	readonly StyleBoxFlat _box;
+	double _pulse;
+	bool _update;
+
+	/// <summary>An update is out: the outline pulses between the accent and green (HomeScreen; the arrow installs it).</summary>
+	public bool UpdateAvailable
+	{
+		get => _update;
+		set
+		{
+			_update = value;
+			// (the tooltip needs the mouse; the field otherwise lets it through)
+			MouseFilter = value ? MouseFilterEnum.Pass : MouseFilterEnum.Ignore;
+			if (!value) _box.BorderColor = C.Accent;
+		}
+	}
 
 	public LogoField() : this(64) { }
 
@@ -40,6 +56,7 @@ public partial class LogoField : PanelContainer
 		box.BorderWidthBottom = 10;
 		box.BorderColor = C.Accent;
 		AddThemeStyleboxOverride("panel", box);
+		_box = box;
 		_text = U.Text("", size, C.Text, Fonts.Black).Raw();
 		_question = U.Text("?", size, C.Accent, Fonts.Black).Raw();
 		_caret = new ColorRect { Color = C.Accent, CustomMinimumSize = new Vector2(Mathf.Max(3, size / 16f), size * 0.95f), SizeFlagsVertical = SizeFlags.ShrinkCenter, MouseFilter = MouseFilterEnum.Ignore };
@@ -81,8 +98,17 @@ public partial class LogoField : PanelContainer
 		for (var i = 1; i <= target.Length; i++) _todo.Enqueue(target[..i]);
 	}
 
+	static readonly Color UpdateGreen = new("#2ed573");
+
 	public override void _Process(double delta)
 	{
+		if (_update)
+		{
+			// (with less motion asked for it stays green instead of pulsing)
+			_pulse += delta;
+			var f = Announcer.ReduceMotion ? 1f : 0.5f + 0.5f * Mathf.Sin((float)_pulse * 3.2f);
+			_box.BorderColor = C.Accent.Lerp(UpdateGreen, f);
+		}
 		if (Announcer.ReduceMotion) return;
 		// (the cursor blinks while it waits, stays on while it types)
 		_blink += delta;

@@ -23,7 +23,8 @@ public partial class HomeScreen : Control
 		_mode = App.NetMode;
 
 		// (the logo is an answer field that now and then types something else: LogoField)
-		var brand = U.H(0, new LogoField(64));
+		var logo = new LogoField(64);
+		var brand = U.H(0, logo);
 		// The stamp on the logo follows the version letter: 0.5.0a = alpha, 0.7.1b = beta, none when finished. It's a sticker
 		// on the logo's top right corner (in a zero-width holder, so the logo itself stays centred).
 		var stage = AppVersion.Parse(App.Version)?.Suffix switch { "a" => "ALPHA", "b" => "BETA", _ => null };
@@ -46,8 +47,6 @@ public partial class HomeScreen : Control
 		var page = U.V(18, brand,
 			U.Muted("Quiz nights with your friends — on Discord or on the couch.", 17, false, HorizontalAlignment.Center).Center());
 		// "Update available" under the logo, once a check found a newer version.
-		var updateNote = U.Text("", 14, C.Teal, Fonts.Bold, false, HorizontalAlignment.Center).Center();
-		page.AddChild(updateNote);
 		if (notice != null) page.AddChild(U.Panel(U.Text(notice, 15, null, null, true), "Notice").With(p =>
 			p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel2, 10, C.Accent, 1, 14, 10))));
 
@@ -101,8 +100,9 @@ public partial class HomeScreen : Control
 		{
 			if (!IsInstanceValid(updateButton)) return;
 			var release = UpdatePrompt.Available;
-			updateNote.Text = release != null ? Lang.F("An update is available: version {0}", release.Version) : "";
-			updateNote.Visible = release != null;
+			// (no line under the logo, which made the page scroll: the logo's outline pulses green instead)
+			logo.UpdateAvailable = release != null;
+			logo.TooltipText = release != null ? Lang.F("An update is available: version {0}", release.Version) : "";
 			arrow.Available = release != null;
 			updateButton.TooltipText = release != null ? Lang.F("Update to {0}", release.Version) : UpdatePrompt.Checking ? Lang.T("Checking…") : Lang.T("Check for updates");
 		}

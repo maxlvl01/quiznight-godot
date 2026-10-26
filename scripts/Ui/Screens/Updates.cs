@@ -131,7 +131,7 @@ public partial class UpdateBadge : Button
 /// <summary>At startup (exported builds): looks for a newer version and installs it, restarting the game.</summary>
 public static class UpdatePrompt
 {
-	/// <summary>A newer version, once a check found one (the home screen shows it: a note under the logo, a green button).</summary>
+	/// <summary>A newer version, once a check found one (the home screen shows it: the logo's outline pulses green, a green arrow).</summary>
 	public static Updater.Release? Available { get; private set; }
 	public static bool Checking { get; private set; }
 	public static event Action? Changed;
