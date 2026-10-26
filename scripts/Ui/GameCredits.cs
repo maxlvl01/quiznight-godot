@@ -14,7 +14,7 @@ public static class GameCredits
 	/// <summary>The names on the intro's wall: whose work is in the game (music, engine, the maps' games).</summary>
 	public static readonly string[] Wall =
 	{
-		"Epidemic Sound", "Godot Engine", "Steamworks", "Bethesda", "Rockstar Games", "Nintendo", "FromSoftware",
+		"Godot Engine", "Steamworks", "Bethesda", "Rockstar Games", "Nintendo", "FromSoftware",
 		"Bandai Namco", "CD PROJEKT RED", "Playground Games", "Xbox Game Studios", "KRAFTON", "Blizzard Entertainment",
 	};
 
@@ -36,18 +36,17 @@ public partial class CreditsWall : VBoxContainer
 	{
 		Alignment = AlignmentMode.Center;
 		AddThemeConstantOverride("separation", 22);
-		AddChild(U.Text(Lang.T("With music, maps and tech from").ToUpper(), 15, C.Muted, Fonts.Spaced, false, HorizontalAlignment.Center));
+		AddChild(U.Text(Lang.T("With maps and tech from").ToUpper(), 15, C.Muted, Fonts.Spaced, false, HorizontalAlignment.Center));
 		var grid = new HFlowContainer { Alignment = FlowContainer.AlignmentMode.Center, CustomMinimumSize = new Vector2(980, 0), SizeFlagsHorizontal = SizeFlags.ShrinkCenter };
 		grid.AddThemeConstantOverride("h_separation", 14);
 		grid.AddThemeConstantOverride("v_separation", 14);
 		foreach (var name in GameCredits.Wall)
 		{
-			var tile = U.Panel(U.Text(name, name == "Epidemic Sound" ? 30 : 22, name == "Epidemic Sound" ? C.AccentInk : C.Text, Fonts.Black, false, HorizontalAlignment.Center).Raw(), "Clear");
-			tile.AddThemeStyleboxOverride("panel", UiTheme.Chunky(name == "Epidemic Sound" ? C.Accent : C.Panel2, 14, 22, 12));
+			var tile = U.Panel(U.Text(name, 22, C.Text, Fonts.Black, false, HorizontalAlignment.Center).Raw(), "Clear");
+			tile.AddThemeStyleboxOverride("panel", UiTheme.Chunky(C.Panel2, 14, 22, 12));
 			grid.AddChild(tile);
 		}
 		AddChild(grid);
-		AddChild(U.Muted("Music licensed from Epidemic Sound.", 15, false, HorizontalAlignment.Center));
 		AddChild(U.Muted(GameCredits.Disclaimer, 12, true, HorizontalAlignment.Center).With(l => l.CustomMinimumSize = new Vector2(760, 0)).With(l => l.SizeFlagsHorizontal = SizeFlags.ShrinkCenter));
 	}
 }
@@ -105,6 +104,7 @@ public partial class CreditsWindow : Control
 			Section("Maps", maps),
 			Section("Tech",
 				Line("Godot Engine", "godotengine.org — MIT licence. Thanks to the Godot contributors."),
+				Line("Godot logo", "By Andrea Calabró, CC BY 4.0 (creativecommons.org/licenses/by/4.0)."),
 				Line("Steamworks", "Steam networking, lobbies and avatars © Valve Corporation; Facepunch.Steamworks (MIT)."),
 				Line("AnyConverter", "The sound and video converter that comes with the game, by maxlvl01.")),
 			Section("Fonts",

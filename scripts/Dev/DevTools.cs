@@ -190,7 +190,9 @@ public sealed class DevTools
 		}
 
 		// (--make-splash FILE: the intro's first card as the boot splash picture, then quit; --splash: play the intro in this run)
-		if (Has("--splash")) _app.AddChild(new Ui.IntroSequence(null));
+		if (Has("--splash")) _app.AddChild(new Ui.IntroSequence(null) { StartAt = int.TryParse(Value("--intro-from"), out var from) ? from : 0 });
+		// (--anti-cheat: the anti-cheat window's content over this run's window, to look at)
+		if (Has("--anti-cheat")) _app.AddChild(new Ui.AntiCheatSplash(null));
 		if (Value("--make-splash") is { } splashFile)
 		{
 			TakesOver = true;

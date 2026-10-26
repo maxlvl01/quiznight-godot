@@ -298,7 +298,7 @@ public partial class UiAudio : Node
 
 	void Apply()
 	{
-		var quiet = !Settings.MusicOn || _questionQuiet || Storage.Sfx.IsPlaying(true) || (Storage.Sfx.Previewing && Storage.Sfx.IsPlaying(false));
+		var quiet = !Settings.MusicOn || _questionQuiet || IntroSequence.HoldsMusic || AntiCheatSplash.Showing || Storage.Sfx.IsPlaying(true) || (Storage.Sfx.Previewing && Storage.Sfx.IsPlaying(false));
 		if (quiet == _quiet) return;
 		_quiet = quiet;
 		if (_music.Stream == null) return;

@@ -1,10 +1,11 @@
-// The intro when the game starts, like a console game's: a few cards one after the other, then "Press any button". Made
-// with Godot (on black: the boot splash is that same card, so loading runs straight into it), maxlvl01 presents, Pinke
-// Geilheit Publishing (its logo is an animated GIF's frames, assets/intro/publisher.webp), the Pinke Geilheit Anti-Cheat
-// (a joke: it checks nothing), the credits wall, then the title screen with the animated logo. A key or a click skips
-// the card showing (Escape skips them all); on the title screen it starts: the voice line plays, the logo glides up
-// into its place on the home screen and the home screen fades in around it. Dev and test runs (any arguments after --)
-// and "less motion" don't show it.
+// The intro when the game starts, like a console game's. Before it, while the game loads, the Pinke Geilheit
+// Anti-Cheat shows in a small window of its own, like Easy Anti-Cheat's (AntiCheatSplash; a joke: it checks nothing; the
+// boot splash is its first frame). Then in the game's window a few cards one after the other: the Xbox "World Premiere"
+// video, Made with Godot (on black), maxlvl01 presents, Pinke Geilheit Publishing (its logo is an animated GIF's frames,
+// assets/intro/publisher.webp), music by Epidemic Sound, the credits wall, then the title screen with the animated logo.
+// A key or a click skips the card showing (Escape skips them all); on the title screen it starts: the voice line plays,
+// the logo glides up into its place on the home screen and the home screen fades in around it. Dev and test runs (any
+// arguments after --) and "less motion" don't show any of it.
 
 using System;
 using System.Collections.Generic;
@@ -17,7 +18,7 @@ namespace QuizNight.Ui;
 
 public partial class IntroSequence : Control
 {
-	/// <summary>The first card's background, also the boot splash's bg_color in project.godot.</summary>
+	/// <summary>The first cards' background (the video and Godot's).</summary>
 	public static readonly Color Black = new("#000000");
 
 	record Card(Func<Control> Build, double Hold, Color Background);
@@ -49,17 +50,31 @@ public partial class IntroSequence : Control
 		AddChild(_bg);
 		_cards = new()
 		{
+			new(VideoCard, VideoSec, Black),
 			new(GodotCard, 2.0, Black),
 			new(PresentsCard, 2.2, SplashBg),
 			new(PublisherCard, PublisherFrames / PublisherFps, SplashBg),
-			new(() => new AntiCheatCard(), 3.0, SplashBg),
-			new(() => new CreditsWall(), 3.2, SplashBg),
+			new(EpidemicCard, 2.2, Black),
+			new(() => new CreditsWall(), 3.0, SplashBg),
 		};
 	}
 
 	static Color SplashBg => C.Bg;
 
-	public override void _Ready() => Next();
+	/// <summary>An intro card or the title screen is showing: no music (it starts after the voice line, once started).</summary>
+	public static bool HoldsMusic { get; private set; }
+
+	/// <summary>Dev (--intro-from N): the card to start at.</summary>
+	public int StartAt;
+
+	public override void _Ready()
+	{
+		HoldsMusic = true;
+		_index = StartAt - 1;
+		Next();
+	}
+
+	public override void _ExitTree() => HoldsMusic = false;
 
 	void Next()
 	{
@@ -75,9 +90,8 @@ public partial class IntroSequence : Control
 		var card = _cards[_index];
 		_bg.Color = card.Background;
 		_shown = Centered(card.Build());
-		// (the first card is already on screen as the boot splash: no fade in)
-		_shown.Modulate = new Color(1, 1, 1, _index == 0 ? 1 : 0);
-		_phase = _index == 0 ? Phase.Hold : Phase.In;
+		_shown.Modulate = new Color(1, 1, 1, 0);
+		_phase = Phase.In;
 		AddChild(_shown);
 	}
 
@@ -151,6 +165,7 @@ public partial class IntroSequence : Control
 	{
 		_leaving = true;
 		_title!.Leaving = true;
+		HoldsMusic = false;
 		_started?.Invoke();
 		MouseFilter = MouseFilterEnum.Ignore;
 		var home = App.I.CurrentScreen as HomeScreen;
@@ -194,6 +209,23 @@ public partial class IntroSequence : Control
 
 	static Label Spaced(string text, int size, Color color) => U.Text(text, size, color, Fonts.Spaced, false, HorizontalAlignment.Center).Raw();
 
+	const double VideoSec = 6.3;
+
+	/// <summary>The Xbox "World Premiere" sting (assets/intro/xbox.ogv, from black to black), with its sound.</summary>
+	static Control VideoCard()
+	{
+		var player = new VideoStreamPlayer
+		{
+			Stream = ResourceLoader.Exists("res://assets/intro/xbox.ogv") ? GD.Load<VideoStream>("res://assets/intro/xbox.ogv") : null,
+			Expand = true, Autoplay = true, Bus = Storage.Prefs.SfxBus, CustomMinimumSize = new Vector2(1280, 720), MouseFilter = MouseFilterEnum.Ignore,
+		};
+		return player;
+	}
+
+	/// <summary>Music by Epidemic Sound: their wordmark (assets/intro/epidemic-sound.png, white) on black.</summary>
+	static Control EpidemicCard() => U.V(28, Spaced("MUSIC BY", 16, new Color(1, 1, 1, 0.55f)), Image("epidemic-sound.png", 520),
+		U.Text(Lang.T("Music and sound effects licensed from Epidemic Sound"), 15, new Color(1, 1, 1, 0.55f), null, false, HorizontalAlignment.Center));
+
 	/// <summary>Made with Godot: the engine's own splash logo (white, for a dark background; CC BY 4.0, Andrea Calabró).</summary>
 	static Control GodotCard() => U.V(26, Spaced("MADE WITH", 16, new Color(1, 1, 1, 0.55f)), Image("godot.png", 300));
 
@@ -212,10 +244,15 @@ public partial class IntroSequence : Control
 
 	static Control PublisherCard()
 	{
-		var frame = U.Panel(new GifPlayer { CustomMinimumSize = new Vector2(300, 300) }, "Clear").With(p =>
+		// (the picture rounded by a box of its own inside the pink frame: the frame's rounding doesn't reach past its padding)
+		var picture = U.Panel(new GifPlayer { CustomMinimumSize = new Vector2(300, 300) }, "Clear").With(p =>
+		{
+			p.AddThemeStyleboxOverride("panel", UiTheme.Box(Colors.White, 21, null, 0, 0, 0));
+			p.ClipChildren = ClipChildrenMode.Only;
+		});
+		var frame = U.Panel(picture, "Clear").With(p =>
 		{
 			p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Pink, 26, null, 0, 6, 6));
-			p.ClipChildren = ClipChildrenMode.AndDraw;
 			p.SizeFlagsHorizontal = SizeFlags.ShrinkCenter;
 		});
 		return U.V(20, frame, U.Text("Pinke Geilheit", 50, C.Text, Fonts.Black, false, HorizontalAlignment.Center).Raw(), Spaced("PUBLISHING", 20, C.Pink));
@@ -226,9 +263,15 @@ public partial class IntroSequence : Control
 	{
 		double _t;
 		readonly AtlasTexture _atlas = new();
+		/// <summary>The part of each frame shown (in the frame's 360 px): all of it, or a band (the anti-cheat's banner).</summary>
+		readonly Rect2 _crop;
+		public bool Frozen;
 
-		public GifPlayer()
+		public GifPlayer() : this(new Rect2(0, 0, 360, 360)) { }
+
+		public GifPlayer(Rect2 crop)
 		{
+			_crop = crop;
 			MouseFilter = MouseFilterEnum.Ignore;
 			ExpandMode = ExpandModeEnum.IgnoreSize;
 			StretchMode = StretchModeEnum.KeepAspectCovered;
@@ -238,26 +281,28 @@ public partial class IntroSequence : Control
 			SetFrame(0);
 		}
 
-		void SetFrame(int i) => _atlas.Region = new Rect2(i % 8 * 360, i / 8 * 360, 360, 360);
+		void SetFrame(int i) => _atlas.Region = new Rect2(new Vector2(i % 8 * 360, i / 8 * 360) + _crop.Position, _crop.Size);
 
 		public override void _Process(double delta)
 		{
+			if (Frozen) return;
 			_t += delta;
 			SetFrame((int)(_t * PublisherFps) % PublisherFrames);
 		}
 	}
 
-	/// <summary>Dev (--make-splash FILE): the Godot card as the boot splash picture (2560×1440, laid out at 1280×720).</summary>
+	/// <summary>Dev (--make-splash FILE): the anti-cheat window's first frame as the boot splash picture (1600×900, laid out at 1280×720).</summary>
 	public static async Task Save(Node owner, string path)
 	{
 		var viewport = new SubViewport
 		{
-			Size = new Vector2I(2560, 1440), Size2DOverride = new Vector2I(1280, 720), Size2DOverrideStretch = true,
+			Size = new Vector2I(1600, 900), Size2DOverride = new Vector2I(1280, 720), Size2DOverrideStretch = true,
 			TransparentBg = false, RenderTargetUpdateMode = SubViewport.UpdateMode.Always,
 		};
 		var frame = new Control { Size = new Vector2(1280, 720), Theme = App.I.Theme };
-		frame.AddChild(new ColorRect { Color = Black, Size = new Vector2(1280, 720) });
-		frame.AddChild(Centered(GodotCard()));
+		var splash = new AntiCheatSplash(null) { Frozen = true };
+		frame.AddChild(splash);
+		splash.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 		viewport.AddChild(frame);
 		owner.AddChild(viewport);
 		await owner.ToSignal(owner.GetTree().CreateTimer(0.5), SceneTreeTimer.SignalName.Timeout);
@@ -268,10 +313,11 @@ public partial class IntroSequence : Control
 }
 
 /// <summary>
-/// The Pinke Geilheit Anti-Cheat, in the style of an anti-cheat launcher window: a small dark window, its logo (the woman
-/// from the publisher's logo), a progress bar and very serious status lines. It checks nothing.
+/// The Pinke Geilheit Anti-Cheat, like Easy Anti-Cheat's launcher: the game opens as a small borderless window with a banner
+/// (the woman from the publisher's logo, moving), a progress bar and very serious status lines, then becomes the game's
+/// real window (App). It checks nothing.
 /// </summary>
-public partial class AntiCheatCard : PanelContainer
+public partial class AntiCheatSplash : Control
 {
 	static readonly string[] Steps =
 	{
@@ -279,52 +325,74 @@ public partial class AntiCheatCard : PanelContainer
 		"No cheats found. Probably.",
 	};
 
+	/// <summary>The small window it shows in (project.godot's window size override and borderless are the same).</summary>
+	public static readonly Vector2I WindowSize = new(800, 450);
+
 	readonly ColorRect _fill;
 	readonly Label _status;
 	readonly Label _percent;
+	readonly Action? _done;
 	double _t;
-	const double Duration = 2.6;
+	public bool Frozen;
+	const double Duration = 3.2;
 	static readonly Color Pink = new("#ff4f8b");
 
-	public AntiCheatCard()
+	public AntiCheatSplash() : this(null) { }
+
+	public static bool Showing { get; private set; }
+
+	public override void _EnterTree() => Showing = true;
+
+	public override void _ExitTree() => Showing = false;
+
+	public AntiCheatSplash(Action? done)
 	{
-		MouseFilter = MouseFilterEnum.Ignore;
-		CustomMinimumSize = new Vector2(720, 0);
-		AddThemeStyleboxOverride("panel", UiTheme.Box(new Color("#1c1b22"), 8, new Color("#3a3844"), 1, 0, 0));
-		var face = new TextureRect
+		_done = done;
+		SetAnchorsPreset(LayoutPreset.FullRect);
+		MouseFilter = MouseFilterEnum.Stop;
+		var bg = new ColorRect { Color = new Color("#1c1b22"), MouseFilter = MouseFilterEnum.Ignore };
+		bg.SetAnchorsPreset(LayoutPreset.FullRect);
+		AddChild(bg);
+		// the banner: the woman's face and shoulders out of the GIF, darkened towards the bottom for the title
+		var banner = new IntroSequence.GifPlayer(new Rect2(0, 58, 360, 141)) { StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered };
+		banner.SetAnchorsPreset(LayoutPreset.TopWide);
+		banner.OffsetBottom = 500;
+		AddChild(banner);
+		var shade = new TextureRect
 		{
-			Texture = new AtlasTexture { Atlas = ResourceLoader.Exists("res://assets/intro/publisher.webp") ? GD.Load<Texture2D>("res://assets/intro/publisher.webp") : null, Region = new Rect2(0, 0, 360, 360) },
-			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered,
-			CustomMinimumSize = new Vector2(84, 84), MouseFilter = MouseFilterEnum.Ignore,
+			Texture = new GradientTexture2D
+			{
+				Width = 4, Height = 64, FillFrom = new Vector2(0, 0), FillTo = new Vector2(0, 1),
+				Gradient = new Gradient { Colors = new[] { new Color("#1c1b22", 0), new Color("#1c1b22", 0.15f), new Color("#1c1b22", 1) }, Offsets = new[] { 0f, 0.45f, 1f } },
+			},
+			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, MouseFilter = MouseFilterEnum.Ignore,
 		};
-		var faceFrame = U.Panel(face, "Clear").With(p =>
-		{
-			p.AddThemeStyleboxOverride("panel", UiTheme.Box(Pink, 40, null, 0, 3, 3));
-			p.ClipChildren = ClipChildrenMode.Only;
-			p.SizeFlagsVertical = SizeFlags.ShrinkCenter;
-		});
-		var title = U.V(0,
-			U.Text("PINKE GEILHEIT", 34, Colors.White, Fonts.Black).Raw(),
-			U.Text("ANTI-CHEAT", 19, Pink, Fonts.Spaced).Raw());
-		var header = U.Panel(U.H(16, faceFrame, title.With(t => t.SizeFlagsVertical = SizeFlags.ShrinkCenter), U.Fill(), Shield()), "Clear")
-			.With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color("#25232d"), 8, null, 0, 26, 20)));
-		_status = U.Text(Lang.T(Steps[0]), 18, new Color("#d8d6e0")).Raw();
-		_percent = U.Text("0 %", 18, new Color("#8e8a9c"), Fonts.Bold).Raw();
-		var track = new ColorRect { Color = new Color("#2e2c37"), CustomMinimumSize = new Vector2(0, 10), MouseFilter = MouseFilterEnum.Ignore };
+		shade.SetAnchorsPreset(LayoutPreset.TopWide);
+		shade.OffsetBottom = 502;
+		AddChild(shade);
+		var title = U.H(22,
+			new ShieldIcon { CustomMinimumSize = new Vector2(70, 84), SizeFlagsVertical = SizeFlags.ShrinkCenter },
+			U.V(-6, U.Text("PINKE GEILHEIT", 66, Colors.White, Fonts.Black).Raw(), U.Text("ANTI-CHEAT", 30, Pink, Fonts.Spaced).Raw()));
+		title.Position = new Vector2(56, 330);
+		AddChild(title);
+		_status = U.Text(Lang.T(Steps[0]), 28, new Color("#d8d6e0")).Raw();
+		_percent = U.Text("0 %", 28, new Color("#8e8a9c"), Fonts.Bold).Raw();
+		var track = new ColorRect { Color = new Color("#2e2c37"), CustomMinimumSize = new Vector2(0, 16), MouseFilter = MouseFilterEnum.Ignore };
 		_fill = new ColorRect { Color = Pink, MouseFilter = MouseFilterEnum.Ignore };
 		track.AddChild(_fill);
 		track.Resized += () => _fill.Size = new Vector2(_fill.Size.X, track.Size.Y);
-		var body = U.Panel(U.V(12, U.H(8, _status.Grow(), _percent), track,
-			U.Text(Lang.T("Protected game: Quiznight?"), 14, new Color("#6f6b7d")).Raw()), "Clear")
-			.With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(0, 0, 0, 0), 0, null, 0, 26, 22)));
-		AddChild(U.V(0, header, body));
+		var foot = U.V(14, U.H(8, _status.Grow(), _percent), track, U.Text(Lang.T("Protected game: Quiznight?"), 22, new Color("#6f6b7d")).Raw());
+		foot.SetAnchorsPreset(LayoutPreset.BottomWide);
+		foot.OffsetLeft = 56;
+		foot.OffsetRight = -56;
+		foot.OffsetTop = -190;
+		foot.OffsetBottom = -44;
+		AddChild(foot);
 	}
-
-	/// <summary>A small shield with a tick: the anti-cheat's seal.</summary>
-	static Control Shield() => new ShieldIcon { CustomMinimumSize = new Vector2(42, 50), SizeFlagsVertical = SizeFlags.ShrinkCenter };
 
 	public override void _Process(double delta)
 	{
+		if (Frozen) return;
 		_t += delta;
 		var f = (float)Mathf.Min(1, _t / Duration);
 		// (it stalls a little at the scary step, like the real thing)
@@ -332,6 +400,12 @@ public partial class AntiCheatCard : PanelContainer
 		_fill.Size = new Vector2(((Control)_fill.GetParent()).Size.X * shown, _fill.Size.Y);
 		_percent.Text = $"{Mathf.RoundToInt(shown * 100)} %";
 		_status.Text = Lang.T(Steps[Mathf.Min(Steps.Length - 1, (int)(f * (Steps.Length - 1) + 0.0001f))]);
+		if (_t >= Duration + 0.5 && _done != null)
+		{
+			Frozen = true;
+			QueueFree();
+			_done();
+		}
 	}
 
 	partial class ShieldIcon : Control
@@ -343,7 +417,7 @@ public partial class AntiCheatCard : PanelContainer
 			var s = Size;
 			Vector2 P(float x, float y) => new(x * s.X, y * s.Y);
 			DrawColoredPolygon(new[] { P(0.5f, 0), P(1, 0.15f), P(0.95f, 0.55f), P(0.5f, 1), P(0.05f, 0.55f), P(0, 0.15f) }, Pink);
-			DrawPolyline(new[] { P(0.27f, 0.5f), P(0.44f, 0.67f), P(0.75f, 0.33f) }, Colors.White, 3.5f, true);
+			DrawPolyline(new[] { P(0.27f, 0.5f), P(0.44f, 0.67f), P(0.75f, 0.33f) }, Colors.White, 6f, true);
 		}
 	}
 }

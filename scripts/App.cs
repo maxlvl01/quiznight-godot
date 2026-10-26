@@ -84,22 +84,37 @@ public partial class App : Control
 		GetWindow().FilesDropped += OnFilesDropped;
 
 		var args = OS.GetCmdlineUserArgs();
+		var window = DisplayServer.GetName() != "headless";
+		// (the game opens as the anti-cheat's small borderless window, like Easy Anti-Cheat's: project.godot's window size;
+		// it becomes the saved window once that's done. Dev and test runs get their window straight away.)
+		var antiCheat = window && args.Length == 0 && !Announcer.ReduceMotion;
+		if (window && !antiCheat) GetWindow().Borderless = false;
 		// Saved window size/mode would fight --resolution (screenshots) and means nothing headless.
-		var ownWindow = DisplayServer.GetName() != "headless" && !OS.GetCmdlineArgs().Contains("--resolution");
-		Prefs.ApplyAll(ownWindow);
+		var ownWindow = window && !OS.GetCmdlineArgs().Contains("--resolution");
+		Prefs.ApplyAll(ownWindow && !antiCheat);
 		if (args.Contains("--selftest")) Lang.Use("en");
 		// (shows the exported game's home screen, LAN hidden, when run from the editor)
 		if (args.Contains("--lan-locked")) LanUnlocked = false;
 		if (!args.Contains("--no-steam") && !args.Contains("--selftest") && !args.Contains("--bot")) SteamService.Init();
 		_dev = DevTools.FromArgs(this, args);
 		if (_dev?.TakesOver == true) return;
-		var window = DisplayServer.GetName() != "headless";
-		if (window && (firstStart && args.Length == 0 || args.Contains("--welcome")) && !Settings.AccessibilityAsked)
+		void Go()
 		{
-			_afterWelcome = () => Start(args.Length == 0 && window);
-			ShowWelcomeAgain();
+			if (window && (firstStart && args.Length == 0 || args.Contains("--welcome")) && !Settings.AccessibilityAsked)
+			{
+				_afterWelcome = () => Start(args.Length == 0 && window);
+				ShowWelcomeAgain();
+			}
+			else Start(args.Length == 0 && window, volumesReset ? VolumesNotice : null);
 		}
-		else Start(args.Length == 0 && window, volumesReset ? VolumesNotice : null);
+		if (antiCheat)
+			AddChild(new AntiCheatSplash(() =>
+			{
+				GetWindow().Borderless = false;
+				Prefs.ApplyWindow();
+				Go();
+			}));
+		else Go();
 	}
 
 	const string VolumesNotice = "All volume sliders are at 50 % now, the new standard. Turn them up again in Settings if you liked it louder.";
