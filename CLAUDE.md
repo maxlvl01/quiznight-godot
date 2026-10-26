@@ -181,6 +181,12 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
   `.gz` per file with `manifest-*.json`; removed again, nothing used them.) Test against a local server
   with `QUIZNIGHT_UPDATE_FEED=<url of a fake releases/latest JSON>`. `build/` has a `.gdignore` (else the editor
   imports the copied maps).
+- **Exports trim .NET** (`PublishTrimmed`, `TrimMode=partial` in the csproj, ExportRelease only): only libraries marked
+  trimmable shrink, our code/GodotSharp/Facepunch stay whole. Two feature switches trimming turns off must stay on, or the
+  exported game breaks: `_EnableConsumingManagedCodeFromNativeHosting` (Godot starts .NET from its native host; off = the
+  game crashes at start, `hostfxr_get_runtime_delegate failed`) and `JsonSerializerIsReflectionEnabledByDefault` (our
+  JSON goes through reflection). `release.sh` also deletes .NET's debugger/dump files (`strip_dotnet`). Editor runs aren't
+  trimmed: test trimming-related changes on an export (`--selftest` on the exported exe).
 - **AnyConverter** (the user's separate Python/tkinter converter, `C:\Users\Xbox3\Desktop\AnyConverter`, not in git)
   ships in the Windows zip as `AnyConverter/AnyConverter.exe` and in the Linux zip as `AnyConverter/AnyConverter`;
   `release.sh` copies them from its `dist/` (`AnyConverter.exe`, and `linux/AnyConverter-linux-x86_64.tar.gz` from its
