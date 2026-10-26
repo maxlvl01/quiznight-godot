@@ -104,6 +104,8 @@ public static class LangDe
 		["No question text"] = "Kein Fragetext",
 		[" · incomplete"] = " · unvollständig",
 		["Move up"] = "Nach oben",
+		["Type a number to move the question there"] = "Gib eine Zahl ein, um die Frage dorthin zu verschieben",
+		["Click to edit, drag to move"] = "Klicken zum Bearbeiten, ziehen zum Verschieben",
 		["Move down"] = "Nach unten",
 		["Delete this question?"] = "Diese Frage löschen?",
 		["thing"] = "Sache",

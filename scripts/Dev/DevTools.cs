@@ -39,6 +39,7 @@ public sealed class DevTools
 	double _time;
 	double? _shotAt;
 	bool _mapZoomed;
+	bool _rowDragged;
 	bool _scrolled;
 
 	async void MakeSplash(string path)
@@ -457,6 +458,12 @@ public sealed class DevTools
 				canvas.ZoomTo(center, mapZoom);
 			}
 		}
+		// --drag-row (with --screen quiz): drags question 1 below question 3 with real mouse events and prints the new order
+		if (_time >= 1 && !_rowDragged && Has("--drag-row"))
+		{
+			_rowDragged = true;
+			DragRow();
+		}
 		if (_shotAt is { } at && _time >= at)
 		{
 			_shotAt = null;
@@ -467,6 +474,30 @@ public sealed class DevTools
 		if (_shotsDir != null) WatchMoments();
 		if (_autopilot) Autopilot();
 		_bot?.Process(_time);
+	}
+
+	async void DragRow()
+	{
+		var rows = Bot.All(_app).OfType<Ui.Screens.QuestionRowButton>().ToList();
+		if (rows.Count < 3) return;
+		var vp = _app.GetViewport();
+		var tree = _app.GetTree();
+		var a = rows[0].GetGlobalRect().GetCenter();
+		var r = rows[2].GetGlobalRect();
+		var b = new Vector2(r.GetCenter().X, r.Position.Y + r.Size.Y * 0.8f);
+		vp.PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = a, GlobalPosition = a, ButtonMask = MouseButtonMask.Left }, true);
+		await _app.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+		for (var i = 1; i <= 15; i++)
+		{
+			var p = a.Lerp(b, i / 15f);
+			vp.PushInput(new InputEventMouseMotion { Position = p, GlobalPosition = p, Relative = (b - a) / 15, ButtonMask = MouseButtonMask.Left }, true);
+			await _app.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+		}
+		await _app.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+		if (_shotPath != null) Screenshot(_shotPath.Replace(".png", "-drag.png"));
+		vp.PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false, Position = b, GlobalPosition = b }, true);
+		for (var i = 0; i < 5; i++) await _app.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+		GD.Print("ORDER " + string.Join(" | ", Bot.All(_app).OfType<Ui.Screens.QuestionRowButton>().Take(4).Select(row => Bot.All(row).OfType<Label>().First().Text)));
 	}
 
 	void Screenshot(string path)
@@ -737,7 +768,7 @@ public sealed class DevTools
 				lockIn.EmitSignal(BaseButton.SignalName.Pressed);
 		}
 
-		static IEnumerable<Control> All(Node n)
+		internal static IEnumerable<Control> All(Node n)
 		{
 			foreach (var child in n.GetChildren())
 			{

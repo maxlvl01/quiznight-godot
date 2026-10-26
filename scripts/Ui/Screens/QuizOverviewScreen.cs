@@ -122,9 +122,28 @@ public partial class QuizOverviewScreen : Control
 	{
 		var q = _quiz.Questions[i];
 		var broken = QuizRules.QuestionIssues(q, _quiz.Maps).Count > 0;
-		var num = U.Panel(U.Text($"{i + 1}", 13, C.AccentInk, Fonts.Bold, false, HorizontalAlignment.Center), "Clear")
-			.With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.ForType(q.Type), 6, null, 0, 6, 2))).MinSize(30);
-		num.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+		// (the number is a field: type another one to move the question there)
+		var num = new LineEdit
+		{
+			Text = $"{i + 1}", Alignment = HorizontalAlignment.Center, MaxLength = 3, CustomMinimumSize = new Vector2(34, 0),
+			SizeFlagsVertical = SizeFlags.ShrinkCenter, SelectAllOnFocus = true, TooltipText = Lang.T("Type a number to move the question there"),
+		};
+		foreach (var style in new[] { "normal", "read_only" }) num.AddThemeStyleboxOverride(style, UiTheme.Box(C.ForType(q.Type), 6, null, 0, 4, 2));
+		num.AddThemeStyleboxOverride("focus", UiTheme.Box(C.ForType(q.Type), 6, C.Text, 2, 4, 2));
+		num.AddThemeColorOverride("font_color", C.AccentInk);
+		num.AddThemeColorOverride("caret_color", C.AccentInk);
+		num.AddThemeFontOverride("font", Fonts.Bold);
+		num.AddThemeFontSizeOverride("font_size", 13);
+		num.AddThemeConstantOverride("minimum_character_width", 2);
+		void Renumber()
+		{
+			if (!int.TryParse(num.Text.Trim(), out var to)) to = i + 1;
+			to = Mathf.Clamp(to, 1, _quiz.Questions.Count) - 1;
+			if (to != i) Callable.From(() => Move(i, to)).CallDeferred();
+			else num.Text = $"{i + 1}";
+		}
+		num.TextSubmitted += _ => Renumber();
+		num.FocusExited += Renumber;
 		var prompt = U.Text(q.Prompt == "" ? "No question text" : q.Prompt, 14, q.Prompt == "" ? C.Muted : C.Text, Fonts.Bold);
 		prompt.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
 		prompt.ClipText = true;
@@ -132,30 +151,31 @@ public partial class QuizOverviewScreen : Control
 		var sub = U.H(0, U.Muted(QuizRules.Summary(q), 12, false));
 		if (broken) sub.AddChild(U.Text(" · incomplete", 12, C.Accent));
 		var text = U.V(0, prompt, sub).Grow();
-		var open = new Button { Flat = true, MouseDefaultCursorShape = CursorShape.PointingHand }.Grow();
+		var grip = new GripIcon { CustomMinimumSize = new Vector2(12, 20), SizeFlagsVertical = SizeFlags.ShrinkCenter };
+		// (click opens the question; drag it onto another row to move it there)
+		var open = new QuestionRowButton(i, Move) { Flat = true, MouseDefaultCursorShape = CursorShape.PointingHand, TooltipText = Lang.T("Click to edit, drag to move") }.Grow();
 		open.SetMeta(UiAudio.NoBounce, true);
 		open.Pressed += () => App.I.GoQuestion(_quiz.Id, q.Id, null);
-		var content = U.H(10, num, text);
+		open.Preview = () => U.Panel(U.Text(q.Prompt == "" ? Lang.T("No question text") : q.Prompt, 14, C.Text, Fonts.Bold).Raw(), "Card2")
+			.With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel2, 10, C.Accent, 2, 12, 8)));
+		var content = U.H(10, text, grip);
 		content.MouseFilter = MouseFilterEnum.Ignore;
 		foreach (var c in content.GetChildren().OfType<Control>()) c.MouseFilter = MouseFilterEnum.Ignore;
 		foreach (var c in text.GetChildren().OfType<Control>()) c.MouseFilter = MouseFilterEnum.Ignore;
 		open.AddChild(content.With(c => c.SetAnchorsPreset(LayoutPreset.FullRect)));
 		open.CustomMinimumSize = new Vector2(0, 46);
-		var up = U.Small("↑", () => Move(i, i - 1)).Tip("Move up");
-		up.Disabled = i == 0;
-		var down = U.Small("↓", () => Move(i, i + 1)).Tip("Move down");
-		down.Disabled = i == _quiz.Questions.Count - 1;
 		var del = U.Small("×", () => Dialogs.Confirm(this, "Delete this question?", "Delete", () =>
 		{
 			_quiz.Questions.RemoveAt(i);
 			Save();
 			RefreshList();
 		})).Tip("Delete");
-		return U.Panel(U.H(4, open, up, down, del), "Card2").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel2, 10, C.Border, 1, 8, 4)));
+		return U.Panel(U.H(10, num, open, del), "Card2").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel2, 10, C.Border, 1, 8, 4)));
 	}
 
 	void Move(int from, int to)
 	{
+		if (from == to || from < 0 || to < 0 || from >= _quiz.Questions.Count || to >= _quiz.Questions.Count) return;
 		var item = _quiz.Questions[from];
 		_quiz.Questions.RemoveAt(from);
 		_quiz.Questions.Insert(to, item);
@@ -177,4 +197,89 @@ public partial class QuizOverviewScreen : Control
 	/// <summary>A type's help, translated: what it does, then its variants as a list.</summary>
 	static string TypeHelp(QuestionType.Info info) =>
 		Lang.T(info.Intro) + "\n\n" + string.Join("\n\n", (info.Details ?? System.Array.Empty<string>()).Select(d => "• " + Lang.T(d)));
+}
+
+/// <summary>
+/// A question row in the quiz overview: clicking opens it, dragging it onto another row moves it there (a line shows
+/// where it lands: above the row's middle before it, below after it).
+/// </summary>
+public partial class QuestionRowButton : Button
+{
+	readonly int _index;
+	readonly System.Action<int, int> _move;
+	public System.Func<Control>? Preview;
+	/// <summary>Where a dragged row would land while one is over this row: -1 above, 1 below, 0 none.</summary>
+	int _dropSide;
+
+	public QuestionRowButton() : this(0, (_, _) => { }) { }
+
+	public QuestionRowButton(int index, System.Action<int, int> move)
+	{
+		_index = index;
+		_move = move;
+		MouseExited += () => SetDropSide(0);
+	}
+
+	const string DragKind = "quiznight_question_row";
+
+	public override Variant _GetDragData(Vector2 atPosition)
+	{
+		if (Preview?.Invoke() is { } preview)
+		{
+			preview.Modulate = new Color(1, 1, 1, 0.9f);
+			preview.CustomMinimumSize = new Vector2(Mathf.Min(Size.X, 420), 0);
+			SetDragPreview(preview);
+		}
+		return new Godot.Collections.Dictionary { ["kind"] = DragKind, ["index"] = _index };
+	}
+
+	public override bool _CanDropData(Vector2 atPosition, Variant data)
+	{
+		if (data.VariantType != Variant.Type.Dictionary || data.AsGodotDictionary() is not { } d || !d.ContainsKey("kind") || d["kind"].AsString() != DragKind) return false;
+		SetDropSide(atPosition.Y < Size.Y / 2 ? -1 : 1);
+		return true;
+	}
+
+	public override void _DropData(Vector2 atPosition, Variant data)
+	{
+		var from = data.AsGodotDictionary()["index"].AsInt32();
+		var below = atPosition.Y >= Size.Y / 2;
+		SetDropSide(0);
+		// (the slot between rows: dropping below row 3 lands after it; taking the row out first shifts the later ones up)
+		var to = _index + (below ? 1 : 0);
+		if (from < to) to--;
+		_move(from, to);
+	}
+
+	public override void _Notification(int what)
+	{
+		if (what == NotificationDragEnd) SetDropSide(0);
+	}
+
+	void SetDropSide(int side)
+	{
+		if (_dropSide == side) return;
+		_dropSide = side;
+		QueueRedraw();
+	}
+
+	public override void _Draw()
+	{
+		if (_dropSide == 0) return;
+		var y = _dropSide < 0 ? -5f : Size.Y + 5f;
+		DrawLine(new Vector2(-40, y), new Vector2(Size.X + 40, y), C.Accent, 4);
+	}
+}
+
+/// <summary>Six dots: the handle that says "you can drag this row".</summary>
+public partial class GripIcon : Control
+{
+	public GripIcon() => MouseFilter = MouseFilterEnum.Ignore;
+
+	public override void _Draw()
+	{
+		for (var row = 0; row < 3; row++)
+			for (var col = 0; col < 2; col++)
+				DrawCircle(new Vector2(Size.X * (0.25f + col * 0.5f), Size.Y * (0.2f + row * 0.3f)), 1.8f, C.Muted);
+	}
 }
