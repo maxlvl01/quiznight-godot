@@ -89,6 +89,13 @@ public partial class App : Control
 		// it becomes the saved window once that's done. Dev and test runs get their window straight away.)
 		var antiCheat = window && args.Length == 0 && !Announcer.ReduceMotion;
 		if (window && !antiCheat) GetWindow().Borderless = false;
+		if (antiCheat)
+		{
+			// (in the middle of the screen the game goes to: Windows otherwise puts it wherever it likes)
+			var screen = DisplayServer.ScreenGetUsableRect(Prefs.ValidScreen(Settings.Screen));
+			GetWindow().Size = AntiCheatSplash.WindowSize;
+			GetWindow().Position = screen.Position + (screen.Size - AntiCheatSplash.WindowSize) / 2;
+		}
 		// Saved window size/mode would fight --resolution (screenshots) and means nothing headless.
 		var ownWindow = window && !OS.GetCmdlineArgs().Contains("--resolution");
 		Prefs.ApplyAll(ownWindow && !antiCheat);
