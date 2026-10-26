@@ -59,7 +59,7 @@ public partial class App : Control
 		// (dev runs: --skin ID, --dyslexic and --colour-vision MODE try them without saving)
 		var devArgs = OS.GetCmdlineUserArgs();
 		var skinArg = Array.IndexOf(devArgs, "--skin");
-		C.Use(skinArg >= 0 && skinArg + 1 < devArgs.Length ? devArgs[skinArg + 1] : Settings.Skin);
+		C.Use(skinArg >= 0 && skinArg + 1 < devArgs.Length ? devArgs[skinArg + 1] : Settings.ShownSkin);
 		Fonts.UseDyslexic(Settings.DyslexicFont || devArgs.Contains("--dyslexic"));
 		Theme = UiTheme.Build();
 		SetAnchorsPreset(LayoutPreset.FullRect);
@@ -109,11 +109,14 @@ public partial class App : Control
 	{
 		SplashIntro? intro = null;
 		if (splash && !Announcer.ReduceMotion) AddChild(intro = new SplashIntro());
+		// (the music waits for the voice line, which comes once the splash is gone: Popups → Greet)
+		_audio.HoldForGreeting();
 		GoHome(notice);
 		// (What's new and the update prompt are windows of their own: they wait until the splash is gone)
 		void Popups()
 		{
 			if (_screen is HomeScreen) _audio.Greet();
+			else _audio.SkipGreeting();
 			WhatsNew.ShowIfUpdated(this);
 			if (Updater.Enabled) Updater.CleanUp();
 			UpdatePrompt.CheckAndInstall(this);
@@ -250,16 +253,28 @@ public partial class App : Control
 	public override void _Input(InputEvent e)
 	{
 		if (e is not InputEventMouseButton { Pressed: true } button || _screen == null) return;
-		if (button.ButtonIndex is not (MouseButton.Xbutton1 or MouseButton.Xbutton2)) return;
+		// (a right-click on empty space goes back too, like Escape: not on buttons, fields, sliders or lists)
+		var rightClick = button.ButtonIndex == MouseButton.Right && OnEmptySpace();
+		if (button.ButtonIndex is not (MouseButton.Xbutton1 or MouseButton.Xbutton2) && !rightClick) return;
 		if (GetChildren().OfType<SplashIntro>().Any()) return;
+		var back = rightClick || button.ButtonIndex == MouseButton.Xbutton1;
 		// (the mouse's back button closes Settings open over a game, instead of leaving the room)
 		if (SettingsWindow.Current is { } window)
 		{
-			if (button.ButtonIndex == MouseButton.Xbutton1) window.Leave();
+			if (back) window.Leave();
 			GetViewport().SetInputAsHandled();
 			return;
 		}
-		if (button.ButtonIndex == MouseButton.Xbutton1 ? _screen is not HomeScreen && Back() : Forward()) GetViewport().SetInputAsHandled();
+		if (back ? _screen is not HomeScreen && Back() : Forward()) GetViewport().SetInputAsHandled();
+	}
+
+	/// <summary>Whether the mouse is over empty space: the background, a card, a label, a picture — nothing that takes clicks.</summary>
+	bool OnEmptySpace()
+	{
+		for (Node? node = GetViewport().GuiGetHoveredControl(); node != null && node != this; node = node.GetParent())
+			if (node is BaseButton or LineEdit or TextEdit or Godot.Range or ItemList or Tree or TabBar || node is RichTextLabel { SelectionEnabled: true })
+				return false;
+		return true;
 	}
 
 	readonly Stack<Action> _forward = new();
@@ -359,7 +374,7 @@ public partial class App : Control
 	public void UseSkin(string skin)
 	{
 		Settings.Skin = skin;
-		C.Use(skin);
+		C.Use(Settings.ShownSkin);
 		Theme = UiTheme.Build();
 		_bg.Color = C.Bg;
 		GoSettings();

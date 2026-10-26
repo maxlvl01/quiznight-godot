@@ -1,4 +1,6 @@
-// The seasonal skins' decorations (Skins.Halloween in October, Skins.Christmas in December). On the screen, behind the
+// The seasonal skins' decorations (Halloween in October, Christmas in December, Cologne carnival on 11 November and in
+// the carnival week, Valentine's Day in February). Carnival: confetti and streamers, a jester's cap on the logo;
+// Valentine's: hearts floating up, hearts on the logo. On the screen, behind the
 // cards (ScreenFrame draws them over its background): Christmas snow falling and fairy lights along the top, Halloween
 // cobwebs in the corners, bats flapping across and pumpkins in the corner. On the logo (LogoDecor): a snow cap and a
 // Santa hat, or pumpkins, a cobweb and a bat. With less motion asked for, nothing moves.
@@ -13,7 +15,7 @@ namespace QuizNight.Ui;
 public static class Seasonal
 {
 	/// <summary>Whether the skin in use has decorations.</summary>
-	public static bool On => C.Skin is Skins.Christmas or Skins.Halloween;
+	public static bool On => Skins.IsSeasonal(C.Skin);
 
 	static readonly (float X, float Speed, float Phase, float R)[] Flakes = MakeFlakes(80, 11);
 
@@ -35,6 +37,65 @@ public static class Seasonal
 	{
 		if (C.Skin == Skins.Christmas) ChristmasScreen(ci, frame, (float)t);
 		else if (C.Skin == Skins.Halloween) HalloweenScreen(ci, frame, (float)t);
+		else if (C.Skin == Skins.Carnival) CarnivalScreen(ci, frame, (float)t);
+		else if (C.Skin == Skins.Valentine) ValentineScreen(ci, frame, (float)t);
+	}
+
+	static readonly Color[] Confetti = { new("#ff4757"), new("#ffd23f"), new("#2ed573"), new("#5cc8ff"), new("#ff8ad8"), new("#ffffff"), new("#ff9f43") };
+
+	static void CarnivalScreen(CanvasItem ci, Rect2 frame, float t)
+	{
+		// confetti tumbling down: small paper bits that spin as they fall
+		for (var i = 0; i < Flakes.Length; i++)
+		{
+			var (x, speed, phase, r) = Flakes[i];
+			var y = (phase + t * speed * 1.4f) % 1f;
+			var p = new Vector2(Mathf.Clamp(frame.Position.X + x * frame.Size.X + Mathf.Sin(t + phase * 7) * 18, frame.Position.X + 6, frame.End.X - 6), frame.Position.Y + y * frame.Size.Y);
+			var spin = t * (2 + phase * 3) + i;
+			var w = new Vector2(Mathf.Cos(spin), Mathf.Sin(spin)) * (r + 2.5f);
+			var h = new Vector2(-w.Y, w.X) * 0.45f * Mathf.Abs(Mathf.Cos(spin * 1.7f));
+			ci.DrawColoredPolygon(new[] { p - w - h, p + w - h, p + w + h, p - w + h }, new Color(Confetti[i % Confetti.Length], 0.75f));
+		}
+		// streamers hanging from the top edge, curling as they sway
+		for (var i = 0; i < 7; i++)
+		{
+			var x0 = frame.Position.X + frame.Size.X * (0.06f + i * 0.148f);
+			var len = 70 + (i * 37) % 60;
+			var pts = new Vector2[18];
+			for (var k = 0; k < pts.Length; k++)
+			{
+				var f = k / (float)(pts.Length - 1);
+				pts[k] = new Vector2(x0 + Mathf.Sin(f * 9 + t * 1.5f + i) * 7 * f + Mathf.Sin(t * 0.7f + i) * 6 * f, frame.Position.Y + f * len);
+			}
+			ci.DrawPolyline(pts, Confetti[(i * 3) % Confetti.Length], 3, true);
+		}
+	}
+
+	static void ValentineScreen(CanvasItem ci, Rect2 frame, float t)
+	{
+		// hearts floating up, swaying a little
+		for (var i = 0; i < 26; i++)
+		{
+			var (x, speed, phase, r) = Flakes[i * 3];
+			var y = 1 - (phase + t * speed * 0.9f) % 1f;
+			var size = 5 + r * 3;
+			var p = new Vector2(Mathf.Clamp(frame.Position.X + x * frame.Size.X + Mathf.Sin(t * 0.9f + phase * 9) * 16, frame.Position.X + size, frame.End.X - size), frame.Position.Y + y * frame.Size.Y);
+			var color = i % 3 == 0 ? new Color("#ff4f8b") : i % 3 == 1 ? new Color("#ff9ec7") : new Color("#ff2e4d");
+			Heart(ci, p, size, new Color(color, 0.35f + 0.2f * (i % 2)));
+		}
+	}
+
+	/// <summary>A heart around <paramref name="c"/>, about <paramref name="size"/> wide.</summary>
+	public static void Heart(CanvasItem ci, Vector2 c, float size, Color color)
+	{
+		var pts = new Vector2[30];
+		for (var i = 0; i < pts.Length; i++)
+		{
+			var a = i * Mathf.Tau / pts.Length;
+			var s = Mathf.Sin(a);
+			pts[i] = c + new Vector2(16 * s * s * s, -(13 * Mathf.Cos(a) - 5 * Mathf.Cos(2 * a) - 2 * Mathf.Cos(3 * a) - Mathf.Cos(4 * a))) * (size / 32);
+		}
+		ci.DrawColoredPolygon(pts, color);
 	}
 
 	static void ChristmasScreen(CanvasItem ci, Rect2 frame, float t)
@@ -43,15 +104,19 @@ public static class Seasonal
 		foreach (var (x, speed, phase, r) in Flakes)
 		{
 			var y = (phase + t * speed) % 1f;
-			var px = frame.Position.X + x * frame.Size.X + Mathf.Sin(t * 0.8f + phase * 11) * 14;
+			// (inside the 16:9 screen: on ultrawide monitors the space picture beside it stays clear)
+			var px = Mathf.Clamp(frame.Position.X + x * frame.Size.X + Mathf.Sin(t * 0.8f + phase * 11) * 14, frame.Position.X + r, frame.End.X - r);
 			ci.DrawCircle(new Vector2(px, frame.Position.Y + y * frame.Size.Y), r, new Color("#f4f8ff", 0.45f));
 		}
 		// fairy lights along the top: a sagging wire, bulbs that twinkle
 		var colors = new[] { new Color("#ff4757"), new Color("#ffd23f"), new Color("#2ed573"), new Color("#5cc8ff") };
-		const float span = 150;
+		// (whole spans that end exactly at the screen's edges)
+		var spans = Mathf.Max(1, Mathf.RoundToInt(frame.Size.X / 150));
+		var span = frame.Size.X / spans;
 		var bulb = 0;
-		for (var x0 = frame.Position.X; x0 < frame.End.X; x0 += span)
+		for (var n = 0; n < spans; n++)
 		{
+			var x0 = frame.Position.X + n * span;
 			var pts = new List<Vector2>();
 			for (var i = 0; i <= 12; i++)
 			{
@@ -75,14 +140,17 @@ public static class Seasonal
 	{
 		Cobweb(ci, frame.Position + new Vector2(2, 2), 130, false);
 		Cobweb(ci, new Vector2(frame.End.X - 2, frame.Position.Y + 2), 110, true);
-		// three bats flapping across now and then, each on its own wavy path
+		// three bats flapping across now and then, each on its own wavy path; only inside the 16:9 screen, fading in and out
+		// near its edges
 		for (var i = 0; i < 3; i++)
 		{
-			var lap = frame.Size.X + 600;
-			var x = (t * (55 + i * 18) + i * 470) % lap - 150;
-			if (x > frame.Size.X + 100) continue;
+			var lap = frame.Size.X + 500;
+			var x = (t * (55 + i * 18) + i * 470) % lap;
+			const float edge = 60;
+			if (x < edge || x > frame.Size.X - edge) continue;
+			var fade = Mathf.Clamp(Mathf.Min(x - edge, frame.Size.X - edge - x) / 90, 0, 1);
 			var y = frame.Size.Y * (0.18f + 0.22f * i) + Mathf.Sin(t * 1.4f + i * 2) * 28;
-			Bat(ci, frame.Position + new Vector2(x, y), 1.1f - i * 0.2f, t * 11 + i);
+			Bat(ci, frame.Position + new Vector2(x, y), 1.1f - i * 0.2f, t * 11 + i, fade);
 		}
 		Pumpkin(ci, new Vector2(frame.End.X - 70, frame.End.Y - 6), 34, t);
 		Pumpkin(ci, new Vector2(frame.End.X - 140, frame.End.Y - 4), 24, t + 1);
@@ -100,18 +168,19 @@ public static class Seasonal
 	}
 
 	/// <summary>A bat with its wings at <paramref name="flap"/> (a phase: it flaps as it grows).</summary>
-	public static void Bat(CanvasItem ci, Vector2 at, float scale, float flap)
+	public static void Bat(CanvasItem ci, Vector2 at, float scale, float flap, float alpha = 1)
 	{
 		var up = Mathf.Sin(flap) * 9 * scale;
+		var ink = new Color(C.Ink, alpha);
 		foreach (var side in new[] { -1f, 1f })
 			ci.DrawColoredPolygon(new[]
 			{
 				at + new Vector2(3 * side, 0) * scale, at + new Vector2(16 * side, -8) * scale + new Vector2(0, -up), at + new Vector2(32 * side, -3) * scale + new Vector2(0, -up),
 				at + new Vector2(25 * side, 3) * scale, at + new Vector2(17 * side, 1) * scale, at + new Vector2(10 * side, 6) * scale, at + new Vector2(5 * side, 7) * scale,
-			}, C.Ink);
-		ci.DrawCircle(at + new Vector2(0, 2) * scale, 6.5f * scale, C.Ink);
-		ci.DrawColoredPolygon(new[] { at + new Vector2(-5, -3) * scale, at + new Vector2(-3, -10) * scale, at + new Vector2(-1, -4) * scale }, C.Ink);
-		ci.DrawColoredPolygon(new[] { at + new Vector2(5, -3) * scale, at + new Vector2(3, -10) * scale, at + new Vector2(1, -4) * scale }, C.Ink);
+			}, ink);
+		ci.DrawCircle(at + new Vector2(0, 2) * scale, 6.5f * scale, ink);
+		ci.DrawColoredPolygon(new[] { at + new Vector2(-5, -3) * scale, at + new Vector2(-3, -10) * scale, at + new Vector2(-1, -4) * scale }, ink);
+		ci.DrawColoredPolygon(new[] { at + new Vector2(5, -3) * scale, at + new Vector2(3, -10) * scale, at + new Vector2(1, -4) * scale }, ink);
 	}
 
 	/// <summary>A carved pumpkin standing on <paramref name="bottom"/>, its face glowing.</summary>
@@ -142,15 +211,15 @@ public static class Seasonal
 /// <summary>The logo's seasonal dressing, drawn over the whole field and a little past its edges.</summary>
 public partial class LogoDecor : Control
 {
-	readonly bool _christmas;
+	readonly string _skin;
 	double _t;
 	readonly (float X, float Speed, float Phase, float R)[] _flakes;
 
-	public LogoDecor() : this(true) { }
+	public LogoDecor() : this(Skins.Christmas) { }
 
-	public LogoDecor(bool christmas)
+	public LogoDecor(string skin)
 	{
-		_christmas = christmas;
+		_skin = skin;
 		MouseFilter = MouseFilterEnum.Ignore;
 		var rng = new Random(7);
 		_flakes = Enumerable.Range(0, 26).Select(_ => ((float)rng.NextDouble(), 0.12f + (float)rng.NextDouble() * 0.18f, (float)rng.NextDouble(), 1.5f + (float)rng.NextDouble() * 2.2f)).ToArray();
@@ -168,7 +237,23 @@ public partial class LogoDecor : Control
 		// (the field's whole box: this control only gets the space inside its padding)
 		var box = new Rect2(-Position, GetParent<Control>().Size);
 		var t = (float)_t;
-		if (!_christmas)
+		if (_skin == Skins.Carnival)
+		{
+			Carnival(box, t);
+			return;
+		}
+		if (_skin == Skins.Valentine)
+		{
+			// hearts around the field, beating gently
+			var beat = 1 + 0.08f * Mathf.Max(0, Mathf.Sin(t * 5));
+			Seasonal.Heart(this, box.Position + new Vector2(4, 4), 38 * beat, C.Ink);
+			Seasonal.Heart(this, box.Position + new Vector2(4, 4), 32 * beat, new Color("#ff2e4d"));
+			Seasonal.Heart(this, new Vector2(box.End.X - 30, box.End.Y - 2), 30 * beat, C.Ink);
+			Seasonal.Heart(this, new Vector2(box.End.X - 30, box.End.Y - 2), 25 * beat, new Color("#ff9ec7"));
+			Seasonal.Heart(this, new Vector2(box.Position.X + box.Size.X * 0.55f, box.Position.Y - 4), 20 * beat, new Color("#ff4f8b"));
+			return;
+		}
+		if (_skin == Skins.Halloween)
 		{
 			Seasonal.Cobweb(this, box.Position + new Vector2(6, 6), 62, false);
 			Seasonal.Bat(this, box.Position + new Vector2(box.Size.X * (0.6f + 0.05f * Mathf.Sin(t * 0.7f)), -18 + 5 * Mathf.Sin(t * 1.9f)), 0.9f, t * 12);
@@ -207,6 +292,39 @@ public partial class LogoDecor : Control
 		DrawCircle(new Vector2(-8, -48), 7, snow);
 		DrawColoredPolygon(Seasonal.Ellipse(Vector2.Zero, 34, 9.5f), C.Ink);
 		DrawColoredPolygon(Seasonal.Ellipse(Vector2.Zero, 32, 8), snow);
+		DrawSetTransformMatrix(Transform2D.Identity);
+	}
+
+	/// <summary>Carnival: a red and white jester's cap with bells on the top left corner, a little confetti on the field.</summary>
+	void Carnival(Rect2 box, float t)
+	{
+		var red = new Color("#c8102e");
+		var white = new Color("#f8f4ef");
+		var gold = new Color("#ffd23f");
+		var rng = new Random(3);
+		for (var i = 0; i < 14; i++)
+		{
+			var p = box.Position + new Vector2((float)rng.NextDouble() * box.Size.X, (float)rng.NextDouble() * 10 - 6);
+			var colors = new[] { new Color("#ff4757"), new Color("#ffd23f"), new Color("#2ed573"), new Color("#5cc8ff"), new Color("#ff8ad8") };
+			DrawRect(new Rect2(p, new Vector2(5, 3)), colors[i % colors.Length]);
+		}
+		DrawSetTransformMatrix(Transform2D.Identity.Rotated(-0.3f).Translated(box.Position + new Vector2(22, 4)));
+		var swing = Mathf.Sin(t * 3) * 3;
+		// (three points flopping out to the sides and up, alternating red and white, a bell on each)
+		Vector2[] tips = { new(-38, -16 + swing), new(0, -50), new(38, -16 - swing) };
+		for (var i = 0; i < 3; i++)
+		{
+			var left = new Vector2(-24 + i * 16, 0);
+			var right = left + new Vector2(16, 0);
+			DrawColoredPolygon(new[] { left + new Vector2(-2, 2), tips[i] + new Vector2(0, -3), right + new Vector2(2, 2) }, C.Ink);
+			DrawColoredPolygon(new[] { left, tips[i], right }, i == 1 ? white : red);
+			DrawCircle(tips[i], 6.5f, C.Ink);
+			DrawCircle(tips[i], 5, gold);
+		}
+		// (the band)
+		DrawRect(new Rect2(-30, -3, 60, 12), C.Ink);
+		DrawRect(new Rect2(-28, -1, 56, 8), white);
+		for (var x = -26; x < 26; x += 8) DrawRect(new Rect2(x, -1, 4, 8), red);
 		DrawSetTransformMatrix(Transform2D.Identity);
 	}
 }

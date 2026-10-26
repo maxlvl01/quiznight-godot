@@ -106,7 +106,8 @@ public partial class UiAudio : Node
 	readonly AudioStreamPlayer _music = new() { Bus = Prefs.GameMusicBus };
 	readonly AudioStreamPlayer _hover = new() { Bus = Prefs.SfxBus, MaxPolyphony = 2 };
 	readonly AudioStreamPlayer _click = new() { Bus = Prefs.SfxBus, MaxPolyphony = 3 };
-	readonly AudioStreamPlayer _voice = new() { Bus = Prefs.SfxBus };
+	// (a little louder than the other sound effects: it's the show's host talking)
+	readonly AudioStreamPlayer _voice = new() { Bus = Prefs.SfxBus, VolumeDb = 4 };
 	bool _greeted;
 	/// <summary>The voice line is on: the music waits for it to end, then starts from the top.</summary>
 	bool _voiceFirst;
@@ -294,12 +295,32 @@ public partial class UiAudio : Node
 	}
 
 	/// <summary>The voice line for opening the game, once per run (on the first home screen, after the splash).</summary>
+	/// <summary>
+	/// The game is opening (the splash, then the home screen and the voice line): no music until the voice line is over,
+	/// so the song doesn't play for a moment behind the splash and then stop for it.
+	/// </summary>
+	public void HoldForGreeting() => _voiceFirst = true;
+
+	/// <summary>No voice line after all (the home screen isn't showing): the music held back for it starts.</summary>
+	public void SkipGreeting()
+	{
+		if (!_voiceFirst || _voice.Playing) return;
+		_voiceFirst = false;
+		if (!_music.Playing) StartTrack();
+	}
+
 	public void Greet()
 	{
 		if (_greeted) return;
 		_greeted = true;
 		var lines = Enumerable.Range(1, 9).Select(i => Find($"res://assets/soundeffects/voice/intro{(i == 1 ? "" : i.ToString())}")).OfType<string>().ToList();
-		if (lines.Count == 0 || GD.Load<AudioStream>(lines[Random.Shared.Next(lines.Count)]) is not { } line) return;
+		if (lines.Count == 0 || GD.Load<AudioStream>(lines[Random.Shared.Next(lines.Count)]) is not { } line)
+		{
+			// (no voice line: the music held back for it starts now)
+			_voiceFirst = false;
+			if (!_music.Playing) StartTrack();
+			return;
+		}
 		// (the music stops for it and starts from the top of the song once the voice line is over)
 		_fade?.Kill();
 		_voiceFirst = true;

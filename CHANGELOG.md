@@ -13,6 +13,18 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+### Added
+- **Two more seasonal skins:** **Kölle Alaaf** for the Cologne carnival, on 11 November (the season opens at 11:11) and in the street carnival week from Weiberfastnacht to Veilchendienstag (worked out from Easter each year): red and white, confetti tumbling down, streamers along the top, and a jester's cap with bells on the logo. And **Valentine's Day** all of February: rose and pink, hearts floating up, hearts on the logo.
+- **Right-click on empty space goes back a screen,** like Escape or the mouse's back button (not on the home screen, and not on buttons, text fields, sliders or lists).
+
+### Changed
+- **Seasonal skins come on by themselves:** in their season (Halloween in October, Christmas in December, the carnival days, Valentine's Day in February) the game shows that skin, and afterwards the skin you chose is back. Untick "Seasonal skins" in Settings to keep your own all year. They can't be picked by hand any more (developer mode can pick every skin, any time).
+- **The Classic skin is called Alpha now** (saved settings keep it).
+- **The voice line at the start is a little louder, and the music waits for it:** a few seconds of music used to play behind the intro, stop for the voice line and start again. Now the first song starts once the voice line is over.
+
+### Fixed
+- **Christmas lights and snow, and Halloween's bats, reached past the game onto the space picture** on ultrawide monitors. They stay inside the 16:9 screen now; the bats fade in and out at its edges.
+
 ## [0.10.5b]
 
 ### Added

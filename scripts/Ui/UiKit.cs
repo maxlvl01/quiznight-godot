@@ -11,7 +11,7 @@ namespace QuizNight.Ui;
 
 public static class C
 {
-	// The palette's own colours (Use switches them): purple/orange/blue, or the classic grey/yellow/teal.
+	// The palette's own colours (Use switches them): purple/orange/blue, or the Alpha skin's grey/yellow/teal, and so on.
 	public static Color Bg, Panel, Panel2, Text, Muted, Accent, AccentInk;
 	/// <summary>Outlines: the blue, dimmed into the background (focus and highlights use Blue itself).</summary>
 	public static Color Border;
@@ -101,6 +101,18 @@ public static class C
 				(Text, Muted, Accent, AccentInk, Orange) = (H("#f7efe6"), H("#b49cb9"), H("#ff7a00"), H("#1f0d00"), H("#a8e05f"));
 				Ink = H("#07040a");
 				break;
+			// (Cologne carnival: the city's red and white; the confetti brings the colour)
+			case Skins.Carnival:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#24060a"), H("#3e0d15"), H("#521320"), H("#9c3546"), H("#ffffff"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#fff8f2"), H("#e8b4ba"), H("#ffffff"), H("#c8102e"), H("#ffd23f"));
+				Ink = H("#0f0204");
+				break;
+			// (February: rose, pink and red)
+			case Skins.Valentine:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#26091a"), H("#40102d"), H("#55173d"), H("#a8447a"), H("#ff9ec7"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#fff0f6"), H("#e3a8c5"), H("#ff4f8b"), H("#ffffff"), H("#ffd1e3"));
+				Ink = H("#12030b");
+				break;
 			// (December: pine green, Christmas red, gold)
 			case Skins.Christmas:
 				(Bg, Panel, Panel2, Border, Blue) = (H("#0a1912"), H("#12291f"), H("#1a392b"), H("#2f6a4e"), H("#e9f3ff"));
@@ -133,7 +145,10 @@ public static class C
 	};
 }
 
-/// <summary>The colour skins to choose from in Settings. Halloween and Christmas only in their season.</summary>
+/// <summary>
+/// The colour skins. Halloween and Christmas aren't picked: in their season they come on by themselves (unless "Seasonal
+/// skins" is off), and afterwards the skin the player chose is back. Developer mode can pick any skin any time.
+/// </summary>
 public static class Skins
 {
 	/// <summary>Quiznight Purple (its id is from when it was called Pinke Geilheit, so saved settings keep it).</summary>
@@ -146,18 +161,22 @@ public static class Skins
 	public const string Effzeh = "effzeh";
 	public const string Halloween = "halloween";
 	public const string Christmas = "christmas";
+	public const string Carnival = "carnival";
+	public const string Valentine = "valentine";
 
 	public static readonly (string Id, string Label)[] All =
 	{
 		(Default, "Quiznight Purple"),
 		(Pink, "Pinke Geilheit"),
-		(Classic, "Classic"),
+		(Classic, "Alpha"),
 		(F1, "Formula 1"),
 		(Amoled, "AMOLED black"),
 		(Daylight, "Daylight"),
 		(Effzeh, "#effzeh"),
 		(Halloween, "Halloween"),
 		(Christmas, "Christmas"),
+		(Carnival, "Kölle Alaaf (Carnival)"),
+		(Valentine, "Valentine's Day"),
 	};
 
 	/// <summary>Whether a skin can be used today (the seasonal ones only in their season).</summary>
@@ -165,14 +184,40 @@ public static class Skins
 	{
 		Halloween => Seasons.IsHalloween(Seasons.Today),
 		Christmas => Seasons.IsChristmas(Seasons.Today),
+		Carnival => Seasons.IsCarnival(Seasons.Today),
+		Valentine => Seasons.IsValentine(Seasons.Today),
 		_ => true,
 	};
 
-	/// <summary>The skins Settings offers today.</summary>
-	public static (string Id, string Label)[] Available => All.Where(s => InSeason(s.Id)).ToArray();
+	public static bool IsSeasonal(string id) => id is Halloween or Christmas or Carnival or Valentine;
 
-	/// <summary>A known skin that's in season, else Quiznight Purple (a Christmas skin chosen in December is purple again in January).</summary>
-	public static string Valid(string? id) => All.Any(s => s.Id == id) && InSeason(id!) ? id! : Default;
+	/// <summary>The skins Settings offers: all of them in developer mode, else the ones that aren't seasonal.</summary>
+	public static (string Id, string Label)[] Available => All.Where(s => App.LanUnlocked || !IsSeasonal(s.Id)).ToArray();
+
+	/// <summary>A known skin, else Quiznight Purple.</summary>
+	public static string Valid(string? id) => All.Any(s => s.Id == id) ? id! : Default;
+
+	/// <summary>
+	/// The skin to show: a seasonal skin picked in developer mode stays (in its season, or while developer mode is on), the
+	/// season's skin when it's Halloween or Christmas time (and seasonal skins are on), else the one the player chose.
+	/// </summary>
+	public static string Effective(string chosen, bool seasonal)
+	{
+		chosen = Valid(chosen);
+		if (IsSeasonal(chosen))
+		{
+			if (InSeason(chosen) || App.LanUnlocked) return chosen;
+			chosen = Default;
+		}
+		if (!seasonal) return chosen;
+		// (the carnival week can fall in February: carnival first)
+		var today = Seasons.Today;
+		if (Seasons.IsCarnival(today)) return Carnival;
+		if (Seasons.IsHalloween(today)) return Halloween;
+		if (Seasons.IsChristmas(today)) return Christmas;
+		if (Seasons.IsValentine(today)) return Valentine;
+		return chosen;
+	}
 }
 
 /// <summary>Seasons for the Christmas song and the seasonal skins. Dev runs can pretend another day: --date 2026-12-10.</summary>
@@ -188,6 +233,30 @@ public static class Seasons
 
 	/// <summary>All of October.</summary>
 	public static bool IsHalloween(DateTime day) => day.Month == 10;
+
+	/// <summary>All of February.</summary>
+	public static bool IsValentine(DateTime day) => day.Month == 2;
+
+	/// <summary>
+	/// Cologne carnival: 11 November (the season opens at 11:11) and the street carnival, Weiberfastnacht to Veilchendienstag
+	/// (the Thursday 52 days before Easter Sunday to the Tuesday before Ash Wednesday).
+	/// </summary>
+	public static bool IsCarnival(DateTime day)
+	{
+		if (day.Month == 11 && day.Day == 11) return true;
+		var easter = Easter(day.Year);
+		return day.Date >= easter.AddDays(-52) && day.Date <= easter.AddDays(-47);
+	}
+
+	/// <summary>Easter Sunday (the Gregorian "anonymous" computus).</summary>
+	public static DateTime Easter(int year)
+	{
+		int a = year % 19, b = year / 100, c = year % 100, d = b / 4, e = b % 4, f = (b + 8) / 25, g = (b - f + 1) / 3;
+		int h = (19 * a + b - d - g + 15) % 30, i = c / 4, k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = (a + 11 * h + 22 * l) / 451;
+		var month = (h + l - 7 * m + 114) / 31;
+		var dayOfMonth = (h + l - 7 * m + 114) % 31 + 1;
+		return new DateTime(year, month, dayOfMonth);
+	}
 }
 
 /// <summary>

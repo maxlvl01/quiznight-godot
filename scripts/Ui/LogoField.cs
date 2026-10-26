@@ -47,7 +47,7 @@ public partial class LogoField : PanelContainer
 		row.Alignment = BoxContainer.AlignmentMode.Begin;
 		AddChild(row);
 		// (seasonal skins dress the logo up: snow and a Santa hat, pumpkins and a cobweb)
-		if (C.Skin is Skins.Christmas or Skins.Halloween) AddChild(new LogoDecor(C.Skin == Skins.Christmas));
+		if (Seasonal.On) AddChild(new LogoDecor(C.Skin));
 		// (as wide as "Quiznight?", so the field doesn't jump while it types something shorter)
 		var width = Fonts.Black.GetStringSize(Logo, HorizontalAlignment.Left, -1, size).X + size * 0.9f;
 		CustomMinimumSize = new Vector2(width, 0);

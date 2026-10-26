@@ -765,8 +765,19 @@ public static class SelfTest
 		Check(Ui.Seasons.IsHalloween(new DateTime(2026, 10, 31)) && !Ui.Seasons.IsHalloween(new DateTime(2026, 11, 1))
 			&& Ui.Seasons.IsChristmas(new DateTime(2026, 12, 1)) && !Ui.Seasons.IsChristmas(new DateTime(2027, 1, 2)),
 			"seasonal skins: Halloween all October, Christmas 1 to 26 December");
-		Check(Ui.Skins.Valid(Ui.Skins.Effzeh) == Ui.Skins.Effzeh && Ui.Skins.Valid("nonsense") == Ui.Skins.Default
-			&& Ui.Skins.Available.All(a => Ui.Skins.InSeason(a.Id)), "skins: the new ones are valid, unknown ones fall back, Settings only offers what's in season");
+		Check(Ui.Seasons.Easter(2026) == new DateTime(2026, 4, 5) && Ui.Seasons.Easter(2027) == new DateTime(2027, 3, 28),
+			"Easter Sunday 2026 and 2027");
+		Check(Ui.Seasons.IsCarnival(new DateTime(2026, 2, 12)) && Ui.Seasons.IsCarnival(new DateTime(2026, 2, 16)) && Ui.Seasons.IsCarnival(new DateTime(2026, 2, 17))
+			&& !Ui.Seasons.IsCarnival(new DateTime(2026, 2, 11)) && !Ui.Seasons.IsCarnival(new DateTime(2026, 2, 18))
+			&& Ui.Seasons.IsCarnival(new DateTime(2026, 11, 11)) && !Ui.Seasons.IsCarnival(new DateTime(2026, 11, 12)) && Ui.Seasons.IsCarnival(new DateTime(2027, 2, 4)),
+			"carnival: Weiberfastnacht to Veilchendienstag (not Ash Wednesday), and 11 November");
+		Check(Ui.Seasons.IsValentine(new DateTime(2027, 2, 14)) && !Ui.Seasons.IsValentine(new DateTime(2027, 3, 1)), "Valentine's Day skin: all of February");
+		Check(Ui.Skins.Valid(Ui.Skins.Effzeh) == Ui.Skins.Effzeh && Ui.Skins.Valid("nonsense") == Ui.Skins.Default,
+			"skins: the new ones are valid, unknown ones fall back to Quiznight Purple");
+		var seasonNow = Ui.Seasons.IsHalloween(Ui.Seasons.Today) ? Ui.Skins.Halloween : Ui.Seasons.IsChristmas(Ui.Seasons.Today) ? Ui.Skins.Christmas : null;
+		Check(Ui.Skins.Effective(Ui.Skins.F1, false) == Ui.Skins.F1 && Ui.Skins.Effective(Ui.Skins.F1, true) == (seasonNow ?? Ui.Skins.F1),
+			"skins: the season's skin comes on by itself (unless seasonal skins are off), else the chosen one shows");
+		Check(Ui.Skins.Available.Any(a => Ui.Skins.IsSeasonal(a.Id)) == App.LanUnlocked, "skins: the seasonal ones can only be picked in developer mode");
 		Check(Storage.Sfx.Podiums.First(p => p.Id == "f1-podium").Db == 10, "the F1 podium sound plays 10 dB louder");
 		Check(AppVersion.Parse("hello") == null, "not a version");
 		var notes = Changelog.Parse(Godot.FileAccess.GetFileAsString("res://CHANGELOG.md"));

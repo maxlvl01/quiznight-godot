@@ -175,13 +175,22 @@ public static class Settings
 		set => Set("podium_sound", value);
 	}
 
-	/// <summary>Ask before deleting a quiz (off once "Don't ask me again" was ticked; Settings turns it back on).</summary>
-	/// <summary>The colour skin (a Ui.Skins id). Saved as soon as it's picked, like the background picture's look.</summary>
+	/// <summary>The colour skin the player chose (a Ui.Skins id; Ui.Skins.Effective says which one shows). Saved as soon as it's picked.</summary>
 	public static string Skin
 	{
 		get => Ui.Skins.Valid(Get("skin", Ui.Skins.Default));
 		set => Set("skin", value);
 	}
+
+	/// <summary>Halloween and Christmas skins come on by themselves in their season (on unless switched off in Settings).</summary>
+	public static bool SeasonalSkins
+	{
+		get => Get("seasonal_skins", "on") != "off";
+		set => Set("seasonal_skins", value ? "on" : "off");
+	}
+
+	/// <summary>The skin that shows now: the chosen one, or the season's.</summary>
+	public static string ShownSkin => Ui.Skins.Effective(Skin, SeasonalSkins);
 
 	/// <summary>Colour vision help (a Ui.ColourFilter mode: "off", "deuteranopia", "protanopia", "tritanopia"). Saved when picked.</summary>
 	public static string ColourVision

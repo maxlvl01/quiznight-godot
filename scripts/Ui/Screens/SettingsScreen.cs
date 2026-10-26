@@ -99,6 +99,16 @@ public partial class SettingsScreen : Control
 			// (the skin and the font build every screen again: from the home screen only, not in the middle of a game)
 			U.Field("Skin", U.Select(Skins.Available, Settings.Skin, id => Callable.From(() => App.I.UseSkin(id)).CallDeferred()).With(o => o.Disabled = inWindow),
 				inWindow ? "Change this on the home screen's Settings." : null),
+			new CheckBox
+			{
+				Text = Lang.T("Seasonal skins (Halloween in October, Christmas in December)"), ButtonPressed = Settings.SeasonalSkins,
+				Disabled = inWindow, MouseDefaultCursorShape = CursorShape.PointingHand,
+				TooltipText = Lang.T("They come on by themselves in their season, and your own skin is back afterwards."),
+			}.With(b => b.Toggled += on =>
+			{
+				Settings.SeasonalSkins = on;
+				Callable.From(() => App.I.UseSkin(Settings.Skin)).CallDeferred();
+			}),
 			U.Field("Background picture", U.Select(Backgrounds.All, d.Background, id => Change(Draft with { Background = id }))),
 			U.Field("Background movement", U.Segmented(new[] { ("on", "On"), ("off", "Off") }, d.BackgroundMotion ? "on" : "off", id => Change(Draft with { BackgroundMotion = id == "on" }))),
 			U.Muted("On wide monitors, the space picture beside the game sways with the mouse. Off keeps it still.", 12),
