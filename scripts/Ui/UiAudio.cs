@@ -136,13 +136,8 @@ public partial class UiAudio : Node
 		AddChild(_hover);
 		AddChild(_click);
 		AddChild(_voice);
-		// (the music starts once the voice line is over)
-		_voice.Finished += () =>
-		{
-			_voiceFirst = false;
-			_music.VolumeDb = 0;
-			if (!_music.Playing) StartTrack();
-		};
+		// (the music starts once the voice line is over: _Process starts it a moment before, so there's no gap)
+		_voice.Finished += AfterVoice;
 		// (every button, now and later, gets the hover and click sound)
 		GetTree().NodeAdded += Hook;
 	}
@@ -193,7 +188,7 @@ public partial class UiAudio : Node
 		// (music switched off in the jukebox: the song is lined up, and starts when it's switched on again; during the
 		// voice line it starts when that's over)
 		if (!Settings.MusicOn || _voiceFirst) return;
-		_music.Play();
+		_music.Play(LeadIn(_tracks[_track]));
 		TrackStarted?.Invoke(_tracks[_track]);
 	}
 
@@ -272,7 +267,34 @@ public partial class UiAudio : Node
 	}
 
 	// (a ▶ preview of a buzzer or podium sound, or the podium sound at the end, also wants quiet while it plays)
-	public override void _Process(double delta) => Apply();
+	public override void _Process(double delta)
+	{
+		if (_voiceFirst && _voice.Playing && _voice.Stream is { } line && line.GetLength() - _voice.GetPlaybackPosition() <= VoiceOverlapSec) AfterVoice();
+		Apply();
+	}
+
+	/// <summary>How long before the voice line's end the music comes in (it runs straight on, no gap).</summary>
+	const double VoiceOverlapSec = 0.15;
+
+	void AfterVoice()
+	{
+		if (!_voiceFirst) return;
+		_voiceFirst = false;
+		_music.VolumeDb = 0;
+		if (!_music.Playing) StartTrack();
+	}
+
+	/// <summary>
+	/// Where a song's sound starts: some begin with up to 1.4 s of silence (measured with ffmpeg's silencedetect at
+	/// -35 dB), which sounds like a gap after the voice line or the last song.
+	/// </summary>
+	static float LeadIn(string path) => System.IO.Path.GetFileNameWithoutExtension(path) switch
+	{
+		"ES_Seth - Martin Landstrom" => 0.45f,
+		"ES_Sugarsnaps - Ennio Mano" => 1.35f,
+		"ES_Merriest Christmas of All - Martin Landstrom" => 0.45f,
+		_ => 0,
+	};
 
 	void Apply()
 	{
