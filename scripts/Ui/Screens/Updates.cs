@@ -182,10 +182,13 @@ public static class UpdatePrompt
 	public static void Pretend(string version) =>
 		Set(AppVersion.Parse(version) is { } v ? new Updater.Release(v, "", 0, null) : null, false);
 
+	/// <summary>Only pretended (dev tools): there's nothing to download.</summary>
+	public static bool IsPretend(Updater.Release release) => release.ZipUrl == "";
+
 	/// <summary>Downloads and installs the release, then restarts.</summary>
 	public static async void Install(Node owner, Updater.Release release)
 	{
-		if (!Updater.Enabled) return;
+		if (!Updater.Enabled || IsPretend(release)) return;
 		var overlay = new VideoGuide.GuideOverlay { Closable = false };
 		var status = U.Muted(Lang.F("Downloading version {0}…", release.Version), 15);
 		var bar = new ProgressBar { MinValue = 0, MaxValue = 1, Step = 0, ShowPercentage = false, CustomMinimumSize = new Vector2(0, 10) };

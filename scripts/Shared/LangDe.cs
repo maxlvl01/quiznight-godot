@@ -666,6 +666,8 @@ public static class LangDe
 		["Theme"] = "Design",
 		["☀ Switch to light mode"] = "☀ Zum hellen Modus wechseln",
 		["Developer mode: LAN play is unlocked until Quiznight closes."] = "Entwicklermodus: LAN-Spiel ist freigeschaltet, bis Quiznight geschlossen wird.",
+		["Test update"] = "Update testen",
+		["Developer mode: pretend an update is out (the logo pulses green). Click again to stop."] = "Entwicklermodus: so tun, als gäbe es ein Update (das Logo pulsiert grün). Nochmal klicken zum Beenden.",
 		["Copy share code"] = "Teilen-Code kopieren",
 		["Paste share code"] = "Teilen-Code einfügen",
 		["Imports the share code you copied"] = "Importiert den kopierten Teilen-Code",

@@ -121,6 +121,13 @@ public partial class HomeScreen : Control
 				p.TooltipText = Updater.TestChannel ? Lang.T("Developer mode (test build): LAN play is unlocked.") : Lang.T("Developer mode: LAN play is unlocked until Quiznight closes.");
 				p.MouseFilter = MouseFilterEnum.Stop;
 			}));
+		// (developer mode: shows the home screen as if an update were out, to see the logo pulse; click again to stop)
+		if (App.LanUnlocked)
+			corner.AddChild(U.Small("Test update", () =>
+			{
+				if (UpdatePrompt.Available is { } shown && !UpdatePrompt.IsPretend(shown)) return;
+				UpdatePrompt.Pretend(UpdatePrompt.Available == null ? "99.0.0b" : "");
+			}).With(b => b.TooltipText = Lang.T("Developer mode: pretend an update is out (the logo pulses green). Click again to stop.")));
 		corner.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight, LayoutPresetMode.KeepSize, 20);
 		corner.GrowHorizontal = GrowDirection.Begin;
 		AddChild(corner);
