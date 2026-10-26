@@ -12,6 +12,7 @@
 //   --video-guide [FILE]           open a new video question with the MP4 → .ogv guide
 //   --whats-new                    the home screen with this version's What's new open
 //   --settings-window              with --host-sample: Settings open as a window over the lobby
+//   --new TYPE                     the question editor on a new question of that type (mapPin: the map grid)
 //   --buzzer                       the BUZZ! button alone (unlocked and locked)
 //   --shot FILE [--after SEC]      save a screenshot after SEC seconds (default 2) and quit
 //   --shots DIR                    save a screenshot of every new game moment into DIR
@@ -245,6 +246,13 @@ public sealed class DevTools
 			page.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 			page.AddChild(row);
 			_app.Show(page, null);
+		}
+		else if (Value("--new") is { } newType)
+		{
+			// --new TYPE: the editor on a new question of that type (e.g. mapPin: the map grid)
+			TakesOver = true;
+			var quiz = QuizStore.Save(SampleQuiz.Build());
+			_app.GoQuestion(quiz.Id, null, newType);
 		}
 		else if (Has("--video-guide"))
 		{

@@ -13,6 +13,9 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+### Changed
+- **The map cards in a map pin question are keys like the other buttons;** the chosen map stays pushed in. Long map names wrap onto a second line instead of being cut off ("Cyberpunk 2077 – Night City").
+
 ## [0.10.4b]
 
 ### Added

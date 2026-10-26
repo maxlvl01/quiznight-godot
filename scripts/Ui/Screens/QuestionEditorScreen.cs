@@ -810,8 +810,14 @@ public partial class QuestionEditorScreen : Control
 	static Control MapCard(Texture2D? picture, string name, string detail, bool chosen, bool isNew, Action pick)
 	{
 		var button = new Button { MouseDefaultCursorShape = CursorShape.PointingHand, SizeFlagsHorizontal = SizeFlags.ExpandFill, TooltipText = name };
-		foreach (var state in new[] { "normal", "hover", "pressed", "focus" })
-			button.AddThemeStyleboxOverride(state, UiTheme.Box(state == "hover" ? C.Panel2.Lightened(0.08f) : C.Panel2, 10, chosen ? C.Blue : state == "hover" ? C.Blue.Darkened(0.3f) : C.Border, chosen ? 2 : 1, 6, 6));
+		// (a key like every button, KeyBox: the chosen map stays pushed in, tinted blue)
+		var face = chosen ? C.Panel2.Lerp(C.Blue, 0.3f) : C.Panel2;
+		button.AddThemeStyleboxOverride("normal", new KeyBox(face, 14, 6, 6, 3, 6, chosen));
+		button.AddThemeStyleboxOverride("hover", new KeyBox(face.Lightened(0.1f), 14, 6, 6, 3, 6, chosen));
+		button.AddThemeStyleboxOverride("pressed", new KeyBox(face.Darkened(0.05f), 14, 6, 6, 3, 6, true));
+		button.AddThemeStyleboxOverride("hover_pressed", new KeyBox(face, 14, 6, 6, 3, 6, true));
+		button.AddThemeStyleboxOverride("focus", new StyleBoxEmpty());
+		button.SetMeta(UiAudio.NoBounce, true);
 		button.Pressed += pick;
 		var image = picture != null
 			? new TextureRect { Texture = picture, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, ClipContents = true }
@@ -826,17 +832,23 @@ public partial class QuestionEditorScreen : Control
 			pill.GrowHorizontal = GrowDirection.Begin;
 			image.AddChild(pill);
 		}
+		// (long names wrap onto a second line instead of being cut off)
 		var label = U.Bold(name, 12).Raw();
+		label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+		label.MaxLinesVisible = 2;
 		label.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
 		var content = U.V(3, image, label, U.Muted(detail, 11, false));
 		content.MouseFilter = MouseFilterEnum.Ignore;
 		foreach (var c in content.GetChildren().OfType<Control>()) c.MouseFilter = MouseFilterEnum.Ignore;
 		var pad = new MarginContainer { MouseFilter = MouseFilterEnum.Ignore };
-		foreach (var side in new[] { "left", "right", "top", "bottom" }) pad.AddThemeConstantOverride($"margin_{side}", 6);
+		// (the key's side is its bottom 6 px: the content sits on the face, and moves down with it when chosen)
+		foreach (var side in new[] { "left", "right", "top", "bottom" }) pad.AddThemeConstantOverride($"margin_{side}", 8);
+		pad.AddThemeConstantOverride("margin_top", chosen ? 12 : 8);
+		pad.AddThemeConstantOverride("margin_bottom", chosen ? 10 : 14);
 		pad.SetAnchorsPreset(LayoutPreset.FullRect);
 		pad.AddChild(content);
 		button.AddChild(pad);
-		button.CustomMinimumSize = new Vector2(0, 118);
+		button.CustomMinimumSize = new Vector2(0, 150);
 		return button;
 	}
 
