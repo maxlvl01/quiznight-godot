@@ -43,14 +43,7 @@ off (`- [x]`) when they're done, with the version they came in.
   existing quizzes and nights' stats keep working. Questions also store the map's name (`MapAsset.Name`, e.g. the sample
   quiz), so old quizzes should show the new name too (take the name from the preset when there is one). Also the
   "seamless WoW Classic map" in the map pin explanation (`Quiz.cs` + LangDe), the sample quiz, code comments.
-- [ ] **WoW Forever map, part 2 (once WoW Forever is out, 4 November 2026).** 0.12.0d1 made the land sharp at every zoom,
-  but the old Classic world map still shows beneath it: the sea between and around the land, and through the soft
-  see-through edges round each coast (OpenMap's zone art fades out there), so the coasts look blurry and old (Max's
-  screenshot at Silverpine, 26 October). Fix with Forever's own map art once it's out (Max didn't keep screenshots of
-  the beta): a Forever world map as the base instead of the 1002 px Classic one, or at least the sea drawn from Forever's
-  sea texture, and the coast edges solid. Plus hover/"Jump to zone…" names for the new zones (Gilneas, Riverglades …)
-  from Forever's zone data (MapDumper Forever addon).
-- [x] (0.12.0d1, part 2 above) **WoW map (the "WoW Classic – Azeroth" preset): zooming in falls back to the old Classic art.** The world and
+- [x] (0.12.0d1, part 2 under Low priority) **WoW map (the "WoW Classic – Azeroth" preset): zooming in falls back to the old Classic art.** The world and
   continent maps look right, but at zoom ~3–4 the stitched zone layer fades in (`WowMap.cs`: "stitched zones 2.2–4", OpenMap's Classic
   zone art from `assets/maps/wow/stitched`) and the map suddenly looks like old Classic again: blurry, different
   colours, the continent's lettering cut off. Areas Classic never had as zones (Gilneas, Riverglades …) show as
@@ -196,6 +189,13 @@ what happened instead.
 
 ## Low priority — once everything else is done
 
+- [ ] **WoW Forever map, part 2 (once WoW Forever is out, 4 November 2026).** 0.12.0d1 made the land sharp at every zoom,
+  but the old Classic world map still shows beneath it: the sea between and around the land, and through the soft
+  see-through edges round each coast (OpenMap's zone art fades out there), so the coasts look blurry and old (Max's
+  screenshot at Silverpine, 26 October). Fix with Forever's own map art once it's out (Max didn't keep screenshots of
+  the beta): a Forever world map as the base instead of the 1002 px Classic one, or at least the sea drawn from Forever's
+  sea texture, and the coast edges solid. Plus hover/"Jump to zone…" names for the new zones (Gilneas, Riverglades …)
+  from Forever's zone data (MapDumper Forever addon).
 Probably not for 1.0; they come when there's nothing else to do and the program is finished.
 - [ ] Discord Rich Presence (needs a Discord application ID from you: "Playing Quiznight? · Question 4/15")
 
