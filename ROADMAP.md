@@ -12,12 +12,12 @@ off (`- [x]`) when they're done, with the version they came in.
 
 ## 0.12 — collecting (nothing built yet)
 
-- [ ] **Licence: MIT → PolyForm Noncommercial 1.0.0** (from 0.12 on; nobody may sell it, free forever). Swap `LICENSE` for
+- [x] (0.12.0d1) **Licence: MIT → PolyForm Noncommercial 1.0.0** (from 0.12 on; nobody may sell it, free forever). Swap `LICENSE` for
   the official text (copyright line: Max and Quiznight contributors). The in-game credits read that file, so they follow.
   README: licence section says PolyForm Noncommercial (map images still belong to their publishers), plus a line
   "Quiznight? is and always will be free: no purchases, no ads, no donations". Changelog entry. Versions up to 0.11.x
   stay MIT for anyone who already has them — that can't be taken back.
-- [ ] **Changed maps must be re-checked before hosting.** When an update swaps a built-in map's picture (different or
+- [x] (0.12.0d1) **Changed maps must be re-checked before hosting.** When an update swaps a built-in map's picture (different or
   better image) or its scale, every map pin question on that map gets a small "map changed" icon (quiz list, quiz
   overview, the question in the editor). The host opens it, checks the answer pin still sits on the right spot (moves it
   if not) and ticks "Checked: the pin is right on the new map". Until every such question is ticked the quiz isn't ready,
@@ -26,7 +26,7 @@ off (`- [x]`) when they're done, with the version they came in.
   icon); each map pin question remembers which map version its pin was checked on (placing or moving the pin, or the
   tick, stamps it; quiz format bump). A question with no stamp (older files, imports, share codes) counts as made before
   any change. Also a dev flag like `--pretend-new-map` to see the icon.
-- [ ] **Lobby checks players' versions.** Today a join sends no version at all (`JoinRequest`: name, id, code), so a
+- [x] (0.12.0d1) **Lobby checks players' versions.** Today a join sends no version at all (`JoinRequest`: name, id, code), so a
   player on an old build gets in and things break mid-game when the quiz uses something their build doesn't have.
   - Every join sends the player's app version (and a protocol number that goes up when messages change in a way old
     builds can't read). A join without one is "older than 0.12".
@@ -38,6 +38,38 @@ off (`- [x]`) when they're done, with the version they came in.
   - A protocol mismatch (too old to understand the game at all) refuses the join with a clear message on the player's
     side: "The host has 0.12.0b, you have 0.11.3b — update first" (with the update button, as the updater already can).
   - Also the other way: a player newer than the host is fine unless the protocol differs.
+- [x] (0.12.0d1) **Rename "WoW Classic – Azeroth" to "WoW Forever"** in the editor's map pick (`MapPresets.cs`; the subtitle
+  "World → continents → zones" stays). Only the shown name changes: the preset id (`WowAtlas.PresetId`) stays, so
+  existing quizzes and nights' stats keep working. Questions also store the map's name (`MapAsset.Name`, e.g. the sample
+  quiz), so old quizzes should show the new name too (take the name from the preset when there is one). Also the
+  "seamless WoW Classic map" in the map pin explanation (`Quiz.cs` + LangDe), the sample quiz, code comments.
+- [x] (0.12.0d1, except hover names for Forever's new zones: need its zone data after 4 November) **WoW map (the "WoW Classic – Azeroth" preset): zooming in falls back to the old Classic art.** The world and
+  continent maps look right, but at zoom ~3–4 the stitched zone layer fades in (`WowMap.cs`: "stitched zones 2.2–4", OpenMap's Classic
+  zone art from `assets/maps/wow/stitched`) and the map suddenly looks like old Classic again: blurry, different
+  colours, the continent's lettering cut off. Areas Classic never had as zones (Gilneas, Riverglades …) show as
+  unexplored land and hovering them says "Eastern Kingdoms", because `WowAtlas` doesn't know them.
+  What's really showing (`WowMapCanvas` draw): the 1002 px world map is always drawn underneath, blown up, and the
+  continent maps are small and cut to the land's shape — so between the world view and the zone tiles (zoom ~1.3–4)
+  everything is stretched low-res art, and the sea round the land stays the stretched world map, lettering
+  ("…RN …GDOMS") and all, even at zoom 6. OpenMap is built for WoW Forever, so its zone art (our 207 tiles) already
+  has Gilneas, Riverglades etc. (checked: Gilneas is drawn at zoom 4–6) — but `WowAtlas` only knows Classic's zones,
+  so hovering them says "Eastern Kingdoms".
+  Fix (Max): **the big stitched map, downsized, for the zoom steps until the zones come in.** Build from OpenMap's
+  tiles one big map (tools script, like `openmap_tiles.gd`) and save it in a few smaller sizes (e.g. world view, ~2×,
+  ~4×; WebP, "keep" import, shipped next to the game like the other maps); the map draws whichever size fits the
+  current zoom, so every zoom step shows the same Forever art, only sharper — no fade from one look to another, no
+  stretched world map with its lettering. Sea included (from the tiles, or the world map's sea texture at a matching
+  scale). Plus the zones Classic doesn't have in `WowAtlas` (names and outlines from OpenMap's data, or the
+  MapDumper Forever addon after 4 November) so hover and "Jump to zone…" know Gilneas, Riverglades …
+  Screenshots from Max, 26 October 2026.
+- [x] (0.12.0d1) **First start: ask how much intro to show next time.** The very first time the game is opened (no setting saved
+  yet), after the intro a question: "Next time, skip …" with three choices — **show everything** (as now), **skip the
+  joke parts** (the anti-cheat window, the Xbox "World Premiere" … — which cards count is open), **skip everything up to
+  the start screen** (straight to the title screen, or to the home screen? open). Saved in settings.cfg; **Settings gets
+  an "Intro" option with the same three choices** to change it any time (also for people who picked one on the first
+  start and changed their mind). Today there's no such setting: only dev/test runs and "less motion" skip the intro
+  (`IntroSequence`). Note the anti-cheat window shows while the game loads (`AntiCheatSplash`), so the setting has to be
+  read before that.
 - [x] (0.11.4b, hotfix so it's out while it's still October) **October intro song: "The Sleepy Sneaky Sway" (Luella Gren)** plays after the voice line when the game opens
   **during October only** (`Seasons.IsHalloween`, already all of October; try it with `--date`); the rest of the year
   "Easy Breezy" stays the first song. It's a Halloween-only song: it goes in a new `assets/music/halloween/` folder whose

@@ -917,6 +917,30 @@ public static class SelfTest
 		Check(Ui.UiAudio.SongsIn("res://assets/music/halloween").Any(s => s.Contains("The Sleepy Sneaky Sway"))
 			&& ResourceLoader.Load<AudioStream>("res://assets/music/halloween/ES_The Sleepy Sneaky Sway - Luella Gren.ogg") != null,
 			"Halloween songs: October's intro song is there and plays");
+		Check(MapPresets.Get(WowAtlas.PresetId)!.Name == "WoW Forever" && MapPresets.CurrentName(WowAtlas.PresetId, "WoW Classic – Azeroth") == "WoW Forever"
+			&& MapPresets.CurrentName(WowAtlas.PresetId, "My WoW") == "My WoW" && MapPresets.CurrentName(null, "WoW Classic – Azeroth") == "WoW Classic – Azeroth",
+			"the WoW map is WoW Forever, also in quizzes saved with its old name (a name the host chose stays)");
+		{
+			var changed = new MapPreset("x", "X", 1, "", "", ChangedIn: "0.12.0d1");
+			MapPresets.PretendChanged = null;
+			Check(MapPresets.NeedsCheck("skyrim", null) == null, "a map no update changed needs no check");
+			MapPresets.PretendChanged = "skyrim";
+			var mapQuiz = new Quiz { Maps = { new MapAsset { Id = "m", PresetId = "skyrim", Image = new ImageAsset { Width = 10, Height = 10 } } } };
+			var q = new Question { Type = QuestionType.MapPin, MapId = "m", Target = new NormPoint(0.5, 0.5), Image = new ImageAsset { DataUrl = "data:image/png;base64,AA==", Width = 1, Height = 1 } };
+			var flagged = QuizRules.MapNeedsCheck(q, mapQuiz.Maps) && QuizRules.QuestionIssues(q, mapQuiz.Maps).Any(i => i.Contains("0.0.1"));
+			Check(flagged, "a changed map flags its questions: " + string.Join(" ", QuizRules.QuestionIssues(q, mapQuiz.Maps)));
+			q.MapCheckedIn = "0.12.0d1";
+			var back = QuizJson.ReadQuestion(QuizJson.WriteQuestion(q));
+			MapPresets.PretendChanged = null;
+			Check(flagged && back.MapCheckedIn == "0.12.0d1" && !QuizRules.MapNeedsCheck(back, mapQuiz.Maps) && changed.ChangedIn == "0.12.0d1",
+				"a changed map flags its questions until their spot is checked (saved in the quiz file)");
+		}
+		{
+			var typeQuiz = new Quiz { Questions = { new Question { Type = QuestionType.Classic }, new Question { Type = QuestionType.Interactive } } };
+			Check(VersionCheck.Missing(typeQuiz, "0.8.5b").Count == 1 && VersionCheck.Missing(typeQuiz, "").Count == 0 && VersionCheck.Missing(typeQuiz, "0.12.0d1").Count == 0
+				&& VersionCheck.Older("", "0.12.0d1") && !VersionCheck.Older("0.12.0d1", "0.12.0d1") && VersionCheck.Older("0.11.4b", "0.12.0b"),
+				"lobby version check: older games are told what they can't play; games before 0.12 count as 0.11.4b");
+		}
 		Check(Ui.Skins.Valid("pinke-geilheit") == Ui.Skins.Default && Ui.Skins.All.First(s => s.Id == Ui.Skins.Default).Label == "Quiznight Purple"
 			&& Ui.Skins.Valid(Ui.Skins.Pink) == Ui.Skins.Pink, "skins: the old Pinke Geilheit id is Quiznight Purple now, the pastel Pinke Geilheit is its own");
 		Check(Ui.Seasons.IsHalloween(new DateTime(2026, 10, 31)) && !Ui.Seasons.IsHalloween(new DateTime(2026, 11, 1))

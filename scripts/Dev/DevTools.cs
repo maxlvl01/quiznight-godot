@@ -163,6 +163,7 @@ public sealed class DevTools
 		if (Value("--pretend-update") is { } newer) Ui.Screens.UpdatePrompt.Pretend(newer);
 		// (the map grid as if that built-in map had come with this update: its NEW badge)
 		if (Value("--pretend-new-map") is { } newMap) MapPresets.PretendNew = newMap;
+		if (Value("--pretend-changed-map") is { } changedMap) MapPresets.PretendChanged = changedMap;
 		// (made-up quiz nights for the statistics screens, this run only: --fake-results [N])
 		if (Has("--fake-results")) Storage.Results.Fake = FakeResults.Make(int.TryParse(Value("--fake-results"), out var fake) ? fake : 30);
 		// --overflow: after 3 s, prints how much the screen's scrolling area is taller than the window (0 = fits) and quits

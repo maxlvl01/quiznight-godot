@@ -39,6 +39,8 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 	readonly HostSession _host;
 	readonly VBoxContainer _content = U.V(12);
 	string? _error;
+	// (the host was told some players' games are too old and starts anyway)
+	bool _versionsOk;
 
 	public HostLobbyScreen() : this(null!) { }
 
@@ -81,6 +83,11 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 			var seat = U.V(4, new Avatar(p, 44).Center(), U.PlayerName(p.Name, 15, HorizontalAlignment.Center, tags),
 				U.H(4, GameParts.SeatStatus(p, room, false).With(s => s.SizeFlagsVertical = SizeFlags.ShrinkCenter),
 					U.Link("×", () => _host.Kick(id), 15).Tip(Lang.F("Remove {0}", p.Name)).With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter)).Center());
+			// (an older game than the host's: which version, so the host can ask them to update)
+			if (VersionCheck.Older(p.Version, App.Version))
+				seat.AddChild(U.Text(p.Version != "" ? Lang.F("⚠ {0}", p.Version) : Lang.T("⚠ older version"), 12, C.Orange)
+					.With(l => { l.HorizontalAlignment = HorizontalAlignment.Center; l.MouseFilter = MouseFilterEnum.Stop; })
+					.Tip(Lang.F("An older Quiznight than yours ({0}). Ask them to update.", App.Version)));
 			grid.AddChild(U.Panel(seat, "Card2").Grow());
 		}
 		for (var i = room.Players.Count; i < Math.Min(room.Players.Count + 1, Limits.MaxPlayers); i++)
@@ -116,9 +123,21 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 			PodiumPicker.Make(_host.PodiumSound, id => _host.PodiumSound = id, true));
 		_content.AddChild(U.Panel(U.V(8, U.Eyebrow("Game rules for tonight"), U.H(24, left.Grow(), right.Grow())), "Inset"));
 
+		// What players on older games can't play in this quiz.
+		var cant = room.Players.Where(p => p.Connected)
+			.Select(p => (p.Name, Missing: VersionCheck.Missing(_host.Room.Quiz, p.Version))).Where(c => c.Missing.Count > 0).ToList();
+		foreach (var (name, missing) in cant)
+			_content.AddChild(U.Text(Lang.F("⚠ {0}'s game is too old for {1}. Ask them to update.", name, string.Join(", ", missing)), 13, C.Orange, wrap: true));
+
 		if (_error != null) _content.AddChild(U.Error(_error));
 		void StartQuiz()
 		{
+			if (cant.Count > 0 && !_versionsOk)
+			{
+				Dialogs.Confirm(this, Lang.F("{0} can't play every question on their version (see the lobby). Start anyway?", string.Join(", ", cant.Select(c => c.Name))),
+					"Start anyway", () => { _versionsOk = true; StartQuiz(); });
+				return;
+			}
 			var result = _host.Start();
 			_error = result.Ok ? null : result.Error;
 			if (!result.Ok) Refresh(_host.State);

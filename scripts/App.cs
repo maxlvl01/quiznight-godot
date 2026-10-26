@@ -87,9 +87,11 @@ public partial class App : Control
 
 		var args = OS.GetCmdlineUserArgs();
 		var window = DisplayServer.GetName() != "headless";
+		// (before "What's new" moves the last seen version on: what's new since the player's last update)
+		New.NoteUpdate();
 		// (the game opens as the anti-cheat's small borderless window, like Easy Anti-Cheat's: project.godot's window size;
 		// it becomes the saved window once that's done. Dev and test runs get their window straight away.)
-		var antiCheat = window && args.Length == 0 && !Announcer.ReduceMotion;
+		var antiCheat = window && args.Length == 0 && !Announcer.ReduceMotion && Settings.Intro == "all";
 		if (window && !antiCheat) GetWindow().Borderless = false;
 		if (antiCheat)
 		{

@@ -63,6 +63,40 @@ public partial class QuestionEditorScreen : Control
 	/// <summary>Ctrl+Y (or Ctrl+Shift+Z): does it again.</summary>
 	public bool Redo() => _history.Redo();
 
+	/// <summary>The correct spot was set or moved: it's checked on the map as it is now.</summary>
+	Action? SpotChecked;
+
+	/// <summary>
+	/// A built-in map an update changed since this question's spot was checked: what changed, and a tick that the spot
+	/// is still right (setting or moving the spot ticks it too). Until then the quiz isn't ready to play.
+	/// </summary>
+	void AddMapCheck(MapAsset map)
+	{
+		SpotChecked = () => _draft.MapCheckedIn = App.Version;
+		var before = _draft.MapCheckedIn;
+		if (MapPresets.NeedsCheck(map.PresetId, before) is not { } changed) return;
+		var box = new CheckBox
+		{
+			Text = Lang.T("Checked: the correct spot is right on the new map"), ButtonPressed = false,
+			MouseDefaultCursorShape = CursorShape.PointingHand,
+		};
+		box.Toggled += on =>
+		{
+			_draft.MapCheckedIn = on ? App.Version : before;
+			Changed();
+		};
+		SpotChecked = () =>
+		{
+			_draft.MapCheckedIn = App.Version;
+			box.SetPressedNoSignal(true);
+		};
+		var note = changed.ChangeNote is { } what ? Lang.T(what) : "";
+		_mapCol.AddChild(U.Card(6,
+			U.Bold(Lang.F("⚠ This map was changed in {0}.", changed.ChangedIn!), 15, C.Orange, wrap: true),
+			U.Muted(Lang.T("Check the correct spot is still in the right place (move it if not), then tick the box. Until then the quiz can't be played.") + (note != "" ? " " + note : ""), 13),
+			box));
+	}
+
 	void Changed(bool rebuild = false)
 	{
 		// (typing changes without rebuilding: those merge into one step while it goes on)
@@ -727,11 +761,13 @@ public partial class QuestionEditorScreen : Control
 			_mapCol.AddChild(new WowAtlasView(_draft.Target, p =>
 			{
 				_draft.Target = p;
+				SpotChecked?.Invoke();
 				Changed();
 				UpdateHint(true);
 			}, null, U.Flexible));
 			UpdateHint(true);
 			_mapCol.AddChild(hint);
+			AddMapCheck(map);
 		}
 		else
 		{
@@ -740,6 +776,7 @@ public partial class QuestionEditorScreen : Control
 			view.Canvas.OnPick = p =>
 			{
 				_draft.Target = p;
+				SpotChecked?.Invoke();
 				view.Canvas.Target = p;
 				view.Canvas.QueueRedraw();
 				Changed();
@@ -748,6 +785,7 @@ public partial class QuestionEditorScreen : Control
 			_mapCol.AddChild(view);
 			UpdateHint(false);
 			_mapCol.AddChild(hint);
+			AddMapCheck(map);
 			var scale = U.Muted("", 13);
 			void UpdateScale() => scale.Text = (map.WidthKm is > 0
 				? "Players see how far off they were in km/m."

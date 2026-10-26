@@ -37,7 +37,10 @@ namespace QuizNight.Shared;
 
 /// <param name="AddedIn">The version that brought the map (e.g. "0.9.0b"): the editor's map grid marks it NEW for that
 /// MAJOR.MINOR (all of 0.9.x). Null for the maps that were there before this existed.</param>
-public sealed record MapPreset(string Id, string Name, double? WidthKm, string ImagePath, string Credit, string? AddedIn = null);
+/// <param name="ChangedIn">The version whose update changed the map's picture or scale (e.g. "0.12.0b"): map pin questions on it
+/// checked before then must be checked again (<see cref="MapPresets.NeedsCheck"/>); <paramref name="ChangeNote"/> says what changed.</param>
+public sealed record MapPreset(string Id, string Name, double? WidthKm, string ImagePath, string Credit, string? AddedIn = null,
+	string? ChangedIn = null, string? ChangeNote = null);
 
 public static class MapPresets
 {
@@ -47,6 +50,21 @@ public static class MapPresets
 	/// <summary>Whether the map came with this MAJOR.MINOR version (0.9.0b and 0.9.2b are both "0.9").</summary>
 	public static bool IsNew(MapPreset preset, string version) =>
 		preset.Id == PretendNew || preset.AddedIn is { } added && MinorOf(added) == MinorOf(version);
+
+	/// <summary>Dev (--pretend-changed-map ID): treat that map as changed, to see the check.</summary>
+	public static string? PretendChanged;
+
+	/// <summary>
+	/// The update that changed a built-in map since a question's correct spot was last checked on it (the version
+	/// stamped then, null = never: older quizzes), or null if there's nothing to check.
+	/// </summary>
+	public static MapPreset? NeedsCheck(string? presetId, string? checkedIn)
+	{
+		if (Get(presetId) is not { } preset) return null;
+		var changed = preset.Id == PretendChanged ? "0.0.1" : preset.ChangedIn;
+		if (AppVersion.Parse(changed) is not { } change) return null;
+		return AppVersion.Parse(checkedIn) is { } done && done.CompareTo(change) >= 0 ? null : preset with { ChangedIn = changed };
+	}
 
 	static string MinorOf(string version) => string.Join('.', version.Split('.').Take(2));
 
@@ -90,11 +108,24 @@ public static class MapPresets
 		new("pubg-vikendi", "PUBG – Vikendi", 8.16, "res://assets/maps/pubg-vikendi.webp", "Official map © KRAFTON (PUBG API assets)."),
 		new("pubg-deston", "PUBG – Deston", 8.16, "res://assets/maps/pubg-deston.webp", "Official map © KRAFTON (PUBG API assets)."),
 		new("pubg-sanhok", "PUBG – Sanhok", 4.08, "res://assets/maps/pubg-sanhok.webp", "Official map © KRAFTON (PUBG API assets)."),
-		new(WowAtlas.PresetId, "WoW Classic – Azeroth", null, WowAtlas.ImagePath(WowAtlas.World),
+		new(WowAtlas.PresetId, "WoW Forever", null, WowAtlas.ImagePath(WowAtlas.World),
 			"Maps © Blizzard Entertainment; zones stitched by the OpenMap addon (MIT). Distances in game yards, exact per zone."),
 	};
 
 	public static MapPreset? Get(string? id) => id == null ? null : All.FirstOrDefault(p => p.Id == id);
+
+	/// <summary>Built-in maps' earlier names, which quizzes saved before a rename still carry.</summary>
+	static readonly Dictionary<string, string[]> OldNames = new()
+	{
+		[WowAtlas.PresetId] = new[] { "WoW Classic – Azeroth" },
+	};
+
+	/// <summary>
+	/// A built-in map's name as a quiz shows it: an old name of the map (from before a rename) becomes the current one;
+	/// a name the host chose stays.
+	/// </summary>
+	public static string CurrentName(string? presetId, string name) =>
+		Get(presetId) is { } preset && OldNames.TryGetValue(preset.Id, out var old) && old.Contains(name) ? preset.Name : name;
 }
 
 /// <summary>Where the cropped Skyrim map sits in the old 4096 px square (for quizzes saved before the crop).</summary>

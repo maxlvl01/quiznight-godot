@@ -101,6 +101,13 @@ public partial class HomeScreen : Control
 		updateButton.MouseExited += () => arrow.Hovered = false;
 		page.AddChild(U.H(6, U.Muted($"v{App.Version}", 12, false), updateButton, U.Muted("·", 12, false), U.Link("What's new", () => WhatsNew.ShowCurrent(this), 12),
 			U.Muted("·", 12, false), U.Link("🏆 Statistics", App.I.GoStatistics, 12)).Center());
+		// (yellow dots mark what's new since the last update, e.g. on Settings: this clears them)
+		if (New.Any)
+			page.AddChild(U.H(6, U.Text("●", 12, C.Gold), U.Link("Mark all as read", () =>
+			{
+				New.MarkAllRead();
+				App.I.GoHome();
+			}, 12).Tip("Removes the yellow dots on what's new since your last update")).Center());
 		void ShowUpdate()
 		{
 			if (!IsInstanceValid(updateButton)) return;
@@ -118,7 +125,7 @@ public partial class HomeScreen : Control
 		// (two spotlights sweep over the logo, behind the page)
 		AddChild(new Spotlights { Target = 120 });
 		AddChild(U.Page(page, 960, 56));
-		var corner = U.H(8, U.Small("☀ Light mode", LightMode), U.Small("Settings", App.I.GoSettings), U.Small("Quit", () => App.I.AskQuit()));
+		var corner = U.H(8, U.Small("☀ Light mode", LightMode), New.Mark(U.Small("Settings", App.I.GoSettings), "settings."), U.Small("Quit", () => App.I.AskQuit()));
 		// (developer mode: a small badge in the corner, so the page doesn't get longer)
 		if (App.LanUnlocked)
 			corner.AddChild(U.Pill("DEV", C.Teal).With(p =>

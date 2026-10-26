@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Godot;
 using QuizNight.Shared;
+using QuizNight.Storage;
 using QuizNight.Ui.Screens;
 
 namespace QuizNight.Ui;
@@ -48,7 +49,9 @@ public partial class IntroSequence : Control
 		_bg = new ColorRect { Color = Black, MouseFilter = MouseFilterEnum.Ignore };
 		_bg.SetAnchorsPreset(LayoutPreset.FullRect);
 		AddChild(_bg);
-		_cards = new()
+		// (Settings.Intro: "nojokes" leaves out the made-up ones, "none" every card: straight to the title screen)
+		var jokes = Settings.Intro != "all";
+		_cards = Settings.Intro == "none" ? new() : new()
 		{
 			new(VideoCard, VideoSec, Black),
 			new(GodotCard, 2.0, Black),
@@ -58,6 +61,7 @@ public partial class IntroSequence : Control
 			new(SponsorCard, 2.4, SplashBg),
 			new(() => new CreditsWall(), 3.0, SplashBg),
 		};
+		if (jokes) _cards.RemoveAll(c => c.Build == VideoCard || c.Build == PublisherCard || c.Build == SponsorCard);
 	}
 
 	static Color SplashBg => C.Bg;

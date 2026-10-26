@@ -53,6 +53,27 @@ public static class Settings
 		set => Set("accessibility_asked", value ? "on" : "off");
 	}
 
+	/// <summary>How much of the intro the game shows when it starts: "all", "nojokes" (no anti-cheat, World Premiere,
+	/// publisher or sponsor) or "none" (straight to the title screen). Asked on the first start, changed in Settings.</summary>
+	public static string Intro
+	{
+		get => Get("intro", "all") is var v && v is "nojokes" or "none" ? v : "all";
+		set => Set("intro", value);
+	}
+
+	/// <summary>The choices for <see cref="Intro"/>, as Settings and the first start show them.</summary>
+	public static readonly (string Id, string Label)[] IntroChoices =
+	{
+		("all", "Everything"), ("nojokes", "Skip the joke parts"), ("none", "Skip it all"),
+	};
+
+	/// <summary>The version the player had before their last update: what came after it gets a yellow dot (Ui/New).</summary>
+	public static string NewSince
+	{
+		get => Get("new_since", "");
+		set => Set("new_since", value);
+	}
+
 	/// <summary>The version that last showed "What's new" (so it shows once after each update).</summary>
 	public static string LastSeenVersion
 	{

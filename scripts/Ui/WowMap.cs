@@ -1,11 +1,14 @@
-// The WoW Classic map as one seamless, zoomable world, like the OpenMap addon: zoom out and you see
+// The WoW Forever map (OpenMap's art; the zones and distances are Classic's, which Forever builds on) as one seamless, zoomable world, like the OpenMap addon: zoom out and you see
 // Azeroth, zoom in and the continent comes in, then every zone stitched together, then the cities.
 // Pins are placed anywhere and stored as a point on the world map image, as before (WowAtlas).
 //
 // Layers, bottom to top, and the zoom each fades in at (zoom 1 = the whole world fits; OpenMap's):
 //   world map           always
-//   continent maps      1.3–2.2   soft edges, so their parchment frame never shows
-//   stitched zones      2.2–4     OpenMap's zone art baked into tiles (assets/maps/wow/stitched,
+//   continent maps      1.3–2.2   soft edges, so their parchment frame never shows (what's left of them shows
+//                                 only where the zone art has gaps)
+//   zone art, whole     1.1–1.5   all the stitched zones as one map, downsized (assets/maps/wow/overview-2/-4,
+//                                 tools/openmap_overview.py): the sharper one once a world-map pixel is over 2 px
+//   stitched zones      4–6 px per world-map pixel: OpenMap's zone art baked into tiles (assets/maps/wow/stitched,
 //                                 made by tools/openmap_tiles.gd), loaded in the background
 //   cities              once the city fills a fifth to two fifths of the view, cut round
 
@@ -32,6 +35,9 @@ public static class WowMapArt
 	/// <summary>Every tile, with the part of the world map (0–1) it covers.</summary>
 	public static readonly IReadOnlyList<Tile> Tiles = FindTiles();
 	public static readonly Rect2 TileSource = new(1, 1, (float)TileStep, (float)TileStep);
+
+	/// <summary>All the tiles as one map, downsized to px pixels per world-map pixel (2 or 4; tools/openmap_overview.py).</summary>
+	public static string Overview(int px) => $"res://assets/maps/wow/overview-{px}.webp";
 
 	static List<Tile> FindTiles()
 	{
@@ -199,8 +205,21 @@ public partial class WowMapCanvas : MapCanvas
 				if (at.Intersects(view) && WowMapArt.Shaped(c) is { } tex) DrawTextureRect(tex, OnScreen(at), false, new Color(1, 1, 1, continents));
 			}
 
-		var zones = Ramp(2.2f, 4f, zoom);
+		// The zone art put together (tools/openmap_overview.py), the size that's sharp enough for this zoom: from the
+		// first zoom steps on, the land looks the same as in the zone tiles, only less detailed.
 		var waiting = false;
+		var perWorldPx = rect.Size.X * GetViewport().GetFinalTransform().Scale.X / WowAtlas.ImageWidth;
+		var overview = Ramp(1.1f, 1.5f, zoom);
+		if (overview > 0)
+		{
+			var sharp = perWorldPx > 2 ? WowMapArt.TileTexture(WowMapArt.Overview(4)) : null;
+			var art = sharp ?? WowMapArt.TileTexture(WowMapArt.Overview(2));
+			if (art != null) DrawTextureRect(art, rect, false, new Color(1, 1, 1, overview));
+			if (art == null || perWorldPx > 2 && sharp == null) waiting = true;
+		}
+
+		// The tiles themselves once the overview's pixels would show (OpenMap's 16 px per world-map pixel).
+		var zones = Ramp(4f, 6f, perWorldPx);
 		if (zones > 0)
 			foreach (var tile in WowMapArt.Tiles)
 			{
@@ -227,7 +246,7 @@ public partial class WowMapCanvas : MapCanvas
 }
 
 /// <summary>
-/// The WoW Classic map for map pin questions: one seamless map from the whole world down to the cities
+/// The WoW Forever map for map pin questions: one seamless map from the whole world down to the cities
 /// (scroll to zoom, drag to move, or jump straight to a zone). Pins are stored as a point on the world
 /// map (see WowAtlas).
 /// </summary>

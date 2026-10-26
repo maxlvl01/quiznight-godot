@@ -19,6 +19,8 @@ public sealed class Player
 	public int? JoinedAt;
 	/// <summary>Left during the game and not back yet: the question (1-based) they left at.</summary>
 	public int? LeftAt;
+	/// <summary>Their game's version ("" = before 0.12).</summary>
+	public string Version = "";
 }
 
 /// <summary>What breaks ties between players with the same score (see Room.Ranking).</summary>
@@ -257,7 +259,7 @@ public sealed class Room : IGameHooks
 			Phase = Phase,
 			Settings = Settings.Clone(),
 			HostConnected = true,
-			Players = Players.Select(p => new PublicPlayer { Id = p.Id, Name = p.Name, Color = p.Color, Connected = p.Connected, JoinedAt = p.JoinedAt, LeftAt = p.LeftAt }).ToList(),
+			Players = Players.Select(p => new PublicPlayer { Id = p.Id, Name = p.Name, Color = p.Color, Connected = p.Connected, JoinedAt = p.JoinedAt, LeftAt = p.LeftAt, Version = p.Version }).ToList(),
 		};
 	}
 

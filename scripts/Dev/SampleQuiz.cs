@@ -18,7 +18,7 @@ public static class SampleQuiz
 		var skyrim = new MapAsset { Id = "map-skyrim", Name = "Skyrim", PresetId = "skyrim", WidthKm = MapPresets.Get("skyrim")!.WidthKm };
 		var tex = Images.BuiltinTexture(MapPresets.Get("skyrim")!.ImagePath);
 		skyrim.Image = new ImageAsset { Width = tex?.GetWidth() ?? SkyrimCrop.Width, Height = tex?.GetHeight() ?? SkyrimCrop.Height };
-		var wow = new MapAsset { Id = "map-wow", Name = "WoW Classic – Azeroth", PresetId = WowAtlas.PresetId, Image = new ImageAsset { Width = WowAtlas.ImageWidth, Height = WowAtlas.ImageHeight } };
+		var wow = new MapAsset { Id = "map-wow", Name = "WoW Forever", PresetId = WowAtlas.PresetId, Image = new ImageAsset { Width = WowAtlas.ImageWidth, Height = WowAtlas.ImageHeight } };
 		var custom = new MapAsset { Id = "map-custom", Name = "Test grid", Image = Picture(1600, 1000, new Color("#2b6"), new Color("#135"), "GRID"), WidthKm = 10 };
 
 		var q = new List<Question>

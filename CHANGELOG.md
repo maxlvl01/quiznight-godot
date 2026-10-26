@@ -13,6 +13,19 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.12.0d1]
+
+### Added
+- **Choose how much intro you want.** The very first start (the welcome screen) asks what to show next time: everything, everything except the joke parts (the anti-cheat window, the World Premiere video, the publisher and the sponsor), or nothing at all, straight to the title screen. You can change it any time in Settings → "Intro when the game starts".
+- **Yellow dots on what's new.** After an update, new things you might be looking for get a small yellow dot (this time the intro option in Settings, and the Settings button that leads there). "Mark all as read" under the version on the home screen takes them all away. Only things that came after the version you had before show up.
+- **The lobby checks everyone's game version.** Joining now tells the host which Quiznight version you have. A player on an older version gets an orange "⚠ 0.11.4b" under their name, and if the quiz uses something their version doesn't have (say an Interactive question or a newer map), the lobby says which question, and Start asks before going ahead. Before, an old game just joined and things went wrong in the middle of the night. Games too different to talk to each other at all can't join and are told to update.
+- **Changed maps have to be checked again.** When an update changes a built-in map's picture or scale, every map pin question on it gets a "⚠ map changed" mark in the quiz list and the quiz overview, and the quiz can't be hosted until each one is checked: open the question, make sure the correct spot is still right (move it if not) and tick "Checked". Setting or moving the spot counts as checked too.
+
+### Changed
+- **The WoW map is now called "WoW Forever"** in the map picker (quizzes made with "WoW Classic – Azeroth" show the new name by themselves; nothing else about them changes).
+- **Zooming into the WoW map stays sharp and looks the same all the way down.** Before, between the world map and the zones (around zoom 1.5–4) the map showed the small old world and continent pictures blown up: blurry, other colours, and the land suddenly looked like old Classic again until the zone art came in. Now all of OpenMap's zone art is put together into one big map (in two sizes) that shows from the first zoom steps on, so the land looks the same at every zoom, only more detailed the closer you get. (The sea between the continents is still the world map; the zone names on hover for Forever's new zones like Gilneas come once WoW Forever is out.)
+- **Licence:** from this version on Quiznight? is under the PolyForm Noncommercial licence instead of MIT: anyone may use, change and share it, but nobody may sell it. It's free and always will be — no purchases, no ads, no donations.
+
 ## [0.11.4b]
 
 ### Added

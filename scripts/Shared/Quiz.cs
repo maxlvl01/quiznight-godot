@@ -38,7 +38,7 @@ public static class QuestionType
 			"Show a screenshot (or none), and everyone places a pin on a map. The closest pin wins.",
 			new[]
 			{
-				"Maps: built-in game maps with real distances (Skyrim, the seamless WoW Classic map and more), or any picture you upload.",
+				"Maps: built-in game maps with real distances (Skyrim, the seamless WoW Forever map and more), or any picture you upload.",
 				"Scoring: only the closest wins, or the top 3 score (3, 2 and 1 times the points).",
 				"Ties: all tied players score, or nobody does.",
 				"Players can click the screenshot to see it big.",
@@ -356,6 +356,11 @@ public sealed class Question
 	// map pin
 	public string? MapId;
 	public NormPoint? Target;
+	/// <summary>
+	/// The game version the correct spot was last set or checked on (map pin): a built-in map changed by a later update
+	/// asks the host to check it again (<see cref="MapPresets.NeedsCheck"/>).
+	/// </summary>
+	public string? MapCheckedIn;
 	/// <summary>Players buzz first and only then place their pin.</summary>
 	public bool BuzzFirst;
 
@@ -463,8 +468,9 @@ public static class QuizRules
 	/// 8: estimation and map pin can score by place (rankPoints, e.g. F1's 25 / 18 / 15 …).
 	/// 9: every question can have a category (category, categorySecret); step by step can be one sentence in parts
 	///    (stepsMode "sentence", its parts in hints).
+	/// 10: map pin questions remember the version their correct spot was checked on (mapCheckedIn).
 	/// </summary>
-	public const int FormatVersion = 9;
+	public const int FormatVersion = 10;
 
 	public static readonly string[] ChoiceLetters = { "A", "B", "C", "D" };
 
@@ -662,12 +668,19 @@ public static class QuizRules
 			if (q.Image == null) issues.Add(Lang.T("Upload a screenshot."));
 			if (q.MapId == null || maps.All(m => m.Id != q.MapId)) issues.Add(Lang.T("Pick a map."));
 			else if (q.Target == null) issues.Add(Lang.T("Click the map to set the correct spot."));
+			else if (MapPresets.NeedsCheck(maps.First(m => m.Id == q.MapId).PresetId, q.MapCheckedIn) is { } changed)
+				issues.Add(Lang.F("The map was changed in {0}: check the correct spot is still right.", changed.ChangedIn!));
 		}
 		if (q.HasBonus && string.IsNullOrWhiteSpace(q.BonusText)) issues.Add(Lang.T("Say what the bonus is for."));
 		return issues;
 	}
 
 	/// <summary>Problems that stop the whole quiz from being hosted.</summary>
+	/// <summary>Map pin questions whose built-in map an update changed since their correct spot was checked.</summary>
+	public static bool MapNeedsCheck(Question q, IReadOnlyList<MapAsset> maps) =>
+		q.Type == QuestionType.MapPin && q.Target != null && maps.FirstOrDefault(m => m.Id == q.MapId) is { } map
+		&& MapPresets.NeedsCheck(map.PresetId, q.MapCheckedIn) != null;
+
 	public static List<string> QuizIssues(Quiz quiz)
 	{
 		var issues = new List<string>();

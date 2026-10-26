@@ -155,6 +155,7 @@ public static class QuizJson
 				o["image"] = WriteImage(q.Image);
 				o["mapId"] = q.MapId;
 				o["target"] = q.Target is { } t ? new JsonObject { ["x"] = t.X, ["y"] = t.Y } : null;
+				if (q.MapCheckedIn != null) o["mapCheckedIn"] = q.MapCheckedIn;
 				o["buzzFirst"] = q.BuzzFirst;
 				WriteCloseness(o, q);
 				break;
@@ -220,6 +221,7 @@ public static class QuizJson
 				.Take(ScoringPresets.PlacesMax).ToList();
 		q.MapId = o["mapId"] is JsonValue mid && mid.TryGetValue<string>(out var mapId) ? mapId : null;
 		q.Target = ReadPoint(o["target"]);
+		q.MapCheckedIn = o["mapCheckedIn"] is JsonValue mc && mc.TryGetValue<string>(out var checkedIn) && AppVersion.Parse(checkedIn) != null ? checkedIn : null;
 		if (o["hints"] is JsonArray hints)
 		{
 			q.Hints = hints.Select(h => h is JsonValue v && v.TryGetValue<string>(out var s) ? s : "").Take(QuestionLimits.HintsMax).ToList();
@@ -257,14 +259,19 @@ public static class QuizJson
 		return o;
 	}
 
-	public static MapAsset ReadMap(JsonObject o) => new()
+	public static MapAsset ReadMap(JsonObject o)
 	{
-		Id = Str(o, "id"),
-		Name = Str(o, "name"),
-		Image = ReadImage(o["image"]) ?? new ImageAsset(),
-		WidthKm = o["widthKm"] is JsonValue w && w.TryGetValue<double>(out var km) ? km : null,
-		PresetId = o["presetId"] is JsonValue p && p.TryGetValue<string>(out var pid) ? pid : null,
-	};
+		var presetId = o["presetId"] is JsonValue p && p.TryGetValue<string>(out var pid) ? pid : null;
+		return new()
+		{
+			Id = Str(o, "id"),
+			// (a built-in map renamed since: its new name)
+			Name = MapPresets.CurrentName(presetId, Str(o, "name")),
+			Image = ReadImage(o["image"]) ?? new ImageAsset(),
+			WidthKm = o["widthKm"] is JsonValue w && w.TryGetValue<double>(out var km) ? km : null,
+			PresetId = presetId,
+		};
+	}
 
 	public static NormPoint? ReadPoint(JsonNode? node) =>
 		node is JsonObject t && t["x"] is JsonValue x && t["y"] is JsonValue y && x.TryGetValue<double>(out var px) && y.TryGetValue<double>(out var py)

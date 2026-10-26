@@ -112,6 +112,8 @@ public partial class SettingsScreen : Control
 			U.Field("Background picture", U.Select(Backgrounds.All, d.Background, id => Change(Draft with { Background = id }))),
 			U.Field("Background movement", U.Segmented(new[] { ("on", "On"), ("off", "Off") }, d.BackgroundMotion ? "on" : "off", id => Change(Draft with { BackgroundMotion = id == "on" }))),
 			U.Muted("On wide monitors, the space picture beside the game sways with the mouse. Off keeps it still.", 12),
+			U.Field("Intro when the game starts", U.Segmented(Settings.IntroChoices, Settings.Intro, id => Settings.Intro = id)).With(f => New.Mark(f, "settings.intro")),
+			U.Muted("The joke parts are the anti-cheat window, the World Premiere video, the publisher and the sponsor. \"Skip it all\" goes straight to the title screen.", 12),
 			U.Field("Theme", U.Small("☀ Switch to light mode", HomeScreen.LightMode).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin)),
 			U.Muted("Frame rate is capped at 60 FPS.", 12),
 			new CheckBox { Text = Lang.T("Ask before deleting a quiz"), ButtonPressed = Settings.AskBeforeDeletingQuiz, MouseDefaultCursorShape = CursorShape.PointingHand }

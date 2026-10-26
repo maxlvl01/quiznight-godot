@@ -32,6 +32,9 @@ To try it alone, use LAN mode: open the game twice (or more) and join `127.0.0.1
 
 ## License
 
-The code is MIT. **Game map images are not** — they belong to their game publishers
+Quiznight? is free, and always will be: no purchases, no ads, no donations.
+
+From 0.12 on the code is under the [PolyForm Noncommercial License 1.0.0](LICENSE): anyone may use, change and share
+it, but not sell it or use it commercially. (Versions up to 0.11.x were MIT.) **Game map images are not covered** — they belong to their game publishers
 (and UESP.net for the Elder Scrolls maps). Game names are trademarks of their owners; Quiznight is a
 fan project and not affiliated with them.

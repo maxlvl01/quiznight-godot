@@ -13,6 +13,11 @@ namespace QuizNight.Shared;
 public static class Limits
 {
 	public const int CodeLength = 4;
+	/// <summary>
+	/// Goes up when the messages change in a way older games can't read: a game with another number can't join (games
+	/// before 0.12 send none and may join; the lobby says what they can't play, <see cref="VersionCheck"/>).
+	/// </summary>
+	public const int Protocol = 1;
 	public const int NameMaxLength = 12;
 	/// <summary>A clan tag in square brackets before the name ("[OTB] maxlvl") doesn't count: up to this many inside the brackets.</summary>
 	public const int ClanTagMaxLength = 6;
@@ -126,6 +131,8 @@ public sealed class PublicPlayer
 	public int? JoinedAt;
 	/// <summary>Left during the game (and not back yet): the question (1-based) they left at.</summary>
 	public int? LeftAt;
+	/// <summary>Their game's version ("" = before 0.12, which didn't say).</summary>
+	public string Version = "";
 }
 
 public sealed class QuizInfo
@@ -554,6 +561,9 @@ public sealed class JoinRequest
 	public string ClientId = "";
 	/// <summary>The room code the player typed (Steam): the host lets nobody in without it.</summary>
 	public string Code = "";
+	/// <summary>The player's game version and <see cref="Limits.Protocol"/> ("" and 0 from games before 0.12).</summary>
+	public string Version = "";
+	public int Protocol;
 }
 
 public sealed class JoinReply

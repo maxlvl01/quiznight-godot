@@ -167,7 +167,8 @@ public partial class QuizOverviewScreen : Control
 		prompt.ClipText = true;
 		prompt.SizeFlagsHorizontal = SizeFlags.ExpandFill;
 		var sub = U.H(0, U.Muted(QuizRules.Summary(q), 12, false));
-		if (broken) sub.AddChild(U.Text(" · incomplete", 12, C.Accent));
+		if (QuizRules.MapNeedsCheck(q, _quiz.Maps)) sub.AddChild(U.Text(" · ⚠ map changed: check the spot", 12, C.Orange));
+		else if (broken) sub.AddChild(U.Text(" · incomplete", 12, C.Accent));
 		var text = U.V(0, prompt, sub).Grow();
 		var grip = new GripIcon { CustomMinimumSize = new Vector2(12, 20), SizeFlagsVertical = SizeFlags.ShrinkCenter };
 		// (click opens the question; drag it onto another row to move it there)

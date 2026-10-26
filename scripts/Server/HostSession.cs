@@ -256,6 +256,12 @@ public sealed class HostSession : IDisposable
 				return;
 			}
 		}
+		// (a game that can't read this one's messages; games before 0.12 send no number and may join)
+		if (req.Protocol != 0 && req.Protocol != Limits.Protocol)
+		{
+			Refuse(peer, Lang.F("Your Quiznight ({0}) doesn't fit the host's ({1}). Update to the same version, then join again.", req.Version, Godot.ProjectSettings.GetSetting("application/config/version").AsString()));
+			return;
+		}
 		var id = steamId != null ? "steam:" + steamId
 			: cid is { Length: > 0 and <= 64 } && !cid.StartsWith("steam") ? "lan:" + cid
 			: "lan:" + peer;
@@ -277,6 +283,7 @@ public sealed class HostSession : IDisposable
 			_net.Send(peer, Msg.Encode(Msg.Joined, new JoinReply { Ok = false, Error = error }));
 			return;
 		}
+		player.Version = AppVersion.Parse(req.Version) != null ? req.Version : "";
 		// Coming back on a new connection: the old one is stale.
 		if (PeerOf(id) is { } old && old != peer)
 		{
