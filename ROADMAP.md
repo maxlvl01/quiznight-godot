@@ -10,6 +10,44 @@ off (`- [x]`) when they're done, with the version they came in.
 
 ---
 
+## 0.12 — collecting (nothing built yet)
+
+- [ ] **Licence: MIT → PolyForm Noncommercial 1.0.0** (from 0.12 on; nobody may sell it, free forever). Swap `LICENSE` for
+  the official text (copyright line: Max and Quiznight contributors). The in-game credits read that file, so they follow.
+  README: licence section says PolyForm Noncommercial (map images still belong to their publishers), plus a line
+  "Quiznight? is and always will be free: no purchases, no ads, no donations". Changelog entry. Versions up to 0.11.x
+  stay MIT for anyone who already has them — that can't be taken back.
+- [ ] **Changed maps must be re-checked before hosting.** When an update swaps a built-in map's picture (different or
+  better image) or its scale, every map pin question on that map gets a small "map changed" icon (quiz list, quiz
+  overview, the question in the editor). The host opens it, checks the answer pin still sits on the right spot (moves it
+  if not) and ticks "Checked: the pin is right on the new map". Until every such question is ticked the quiz isn't ready,
+  so its lobby can't be opened (a `QuizIssues` entry, like other unfinished questions).
+  Idea: `MapPreset` gets `ChangedIn: "x.y.zb"` next to `AddedIn` (with a short note on what changed, shown with the
+  icon); each map pin question remembers which map version its pin was checked on (placing or moving the pin, or the
+  tick, stamps it; quiz format bump). A question with no stamp (older files, imports, share codes) counts as made before
+  any change. Also a dev flag like `--pretend-new-map` to see the icon.
+- [ ] **Lobby checks players' versions.** Today a join sends no version at all (`JoinRequest`: name, id, code), so a
+  player on an old build gets in and things break mid-game when the quiz uses something their build doesn't have.
+  - Every join sends the player's app version (and a protocol number that goes up when messages change in a way old
+    builds can't read). A join without one is "older than 0.12".
+  - The host's lobby shows each player's version; anyone older than the host gets a warning icon ("0.11.3b — older
+    than yours").
+  - The quiz is compared with each player's version: what it uses that their build doesn't have (question types, built-in
+    maps via `AddedIn`, later features) → "Ann can't play question 5 (Interactive, needs 0.10)". Start then asks the host
+    to confirm (or wait for Ann to update); nothing breaks silently.
+  - A protocol mismatch (too old to understand the game at all) refuses the join with a clear message on the player's
+    side: "The host has 0.12.0b, you have 0.11.3b — update first" (with the update button, as the updater already can).
+  - Also the other way: a player newer than the host is fine unless the protocol differs.
+- [x] (0.11.4b, hotfix so it's out while it's still October) **October intro song: "The Sleepy Sneaky Sway" (Luella Gren)** plays after the voice line when the game opens
+  **during October only** (`Seasons.IsHalloween`, already all of October; try it with `--date`); the rest of the year
+  "Easy Breezy" stays the first song. It's a Halloween-only song: it goes in a new `assets/music/halloween/` folder whose
+  songs only join the shuffle in October (like `christmas/` in December), and the rest of the year it never plays.
+  Max put the WAV in the main checkout's `assets/music/` (50 MB): convert it to Ogg Vorbis like the others
+  (`ES_The Sleepy Sneaky Sway - Luella Gren.ogg`), make `UiAudio.IntroSong` pick it in October, check its loudness against the others (the per-song volume list), add it to `assets/music/CREDITS.md` with its Epidemic Sound
+  link (https://www.epidemicsound.com/music/tracks/40774b7c-6290-4670-9025-49fef59ad2c7/), changelog entry.
+
+---
+
 ## 0.10.0b "Season Ticket" — done
 
 - [x] (0.10.0b) **Ewige Tabelle per question type and subtype** (the main point, not categories): a filter with every question
