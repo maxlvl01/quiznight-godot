@@ -33,6 +33,8 @@ public sealed class HostSession : IDisposable
 		_net = net;
 		_net.PeerDisconnected += OnPeerDisconnected;
 		_net.Received += OnReceived;
+		// (the mini games: everyone in the lobby whose game has them, and the host)
+		Arcade.Players = () => Room.Players.Where(p => p.Connected && p.Version != "").Select(p => p.Id).Append(ArcadeGame.HostId);
 	}
 
 	public RoomState State => StateFor("host");
@@ -44,6 +46,7 @@ public sealed class HostSession : IDisposable
 	RoomState StateFor(string viewer)
 	{
 		var state = Room.ToState(viewer);
+		if (Room.Phase == Phase.Lobby) state.Arcade = Arcade.View();
 		if (Room.SharedFiles.Count > 0) state.Downloads = Room.Players.ToDictionary(p => p.Id, p => DownloadPercent(p.Id, Room.SharedFiles));
 		if (state.Game is { Stage: Stage.Open } view && Playing() && Room.Game!.CurrentFiles().ToList() is { Count: > 0 } current)
 			view.MediaProgress = Room.Players.ToDictionary(p => p.Id, p => DownloadPercent(p.Id, current));
@@ -73,6 +76,7 @@ public sealed class HostSession : IDisposable
 	{
 		_net.Poll();
 		if (Room.Tick()) Broadcast();
+		if (Room.Phase == Phase.Lobby) ArcadeDone(Arcade.Tick(Godot.Engine.GetMainLoop() is Godot.SceneTree tree ? tree.Root.GetProcessDeltaTime() : 1 / 60.0));
 		SendMedia();
 		var now = Godot.Time.GetTicksMsec() / 1000.0;
 		if (_progressChanged && now - _progressSentAt > 0.4)
@@ -157,6 +161,7 @@ public sealed class HostSession : IDisposable
 		// A newer connection may already have taken over this seat.
 		if (PeerOf(playerId) != null) return;
 		Room.Disconnect(playerId);
+		ArcadeDone(Arcade.Gone(playerId));
 		Broadcast();
 	}
 
@@ -174,6 +179,7 @@ public sealed class HostSession : IDisposable
 			case Msg.Leave when playerId != null:
 				_peerPlayer.Remove(peer);
 				Room.Leave(playerId);
+				ArcadeDone(Arcade.Gone(playerId));
 				_net.Disconnect(peer);
 				Broadcast();
 				break;
@@ -207,6 +213,9 @@ public sealed class HostSession : IDisposable
 				break;
 			case Msg.Recording when playerId != null:
 				if (Msg.Read<RecordingPart>(msg.Data) is { } rp) ReceiveRecording(peer, playerId, rp);
+				break;
+			case Msg.Arcade when playerId != null && Room.Phase == Phase.Lobby:
+				if (Msg.Read<ArcadeRequest>(msg.Data) is { } arcade) ArcadeDone(Arcade.Request(playerId, arcade));
 				break;
 			case Msg.AssetRequest when playerId != null:
 				if (Msg.Read<AssetRequest>(msg.Data) is { } ar) SendAsset(peer, ar.Key);
@@ -316,6 +325,7 @@ public sealed class HostSession : IDisposable
 	{
 		if (Room.GetPlayer(playerId) == null) return;
 		Room.Remove(playerId);
+		ArcadeDone(Arcade.Gone(playerId));
 		// (and they stay out: rejoining with the code would otherwise just bring them back)
 		_kicked.Add(playerId);
 		if (PeerOf(playerId) is { } peer)
@@ -361,8 +371,41 @@ public sealed class HostSession : IDisposable
 	public Result Start()
 	{
 		var result = Room.Start();
-		if (result.Ok) Broadcast();
+		if (!result.Ok) return result;
+		// (the quiz starts: every mini game ends, counting for nobody)
+		SendFrames(Arcade.StopAll());
+		Broadcast();
 		return result;
+	}
+
+	// ---------- the lobby's mini games (Shared/Arcade.cs, ArcadeHost) ----------
+
+	/// <summary>The mini games: challenges, matches and this lobby's records.</summary>
+	public readonly ArcadeHost Arcade = new();
+
+	/// <summary>A match the host is in moved on (the host's screen draws it).</summary>
+	public event Action<ArcadeFrame>? ArcadeFrame;
+
+	/// <summary>The host's own mini game requests (plays as ArcadeGame.HostId).</summary>
+	public void ArcadeRequest(ArcadeRequest request)
+	{
+		if (Room.Phase == Phase.Lobby) ArcadeDone(Arcade.Request(ArcadeGame.HostId, request));
+	}
+
+	void ArcadeDone((bool Changed, List<ArcadeFrame> Frames) done)
+	{
+		SendFrames(done.Frames);
+		if (done.Changed) Broadcast();
+	}
+
+	void SendFrames(List<ArcadeFrame> frames)
+	{
+		foreach (var frame in frames)
+		foreach (var id in new[] { frame.A, frame.B })
+		{
+			if (id == ArcadeGame.HostId) ArcadeFrame?.Invoke(frame);
+			else if (PeerOf(id) is { } peer) _net.Send(peer, Msg.Encode(Msg.ArcadeFrame, frame));
+		}
 	}
 
 	public void BackToLobby()

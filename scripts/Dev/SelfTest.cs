@@ -964,7 +964,7 @@ public static class SelfTest
 		Check(Ui.Skins.Effective(Ui.Skins.F1, false) == Ui.Skins.F1 && Ui.Skins.Effective(Ui.Skins.F1, true) == (seasonNow ?? Ui.Skins.F1),
 			"skins: the season's skin comes on by itself (unless seasonal skins are off), else the chosen one shows");
 		Check(Ui.Skins.Available.Any(a => Ui.Skins.IsSeasonal(a.Id)) == App.LanUnlocked, "skins: the seasonal ones can only be picked in developer mode");
-		Check(Storage.Sfx.Podiums.First(p => p.Id == "f1-podium").Db == 10, "the F1 podium sound plays 10 dB louder");
+		Check(Storage.Sfx.Podiums.All(p => p.Db == 0) && Storage.Sfx.Buzzers.All(b => b.Db == 0), "built-in sounds need no volume boost (their files are levelled)");
 		Check(AppVersion.Parse("hello") == null, "not a version");
 		var notes = Changelog.Parse(Godot.FileAccess.GetFileAsString("res://CHANGELOG.md"));
 		var thisVersion = notes.FirstOrDefault(r => r.Version is { } nv && AppVersion.Parse(App.Version) is { } av && nv.CompareTo(av) == 0);
@@ -982,6 +982,31 @@ public static class SelfTest
 		var back = WowAtlas.WorldToLocation(world)!.Value;
 		Check(Math.Abs(back.X - loc.X) < 0.01 && Math.Abs(back.Y - loc.Y) < 0.01, "world/zone round trip");
 		Eq(WowAtlas.ZoneAt(loc)?.Id, 1429, "zone lookup");
+		{
+			// The lobby's mini games: a challenge, accepted, played to the end; the record counts it; the quiz starting cuts
+			// a match off for nobody.
+			var arcade = new ArcadeHost { Players = () => new[] { "ann", "ben", ArcadeGame.HostId } };
+			arcade.Request("ann", new ArcadeRequest { Kind = ArcadeRequest.Challenge, Game = ArcadeGame.Pong, Who = "ben" });
+			var started = arcade.Request("ben", new ArcadeRequest { Kind = ArcadeRequest.Accept, Who = "ann" }).Frames.Count == 1;
+			// (both paddles parked at the top: the ball gets past, points pile up)
+			arcade.Request("ann", new ArcadeRequest { Kind = ArcadeRequest.Paddle, Value = 0 });
+			arcade.Request("ben", new ArcadeRequest { Kind = ArcadeRequest.Paddle, Value = 0 });
+			string? winner = null;
+			for (var t = 0; t < 60 * 120 && winner == null; t++) winner = arcade.Tick(1 / 60.0).Frames.FirstOrDefault(f => f.Winner != null)?.Winner;
+			var view = arcade.View();
+			Check(started && winner is "ann" or "ben" && view.Records.Count == 1 && view.Records[0].WinsA + view.Records[0].WinsB == 1 && view.Matches.Count == 0,
+				"mini games: a Pong match is played to 5 and counted");
+			arcade.Request(ArcadeGame.HostId, new ArcadeRequest { Kind = ArcadeRequest.Challenge, Game = ArcadeGame.Billiard, Who = "ann" });
+			arcade.Request("ann", new ArcadeRequest { Kind = ArcadeRequest.Accept, Who = ArcadeGame.HostId });
+			arcade.Request(ArcadeGame.HostId, new ArcadeRequest { Kind = ArcadeRequest.Shot, Angle = 0, Power = 1 });
+			var rolled = false;
+			for (var t = 0; t < 60 * 30; t++) rolled |= arcade.Tick(1 / 60.0).Frames.Any(f => f.Billiard is { Moving: false } b && b.X.All(double.IsFinite));
+			var cut = arcade.StopAll();
+			Check(rolled && cut.Count == 1 && cut[0].Winner == "" && arcade.View().Records.Count == 1, "mini games: a billiard shot rolls to a stop; starting the quiz cuts the match off for nobody");
+			arcade.Request("ann", new ArcadeRequest { Kind = ArcadeRequest.Score, Value = 1200 });
+			arcade.Request("ann", new ArcadeRequest { Kind = ArcadeRequest.Score, Value = 800 });
+			Check(arcade.View().TetrisBest["ann"] == 1200, "mini games: Tetris keeps each player's best score");
+		}
 		Check(WowAtlas.ExtraZoneAt(new NormPoint(690.0 / WowAtlas.ImageWidth, 265.0 / WowAtlas.ImageHeight)) == "Gilneas"
 			&& WowAtlas.ExtraZoneAt(new NormPoint(850.0 / WowAtlas.ImageWidth, 415.0 / WowAtlas.ImageHeight)) == "Riverglades"
 			&& WowAtlas.ExtraZoneAt(new NormPoint(0.5, 0.5)) == null, "WoW Forever's new zones are named on the map");

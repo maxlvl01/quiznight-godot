@@ -49,6 +49,33 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 		_host = host;
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		AddChild(U.Page(U.Panel(_content).With(Seasonal.SnowOn), 1000, 16));
+		host.Arcade.HostName = Storage.Settings.PlayerName is { Length: > 0 } name ? name : Lang.T("Host");
+		_arcadeLink = Arcade.ArcadeLink.ForHost(host);
+		_arcadeLink.Frame += OpenOnMatch;
+	}
+
+	// ---------- the mini games (Ui/Arcade) ----------
+
+	readonly Arcade.ArcadeLink _arcadeLink;
+	Arcade.ArcadeWindow? _arcade;
+
+	public void OpenArcade()
+	{
+		if (_arcade == null || !IsInstanceValid(_arcade)) AddChild(_arcade = new Arcade.ArcadeWindow(_arcadeLink));
+	}
+
+	/// <summary>Someone accepted my challenge while the window was closed: it opens on the match.</summary>
+	void OpenOnMatch(ArcadeFrame frame)
+	{
+		if (frame.Winner != null || _arcade != null && IsInstanceValid(_arcade)) return;
+		OpenArcade();
+		_arcade!.OnFrame(frame);
+	}
+
+	public override void _ExitTree()
+	{
+		_arcadeLink.Frame -= OpenOnMatch;
+		_arcadeLink.Unhook();
 	}
 
 	/// <summary>
@@ -97,6 +124,8 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 			grid.AddChild(U.Panel(empty, "Card2").With(p => p.Modulate = new Color(1, 1, 1, 0.5f)).Grow());
 		}
 		_content.AddChild(grid);
+		_content.AddChild(Arcade.ArcadeWindow.LobbyStrip(_arcadeLink, OpenArcade));
+		if (_arcade != null && IsInstanceValid(_arcade)) _arcade.Refresh();
 		// (the options sit at the bottom of the screen; the seats grow into the space above them)
 		_content.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
 
@@ -175,6 +204,32 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 		_client = client;
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		AddChild(U.Page(U.Panel(_content).With(Seasonal.SnowOn), 1000, 16));
+		_arcadeLink = Arcade.ArcadeLink.ForPlayer(client);
+		_arcadeLink.Frame += OpenOnMatch;
+	}
+
+	// ---------- the mini games (Ui/Arcade) ----------
+
+	readonly Arcade.ArcadeLink _arcadeLink;
+	Arcade.ArcadeWindow? _arcade;
+
+	void OpenArcade()
+	{
+		if (_arcade == null || !IsInstanceValid(_arcade)) AddChild(_arcade = new Arcade.ArcadeWindow(_arcadeLink));
+	}
+
+	/// <summary>Someone accepted my challenge while the window was closed: it opens on the match.</summary>
+	void OpenOnMatch(ArcadeFrame frame)
+	{
+		if (frame.Winner != null || _arcade != null && IsInstanceValid(_arcade)) return;
+		OpenArcade();
+		_arcade!.OnFrame(frame);
+	}
+
+	public override void _ExitTree()
+	{
+		_arcadeLink.Frame -= OpenOnMatch;
+		_arcadeLink.Unhook();
 	}
 
 	/// <summary>While you change your name: the field (kept across updates, so typing isn't lost).</summary>
@@ -211,6 +266,9 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 			grid.AddChild(U.Panel(empty, "Card2").With(p => p.Modulate = new Color(1, 1, 1, 0.5f)).Grow());
 		}
 		_content.AddChild(grid);
+		// (the mini games need a version from 0.12 on on both sides: the host sends their part of the state)
+		if (room.Arcade != null) _content.AddChild(Arcade.ArcadeWindow.LobbyStrip(_arcadeLink, OpenArcade));
+		if (_arcade != null && IsInstanceValid(_arcade)) _arcade.Refresh();
 		_content.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
 		_content.AddChild(Rules(room.Settings));
 		_content.AddChild(U.H(16,

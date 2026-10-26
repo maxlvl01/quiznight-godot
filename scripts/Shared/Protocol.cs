@@ -163,6 +163,8 @@ public sealed class RoomState
 	public Dictionary<string, NightStats> Stats = new();
 	/// <summary>How much of the quiz's pictures, sounds and videos each player has, 0–100 (all of it, ahead of time).</summary>
 	public Dictionary<string, int> Downloads = new();
+	/// <summary>The lobby's mini games (challenges, matches, records); only while in the lobby.</summary>
+	public ArcadeView? Arcade;
 
 	public int Score(string playerId) => Scores.TryGetValue(playerId, out var s) ? s : 0;
 
@@ -500,6 +502,8 @@ public static class Msg
 	public const string Rename = "rename";
 	/// <summary>Part of an interactive question's recording (RecordingPart).</summary>
 	public const string Recording = "recording";
+	/// <summary>The lobby's mini games (ArcadeRequest).</summary>
+	public const string Arcade = "arcade";
 
 	// host → player
 	public const string Joined = "joined";
@@ -508,6 +512,8 @@ public static class Msg
 	public const string Closed = "closed";
 	public const string Kicked = "kicked";
 	public const string Asset = "asset";
+	/// <summary>A mini game match, to the two in it (ArcadeFrame).</summary>
+	public const string ArcadeFrame = "arcadeFrame";
 
 	public static readonly JsonSerializerOptions Json = new()
 	{

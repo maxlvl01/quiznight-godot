@@ -162,6 +162,9 @@ public sealed class ClientSession : IDisposable
 				var result = Msg.Read<Result>(msg.Data) ?? Result.Fail("Something went wrong.");
 				if (_pendingAnswers.Count > 0) _pendingAnswers.Dequeue()(result);
 				break;
+			case Msg.ArcadeFrame:
+				if (Msg.Read<ArcadeFrame>(msg.Data) is { } frame) ArcadeFrame?.Invoke(frame);
+				break;
 			case Msg.Asset:
 				if (Msg.Read<AssetPart>(msg.Data) is { } part) Assets.Receive(part);
 				break;
@@ -182,6 +185,12 @@ public sealed class ClientSession : IDisposable
 	// ---------- player actions ----------
 
 	public void Buzz() => _net?.Send(Msg.Encode(Msg.Buzz));
+
+	/// <summary>The lobby's mini games: a challenge, a paddle, a shot … (Shared/Arcade.cs).</summary>
+	public void Arcade(ArcadeRequest request) => _net?.Send(Msg.Encode(Msg.Arcade, request));
+
+	/// <summary>A match this player is in moved on.</summary>
+	public event Action<ArcadeFrame>? ArcadeFrame;
 
 	/// <summary>Change your name (waiting room only); it's also the name you join with next time.</summary>
 	public void Rename(string name)

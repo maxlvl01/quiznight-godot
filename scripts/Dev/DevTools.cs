@@ -42,6 +42,7 @@ public sealed class DevTools
 	bool _rowDragged;
 	int _introKeys;
 	bool _undoChecked;
+	bool _arcadeOpened;
 	bool _dropdownOpened;
 	bool _scrolled;
 
@@ -509,6 +510,15 @@ public sealed class DevTools
 			var key = new InputEventKey { Keycode = _introKeys == 1 ? Key.Escape : Key.Space, Pressed = true };
 			_app.GetViewport().PushInput(key, true);
 		}
+		// --arcade menu|pong|billiard (hosting): at 6 s the mini games window opens; pong/billiard challenge the first player
+		// (a bot accepts by itself)
+		if (_time >= 6 && !_arcadeOpened && Value("--arcade") is { } arcadeGame && _app.Host != null)
+		{
+			_arcadeOpened = true;
+			Bot.All(_app).OfType<Ui.Screens.HostLobbyScreen>().FirstOrDefault()?.OpenArcade();
+			if (arcadeGame != "menu" && _app.Host.Room.Players.FirstOrDefault() is { } first)
+				_app.Host.ArcadeRequest(new ArcadeRequest { Kind = ArcadeRequest.Challenge, Game = arcadeGame, Who = first.Id });
+		}
 		// --open-dropdown [N]: opens the screen's first (or Nth, from 1) dropdown at 1 s (to see its arrow and how it unfolds)
 		if (_time >= 1 && !_dropdownOpened && Has("--open-dropdown"))
 		{
@@ -747,6 +757,50 @@ public sealed class DevTools
 	sealed class Bot(App app, bool drag = false, Action<string>? shot = null)
 	{
 		readonly Random _rng = new();
+		ArcadeFrame? _arcade;
+		bool _arcadeHooked;
+		double _arcadeAt, _acceptAt = -1;
+
+		/// <summary>
+		/// The lobby's mini games: a bot accepts any challenge after a moment, follows the ball in Pong (a bit late, so
+		/// it can lose) and shoots at the nearest ball in Billiard.
+		/// </summary>
+		void PlayArcade(Net.ClientSession client, double now)
+		{
+			if (!_arcadeHooked)
+			{
+				_arcadeHooked = true;
+				client.ArcadeFrame += f => _arcade = f.Winner == null ? f : null;
+			}
+			if (client.State?.Arcade?.Invites.FirstOrDefault(i => i.To == client.MyId) is { } invite)
+			{
+				if (_acceptAt < 0) _acceptAt = now + 1.5;
+				else if (now >= _acceptAt)
+				{
+					_acceptAt = -1;
+					client.Arcade(new ArcadeRequest { Kind = ArcadeRequest.Accept, Who = invite.From });
+				}
+			}
+			if (_arcade == null || now - _arcadeAt < 0.1) return;
+			_arcadeAt = now;
+			if (_arcade.Pong is { } p)
+			{
+				var mine = _arcade.A == client.MyId ? p.PaddleA : p.PaddleB;
+				var aim = p.BallY + (_rng.NextDouble() - 0.5) * 0.5;
+				var y = mine + Math.Clamp(aim - mine, -0.35, 0.35);
+				client.Arcade(new ArcadeRequest { Kind = ArcadeRequest.Paddle, Value = y / PongState.H });
+			}
+			else if (_arcade.Billiard is { Moving: false } b && (b.Turn == "A" ? _arcade.A : _arcade.B) == client.MyId && now - _arcadeShotAt > 2)
+			{
+				_arcadeShotAt = now;
+				var target = Enumerable.Range(1, b.X.Count - 1).Where(i => !b.In[i]).OrderBy(i => Math.Pow(b.X[i] - b.X[0], 2) + Math.Pow(b.Y[i] - b.Y[0], 2)).FirstOrDefault();
+				if (target == 0) return;
+				var angle = Math.Atan2(b.Y[target] - b.Y[0], b.X[target] - b.X[0]) + (_rng.NextDouble() - 0.5) * 0.08;
+				client.Arcade(new ArcadeRequest { Kind = ArcadeRequest.Shot, Angle = angle, Power = 0.5 + _rng.NextDouble() * 0.5 });
+			}
+		}
+
+		double _arcadeShotAt;
 		string? _handled;
 		double _actAt = -1;
 		Action? _action;
@@ -765,6 +819,7 @@ public sealed class DevTools
 				}
 				return;
 			}
+			PlayArcade(client, now);
 			var g = client.State?.Game;
 			// Jokers: a bot plays a Fast Pass on the first buzzer question it can, and Double points on the third question.
 			if (client.State?.Phase == Phase.Playing && g?.JokerIndex is { } jokerAt && client.State.Settings.Jokers.Count > 0)
