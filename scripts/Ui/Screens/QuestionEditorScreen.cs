@@ -32,7 +32,8 @@ public partial class QuestionEditorScreen : Control
 		_isNew = isNew;
 		SetAnchorsPreset(LayoutPreset.FullRect);
 
-		var title = QuestionType.Infos[_draft.Type].Label + (_draft.Type is QuestionType.MapPin or QuestionType.Estimation or QuestionType.Sound or QuestionType.Video ? " question" : "");
+		// (an image reveal is a picture question shown as a reveal: same title)
+		var title = QuestionType.Infos[_draft.Type == QuestionType.Image ? QuestionType.Picture : _draft.Type].Label + (_draft.Type is QuestionType.MapPin or QuestionType.Estimation or QuestionType.Sound or QuestionType.Video ? " question" : "");
 		var bar = U.Panel(U.H(12,
 			U.Link("← Back to quiz", Back, 14),
 			U.Heading(title, 22, false).Grow().With(l => l.HorizontalAlignment = HorizontalAlignment.Center),
@@ -184,7 +185,9 @@ public partial class QuestionEditorScreen : Control
 	{
 		var choice = _draft.IsChoice;
 		var picture = _draft.Type == QuestionType.Picture;
-		var left = U.V(14, PromptArea(picture ? "e.g. Which game is this Steam review about?" : "e.g. How many hours did we play last month?"),
+		var left = U.V(14, PromptArea(picture ? "e.g. Which game is this Steam review about?" : "e.g. How many hours did we play last month?"));
+		if (picture) left.AddChild(PictureKind());
+		left.AddChild(
 			U.Segmented(new[]
 				{
 					(ClassicMode.Buzzer, "Buzzer — first to buzz"),
@@ -631,6 +634,38 @@ public partial class QuestionEditorScreen : Control
 
 	// ---------- image reveal ----------
 
+	/// <summary>
+	/// Picture questions: a still picture or slideshow, or a reveal that gets clearer over time (the old "Image reveal"
+	/// type: inside it's still its own type, so quizzes stay as they were and older games can play them).
+	/// </summary>
+	Control PictureKind() => U.Segmented(new[]
+		{
+			("still", "Picture or slideshow"),
+			("reveal", "Reveal — it gets clearer over time"),
+		},
+		_draft.Type == QuestionType.Image ? "reveal" : "still", kind =>
+		{
+			if (kind == "reveal" && _draft.Type == QuestionType.Picture)
+			{
+				_draft.Type = QuestionType.Image;
+				_draft.Image ??= _draft.Slides.FirstOrDefault();
+				// (a reveal is buzzed or typed: A B C D answers become the right one to type)
+				if (_draft.IsChoice)
+				{
+					_draft.AnswerText = _draft.IsMulti ? string.Join(" / ", _draft.CorrectChoices.Select(i => _draft.Choices[i])) : _draft.Choices[_draft.CorrectChoice];
+					_draft.Mode = ClassicMode.Buzzer;
+					_draft.Typed = true;
+				}
+			}
+			else if (kind == "still" && _draft.Type == QuestionType.Image)
+			{
+				_draft.Type = QuestionType.Picture;
+				if (_draft.Slides.Count == 0 && _draft.Image != null) _draft.Slides = new() { _draft.Image };
+			}
+			else return;
+			Changed(true);
+		});
+
 	Control ImageRevealForm()
 	{
 		_primaryImage = new ImageField(_draft.Image, img =>
@@ -655,7 +690,7 @@ public partial class QuestionEditorScreen : Control
 				? "Click the picture to choose the spot it starts zoomed in on (the yellow ring)."
 				: "This is what your screen shows; it gets sharper until the time is up.").Grow());
 		}
-		var left = U.V(14, PromptLine(), pictures,
+		var left = U.V(14, PromptLine(), PictureKind(), pictures,
 			U.Field("Correct answer (only you see this)", U.Input(_draft.AnswerText, "e.g. The Eiffel Tower", t =>
 			{
 				_draft.AnswerText = t;

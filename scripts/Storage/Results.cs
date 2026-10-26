@@ -314,6 +314,8 @@ public static class Results
 			// (nights before 0.10.3b had "Write the answer" as its own type: it counts as classic, everyone types)
 			var (type, subtype) = (row.GetValueOrDefault("type", ""), row.GetValueOrDefault("subtype", ""));
 			if (type == QuestionType.Write) (type, subtype) = (QuestionType.Classic, QuestionKinds.Typed);
+			// (an image reveal is a picture question shown as a reveal, since 0.12)
+			if (type == QuestionType.Image) (type, subtype) = (QuestionType.Picture, QuestionKinds.Reveal);
 			rows.Add(new QuestionRow(date, quiz.Trim(), I("question"), id, row.GetValueOrDefault("player", ""), type,
 				subtype, row.GetValueOrDefault("category", ""), I("q_points"), I("right") == 1, I("answered") == 1,
 				I("q_buzzes"), I("wrong_buzzes"), D("buzz_s"), D("answer_s"), D("km_off"), D("pct_off"),

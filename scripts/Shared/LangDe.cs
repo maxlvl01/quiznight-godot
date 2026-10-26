@@ -1425,5 +1425,11 @@ public static class LangDe
 		["Mark all as read"] = "Alle als gelesen markieren",
 		["Removes the yellow dots on what's new since your last update"] = "Entfernt die gelben Punkte bei allem, was seit deinem letzten Update neu ist",
 		["The"] = "Das",
+		["Picture · reveal"] = "Bild · Aufdecken",
+		["picture reveal"] = "Bild zum Aufdecken",
+		["Picture or slideshow"] = "Bild oder Diashow",
+		["Reveal — it gets clearer over time"] = "Aufdecken – wird mit der Zeit deutlicher",
+		["Reveal"] = "Aufdecken",
+		["Reveal: the picture starts zoomed right in or pixelated and gets clearer over time; players buzz in or type as soon as they know it."] = "Aufdecken: Das Bild startet stark herangezoomt oder verpixelt und wird mit der Zeit deutlicher; die Spieler buzzern oder tippen, sobald sie es wissen.",
 	};
 }

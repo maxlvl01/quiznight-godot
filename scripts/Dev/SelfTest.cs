@@ -120,6 +120,8 @@ public static class SelfTest
 		Check(old.Type == QuestionType.Classic && old.IsTyped && old.AnswerText == "Canberra" && old.TimeLimitSec == 25,
 			"an old \"Write the answer\" question opens as classic, everyone types (answer and time limit kept)");
 		Check(!QuestionType.All.Contains(QuestionType.Write), "\"Write the answer\" isn't offered as a type any more");
+		Check(!QuestionType.All.Contains(QuestionType.Image) && QuestionKinds.Subtypes(QuestionType.Picture).Contains(QuestionKinds.Reveal),
+			"image reveal is picked inside Picture (Picture → Reveal in the stats)");
 		Check(back.IsSentence && back.FilledHints.Count == 3, "a sentence in parts survives saving");
 		var (room, _) = NewRoom(quiz, "ann", "bob");
 		room.Start();

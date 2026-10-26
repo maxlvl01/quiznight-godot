@@ -27,7 +27,8 @@ public static class QuestionType
 	/// <summary>Order the editor shows them in.</summary>
 	/// <summary>The types to pick from. (Write, "Write the answer", is only read from older files and results: it's the
 	/// classic question's "Everyone types" since 0.10.3b, QuizJson turns it into that.)</summary>
-	public static readonly string[] All = { MapPin, Estimation, Classic, Picture, Sound, Video, Image, Order, Steps, Interactive };
+	/// <summary>The types to pick from (Image is a Picture question shown as a reveal: picked inside Picture).</summary>
+	public static readonly string[] All = { MapPin, Estimation, Classic, Picture, Sound, Video, Order, Steps, Interactive };
 
 	/// <summary>Help: what it does, then its variants and options (the "?" on the type cards).</summary>
 	public record Info(string Label, string Short, string Blurb, string Intro = "", string[]? Details = null);
@@ -67,6 +68,7 @@ public static class QuestionType
 				"One picture: e.g. a Steam review, a meme or a chart. Players read it and buzz in.",
 				"Slideshow: add several pictures and flip through them with ◀ ▶ (or the arrow keys); every player's screen follows.",
 				"Answer it like a classic question: buzzer, everyone types, A B C D or multiple choice. A bonus works too.",
+				"Reveal: the picture starts zoomed right in or pixelated and gets clearer over time; players buzz in or type as soon as they know it.",
 			}),
 		[Sound] = new("Sound", "sound", "Play a song or sound effect. Players buzz in; shows how fast it was guessed.",
 			"Play a song or sound effect (MP3, OGG or WAV). It plays on the players' PCs too, once you press Start.",
@@ -84,7 +86,7 @@ public static class QuestionType
 				"Everyone types: everyone types the answer within the time limit.",
 				"Videos must be .ogv: the editor helps you turn an MP4 into one with AnyConverter.",
 			}),
-		[Image] = new("Image reveal", "image reveal", "A picture starts zoomed right in or pixelated and slowly gets clearer. Players buzz in; shows how fast it was guessed.",
+		[Image] = new("Picture · reveal", "picture reveal", "A picture starts zoomed right in or pixelated and slowly gets clearer. Players buzz in; shows how fast it was guessed.",
 			"A picture is hidden and slowly gets clearer, on everyone's screen.",
 			new[]
 			{

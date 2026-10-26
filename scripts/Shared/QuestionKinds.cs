@@ -12,6 +12,8 @@ public static class QuestionKinds
 	/// <summary>Map pin on a picture someone uploaded (not a built-in map).</summary>
 	public const string CustomMap = "custom";
 	public const string Places = "places";
+	/// <summary>Picture questions shown as a reveal (the image reveal type).</summary>
+	public const string Reveal = "reveal";
 
 	/// <summary>The variant a question is played as (empty for types without variants).</summary>
 	public static string Subtype(Question q, Quiz quiz) => q.Type switch
@@ -29,7 +31,8 @@ public static class QuestionKinds
 	/// <summary>The subtypes the filter offers for a type (map pins: the maps that came up in the results).</summary>
 	public static IReadOnlyList<string> Subtypes(string type) => type switch
 	{
-		QuestionType.Classic or QuestionType.Picture => new[] { ClassicMode.Buzzer, Typed, ClassicMode.Choice, ClassicMode.Multi },
+		QuestionType.Classic => new[] { ClassicMode.Buzzer, Typed, ClassicMode.Choice, ClassicMode.Multi },
+		QuestionType.Picture => new[] { ClassicMode.Buzzer, Typed, ClassicMode.Choice, ClassicMode.Multi, Reveal },
 		QuestionType.Sound or QuestionType.Video or QuestionType.Image => new[] { ClassicMode.Buzzer, Typed },
 		QuestionType.Estimation => new[] { Scoring.ClosestWins, Scoring.Top3, Places },
 		QuestionType.Order => new[] { OrderMode.All, OrderMode.Timeline },
@@ -58,6 +61,7 @@ public static class QuestionKinds
 		CustomMap => "Own map",
 		StepsMode.Hints => "Hints",
 		StepsMode.Sentence => "Sentence in parts",
+		Reveal => "Reveal",
 		_ when type == QuestionType.MapPin && MapPresets.Get(subtype) is { } map => map.Name.Split(" (")[0],
 		_ => subtype,
 	};
