@@ -277,6 +277,12 @@ what happened instead.
 
 ## Low priority — once everything else is done
 
+- [ ] **Black box round a drop-down list, now and then.** Opening and closing a drop-down (e.g. Buzzer sound) quickly can
+  leave a black rectangle round the list's rounded panel for a moment (Max: "you really have to try to get it";
+  screenshot 26 October). Likely the list's popup window showing its own black background: `DropDowns.Unfold` resizes
+  the popup window every frame, and a frame where the window is bigger than what's drawn (or its corners aren't see-
+  through) shows black. Fix with the drop-down rework (0.12.0d2 item): give the popup a see-through background and
+  animate the list inside a window of fixed size (a clip/mask) instead of resizing the window.
 - [ ] **WoW Forever map, part 2 (once WoW Forever is out, 4 November 2026).** 0.12.0d1 made the land sharp at every zoom,
   but the old Classic world map still shows beneath it: the sea between and around the land, and through the soft
   see-through edges round each coast (OpenMap's zone art fades out there), so the coasts look blurry and old (Max's
