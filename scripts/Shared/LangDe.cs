@@ -1039,6 +1039,7 @@ public static class LangDe
 		["Kölle Alaaf (Carnival)"] = "Kölle Alaaf (Karneval)",
 		["Valentine's Day"] = "Valentinstag",
 		["Christmas"] = "Weihnachten",
+		["Sponsored by"] = "Gesponsert von",
 		["Music and sound effects licensed from Epidemic Sound"] = "Musik und Soundeffekte lizenziert von Epidemic Sound",
 		["With maps and tech from"] = "Mit Karten und Technik von",
 		["Press any button"] = "Drücke eine beliebige Taste",

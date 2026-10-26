@@ -106,6 +106,7 @@ public partial class CreditsWindow : Control
 				Line("Godot Engine", "godotengine.org — MIT licence. Thanks to the Godot contributors."),
 				Line("Godot logo", "By Andrea Calabró, CC BY 4.0 (creativecommons.org/licenses/by/4.0)."),
 				Line("Steamworks", "Steam networking, lobbies and avatars © Valve Corporation; Facepunch.Steamworks (MIT)."),
+				Line("Track Glow", "Sponsor — patreon.com/cw/IBassGaming"),
 				Line("AnyConverter", "The sound and video converter that comes with the game, by maxlvl01.")),
 			Section("Fonts",
 				Line("Fredoka", "SIL Open Font License 1.1"),

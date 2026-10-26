@@ -55,6 +55,7 @@ public partial class IntroSequence : Control
 			new(PresentsCard, 2.2, SplashBg),
 			new(PublisherCard, PublisherFrames / PublisherFps, SplashBg),
 			new(EpidemicCard, 2.2, Black),
+			new(SponsorCard, 2.4, SplashBg),
 			new(() => new CreditsWall(), 3.0, SplashBg),
 		};
 	}
@@ -132,6 +133,8 @@ public partial class IntroSequence : Control
 	{
 		var pressed = e is InputEventKey { Pressed: true, Echo: false } or InputEventMouseButton { Pressed: true } or InputEventJoypadButton { Pressed: true };
 		if (!pressed || _leaving) return;
+		// (the title screen's sponsor button takes its own clicks)
+		if (_title != null && e is InputEventMouseButton click && _title.Sponsor.GetGlobalRect().HasPoint(click.Position)) return;
 		GetViewport().SetInputAsHandled();
 		if (_title != null)
 		{
@@ -223,6 +226,12 @@ public partial class IntroSequence : Control
 	}
 
 	/// <summary>Music by Epidemic Sound: their wordmark (assets/intro/epidemic-sound.png, white) on black.</summary>
+	/// <summary>Track Glow, the sponsor (IBassGaming's Patreon; the title screen has a button to it).</summary>
+	public const string SponsorUrl = "https://www.patreon.com/cw/IBassGaming";
+
+	static Control SponsorCard() => U.V(22, Spaced("SPONSORED BY", 16, C.Muted), new TrackGlowLogo(1.6f),
+		U.Text("patreon.com/cw/IBassGaming", 16, C.Muted, null, false, HorizontalAlignment.Center).Raw());
+
 	static Control EpidemicCard() => U.V(28, Spaced("MUSIC BY", 16, new Color(1, 1, 1, 0.55f)), Image("epidemic-sound.png", 520),
 		U.Text(Lang.T("Music and sound effects licensed from Epidemic Sound"), 15, new Color(1, 1, 1, 0.55f), null, false, HorizontalAlignment.Center));
 
@@ -428,6 +437,7 @@ public partial class TitleScreen : Control
 	public readonly LogoField Logo;
 	public readonly Label Prompt;
 	public readonly TextureRect Glow;
+	public readonly Button Sponsor;
 	/// <summary>Started: the prompt and logo are the glide's now.</summary>
 	public bool Leaving;
 	double _t;
@@ -459,6 +469,18 @@ public partial class TitleScreen : Control
 		Prompt.GrowVertical = GrowDirection.Begin;
 		Prompt.OffsetBottom = -90;
 		AddChild(Prompt);
+		// the sponsor, bottom right: opens their Patreon
+		Sponsor = new Button { Flat = true, MouseDefaultCursorShape = CursorShape.PointingHand, TooltipText = IntroSequence.SponsorUrl };
+		Sponsor.AddChild(U.V(2, U.Text(Lang.T("Sponsored by").ToUpper(), 11, C.Muted, Fonts.Spaced, false, HorizontalAlignment.Right), new TrackGlowLogo(0.7f))
+			.With(v => { v.MouseFilter = MouseFilterEnum.Ignore; v.SetAnchorsPreset(LayoutPreset.FullRect); }));
+		Sponsor.CustomMinimumSize = new Vector2(250, 70);
+		Sponsor.SetAnchorsPreset(LayoutPreset.BottomRight);
+		Sponsor.GrowHorizontal = GrowDirection.Begin;
+		Sponsor.GrowVertical = GrowDirection.Begin;
+		Sponsor.OffsetRight = -28;
+		Sponsor.OffsetBottom = -24;
+		Sponsor.Pressed += () => OS.ShellOpen(IntroSequence.SponsorUrl);
+		AddChild(Sponsor);
 	}
 
 	public override void _Process(double delta)
@@ -470,5 +492,61 @@ public partial class TitleScreen : Control
 		if (Prompt.Modulate.A > 0 || _t < 1) Prompt.Modulate = new Color(1, 1, 1, (float)a);
 		if (_t < 0.6) Logo.Modulate = new Color(1, 1, 1, (float)(_t / 0.6));
 		else if (Logo.Modulate.A < 1 && _t < 0.7) Logo.Modulate = Colors.White;
+	}
+}
+
+/// <summary>
+/// Track Glow's logo, drawn: the name in the game's chunky letters with a neon glow, a race-track line under it that a light
+/// runs along.
+/// </summary>
+public partial class TrackGlowLogo : Control
+{
+	readonly float _k;
+	double _t;
+	static readonly Color Neon = new("#39ffb6");
+	static readonly Color Neon2 = new("#00c9f6");
+
+	public TrackGlowLogo() : this(1) { }
+
+	public TrackGlowLogo(float k)
+	{
+		_k = k;
+		MouseFilter = MouseFilterEnum.Ignore;
+		CustomMinimumSize = new Vector2(330, 84) * k;
+		SizeFlagsHorizontal = SizeFlags.ShrinkCenter;
+	}
+
+	public override void _Process(double delta)
+	{
+		_t += delta;
+		QueueRedraw();
+	}
+
+	public override void _Draw()
+	{
+		var font = Fonts.Black;
+		var size = (int)(46 * _k);
+		const string name = "TRACK GLOW";
+		var w = font.GetStringSize(name, HorizontalAlignment.Left, -1, size).X;
+		var at = new Vector2((Size.X - w) / 2, 50 * _k);
+		var pulse = 0.75f + 0.25f * Mathf.Sin((float)_t * 2.2f);
+		// (the glow: the name drawn wider and see-through behind itself)
+		for (var r = 3; r >= 1; r--)
+			DrawStringOutline(font, at, name, HorizontalAlignment.Left, -1, size, (int)(r * 5 * _k), new Color(Neon, 0.08f * pulse));
+		DrawString(font, at, name, HorizontalAlignment.Left, -1, size, Colors.White);
+		// the track: a line with a curve in it, a light running along
+		var y = 66 * _k;
+		var pts = new Vector2[40];
+		for (var i = 0; i < pts.Length; i++)
+		{
+			var f = i / (float)(pts.Length - 1);
+			pts[i] = new Vector2(at.X + f * w, y + Mathf.Sin(f * Mathf.Tau) * 5 * _k);
+		}
+		DrawPolyline(pts, new Color(Neon2, 0.35f), 4 * _k, true);
+		DrawPolyline(pts, Neon2, 1.6f * _k, true);
+		var run = (float)(_t * 0.6 % 1.0);
+		var p = pts[(int)(run * (pts.Length - 1))];
+		DrawCircle(p, 7 * _k, new Color(Neon, 0.3f));
+		DrawCircle(p, 3.5f * _k, Colors.White);
 	}
 }
