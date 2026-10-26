@@ -130,7 +130,11 @@ fi
 
 # Big updates (x.y.0) get a name: '## [0.8.0b] — "Jokers Wild": …' makes the release "Quiznight 0.8.0b — Jokers Wild".
 NAME=$(sed -n "s/^## \[$VERSION\] — \"\([^\"]*\)\".*/\1/p" CHANGELOG.md)
-TITLE="Quiznight? $VERSION${NAME:+ — $NAME}${TEST:+ (test)}"
+# (a named update is titled by its MAJOR.MINOR, "Quiznight? 0.11 — Opening Night", like the in-game notes show it:
+# Changelog.Release.Shown; the tag stays the full version, which the updater reads)
+SHOWN="$VERSION"
+[ -n "$NAME" ] && SHOWN=$(echo "$VERSION" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
+TITLE="Quiznight? $SHOWN${NAME:+ — $NAME}${TEST:+ (test)}"
 # This version's notes: from its "## [version]" line up to the next "## [".
 awk -v v="## [$VERSION]" 'index($0, v) == 1 { on = 1; next } /^## \[/ { on = 0 } on' CHANGELOG.md > "$NOTES"
 

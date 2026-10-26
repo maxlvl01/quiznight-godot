@@ -43,7 +43,14 @@ public static class Changelog
 	public sealed record Section(string Kind, List<string> Items);
 
 	/// <summary>One "## [0.5.0a] — title" block.</summary>
-	public sealed record Release(string VersionText, AppVersion? Version, string Title, List<Section> Sections);
+	public sealed record Release(string VersionText, AppVersion? Version, string Title, List<Section> Sections)
+	{
+		/// <summary>
+		/// The version as players see it in the notes: a big update with a name ('## [0.11.3b] — "Opening Night": …') is
+		/// shown as its MAJOR.MINOR, "0.11", however many hotfixes it took to get it out; the game itself says 0.11.3b.
+		/// </summary>
+		public string Shown => Title.StartsWith('"') && Version is { } v ? $"{v.Major}.{v.Minor}" : VersionText;
+	}
 
 	static readonly Regex ReleaseLine = new(@"^##\s+\[([^\]]+)\]\s*(?:[—–-]\s*(.*))?$");
 

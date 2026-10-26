@@ -50,7 +50,7 @@ public static class WhatsNew
 		foreach (var release in releases)
 		{
 			if (releases.Count > 1 || release.Title != "")
-				box.AddChild(U.Bold($"{release.VersionText}" + (release.Title != "" ? $" — {release.Title}" : ""), 18).Raw());
+				box.AddChild(U.Bold($"{release.Shown}" + (release.Title != "" ? $" — {release.Title}" : ""), 18).Raw());
 			foreach (var section in release.Sections.Where(s => s.Items.Count > 0))
 			{
 				var (label, color) = Kind(section.Kind);

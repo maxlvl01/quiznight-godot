@@ -13,6 +13,14 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.11.3b] — "Opening Night": an intro like a console game's, a title screen, New Year, credits, signed updates and undo
+
+### Added
+- **Undo and redo in the editors:** Ctrl+Z takes back the last change in the question editor and in the quiz overview (moving, deleting and renaming questions), Ctrl+Y or Ctrl+Shift+Z does it again. Typing counts as one step while you're at it, so one Ctrl+Z takes back a word or a sentence, not a single letter. A text field you're typing in undoes its own typing first.
+
+### Changed
+- **Dropdowns:** a chunky arrow in the game's style that points up while the list is open, and the list unfolds smoothly instead of popping up.
+
 ## [0.11.2b]
 
 ### Changed
