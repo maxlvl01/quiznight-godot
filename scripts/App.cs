@@ -79,6 +79,7 @@ public partial class App : Control
 		_colours.Use(cv >= 0 && cv + 1 < devArgs.Length ? devArgs[cv + 1] : Settings.ColourVision);
 		_audio.TrackStarted += path => AddChild(new NowPlaying(path));
 		GetTree().AutoAcceptQuit = false;
+		if (DisplayServer.GetName() != "headless") UseCursors();
 		// (the name players see; project.godot keeps "QuizNight!", which names the exported data folder that updates rely on)
 		GetWindow().Title = "Quiznight?";
 		GetWindow().FilesDropped += OnFilesDropped;
@@ -146,6 +147,31 @@ public partial class App : Control
 		}
 		if (intro != null) intro.TreeExited += Popups;
 		else Popups();
+	}
+
+	/// <summary>
+	/// The game's own mouse cursors (assets/cursors, made by tools/make_cursors.py): white with an ink outline and a small
+	/// shadow, like the buttons. Each with where it points, in its 40 px.
+	/// </summary>
+	static void UseCursors()
+	{
+		void Use(string name, Input.CursorShape shape, int x, int y)
+		{
+			var path = $"res://assets/cursors/{name}.png";
+			if (ResourceLoader.Exists(path)) Input.SetCustomMouseCursor(GD.Load<Texture2D>(path), shape, new Vector2(x, y));
+		}
+		Use("arrow", Input.CursorShape.Arrow, 5, 4);
+		Use("hand", Input.CursorShape.PointingHand, 16, 4);
+		Use("drag", Input.CursorShape.Drag, 20, 21);
+		Use("drag", Input.CursorShape.CanDrop, 20, 21);
+		Use("ibeam", Input.CursorShape.Ibeam, 20, 20);
+		Use("forbidden", Input.CursorShape.Forbidden, 20, 20);
+		Use("busy", Input.CursorShape.Busy, 20, 20);
+		Use("busy", Input.CursorShape.Wait, 20, 20);
+		Use("cross", Input.CursorShape.Cross, 20, 20);
+		Use("hsize", Input.CursorShape.Hsize, 20, 20);
+		Use("vsize", Input.CursorShape.Vsize, 20, 20);
+		Use("move", Input.CursorShape.Move, 20, 20);
 	}
 
 	Action? _afterWelcome;
