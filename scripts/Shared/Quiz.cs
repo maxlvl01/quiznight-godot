@@ -25,7 +25,9 @@ public static class QuestionType
 	public const string Steps = "steps";
 
 	/// <summary>Order the editor shows them in.</summary>
-	public static readonly string[] All = { MapPin, Estimation, Classic, Picture, Sound, Video, Image, Order, Write, Steps, Interactive };
+	/// <summary>The types to pick from. (Write, "Write the answer", is only read from older files and results: it's the
+	/// classic question's "Everyone types" since 0.10.3b, QuizJson turns it into that.)</summary>
+	public static readonly string[] All = { MapPin, Estimation, Classic, Picture, Sound, Video, Image, Order, Steps, Interactive };
 
 	/// <summary>Help: what it does, then its variants and options (the "?" on the type cards).</summary>
 	public record Info(string Label, string Short, string Blurb, string Intro = "", string[]? Details = null);

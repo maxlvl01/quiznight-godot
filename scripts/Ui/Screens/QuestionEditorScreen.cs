@@ -80,7 +80,6 @@ public partial class QuestionEditorScreen : Control
 			QuestionType.MapPin => MapPinForm(),
 			QuestionType.Image => ImageRevealForm(),
 			QuestionType.Order => OrderForm(),
-			QuestionType.Write => WriteForm(),
 			QuestionType.Interactive => InteractiveForm(),
 			QuestionType.Steps => StepsForm(),
 			_ => MediaForm(),
@@ -571,25 +570,6 @@ public partial class QuestionEditorScreen : Control
 			vote ? U.Muted("Everyone votes for the best recording (not their own). Every vote is a point; Double points doubles it.", 13)
 				: RoundSettings.Points(_draft, () => Changed()),
 			vote ? U.Gap(0) : U.Muted("You pick your favourite recording: they get the points (doubled with Double points).", 13));
-		return Columns((left, 1.6f), (settings, 1));
-	}
-
-	// ---------- write the answer ----------
-
-	Control WriteForm()
-	{
-		var left = U.V(14, PromptArea("e.g. What's the capital of Australia?"),
-			U.Field("Accepted answers", U.Input(_draft.AnswerText, "e.g. Canberra", t =>
-			{
-				_draft.AnswerText = t;
-				Changed();
-			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold)), "Separate several with / (e.g. \"Mount Everest / Everest\"). Case, accents and small typos don't matter."),
-			U.Field("Image (optional)", OptionalImage()));
-		var settings = RoundSettings.Panel(
-			RoundSettings.TimeLimit(_draft, () => Changed()),
-			RoundSettings.Points(_draft, () => Changed()),
-			RoundSettings.Bonus(_draft, () => Changed()),
-			U.Muted("Everyone types their answer on their own screen. Answers that match are ticked for you; at the reveal you can tick or untick any answer, and the points follow.", 13));
 		return Columns((left, 1.6f), (settings, 1));
 	}
 

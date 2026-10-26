@@ -114,6 +114,12 @@ public static class SelfTest
 		var quiz = new Quiz { Title = "S", Questions = { new Question { Id = "s1", Type = QuestionType.Steps, StepsMode = StepsMode.Sentence, AnswerText = "Berlin",
 			Hints = new() { "This city, founded in 1237,", "was split by a wall", "and is Germany's capital.", "", "" } } } };
 		var back = QuizJson.Parse(QuizJson.Write(quiz), out _)!.Questions[0];
+		// (parsed from text, like a file: in-memory JSON numbers don't convert on read)
+		var old = QuizJson.ReadQuestion((System.Text.Json.Nodes.JsonObject)System.Text.Json.Nodes.JsonNode.Parse(
+			"{\"id\":\"w\",\"type\":\"write\",\"prompt\":\"Capital of Australia?\",\"answer\":\"Canberra\",\"timeLimitSec\":25}")!);
+		Check(old.Type == QuestionType.Classic && old.IsTyped && old.AnswerText == "Canberra" && old.TimeLimitSec == 25,
+			"an old \"Write the answer\" question opens as classic, everyone types (answer and time limit kept)");
+		Check(!QuestionType.All.Contains(QuestionType.Write), "\"Write the answer\" isn't offered as a type any more");
 		Check(back.IsSentence && back.FilledHints.Count == 3, "a sentence in parts survives saving");
 		var (room, _) = NewRoom(quiz, "ann", "bob");
 		room.Start();
@@ -162,7 +168,7 @@ public static class SelfTest
 		Eq(QuizRules.QuestionIssues(typed, quiz.Maps).Count, 0, "typed question with a bonus is playable");
 		var back = QuizJson.Parse(QuizJson.Write(quiz), out _)!.Questions[0];
 		Check(back.Typed && back.BonusPoints == 2 && back.BonusText == "Also name the game" && back.TimeLimitSec == 30, "typed, bonus and time limit are saved");
-		Check(QuizRules.QuestionIssues(new Question { Type = QuestionType.Write, Prompt = "x", AnswerText = "y", BonusPoints = 1 }, quiz.Maps)
+		Check(QuizRules.QuestionIssues(new Question { Type = QuestionType.Classic, Typed = true, Prompt = "x", AnswerText = "y", BonusPoints = 1 }, quiz.Maps)
 			.Contains("Say what the bonus is for."), "a bonus needs to say what it's for");
 
 		var (room, clock) = NewRoom(quiz, "ann", "bob");
@@ -505,9 +511,9 @@ public static class SelfTest
 		Eq(g.View("host").Reveal!.Entries.First(e => e.PlayerId == "cat").Text, "2 of 4 in the right place", "order reveal text");
 		Eq(g.View("host").Reveal!.AnswerText, "Doom → Half-Life → Portal → Elden Ring", "order answer");
 
-		// Write the answer: close enough is ticked; the host can tick or untick.
+		// Everyone types: close enough is ticked; the host can tick or untick.
 		room.Next();
-		Eq(g.Question.Type, QuestionType.Write, "write question");
+		Check(g.Question.Type == QuestionType.Classic && g.Question.IsWritten, "everyone types question");
 		Check(!g.Answer("ann", 10, AnswerValue.Written("   ")).Ok, "empty answer rejected");
 		before = (room.Scores["ann"], room.Scores["bob"], room.Scores["cat"]);
 		g.Answer("ann", 10, AnswerValue.Written("canbera"));

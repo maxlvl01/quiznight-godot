@@ -26,7 +26,7 @@ the original design decisions; most still apply.
   the developer code `61969` is typed on the home screen (until the game closes); editor runs always have it,
   `--lan-locked` shows the exported look.
 - **Quiz files extend the web version's format** (`.quiznight.json`, now format 5: multi choice, image reveal, timeline,
-  put in order, write the answer, typed buzzer questions, bonus points), so old exports import as-is.
+  put in order, write the answer (read as classic + `Typed` since 0.10.3b), typed buzzer questions, bonus points), so old exports import as-is.
   Buzzer kinds with `Typed` play like write the answer (`Question.IsWritten`); a bonus is given by the host at the reveal
   (`Game.ToggleBonus`), and the host can change scores any time (`HostSession.AdjustScore`).
   `QuizJson` reads forgivingly (= migration) and writes only each type's fields.

@@ -303,8 +303,11 @@ public static class Results
 			double? D(string k) => double.TryParse(row.GetValueOrDefault(k), NumberStyles.Float, Inv, out var v) ? v : null;
 			var quiz = row.GetValueOrDefault("quiz", "");
 			if (id == "" || !InRange(date, from, before) || !seen.Add($"{date}|{quiz}|{id}|{I("question")}")) continue;
-			rows.Add(new QuestionRow(date, quiz.Trim(), I("question"), id, row.GetValueOrDefault("player", ""), row.GetValueOrDefault("type", ""),
-				row.GetValueOrDefault("subtype", ""), row.GetValueOrDefault("category", ""), I("q_points"), I("right") == 1, I("answered") == 1,
+			// (nights before 0.10.3b had "Write the answer" as its own type: it counts as classic, everyone types)
+			var (type, subtype) = (row.GetValueOrDefault("type", ""), row.GetValueOrDefault("subtype", ""));
+			if (type == QuestionType.Write) (type, subtype) = (QuestionType.Classic, QuestionKinds.Typed);
+			rows.Add(new QuestionRow(date, quiz.Trim(), I("question"), id, row.GetValueOrDefault("player", ""), type,
+				subtype, row.GetValueOrDefault("category", ""), I("q_points"), I("right") == 1, I("answered") == 1,
 				I("q_buzzes"), I("wrong_buzzes"), D("buzz_s"), D("answer_s"), D("km_off"), D("pct_off"),
 				int.TryParse(row.GetValueOrDefault("hint"), NumberStyles.Integer, Inv, out var h) ? h : null, row.GetValueOrDefault("joker", ""),
 				I("placements"), I("placements_right"),

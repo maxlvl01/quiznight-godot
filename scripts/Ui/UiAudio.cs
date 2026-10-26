@@ -9,8 +9,7 @@
 //     Optional, for a place of its own: <place>.ogg (<place>2 … <place>9), the place being home, editor, statistics,
 //     settings, lobby or game; that place then plays only those.
 //   assets/soundeffects/ui/hover.ogg and click.ogg (or .mp3 / .wav); back.ogg for "←" links, if there is one
-//   assets/soundeffects/voice/intro.ogg: a voice line once the home screen first shows (intro2 … intro9: one at random);
-//     the music ducks under it
+//   assets/soundeffects/voice/intro.ogg: a voice line once the home screen first shows (intro2 … intro9: one at random), the music after it;
 // Music plays on the game music bus ("Music" in Settings), the button sounds on the SFX bus. When a new song
 // starts, a "Now playing" card shows its title and artist (from assets/music/CREDITS.md) in the bottom left.
 
@@ -109,6 +108,8 @@ public partial class UiAudio : Node
 	readonly AudioStreamPlayer _click = new() { Bus = Prefs.SfxBus, MaxPolyphony = 3 };
 	readonly AudioStreamPlayer _voice = new() { Bus = Prefs.SfxBus };
 	bool _greeted;
+	/// <summary>The voice line is on: the music waits for it to end, then starts from the top.</summary>
+	bool _voiceFirst;
 	readonly AudioStream? _clickSound, _backSound;
 	List<string> _tracks = new();
 	int _track;
@@ -134,8 +135,13 @@ public partial class UiAudio : Node
 		AddChild(_hover);
 		AddChild(_click);
 		AddChild(_voice);
-		// (the music comes back up once the voice line is over)
-		_voice.Finished += () => _music.VolumeDb = 0;
+		// (the music starts once the voice line is over)
+		_voice.Finished += () =>
+		{
+			_voiceFirst = false;
+			_music.VolumeDb = 0;
+			if (!_music.Playing) StartTrack();
+		};
 		// (every button, now and later, gets the hover and click sound)
 		GetTree().NodeAdded += Hook;
 	}
@@ -183,8 +189,9 @@ public partial class UiAudio : Node
 	{
 		if (_tracks.Count == 0 || GD.Load<AudioStream>(_tracks[_track]) is not { } stream) return;
 		_music.Stream = stream;
-		// (music switched off in the jukebox: the song is lined up, and starts when it's switched on again)
-		if (!Settings.MusicOn) return;
+		// (music switched off in the jukebox: the song is lined up, and starts when it's switched on again; during the
+		// voice line it starts when that's over)
+		if (!Settings.MusicOn || _voiceFirst) return;
 		_music.Play();
 		TrackStarted?.Invoke(_tracks[_track]);
 	}
@@ -293,8 +300,10 @@ public partial class UiAudio : Node
 		_greeted = true;
 		var lines = Enumerable.Range(1, 9).Select(i => Find($"res://assets/soundeffects/voice/intro{(i == 1 ? "" : i.ToString())}")).OfType<string>().ToList();
 		if (lines.Count == 0 || GD.Load<AudioStream>(lines[Random.Shared.Next(lines.Count)]) is not { } line) return;
+		// (the music stops for it and starts from the top of the song once the voice line is over)
 		_fade?.Kill();
-		_music.VolumeDb = -12;
+		_voiceFirst = true;
+		_music.Stop();
 		_voice.Stream = line;
 		_voice.Play();
 	}

@@ -78,7 +78,7 @@ public static class SampleQuiz
 			},
 			new()
 			{
-				Id = "q11", Type = QuestionType.Write, Prompt = "What's the capital of Australia?", AnswerText = "Canberra", TimeLimitSec = 30, Points = 1,
+				Id = "q11", Type = QuestionType.Classic, Typed = true, Prompt = "What's the capital of Australia?", AnswerText = "Canberra", TimeLimitSec = 30, Points = 1,
 			},
 			new()
 			{

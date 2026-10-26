@@ -233,6 +233,13 @@ public static class QuizJson
 		q.BonusText = Str(o, "bonusText");
 		if (q.BonusText.Length > QuestionLimits.BonusTextMaxLength) q.BonusText = q.BonusText[..QuestionLimits.BonusTextMaxLength];
 		q.Category = Categories.Clean(Str(o, "category"));
+		// "Write the answer" was its own type until 0.10.3b; it's the classic question's "Everyone types" now
+		if (q.Type == QuestionType.Write)
+		{
+			q.Type = QuestionType.Classic;
+			q.Mode = ClassicMode.Buzzer;
+			q.Typed = true;
+		}
 		q.CategorySecret = q.Category != "" && o["categorySecret"] is JsonValue cs && cs.TryGetValue<bool>(out var secret) && secret;
 		return q;
 	}

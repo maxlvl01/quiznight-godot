@@ -24,8 +24,12 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **Buttons look like real 3D keys:** under the coloured top there's a side in a darker shade of the button's own colour, with a light edge along the top and a soft shine. Pressing one pushes it down into its side.
 - **The buzzer is a big square red key on a silver base,** in the same style, with the Quiznight Q? embossed on it instead of "BUZZ!".
 - **The jukebox's buttons are drawn icons** (back, play/pause, next) instead of the ⏮ ⏭ characters, which didn't look right in every font. The song playing is marked with a drawn note.
+- **The music waits for the voice intro.** When the game opens, the voice line plays on its own and the first song starts from the beginning once it's done (before, the song already played underneath, turned down).
 - **"Add a question" lists the question types alphabetically** (by the name you see, so in German too), and the type cards are keys like the buttons.
 - **The BETA stamp is a sticker on the logo's corner,** so "Quiznight?" sits exactly in the middle of the home screen again (the stamp next to it pushed it to the left).
+
+### Removed
+- **"Write the answer" as its own question type.** It was the same as a classic question with "Everyone types the answer", so that's what it is now: older quizzes and share codes with "Write the answer" questions open them as classic questions played that way (question, answers, picture, time limit, points and bonus kept), and old nights' stats for it count under Classic → Everyone types.
 
 ### Fixed
 - **The Fast Pass lost to someone who buzzed at the same moment.** Bob had the Fast Pass, but Ann's buzz arrived a few milliseconds earlier (both showed 2.6 s), so Ann was already answering and the Fast Pass only put Bob first among those still waiting, behind her. A Fast Pass now also takes over from someone who started answering less than a second earlier (they couldn't have said anything yet); they're next in line instead. Someone who has been answering for longer keeps their turn, as before.
