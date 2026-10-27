@@ -122,6 +122,9 @@ public partial class QuestionEditorScreen : Control
 		}
 	}
 
+	/// <summary>The question's type as the editor calls it (for bug reports: "Editor › Map pin").</summary>
+	public string TypeLabel => QuestionKinds.TypeLabel(_draft.Type);
+
 	void BuildForm()
 	{
 		_form.Clear();

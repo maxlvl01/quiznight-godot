@@ -10,7 +10,7 @@ namespace QuizNight.Ui;
 
 public partial class MediaIcon : Control
 {
-	public enum Kind { Play, Pause, Previous, Next, List, Note, Gear, Info, Shuffle, Repeat }
+	public enum Kind { Play, Pause, Previous, Next, List, Note, Gear, Info, Shuffle, Repeat, Bug }
 
 	Kind _kind;
 	public Kind Shape
@@ -124,6 +124,23 @@ public partial class MediaIcon : Control
 				DrawPolyline(new[] { P(0.9f, 0.38f), P(0.9f, 0.66f), P(0.78f, 0.78f), P(0.24f, 0.78f) }, Color, w, true);
 				DrawColoredPolygon(new[] { P(0.28f, 0.62f), P(0.06f, 0.78f), P(0.28f, 0.94f) }, Color);
 				DrawRect(new Rect2(P(0.46f, 0.36f), new Vector2(0.09f, 0.28f) * m), Color);
+				break;
+			}
+			case Kind.Bug:
+			{
+				// (a beetle: round body with a line down its back, a head, three legs each side, two feelers)
+				var w = Mathf.Max(1.2f, 0.08f * m);
+				for (var i = 0; i < 3; i++)
+				{
+					var y = 0.42f + i * 0.17f;
+					DrawLine(P(0.3f, y), P(0.08f, y + (i - 1) * 0.08f), Color, w);
+					DrawLine(P(0.7f, y), P(0.92f, y + (i - 1) * 0.08f), Color, w);
+				}
+				DrawLine(P(0.42f, 0.2f), P(0.3f, 0.04f), Color, w);
+				DrawLine(P(0.58f, 0.2f), P(0.7f, 0.04f), Color, w);
+				DrawCircle(P(0.5f, 0.24f), 0.13f * m, Color);
+				DrawCircle(P(0.5f, 0.6f), 0.3f * m, Color);
+				DrawLine(P(0.5f, 0.34f), P(0.5f, 0.88f), C.Panel2, Mathf.Max(1f, 0.05f * m));
 				break;
 			}
 			case Kind.Note:

@@ -42,7 +42,7 @@ public sealed class DevTools
 	bool _rowDragged;
 	int _introKeys;
 	bool _undoChecked;
-	bool _arcadeOpened;
+	bool _arcadeOpened, _bugOpened;
 	bool _dropdownOpened;
 	bool _scrolled;
 
@@ -526,6 +526,19 @@ public sealed class DevTools
 			else if (arcadeGame == "reaction") window?.PlayReaction();
 			else if (arcadeGame != "menu" && _app.Host.Room.Players.FirstOrDefault() is { } first)
 				_app.Host.ArcadeRequest(new ArcadeRequest { Kind = ArcadeRequest.Challenge, Game = arcadeGame, Who = first.Id });
+		}
+		// --bug-report: at 2 s the bug report window opens (as if 🐞 was pressed); --bug-check sends a test report and quits
+		if (_time >= 2 && !_bugOpened && (Has("--bug-report") || Has("--bug-check")))
+		{
+			_bugOpened = true;
+			if (Has("--bug-report")) Ui.BugButton.Open();
+			else
+				Storage.BugReports.Send("Test", Storage.BugReports.Make("Test", "A test report from --bug-check: delete me.", "- **Room:** none" + System.Environment.NewLine),
+					_app.GetViewport().GetTexture().GetImage()?.SavePngToBuffer(), ok =>
+					{
+						GD.Print(ok ? "Bug report sent" : "Bug report NOT sent");
+						_app.Quit(ok ? 0 : 1);
+					});
 		}
 		// --open-dropdown [N]: opens the screen's first (or Nth, from 1) dropdown at 1 s (to see its arrow and how it unfolds)
 		if (_time >= 1 && !_dropdownOpened && Has("--open-dropdown"))

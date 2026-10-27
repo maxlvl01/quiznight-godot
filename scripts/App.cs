@@ -40,6 +40,8 @@ public partial class App : Control
 	readonly Control _screens = new ScreenFrame();
 	readonly VBoxContainer _banners = U.V(0);
 	Control? _screen;
+	/// <summary>The screen showing now (what a bug report says it was opened on).</summary>
+	public Control? Screen => _screen;
 	string? _bannerError;
 	DevTools? _dev;
 
@@ -55,6 +57,7 @@ public partial class App : Control
 		// (test builds log every step in detail, and send the log after each session: CrashReports)
 		Trace.On = Updater.TestChannel;
 		CrashReports.Start();
+		BugReports.SendWaiting();
 		Trace.Log("start", $"Quiznight {Version} test build · {OS.GetName()} {OS.GetVersion()} · {DisplayServer.ScreenGetSize()} · skin {Settings.Skin} · {Settings.Language} · {Settings.WindowMode} {Settings.WindowSize}");
 		// (dev runs: --skin ID, --dyslexic and --colour-vision MODE try them without saving)
 		var devArgs = OS.GetCmdlineUserArgs();
@@ -73,6 +76,7 @@ public partial class App : Control
 		AddChild(_banners);
 		AddChild(_audio);
 		AddChild(new Jukebox());
+		AddChild(new BugButton());
 		AddChild(_colours);
 		AddChild(Announcer);
 		var cv = Array.IndexOf(devArgs, "--colour-vision");

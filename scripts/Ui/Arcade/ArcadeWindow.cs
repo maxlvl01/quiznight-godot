@@ -62,6 +62,8 @@ public partial class ArcadeWindow : Control
 	readonly ArcadeLink _link;
 	readonly VBoxContainer _body = U.V(10);
 	readonly Label _title = U.Heading("Mini games", 24, false);
+	/// <summary>What the window shows now ("Tetris", "8-ball" …), for bug reports.</summary>
+	public string Title => _title.Text;
 	Control? _game;
 	string? _matchId;
 	string _billiardMode = BilliardMode.Eight;
