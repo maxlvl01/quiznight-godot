@@ -13,6 +13,11 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.12.3d1]
+
+### Changed
+- **Test builds are back in step with the public version.** The test channel had stopped at 0.12.0d6, so test builds never got 0.12.1b and 0.12.2b. This test build is the same game as the public 0.12.2b (log in bug reports, bug or feedback in the 🐞 window, leave developer mode by double-clicking DEV, "Order made" fix).
+
 ## [0.12.2b]
 
 ### Added
