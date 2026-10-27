@@ -160,6 +160,8 @@ public sealed class DevTools
 		if (int.TryParse(Value("--players"), out var n)) _players = n;
 		if (int.TryParse(Value("--start-at"), out var first)) _startAt = first - 1;
 		if (Value("--lang") is { } lang) Lang.Use(lang);
+		// (this run's background picture, not saved: e.g. pinke-geilheit-animated)
+		if (Value("--background") is { } background) Settings.BackgroundThisRun = background;
 		// (the home screen as if that version were out: the update note and the green button)
 		if (Value("--pretend-update") is { } newer) Ui.Screens.UpdatePrompt.Pretend(newer);
 		// (the map grid as if that built-in map had come with this update: its NEW badge)

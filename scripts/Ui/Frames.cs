@@ -99,10 +99,29 @@ public partial class SpaceBackdrop : Control
 			""",
 	};
 
+	/// <summary>The out-of-focus layer for the animated background: the video's frame, blurred as it's drawn.</summary>
+	static readonly Shader Blur = new()
+	{
+		Code = """
+			shader_type canvas_item;
+			void fragment() {
+				vec4 sum = vec4(0.0);
+				vec2 step = TEXTURE_PIXEL_SIZE * 5.0;
+				for (int x = -3; x <= 3; x++)
+					for (int y = -3; y <= 3; y++)
+						sum += texture(TEXTURE, UV + vec2(float(x), float(y)) * step);
+				COLOR = sum / 49.0 * COLOR;
+			}
+			""",
+	};
+
 	Texture2D? _sharp;
 	Texture2D? _blurred;
 	/// <summary>The picture shown (a Backgrounds id); a new choice in Settings swaps it.</summary>
 	string? _picture;
+	int _customVersion;
+	/// <summary>Plays the animated background (looping, silent); its frame is both layers.</summary>
+	VideoStreamPlayer? _video;
 	readonly ShaderMaterial _material = new() { Shader = Focus };
 	readonly Control _top = new() { MouseFilter = MouseFilterEnum.Ignore };
 	Vector2 _focus = new(0.5f, 0.5f);
@@ -122,8 +141,24 @@ public partial class SpaceBackdrop : Control
 	void Load(string picture)
 	{
 		_picture = picture;
+		_customVersion = Storage.Backgrounds.Changed;
 		_sharp = _blurred = null;
-		var source = DisplayServer.GetName() == "headless" ? null : GD.Load<Texture2D>(Storage.Backgrounds.Path(picture))?.GetImage();
+		_video?.QueueFree();
+		_video = null;
+		Material = null;
+		if (DisplayServer.GetName() == "headless") return;
+		if (Storage.Backgrounds.IsVideo(picture))
+		{
+			if (GD.Load<VideoStream>(Storage.Backgrounds.Path(picture)) is not { } stream) return;
+			// (not shown itself: its frames are drawn like the picture, in both layers; tiny and see-through just in case)
+			_video = new VideoStreamPlayer { Stream = stream, Loop = true, Autoplay = true, VolumeDb = -80, Modulate = new Color(1, 1, 1, 0), Size = Vector2.One, MouseFilter = MouseFilterEnum.Ignore };
+			_video.Finished += () => _video?.Play();
+			AddChild(_video);
+			MoveChild(_video, 0);
+			Material = new ShaderMaterial { Shader = Blur };
+			return;
+		}
+		var source = Storage.Backgrounds.LoadImage(picture);
 		if (source != null)
 		{
 			// Made once: a smoothly enlarged copy, and a blurred one: halved a few times and doubled back up
@@ -154,12 +189,15 @@ public partial class SpaceBackdrop : Control
 	public override void _Process(double delta)
 	{
 		// (made on first use, and again when Settings picks another one)
-		if (Storage.Settings.Background is var picture && picture != _picture && Size.X > Size.Y * ScreenFrame.MaxAspect + 2) Load(picture);
+		if (Storage.Settings.Background is var picture && (picture != _picture || (picture == Storage.Backgrounds.Custom && _customVersion != Storage.Backgrounds.Changed))
+			&& Size.X > Size.Y * ScreenFrame.MaxAspect + 2) Load(picture);
+		if (_video != null) _sharp = _blurred = _video.GetVideoTexture();
 		// Only on windows wider than 16:9: elsewhere the screens cover it all.
 		Visible = _sharp != null && Size.X > Size.Y * ScreenFrame.MaxAspect + 2;
-		if (!Visible) return;
-		// (the setting off: still, evenly out of focus)
+		// (the setting off: still, evenly out of focus; the animated one stops on its frame)
 		var moving = Storage.Settings.BackgroundMotion;
+		if (_video != null) _video.Paused = !moving || !Visible;
+		if (!Visible) return;
 		_top.Visible = moving;
 		var target = moving ? (GetLocalMousePosition() / Size).Clamp(Vector2.Zero, Vector2.One) : new Vector2(0.5f, 0.5f);
 		// (slow to follow, so quick mouse moves don't swing it around)

@@ -110,7 +110,7 @@ public partial class SettingsScreen : Control
 				Settings.SeasonalSkins = on;
 				Callable.From(() => App.I.UseSkin(Settings.Skin)).CallDeferred();
 			}),
-			U.Field("Background picture", U.Select(Backgrounds.All, d.Background, id => Change(Draft with { Background = id }))),
+			BackgroundField(d.Background),
 			U.Field("Background movement", U.Segmented(new[] { ("on", "On"), ("off", "Off") }, d.BackgroundMotion ? "on" : "off", id => Change(Draft with { BackgroundMotion = id == "on" }))),
 			U.Muted("On wide monitors, the space picture beside the game sways with the mouse. Off keeps it still.", 12),
 			U.Field("Intro when the game starts", U.Segmented(Settings.IntroChoices, Settings.Intro, id => Settings.Intro = id)).With(f => New.Mark(f, "settings.intro")),
@@ -284,6 +284,29 @@ public partial class SettingsScreen : Control
 				.With(r => New.Mark((Control)r.GetChild(0), "settings.micvolume")),
 			U.H(12, check, meter.Grow()),
 			U.Muted("Speak normally: the bar should reach the yellow part. Red means too loud (it crackles): turn it down.", 12));
+	}
+
+	/// <summary>The picture beside the game: the choices, and a button to use one from your PC.</summary>
+	Control BackgroundField(string current)
+	{
+		var error = U.Error();
+		var own = U.Small(Backgrounds.HasCustom ? "Other picture…" : "My own picture…", () => Dialogs.OpenFile(this, "Pick a background picture", Images.FileFilters, path =>
+		{
+			try
+			{
+				Backgrounds.SetCustom(path);
+				_draft = Draft with { Background = Backgrounds.Custom };
+				Rebuild();
+			}
+			catch (UserError e)
+			{
+				error.Text = e.Message;
+				error.Visible = true;
+			}
+		})).Tip("A picture from your PC beside the game (a copy is kept, so it stays if you move the file)");
+		return U.V(4,
+			U.Field("Background picture", U.H(8, U.Select(Backgrounds.All, current, id => Change(Draft with { Background = id })).Grow(), own)).With(f => New.Mark(f, "settings.background")),
+			error);
 	}
 
 	Control BuzzerSection()

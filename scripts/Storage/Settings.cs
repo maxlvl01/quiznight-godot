@@ -293,9 +293,12 @@ public static class Settings
 	}
 
 	/// <summary>The picture beside the screens on wide monitors (a Backgrounds id).</summary>
+	/// <summary>Dev (`--background ID`): this run shows that one, without saving it.</summary>
+	public static string? BackgroundThisRun;
+
 	public static string Background
 	{
-		get => Backgrounds.Valid(Get("background", Backgrounds.Default));
+		get => Backgrounds.Valid(BackgroundThisRun ?? Get("background", Backgrounds.Default));
 		set => Set("background", value);
 	}
 
@@ -331,12 +334,63 @@ public static class Settings
 public static class Backgrounds
 {
 	public const string Default = "pinke-geilheit";
+	/// <summary>The animated one: a looping video (assets/backgrounds/&lt;id&gt;.ogv) instead of a picture.</summary>
+	public const string Animated = "pinke-geilheit-animated";
+	/// <summary>The player's own picture, copied to <see cref="CustomFile"/>.</summary>
+	public const string Custom = "custom";
+	public const string CustomFile = "user://backgrounds/custom.webp";
+	/// <summary>Own pictures are kept at most this big (4K's width): plenty for any monitor's sides.</summary>
+	const int CustomMaxSide = 3840;
 
-	public static readonly (string Id, string Label)[] All =
+	static readonly (string Id, string Label)[] BuiltIn =
 	{
 		("pinke-geilheit", "Pinke Geilheit Spacing Team"),
+		(Animated, "Pinke Geilheit Spacing Team (animated)"),
 		("cosmic-cliffs", "Cosmic Cliffs (James Webb Space Telescope)"),
 	};
+
+	/// <summary>The choices: the built-in ones, and "My own picture" once one was picked.</summary>
+	public static (string Id, string Label)[] All =>
+		HasCustom ? BuiltIn.Append((Custom, "My own picture")).ToArray() : BuiltIn;
+
+	public static bool HasCustom => FileAccess.FileExists(CustomFile);
+
+	public static bool IsVideo(string? id) => id == Animated;
+
+	/// <summary>
+	/// Takes a picture from the player's PC as their background: checked like every outside picture (Guard), made at most
+	/// 4K wide, and kept in the game's own folder (so it stays if the original moves). Throws with a readable message.
+	/// </summary>
+	public static void SetCustom(string path)
+	{
+		byte[] bytes;
+		try
+		{
+			using var stream = System.IO.File.OpenRead(path);
+			bytes = Shared.Guard.ReadCapped(stream, 60_000_000);
+		}
+		catch (System.Exception)
+		{
+			throw new UserError("Could not read that picture (it may be too big: up to 60 MB).");
+		}
+		var img = Images.Decode(bytes, "") ?? throw new UserError("Could not read that image. Try a PNG, JPG or WebP file.");
+		if (img.IsCompressed()) img.Decompress();
+		var scale = System.Math.Min(1.0, (double)CustomMaxSide / System.Math.Max(img.GetWidth(), img.GetHeight()));
+		if (scale < 1) img.Resize((int)System.Math.Round(img.GetWidth() * scale), (int)System.Math.Round(img.GetHeight() * scale), Image.Interpolation.Lanczos);
+		DirAccess.MakeDirRecursiveAbsolute("user://backgrounds");
+		if (img.SaveWebp(CustomFile, false, 0.9f) != Error.Ok) throw new UserError("Could not save the picture.");
+		Changed++;
+	}
+
+	/// <summary>Goes up when the own picture is replaced (the backdrop loads it again).</summary>
+	public static int Changed { get; private set; }
+
+	/// <summary>The picture (not for the animated one): a built-in one from the game, or the player's own.</summary>
+	public static Image? LoadImage(string id)
+	{
+		if (id == Custom) return Image.LoadFromFile(ProjectSettings.GlobalizePath(CustomFile));
+		return GD.Load<Texture2D>(Path(id))?.GetImage();
+	}
 
 	/// <summary>One side's part of a picture: centred on Anchor (0–1 across the picture), Zoom times as tall as the window.</summary>
 	public readonly record struct Side(Vector2 Anchor, float Zoom = 1);
@@ -345,11 +399,11 @@ public static class Backgrounds
 	public static (Side Left, Side Right)? Sides(string? id) => id switch
 	{
 		// the astronaut on the left; on the right, the ship's top corner (zoomed in, so her suit doesn't peek in at the bottom)
-		"pinke-geilheit" => (new Side(new Vector2(0.53f, 0.45f)), new Side(new Vector2(0.9f, 0.28f), 1.8f)),
+		"pinke-geilheit" or Animated => (new Side(new Vector2(0.53f, 0.45f)), new Side(new Vector2(0.9f, 0.28f), 1.8f)),
 		_ => null,
 	};
 
 	public static string Valid(string id) => All.Any(b => b.Id == id) ? id : Default;
 
-	public static string Path(string id) => $"res://assets/backgrounds/{Valid(id)}.webp";
+	public static string Path(string id) => $"res://assets/backgrounds/{Valid(id)}.{(IsVideo(id) ? "ogv" : "webp")}";
 }
