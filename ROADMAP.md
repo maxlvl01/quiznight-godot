@@ -39,6 +39,13 @@ check doesn't need one) updates itself to 0.12.0b, and the new build then upload
   is always unlocked, presses down like in a game and plays the buzzer sound picked in Settings, every time. The
   reaction test becomes optional (its own small "Reaction test" button next to it, which locks the buzzer until the
   random moment as now).
+- [ ] **Drop-downs still run off the screen and don't scroll (big windows).** Max's Category list at his screen size
+  hangs past the window's bottom and can't be scrolled. Likely: 0.12.0d2's `DropDowns.Unfold` measures the button and
+  the room left in the game's own 1280×720 units but sizes the list window in screen pixels; at 1280×720 they match
+  (that's all that was tested), on a bigger window the game is scaled up and the list comes out too long. Fix: one
+  coordinate space (convert with the viewport's scale), then check at 1280×720, 1920×1080, 2560×1440 and 3440×1440.
+  And the animation Max wants: the list **quickly rolls out from under the drop-down's head** (as if it slides out of
+  the button) and **rolls back in under it** when it closes (today it only unfolds, and just vanishes on close).
 
 ---
 
