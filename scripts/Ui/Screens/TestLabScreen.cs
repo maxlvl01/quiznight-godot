@@ -110,35 +110,60 @@ public partial class TestLabScreen : Control
 
 	// ---------- microphone ----------
 
-	/// <summary>Record a few seconds like an Interactive question, and listen back.</summary>
+	/// <summary>
+	/// Record up to 10 seconds like an Interactive question (Stop ends it sooner) and listen back. The microphone is only
+	/// open while recording.
+	/// </summary>
 	Control Microphone()
 	{
-		var status = U.Muted("Checks your microphone works (like an Interactive question).", 13);
+		const double MaxSec = 10;
+		var status = U.Muted(Lang.F("Checks your microphone works (like an Interactive question). Microphone: {0}.", Settings.Microphone == "Default" ? Lang.T("Windows' default") : Settings.Microphone), 13);
 		var play = U.Small("▶ Listen back", () =>
 		{
 			if (_recording == null) return;
 			_player.Stream = _recording;
 			_player.Play();
 		}).With(b => b.Disabled = true);
-		var record = U.Small("● Record 4 seconds", null);
+		var record = U.Small("● Record", null);
+		var stop = U.Small("■ Stop", null).With(b => b.Disabled = true);
+		void Finish()
+		{
+			if (_mic == null) return;
+			var wav = _mic.Stop();
+			// (closing the microphone: it's only on while recording)
+			_mic.QueueFree();
+			_mic = null;
+			record.Disabled = false;
+			stop.Disabled = true;
+			_recording = wav is { Length: > 44 } ? AudioStreamWav.LoadFromBuffer(wav) : null;
+			play.Disabled = _recording == null;
+			status.Text = _recording != null ? Lang.T("Got it. Listen back to check.") : Lang.T("Nothing recorded: is a microphone connected, allowed and picked in Settings?");
+		}
 		record.Pressed += () =>
 		{
-			_mic ??= new MicRecorder();
-			if (_mic.GetParent() == null) AddChild(_mic);
+			_mic = new MicRecorder();
+			AddChild(_mic);
 			_mic.Start();
+			_mic.Full += Finish;
 			record.Disabled = true;
-			status.Text = Lang.T("Recording … say something.");
-			GetTree().CreateTimer(4).Timeout += () =>
+			stop.Disabled = false;
+			var startedAt = Time.GetTicksMsec();
+			void Count()
 			{
-				if (!IsInstanceValid(this)) return;
-				var wav = _mic.Stop();
-				record.Disabled = false;
-				_recording = wav is { Length: > 44 } ? AudioStreamWav.LoadFromBuffer(wav) : null;
-				play.Disabled = _recording == null;
-				status.Text = _recording != null ? Lang.T("Got it. Listen back to check.") : Lang.T("Nothing recorded: is a microphone connected and allowed?");
-			};
+				if (_mic == null || !IsInstanceValid(this)) return;
+				var left = MaxSec - (Time.GetTicksMsec() - startedAt) / 1000.0;
+				if (left <= 0)
+				{
+					Finish();
+					return;
+				}
+				status.Text = Lang.F("Recording … say something ({0} s left).", Math.Ceiling(left));
+				GetTree().CreateTimer(0.25).Timeout += Count;
+			}
+			Count();
 		};
-		return U.Card(10, U.Eyebrow("Microphone"), status, U.H(8, record, play));
+		stop.Pressed += Finish;
+		return U.Card(10, U.Eyebrow("Microphone"), status, U.H(8, record, stop, play));
 	}
 
 	// ---------- question screens and games ----------
@@ -213,8 +238,13 @@ public partial class TestLabScreen : Control
 
 	Control OneOffs() => U.Card(10, U.Eyebrow("Screens that only show once"),
 		U.H(8,
-			U.Small("Welcome (first start)", App.I.ShowWelcomeAgain),
-			U.Small("Intro", () => App.I.AddChild(new IntroSequence(null))),
+			U.Small("Welcome (first start)", () => App.I.ShowWelcomeFrom(() => App.I.GoTestLab())),
+			// (the intro ends by gliding its logo into the home screen's: it plays over the home screen)
+			U.Small("Intro", () =>
+			{
+				App.I.GoHome();
+				App.I.AddChild(new IntroSequence(null));
+			}),
 			U.Small("What's new", () => WhatsNew.ShowCurrent(App.I))),
 		U.H(8,
 			U.Small("Yellow new dots again", () =>
@@ -222,5 +252,5 @@ public partial class TestLabScreen : Control
 				Settings.NewSince = VersionCheck.BeforeVersions;
 				App.I.GoHome();
 			}).Tip("As if you'd just updated from 0.11.4b (changes a setting)")),
-		U.Muted("The intro follows Settings → Intro; Escape skips it.", 12));
+		U.Muted("The intro follows Settings → Intro and ends on the home screen; Escape skips the cards. Welcome and What's new close with Escape or a right-click.", 12));
 }

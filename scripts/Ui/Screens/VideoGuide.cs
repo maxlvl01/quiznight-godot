@@ -108,7 +108,7 @@ public static partial class VideoGuide
 			dim.SetAnchorsPreset(LayoutPreset.FullRect);
 			dim.GuiInput += e =>
 			{
-				if (Closable && e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }) QueueFree();
+				if (Closable && e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left or MouseButton.Right }) QueueFree();
 			};
 			AddChild(dim);
 			var center = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };

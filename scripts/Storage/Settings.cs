@@ -182,6 +182,20 @@ public static class Settings
 		set => Set("volume_sfx", value.ToString());
 	}
 
+	/// <summary>The microphone interactive questions record with ("Default" = the one Windows uses).</summary>
+	public static string Microphone
+	{
+		get => Get("microphone", "Default");
+		set => Set("microphone", value);
+	}
+
+	/// <summary>Uses the chosen microphone, if it's still there (else the system's default).</summary>
+	public static void ApplyMicrophone()
+	{
+		var wanted = Microphone;
+		Godot.AudioServer.InputDevice = System.Array.IndexOf(Godot.AudioServer.GetInputDeviceList(), wanted) >= 0 ? wanted : "Default";
+	}
+
 	/// <summary>Default buzzer sound for new lobbies (an Sfx id).</summary>
 	public static string BuzzerSound
 	{

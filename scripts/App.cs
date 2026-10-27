@@ -79,7 +79,11 @@ public partial class App : Control
 		_colours.Use(cv >= 0 && cv + 1 < devArgs.Length ? devArgs[cv + 1] : Settings.ColourVision);
 		_audio.TrackStarted += path => AddChild(new NowPlaying(path));
 		GetTree().AutoAcceptQuit = false;
-		if (DisplayServer.GetName() != "headless") UseCursors();
+		if (DisplayServer.GetName() != "headless")
+		{
+			UseCursors();
+			Settings.ApplyMicrophone();
+		}
 		DropDowns.Install(GetTree());
 		// (the name players see; project.godot keeps "QuizNight!", which names the exported data folder that updates rely on)
 		GetWindow().Title = "Quiznight?";
@@ -187,6 +191,16 @@ public partial class App : Control
 
 	/// <summary>The first start's accessibility screen (again, after a language or font change rebuilt it).</summary>
 	public void ShowWelcomeAgain() => Show(new WelcomeScreen(() => _afterWelcome?.Invoke()));
+
+	/// <summary>Where Escape, right-click or "Let's go!" lead from a welcome screen opened later (the Test lab's).</summary>
+	Action? _welcomeBack;
+
+	/// <summary>The first start's welcome screen again, to look at (Test lab): it leads back there.</summary>
+	public void ShowWelcomeFrom(Action back)
+	{
+		_afterWelcome = _welcomeBack = back;
+		ShowWelcomeAgain();
+	}
 
 	/// <summary>Seconds until the next quiet update check (every minute while the game is open).</summary>
 	double _updateCheckIn = 60;
@@ -393,6 +407,9 @@ public partial class App : Control
 	{
 		switch (screen)
 		{
+			case WelcomeScreen when _welcomeBack != null:
+				_welcomeBack();
+				return true;
 			case HomeScreen or WelcomeScreen:
 				return false;
 			case HostLobbyScreen:

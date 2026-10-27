@@ -50,6 +50,7 @@ public partial class SettingsScreen : Control
 			Volume("Music", "Menu music and the podium jingle.", d.GameMusic, v => Change(Draft with { GameMusic = v })),
 			Volume("Video", "Videos, songs and clips in sound and video questions.", d.Music, v => Change(Draft with { Music = v })),
 			Volume("Sound effects", "Buzzer and other sound effects.", d.Sfx, v => Change(Draft with { Sfx = v })),
+			MicrophoneField(),
 			new HSeparator(),
 			BuzzerSection(),
 			new HSeparator(),
@@ -259,6 +260,21 @@ public partial class SettingsScreen : Control
 		};
 		_status.Text = text;
 		_status.AddThemeColorOverride("font_color", color);
+	}
+
+	/// <summary>
+	/// Which microphone Interactive questions record with, in case the game picks the wrong one (applies and saves at
+	/// once; "Test lab" has a recording test).
+	/// </summary>
+	static Control MicrophoneField()
+	{
+		var devices = AudioServer.GetInputDeviceList().Select(d => (d, d == "Default" ? Lang.T("Windows' default microphone") : d)).ToArray();
+		var current = devices.Any(d => d.Item1 == Settings.Microphone) ? Settings.Microphone : "Default";
+		return U.Field("Microphone", U.Select(devices, current, id =>
+		{
+			Settings.Microphone = id;
+			Settings.ApplyMicrophone();
+		}), "Used by Interactive questions (you record yourself). Change it if the game picks the wrong one.").With(f => New.Mark(f, "settings.microphone"));
 	}
 
 	Control BuzzerSection()

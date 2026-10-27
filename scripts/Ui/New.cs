@@ -16,6 +16,7 @@ public static class New
 	static readonly (string Key, string Since)[] Items =
 	{
 		("settings.intro", "0.12.0d1"),
+		("settings.microphone", "0.12.0d4"),
 	};
 
 	/// <summary>At startup, before "What's new": an update since the last run makes what came since then new.</summary>
