@@ -13,6 +13,23 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.12.0d5]
+
+### Added
+- **Space skin** (Settings → Skin). Behind the home screen: twinkling stars, a black hole with a glowing disk turning around it, planets (a desert planet with two suns, an ice planet, a gas giant with a cloud city glinting in it, a forest moon, a lava planet, a ringed one), and now and then a visitor: X-wings chased by TIE fighters, a freighter, a shuttle, a Star Destroyer far off, Wheatley and the Space Core tumbling past ("Space!"). Rarely a Death Star turns up, and once in a while it blows up a planet (it's back later). Pressing Start on the title screen launches a rocket. Only on the home screen, so nothing moves while you play; with Background movement off it all stands still.
+- **Animated background:** "Pinke Geilheit Spacing Team (animated)" in Settings → Background picture. It stops on its frame when Background movement is off.
+- **Your own background picture:** "My own picture…" next to the background list takes a picture from your PC. The game keeps its own copy, so it stays even if you move or delete the file.
+- **Microphone volume** in Settings, with a level meter ("Check the level"): 50 % is as your microphone gives it, more makes quiet recordings louder. The bar turns red when it's too loud and would crackle. The microphone is only on while the meter is switched on.
+- **Sort the quiz's question list:** "Play order", "By type" or "Order made" above the list. It only changes how the list is shown; "Play in this order" makes the shown order the play order (Ctrl+Z takes it back). Questions made from now on remember when they were made; older ones come first in "Order made".
+- **Test lab:** three drop-downs to try (a short, a medium and a long scrolling one), and "Up close" to look at the buzzer big, with a size slider.
+
+### Changed
+- **"Mark all as read" is up in the top row** next to Settings, instead of a line under the page.
+
+### Fixed
+- **The home page could be scrolled a little** (more so with the "Mark all as read" line): it was a few pixels taller than the window. It fits now.
+- **Test lab: the buzzer only played its sound on the first press, and the reaction test then never started timing.** The buzzer took one buzz only, like in a game; the Test lab's now takes every press.
+
 ## [0.12.0d4]
 
 ### Added

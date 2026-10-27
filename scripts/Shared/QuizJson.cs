@@ -169,7 +169,8 @@ public static class QuizJson
 		var type = Str(o, "type");
 		var q = QuestionType.IsKnown(type) ? QuizRules.NewQuestion(type, Str(o, "id")) : new Question { Id = Str(o, "id"), Type = type };
 		q.Prompt = Str(o, "prompt", q.Prompt);
-		q.CreatedAt = (long)Math.Max(0, Num(o, "createdAt", 0));
+		// (read as a whole number first: a question copied in memory still holds it as one)
+		q.CreatedAt = o["createdAt"] is JsonValue made && made.TryGetValue<long>(out var madeMs) ? Math.Max(0, madeMs) : (long)Math.Max(0, Num(o, "createdAt", 0));
 		q.Points = (int)Num(o, "points", q.Points);
 		q.Image = ReadImage(o["image"]);
 		if (o["slides"] is JsonArray slides)

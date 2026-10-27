@@ -865,6 +865,15 @@ public static class SelfTest
 		var fasterTie = Game.ClosenessPoints(new List<(string, double)> { ("late", 5), ("early", 5) }, 1, Scoring.Top3, TieRule.Faster);
 		Check(fasterTie["late"].Points == 3 && fasterTie["early"].Points == 2, "faster answer wins a tie (the one who locked in first is ahead)");
 		Eq(QuizRules.NewQuestion(QuestionType.MapPin, "m").TieRule, TieRule.Faster, "new map pins break ties by who was faster");
+		// (0.12.0d5: questions remember when they were made; old ones read as 0)
+		var made = QuizRules.NewQuestion(QuestionType.Classic, "made");
+		made.CreatedAt = 1761530000123;
+		Eq(QuizJson.ReadQuestion(QuizJson.WriteQuestion(made)).CreatedAt, 1761530000123L, "a question's made time survives saving");
+		Eq(QuizJson.ReadQuestion(QuizJson.WriteQuestion(QuizRules.NewQuestion(QuestionType.Classic, "old"))).CreatedAt, 0L, "a question without a made time reads as 0");
+		Check(Mathf.IsEqualApprox(Mathf.DbToLinear((50 - 50) / 50f * 24), 1f) && Mathf.DbToLinear((100 - 50) / 50f * 24) > 15, "microphone volume: 50 % leaves it, 100 % is +24 dB");
+		Check(Storage.Backgrounds.Valid(Storage.Backgrounds.Animated) == Storage.Backgrounds.Animated && Storage.Backgrounds.IsVideo(Storage.Backgrounds.Animated) && Storage.Backgrounds.Path(Storage.Backgrounds.Animated).EndsWith(".ogv"), "the animated background is a video");
+		Check(ResourceLoader.Exists(Storage.Backgrounds.Path(Storage.Backgrounds.Animated)), "the animated background's video is in the game");
+		Check(Ui.Skins.Valid(Ui.Skins.Space) == Ui.Skins.Space, "the space skin exists");
 		var costly = QuizRules.NewQuestion(QuestionType.Classic, "w");
 		costly.Mode = ClassicMode.Choice;
 		costly.WrongCosts = true;
