@@ -41,7 +41,7 @@ check doesn't need one) updates itself to 0.12.0b, and the new build then upload
       - **Wheatley and the Space Core** from Portal 2 floating around the edges now and then, tumbling slowly; the Space
         Core with a speech bubble ("I'm in space!", "Space!", "Gotta go to space."). Drawn by us in code/our own art, not
         Valve's models or sound files (the code and releases are public on GitHub, so no ripped Portal 2 voice lines in
-        them). If they should talk out loud, Max records the lines himself.
+        them). If they should talk out loud, Max records the lines.
       - Stays still when "Background motion" is off (stars don't twinkle, nothing floats, the rocket just isn't there).
 - [ ] **Test drop-downs in the Test lab:** a few drop-downs (short, long, scrolling) to check how they open and roll in.
 
