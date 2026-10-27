@@ -251,6 +251,20 @@ public static class Settings
 		set => Set("dyslexic_font", value ? "on" : "off");
 	}
 
+	/// <summary>Tutorials (Ui/Tutorial) show the first time their screen opens; "Turn off tutorials" stops them all.</summary>
+	public static bool TutorialsOn
+	{
+		get => Get("tutorials", "on") != "off";
+		set => Set("tutorials", value ? "on" : "off");
+	}
+
+	/// <summary>The tutorials already shown (finished or skipped), by id.</summary>
+	public static string[] TutorialsSeen
+	{
+		get => Get("tutorials_seen", "").Split(',', System.StringSplitOptions.RemoveEmptyEntries);
+		set => Set("tutorials_seen", string.Join(',', value));
+	}
+
 	public static bool AskBeforeDeletingQuiz
 	{
 		get => Get("ask_delete_quiz", "on") != "off";

@@ -13,6 +13,14 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.12.3d2]
+
+### Added
+- **Tutorials for making your first quiz.** The first time you open a new quiz, a short tour shows how a quiz is made: the screen goes dark except for one thing at a time, which glows, and a bubble next to it explains it (the title, the question types, the list of questions, hosting and sharing, the shortcuts). The first time you open a question, a second tour goes through the editor: filling in the blanks, the round settings, **bonus points**, **categories** (and "Keep it secret"), saving, and the shortcuts (Ctrl+Z/Y, Ctrl+S, Ctrl+V for pictures, dropping files onto the window). The first tour ends with how to report a bug or give feedback with the 🐞 button. Next ›, ‹ Back, Skip and the arrow keys/Enter/Esc work in every step.
+- **Turn tutorials off, or see them again.** "Turn off tutorials" in any bubble stops them all. Settings has **Show tutorials** (on/off) and **↺ Show tutorials again**, which brings back every tour you've already seen.
+- **Max gets a push on his phone and PC for every bug report and idea**, so he sees them straight away instead of when he next looks in the reports folder. Reports that couldn't go at first (no internet) push when they're sent on the next start, marked "sent late". Tapping the push opens the report.
+- **Reports and feedback say who sent them**: your Steam name and Steam ID (with a link to your profile), so Max can ask you about a bug and credit your idea in the changelog when it makes it into the game. Without Steam the report has your in-game name. The 🐞 window and Settings → What the game sends say so.
+
 ## [0.12.3d1]
 
 ### Changed

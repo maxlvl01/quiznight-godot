@@ -284,7 +284,7 @@ public static class RoundSettings
 			changed();
 		}, 0, QuestionLimits.BonusPointsMax, true).WithSteps();
 		// (every type's round settings have the bonus, so the category comes along with it)
-		return U.V(12, U.Field("Bonus points (optional)", U.H(8, points, what), "You give the bonus to players at the reveal. 0 = no bonus."),
+		return U.V(12, Tutorial.Mark(U.Field("Bonus points (optional)", U.H(8, points, what), "You give the bonus to players at the reveal. 0 = no bonus."), "editor.bonus"),
 			Category(q, changed));
 	}
 
@@ -321,8 +321,8 @@ public static class RoundSettings
 			changed();
 			if (id == own) custom.GrabFocus();
 		});
-		return U.Field("Category (optional)", U.V(6, select, custom, secret),
-			"Players only see it if you turn on \"Show categories\" in the lobby: it makes questions easier. It always counts for the stats per category.");
+		return Tutorial.Mark(U.Field("Category (optional)", U.V(6, select, custom, secret),
+			"Players only see it if you turn on \"Show categories\" in the lobby: it makes questions easier. It always counts for the stats per category."), "editor.category");
 	}
 
 	/// <summary>Buzzer questions (sound, video, image reveal): buzz in, or everyone types an answer.</summary>
@@ -340,7 +340,7 @@ public static class RoundSettings
 	{
 		var all = new List<Control> { U.Bold("Round settings", 17) };
 		all.AddRange(kids);
-		return U.Panel(U.V(12, all.ToArray()), "Card2");
+		return Tutorial.Mark(U.Panel(U.V(12, all.ToArray()), "Card2"), "editor.round");
 	}
 
 	/// <summary>Round settings shared by estimation and map pin questions.</summary>

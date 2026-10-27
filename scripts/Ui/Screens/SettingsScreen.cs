@@ -118,7 +118,8 @@ public partial class SettingsScreen : Control
 			U.Field("Theme", U.Small("☀ Switch to light mode", HomeScreen.LightMode).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin)),
 			U.Muted("Frame rate is capped at 60 FPS.", 12),
 			new CheckBox { Text = Lang.T("Ask before deleting a quiz"), ButtonPressed = Settings.AskBeforeDeletingQuiz, MouseDefaultCursorShape = CursorShape.PointingHand }
-				.With(b => b.Toggled += on => Settings.AskBeforeDeletingQuiz = on));
+				.With(b => b.Toggled += on => Settings.AskBeforeDeletingQuiz = on),
+			TutorialsField());
 
 		// (accessibility: both apply and save right away, like the skin)
 		var dyslexic = new CheckBox
@@ -149,6 +150,7 @@ public partial class SettingsScreen : Control
 			U.Eyebrow("What the game sends"),
 			U.Muted("If Quiznight crashes or runs into an error, the next start sends the end of its log to Max, so he can fix it. Your Windows user name is left out.", 12),
 			U.Muted("When a quiz night over Steam ends, the host's game sends its results (everyone's name, Steam ID and points) to Max's private results list, for the eternal table. \"Copy share code\" uploads that quiz (without its sounds and videos), and the game asks GitHub if there's an update. Nothing else leaves your PC.", 12),
+			U.Muted("Bug reports and feedback you send with the bug button carry your Steam name and ID, so Max can ask you about it and credit your ideas.", 12),
 			U.Gap(4),
 			U.Eyebrow("Anti-cheat"),
 			U.Muted("Quiznight? is protected by the Pinke Geilheit Neural-Level Anti-Cheat. Neural level means it reads your thoughts and bans you if you even think about cheating.", 12));
@@ -281,6 +283,21 @@ public partial class SettingsScreen : Control
 		};
 		_status.Text = text;
 		_status.AddThemeColorOverride("font_color", color);
+	}
+
+	/// <summary>Tutorials on or off, and "Show tutorials again" (both save at once, like the microphone).</summary>
+	static Control TutorialsField()
+	{
+		var on = new CheckBox { Text = Lang.T("Show tutorials"), ButtonPressed = Settings.TutorialsOn, MouseDefaultCursorShape = CursorShape.PointingHand };
+		on.Toggled += value => Settings.TutorialsOn = value;
+		var note = U.Muted("Short tours the first time you open a screen, like the quiz editor.", 12);
+		var again = U.Small("↺ Show tutorials again", () =>
+		{
+			Tutorial.Reset();
+			on.SetPressedNoSignal(true);
+			note.Text = Lang.T("Done: every tutorial shows again the next time its screen opens.");
+		}).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin);
+		return New.Mark(U.V(6, U.H(12, on, again), note), "settings.tutorials");
 	}
 
 	/// <summary>

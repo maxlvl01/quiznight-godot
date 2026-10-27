@@ -24,6 +24,7 @@ public partial class BugButton : Control
 		MouseFilter = MouseFilterEnum.Ignore;
 		var button = MediaIcon.Button(MediaIcon.Kind.Bug, "Report a bug or give feedback", Open, Size_ - 6);
 		button.FocusMode = FocusModeEnum.None;
+		Tutorial.Mark(button, "bug");
 		// (its size first: the corner offsets are worked out from it)
 		button.Size = new Vector2(JukeboxButton, Size_);
 		button.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomLeft, LayoutPresetMode.KeepSize, (int)Margin);
@@ -187,8 +188,8 @@ public static class BugReportWindow
 			box.AddChild(text);
 			box.AddChild(shot);
 			box.AddChild(U.Muted(bug
-				? "The game adds its version, where you were and the end of its log (your Windows user name is left out), and sends it to Max."
-				: "The game adds its version and where you were, and sends it to Max.", 12));
+				? "The game adds your Steam name and ID, its version, where you were and the end of its log (your Windows user name is left out), and sends it to Max."
+				: "The game adds your Steam name and ID (so your idea can be credited in the changelog), its version and where you were, and sends it to Max.", 12));
 			box.AddChild(U.H(10, U.Small("‹ Back", Choose), status.Grow(), U.Small("Cancel", overlay.QueueFree), send));
 			if (!BugReports.Enabled) status.Text = Lang.T("This version can't send reports (it has no key for it).");
 			Swap(box);

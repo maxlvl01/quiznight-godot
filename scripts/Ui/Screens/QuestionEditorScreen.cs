@@ -38,8 +38,8 @@ public partial class QuestionEditorScreen : Control
 			U.Link("← Back to quiz", Back, 14),
 			U.Heading(title, 22, false).Grow().With(l => l.HorizontalAlignment = HorizontalAlignment.Center),
 			new UpdateBadge(),
-			U.Btn("Save question", "AccentButton", Save, 15).With(b => b.TooltipText = "Ctrl+S")), "Bar");
-		var body = U.V(12, _issues, _form);
+			Tutorial.Mark(U.Btn("Save question", "AccentButton", Save, 15).With(b => b.TooltipText = "Ctrl+S"), "editor.save")), "Bar");
+		var body = U.V(12, Tutorial.Mark(_issues, "editor.issues"), _form);
 		var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.GrowV();
 		scroll.AddChild(U.Pad(body.Grow().GrowV(), 28, 16, 28, 28).Grow().GrowV());
 		_form.SizeFlagsVertical = SizeFlags.ExpandFill;
@@ -54,6 +54,9 @@ public partial class QuestionEditorScreen : Control
 			BuildForm();
 		});
 	}
+
+	/// <summary>The tour of the editor, the first time it opens.</summary>
+	public override void _Ready() => Tutorial.Offer("editor", this);
 
 	/// <summary>The draft as it is now (dev checks).</summary>
 	public Question Draft => _draft;

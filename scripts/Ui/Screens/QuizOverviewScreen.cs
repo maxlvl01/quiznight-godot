@@ -43,15 +43,15 @@ public partial class QuizOverviewScreen : Control
 		var sidebar = U.V(12,
 			U.Link("← My quizzes", App.I.GoQuizzes, 14).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin),
 			U.Eyebrow("Quiz"),
-			title,
+			Tutorial.Mark(title, "overview.title"),
 			_sortBar,
-			new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.With(s => s.AddChild(_questions.Grow())).GrowV(),
+			Tutorial.Mark(new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.With(s => s.AddChild(_questions.Grow())).GrowV(), "overview.list"),
 			_error,
-			_foot);
+			Tutorial.Mark(_foot, "overview.foot"));
 		var side = U.Panel(sidebar).MinSize(380);
 		side.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel, 0, null, 0, 18, 18));
 
-		var types = new GridContainer { Columns = 3 };
+		var types = Tutorial.Mark(new GridContainer { Columns = 3 }, "overview.types");
 		types.AddThemeConstantOverride("h_separation", 12);
 		types.AddThemeConstantOverride("v_separation", 12);
 		// (alphabetical by the name shown, so also in German)
@@ -100,6 +100,12 @@ public partial class QuizOverviewScreen : Control
 			Save();
 			RefreshList();
 		});
+	}
+
+	/// <summary>A new quiz (no questions yet): the tour of how a quiz is made, the first time.</summary>
+	public override void _Ready()
+	{
+		Tutorial.Offer("overview", this, _quiz.Questions.Count == 0);
 	}
 
 	public bool Undo() => _history.Undo();

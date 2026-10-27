@@ -19,6 +19,7 @@ public static class New
 		("settings.microphone", "0.12.0d4"),
 		("settings.micvolume", "0.12.0d5"),
 		("settings.background", "0.12.0d5"),
+		("settings.tutorials", "0.12.3d2"),
 	};
 
 	/// <summary>At startup, before "What's new": an update since the last run makes what came since then new.</summary>
