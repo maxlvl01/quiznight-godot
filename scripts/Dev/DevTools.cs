@@ -516,7 +516,15 @@ public sealed class DevTools
 		{
 			_arcadeOpened = true;
 			Bot.All(_app).OfType<Ui.Screens.HostLobbyScreen>().FirstOrDefault()?.OpenArcade();
-			if (arcadeGame != "menu" && _app.Host.Room.Players.FirstOrDefault() is { } first)
+			var window = Bot.All(_app).OfType<Ui.Arcade.ArcadeWindow>().FirstOrDefault();
+			// (scores: the high scores with a made-up lobby; reaction: the reaction test)
+			if (arcadeGame == "scores")
+			{
+				_app.Host.ArcadeRequest(new ArcadeRequest { Kind = ArcadeRequest.ReactionTime, Value = 231 });
+				Callable.From(() => window?.ShowScores(ArcadeGame.Reaction)).CallDeferred();
+			}
+			else if (arcadeGame == "reaction") window?.PlayReaction();
+			else if (arcadeGame != "menu" && _app.Host.Room.Players.FirstOrDefault() is { } first)
 				_app.Host.ArcadeRequest(new ArcadeRequest { Kind = ArcadeRequest.Challenge, Game = arcadeGame, Who = first.Id });
 		}
 		// --open-dropdown [N]: opens the screen's first (or Nth, from 1) dropdown at 1 s (to see its arrow and how it unfolds)

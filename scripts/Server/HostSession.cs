@@ -502,7 +502,12 @@ public sealed class HostSession : IDisposable
 		if (Room.Phase != Phase.Finished || _resultsSent) return;
 		_resultsSent = true;
 		if (Mode != NetMode.Steam || !Storage.ResultsUpload.Enabled) return;
-		var (name, csv) = Storage.Results.Make(Room, (SteamService.PlayerName, "steam:" + SteamService.MySteamId));
+		// (the lobby's mini game bests go with the night: the all-time lists are added up from them; the host plays as
+		// "host", in the results as their Steam id)
+		var hostId = "steam:" + SteamService.MySteamId;
+		var arcade = Arcade.Bests().Select(b => (b.Game, b.PlayerId == ArcadeGame.HostId ? hostId : b.PlayerId,
+			b.PlayerId == ArcadeGame.HostId ? SteamService.PlayerName : Room.GetPlayer(b.PlayerId)?.Name ?? "", b.Value));
+		var (name, csv) = Storage.Results.Make(Room, (SteamService.PlayerName, hostId), arcade);
 		Storage.ResultsUpload.Send(name, csv);
 	}
 

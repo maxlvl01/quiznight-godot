@@ -139,7 +139,7 @@ public partial class ArcadeWindow : Control
 			_matchId = null;
 			ShowMenu();
 		});
-		_body.AddChild(U.H(8, leave, U.Fill(), U.Muted(game is TetrisGame
+		_body.AddChild(U.H(8, leave, U.Fill(), U.Muted(game is ReactionGame ? "Click the buzzer or press Space." : game is TetrisGame
 			? "← → move · ↑ / X turn · Z turn back · ↓ faster · Space drop"
 			: game is PongView ? "Move the mouse (or ↑ ↓) to move your paddle. First to 5."
 			: "Your turn: drag back from your ball and let go to shoot.", 12, false)));
@@ -177,9 +177,8 @@ public partial class ArcadeWindow : Control
 				_title.Text = "Tetris";
 				Play(new TetrisGame(score => _link.Send(new ArcadeRequest { Kind = ArcadeRequest.Score, Value = score })));
 			}),
-			U.Muted(view?.TetrisBest.Count > 0
-				? string.Join("\n", view.TetrisBest.OrderByDescending(kv => kv.Value).Take(5).Select(kv => $"{_link.Name(kv.Key)}  {kv.Value:N0}"))
-				: Lang.T("Best scores in this lobby show here."), 13).Raw());
+			U.Btn("▶ Reaction", "AccentButton", PlayReaction),
+			U.Small("🏆 High scores", () => ShowScores(ArcadeGame.Reaction)));
 
 		var versus = U.V(6, U.Eyebrow("1 vs 1"));
 		var incoming = view?.Invites.Where(i => i.To == me).ToList() ?? new();
@@ -227,6 +226,53 @@ public partial class ArcadeWindow : Control
 		var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.GrowV();
 		scroll.AddChild(U.Panel(versus, "Inset").Grow());
 		_body.AddChild(U.H(10, U.V(10, tetris, U.Panel(records, "Inset").GrowV()).With(v => v.CustomMinimumSize = new Vector2(240, 0)), scroll.Grow()).GrowV());
+	}
+
+	public void PlayReaction()
+	{
+		_title.Text = Lang.T("Reaction");
+		Play(new ReactionGame(ms => _link.Send(new ArcadeRequest { Kind = ArcadeRequest.ReactionTime, Value = ms })));
+	}
+
+	// ---------- high scores ----------
+
+	/// <summary>The bests of all time, from the results the game ships with (eternal table's data), added up once.</summary>
+	static List<string>? _allResults;
+
+	/// <summary>Tonight's and all-time bests for Tetris or the reaction test, like F1 timing.</summary>
+	public void ShowScores(string game)
+	{
+		_game = null;
+		_title.Text = Lang.T("High scores");
+		_body.Clear();
+		var reaction = game == ArcadeGame.Reaction;
+		_allResults ??= Storage.Results.BundledCsvs().Concat(Storage.Results.BundledCsvs(true)).ToList();
+		var before = Storage.Results.ArcadeBests(_allResults, game);
+		var tonightRaw = (reaction ? _link.State()?.Arcade?.ReactionBest : _link.State()?.Arcade?.TetrisBest) ?? new Dictionary<string, int>();
+		bool Better(int a, int b) => reaction ? a < b : a > b;
+		var tonight = tonightRaw.Select(kv =>
+		{
+			var had = before.FirstOrDefault(b => b.PlayerId == kv.Key);
+			// (green: better than their best before tonight)
+			return new F1Times.Entry(kv.Key, _link.Name(kv.Key), kv.Value, had.PlayerId == null || Better(kv.Value, had.Value));
+		}).OrderBy(e => reaction ? e.Value : -e.Value).ToList();
+		// (all time: the shipped results, with tonight's bests counted in)
+		var all = before.ToDictionary(b => b.PlayerId, b => (b.Player, b.Value));
+		foreach (var e in tonight)
+			if (!all.TryGetValue(e.Id, out var had) || Better(e.Value, had.Value)) all[e.Id] = (e.Name, e.Value);
+		var allTime = all.Select(a => new F1Times.Entry(a.Key, a.Value.Player, a.Value.Value, false))
+			.OrderBy(e => reaction ? e.Value : -e.Value).Take(15).ToList();
+		int? record = allTime.Count > 0 ? allTime[0].Value : null;
+		Func<int, string> show = reaction ? F1Times.Seconds : F1Times.Points;
+		var tabs = U.Segmented(new[] { (ArcadeGame.Reaction, "Reaction"), (ArcadeGame.Tetris, "Tetris") }, game, g => Callable.From(() => ShowScores(g)).CallDeferred());
+		var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.GrowV();
+		scroll.AddChild(U.H(16,
+			U.V(8, U.Eyebrow("Tonight"), F1Times.List(tonight, reaction, show, show, record)).Grow(),
+			U.V(8, U.Eyebrow("All time"), F1Times.List(allTime, reaction, show, show, record)).Grow()).Grow());
+		_body.AddChild(tabs);
+		_body.AddChild(scroll);
+		_body.AddChild(U.H(8, U.Small("← Back to the menu", ShowMenu), U.Fill(),
+			U.Muted(reaction ? "Best of 5 tries, in seconds. Purple: best of all time · green: a personal best." : "Highest score. Purple: best of all time · green: a personal best.", 12, false)));
 	}
 
 	/// <summary>

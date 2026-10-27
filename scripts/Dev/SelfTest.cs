@@ -1034,6 +1034,19 @@ public static class SelfTest
 			// (A's came off the far cushion; B's was too soft to reach it: A breaks, and the rack is set)
 			Check(lagOk && lagTable.LagFar[0] && !lagTable.LagFar[1] && BilliardRules.EndLag(lagTable) == "A" && !lagTable.Lag && lagTable.Turn == "A" && lagTable.X.Count == 16,
 				"8-ball starts with the lag: whoever comes back closest after the far cushion breaks");
+			// The reaction test: each player's best (lowest) time; silly times are ignored. The bests go with the night's
+			// results, and the all-time list is added up from them (without them counting as players or questions).
+			arcade.Request("ann", new ArcadeRequest { Kind = ArcadeRequest.ReactionTime, Value = 240 });
+			arcade.Request("ann", new ArcadeRequest { Kind = ArcadeRequest.ReactionTime, Value = 310 });
+			arcade.Request("ben", new ArcadeRequest { Kind = ArcadeRequest.ReactionTime, Value = 20 });
+			var reactionRoom = new Room("REAC", Dev.SampleQuiz.Build(), () => 0);
+			reactionRoom.Join("ann", "Ann");
+			var (_, reactionCsv) = Storage.Results.Make(reactionRoom, null, new[] { (ArcadeGame.Reaction, "ann", "Ann", 240), (ArcadeGame.Reaction, "ann", "Ann", 199), (ArcadeGame.Tetris, "ann", "Ann", 5000) });
+			var reactionAll = Storage.Results.ArcadeBests(new[] { reactionCsv }, ArcadeGame.Reaction);
+			Check(arcade.View().ReactionBest.GetValueOrDefault("ann") == 240 && !arcade.View().ReactionBest.ContainsKey("ben")
+				&& reactionAll.Count == 1 && reactionAll[0].Value == 199 && Storage.Results.ArcadeBests(new[] { reactionCsv }, ArcadeGame.Tetris)[0].Value == 5000
+				&& Storage.Results.Nights(new[] { reactionCsv }).Count == 1 && Storage.Results.Questions(new[] { reactionCsv }).Count == 0,
+				"mini games: reaction bests in the lobby, in the night's results and all time");
 			arcade.Request("ann", new ArcadeRequest { Kind = ArcadeRequest.Score, Value = 1200 });
 			arcade.Request("ann", new ArcadeRequest { Kind = ArcadeRequest.Score, Value = 800 });
 			Check(arcade.View().TetrisBest["ann"] == 1200, "mini games: Tetris keeps each player's best score");

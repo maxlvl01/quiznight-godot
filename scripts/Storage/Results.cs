@@ -30,6 +30,9 @@ public static class Results
 		// own columns empty but date, quiz and player)
 		"question", "type", "subtype", "category", "q_points", "right", "answered", "q_buzzes", "wrong_buzzes", "buzz_s",
 		"answer_s", "km_off", "pct_off", "hint", "joker", "placements", "placements_right", "typos",
+		// (from 0.12: the lobby's mini game bests, one row per player and game: "arcade" is the game, "arcade_value" the
+		// Tetris score or reaction time in ms)
+		"arcade", "arcade_value",
 	};
 
 	/// <summary>Where the host's game keeps results it couldn't upload.</summary>
@@ -85,11 +88,48 @@ public static class Results
 	}
 
 	/// <summary>A finished room's results: a file name and the CSV.</summary>
-	public static (string Name, string Csv) Make(Room room, (string Name, string Id)? host = null)
+	public static (string Name, string Csv) Make(Room room, (string Name, string Id)? host = null,
+		IEnumerable<(string Game, string PlayerId, string Player, int Value)>? arcade = null)
 	{
 		var now = DateTime.Now;
 		var title = new string(room.Quiz.Title.Select(c => char.IsLetterOrDigit(c) ? c : '-').ToArray()).Trim('-');
-		return ($"{now:yyyy-MM-dd_HH-mm} {(title == "" ? "quiz" : title)}.csv", ToCsv(room, now, host));
+		var csv = ToCsv(room, now, host);
+		// (the lobby's mini game bests after the night's rows)
+		if (arcade != null)
+		{
+			var sb = new StringBuilder(csv);
+			var date = now.ToString("yyyy-MM-dd HH:mm", Inv);
+			foreach (var (game, id, player, value) in arcade)
+				sb.Append(string.Join(",", Columns.Select(c => Quote(c switch
+				{
+					"date" => date, "quiz" => room.Quiz.Title, "player_id" => id, "player" => player,
+					"arcade" => game, "arcade_value" => value.ToString(Inv), _ => "",
+				})))).Append('\n');
+			csv = sb.ToString();
+		}
+		return ($"{now:yyyy-MM-dd_HH-mm} {(title == "" ? "quiz" : title)}.csv", csv);
+	}
+
+	static bool IsArcadeRow(Dictionary<string, string> row) => row.GetValueOrDefault("arcade", "") != "";
+
+	/// <summary>
+	/// The mini games' all-time bests (from 0.12's nights on): each player's best per game, with their latest name. Tetris
+	/// highest first, reaction lowest first.
+	/// </summary>
+	public static List<(string PlayerId, string Player, int Value)> ArcadeBests(IEnumerable<string> csvs, string game)
+	{
+		var best = new Dictionary<string, (string Player, int Value)>();
+		var lower = game == ArcadeGame.Reaction;
+		foreach (var row in csvs.SelectMany(Parse).Where(r => r.GetValueOrDefault("arcade", "") == game))
+		{
+			var id = row.GetValueOrDefault("player_id", "");
+			if (id == "" || !int.TryParse(row.GetValueOrDefault("arcade_value"), NumberStyles.Integer, Inv, out var value)) continue;
+			var name = row.GetValueOrDefault("player", "");
+			if (!best.TryGetValue(id, out var was) || (lower ? value < was.Value : value > was.Value)) best[id] = (name, value);
+			else best[id] = (name == "" ? was.Player : name, was.Value);
+		}
+		var list = best.Select(kv => (kv.Key, kv.Value.Player, kv.Value.Value));
+		return (lower ? list.OrderBy(x => x.Item3) : list.OrderByDescending(x => x.Item3)).ToList();
 	}
 
 	/// <summary>Keeps a results file in the Results folder; returns its path (null if the disk said no).</summary>
@@ -114,7 +154,7 @@ public static class Results
 	static string Quote(string raw) => Guard.CsvSafe(raw) is var s && s.IndexOfAny(new[] { ',', '"', '\n' }) >= 0 ? $"\"{s.Replace("\"", "\"\"")}\"" : s;
 
 	/// <summary>A player's line for the whole night (not one of the per-question rows).</summary>
-	static bool IsNightRow(Dictionary<string, string> row) => row.GetValueOrDefault("question", "") == "";
+	static bool IsNightRow(Dictionary<string, string> row) => row.GetValueOrDefault("question", "") == "" && !IsArcadeRow(row);
 
 	/// <summary>The rows of a results CSV as column → value.</summary>
 	public static List<Dictionary<string, string>> Parse(string csv)
@@ -303,7 +343,7 @@ public static class Results
 	{
 		var seen = new HashSet<string>();
 		var rows = new List<QuestionRow>();
-		foreach (var row in csvs.SelectMany(Parse).Where(r => !IsNightRow(r)))
+		foreach (var row in csvs.SelectMany(Parse).Where(r => !IsNightRow(r) && !IsArcadeRow(r)))
 		{
 			var date = row.GetValueOrDefault("date", "");
 			var id = row.GetValueOrDefault("player_id", "");

@@ -13,6 +13,8 @@ namespace QuizNight.Shared;
 public static class ArcadeGame
 {
 	public const string Tetris = "tetris";
+	/// <summary>Alone: buzz as soon as the buzzer lights up, five tries; the best time counts (ms, lower is better).</summary>
+	public const string Reaction = "reaction";
 	public const string Pong = "pong";
 	public const string Billiard = "billiard";
 
@@ -21,7 +23,7 @@ public static class ArcadeGame
 
 	public static string Label(string game) => game switch
 	{
-		Tetris => "Tetris", Pong => "Pong", _ when BilliardMode.Is(game) => BilliardMode.Label(game), _ => game,
+		Tetris => "Tetris", Reaction => "Reaction", Pong => "Pong", _ when BilliardMode.Is(game) => BilliardMode.Label(game), _ => game,
 	};
 
 	/// <summary>The host plays as this id (not a player of the quiz).</summary>
@@ -49,6 +51,8 @@ public sealed class ArcadeRequest
 	public const string Shot = "shot";
 	public const string Leave = "leave";
 	public const string Score = "score";
+	/// <summary>The reaction test's best time, in ms (Value).</summary>
+	public const string ReactionTime = "reaction";
 }
 
 /// <summary>The lobby's side of the mini games (in RoomState): open challenges, who's playing, the records.</summary>
@@ -59,6 +63,8 @@ public sealed class ArcadeView
 	public List<ArcadeRecord> Records = new();
 	/// <summary>Tetris: everyone's best score in this lobby.</summary>
 	public Dictionary<string, int> TetrisBest = new();
+	/// <summary>The reaction test: everyone's best time in this lobby, in ms.</summary>
+	public Dictionary<string, int> ReactionBest = new();
 	/// <summary>The host's name, as the mini games show them.</summary>
 	public string HostName = "Host";
 }

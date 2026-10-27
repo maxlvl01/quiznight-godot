@@ -29,6 +29,7 @@ public sealed class ArcadeHost
 	readonly List<Match> _matches = new();
 	readonly List<ArcadeRecord> _records = new();
 	readonly Dictionary<string, int> _tetris = new();
+	readonly Dictionary<string, int> _reaction = new();
 	int _next;
 
 	/// <summary>Who can be challenged: everyone in the room on a game that has the mini games (0.12 on), and the host.</summary>
@@ -43,6 +44,7 @@ public sealed class ArcadeHost
 		Matches = _matches.Select(m => new ArcadeMatchInfo { Id = m.Id, Game = m.Game, A = m.A, B = m.B }).ToList(),
 		Records = _records.Select(r => new ArcadeRecord { Game = r.Game, A = r.A, B = r.B, WinsA = r.WinsA, WinsB = r.WinsB, StreakBy = r.StreakBy, Streak = r.Streak }).ToList(),
 		TetrisBest = new Dictionary<string, int>(_tetris),
+		ReactionBest = new Dictionary<string, int>(_reaction),
 		HostName = HostName,
 	};
 
@@ -93,6 +95,12 @@ public sealed class ArcadeHost
 			case ArcadeRequest.Leave when _matches.FirstOrDefault(m => m.Has(from)) is { } m:
 				frames.Add(End(m, ""));
 				return (true, frames);
+			// (faster than 80 ms is a guess, not a reaction; slower than 2 s isn't worth a list)
+			case ArcadeRequest.ReactionTime when r.Value is >= 80 and <= 2000:
+				var ms = (int)r.Value;
+				if (_reaction.TryGetValue(from, out var best) && best <= ms) return (false, frames);
+				_reaction[from] = ms;
+				return (true, frames);
 			case ArcadeRequest.Score when r.Value is > 0 and < 100_000_000:
 				var score = (int)r.Value;
 				if (score <= _tetris.GetValueOrDefault(from)) return (false, frames);
@@ -101,6 +109,10 @@ public sealed class ArcadeHost
 		}
 		return (false, frames);
 	}
+
+	/// <summary>This lobby's bests, for the night's results (each player's best Tetris score and reaction time).</summary>
+	public IEnumerable<(string Game, string PlayerId, int Value)> Bests() =>
+		_tetris.Select(kv => (ArcadeGame.Tetris, kv.Key, kv.Value)).Concat(_reaction.Select(kv => (ArcadeGame.Reaction, kv.Key, kv.Value)));
 
 	/// <summary>Someone left the room: their challenges go, and their match ends (counting for nobody).</summary>
 	public (bool Changed, List<ArcadeFrame> Frames) Gone(string id)
