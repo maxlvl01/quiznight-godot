@@ -32,6 +32,17 @@ check doesn't need one) updates itself to 0.12.0b, and the new build then upload
       off. Made from the video version, `Downloads/Astonaut_Gigastacy.mp4` (4.7 MB, 1024×1024 like the still one,
       24 fps, a 3.875 s loop, no sound) → a looping .ogv. (The GIF, `Downloads/ezgif-5-2d0da948e0.gif`, is only 600×600
       at 10 fps.)
+- [ ] **A space skin** (a new `Ui.Skins` entry: deep space colours, not just a palette swap):
+      - **Twinkling stars** behind the screens (drawn in code, a few hundred, each with its own slow twinkle), a **black hole**
+        (dark core with a glowing, slowly turning accretion ring that bends the stars near it), and a few **planets**
+        drifting very slowly (one ringed).
+      - **A rocket launch:** pressing Start on the intro's title screen launches a rocket from the bottom (flame, smoke,
+        a little shake) that flies off the top before the home screen comes up.
+      - **Wheatley and the Space Core** from Portal 2 floating around the edges now and then, tumbling slowly; the Space
+        Core with a speech bubble ("I'm in space!", "Space!", "Gotta go to space."). Drawn by us in code/our own art, not
+        Valve's models or sound files (the code and releases are public on GitHub, so no ripped Portal 2 voice lines in
+        them). If they should talk out loud, Max records the lines himself.
+      - Stays still when "Background motion" is off (stars don't twinkle, nothing floats, the rocket just isn't there).
 - [ ] **Test drop-downs in the Test lab:** a few drop-downs (short, long, scrolling) to check how they open and roll in.
 
 
