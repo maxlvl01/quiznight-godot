@@ -1,7 +1,9 @@
 // Bug reports, sent by hand (the 🐞 button, Ui/BugReport): one Markdown file per report in Max's private results repo
-// (bug-reports/<category>/<date> <version> <id>.md), from the same template every time, with a screenshot next to it
-// (.png, same name). Feedback (ideas: maps, question types, quality of life …) goes the same way to feedback/<kind>/, without
-// the log. If the upload fails (no internet), the report waits in user://bug-reports and goes on the next start.
+// (bugs/Reported/<date> <version> <category> <id>.md), from the same template every time, with a screenshot next to it
+// (.png, same name). Feedback (ideas: maps, question types, quality of life …) goes the same way to features/Requested/
+// (<kind> in the name), without the log. Max moves them on by hand: bugs/ and features/ each have WIP (in a test build),
+// Pending (waiting for the public release) and Resolved. If the upload fails (no internet), the report waits in
+// user://bug-reports and goes on the next start.
 // Every report says who sent it (Steam name and ID, so ideas can be credited in the changelog), and once it's uploaded a
 // push goes to Max's phone and PC through ntfy.sh (Push).
 
@@ -19,6 +21,8 @@ namespace QuizNight.Storage;
 public static class BugReports
 {
 	const string Waiting = "user://bug-reports";
+	/// <summary>Where new reports land in the repo: bugs, and feedback (feature requests).</summary>
+	public const string Reported = "bugs/Reported", Requested = "features/Requested";
 	const int LogLines = 200;
 	/// <summary>The ntfy.sh topic Max's phone and PC listen to (https://ntfy.sh/quiznight-k8x2m9q4v7). Anyone who knows it can
 	/// read and send pushes, so it's kept only here.</summary>
@@ -93,12 +97,12 @@ public static class BugReports
 		.AppendLine(text.Trim())
 		.ToString();
 
-	/// <summary>Sends a report (and its screenshot) to root/category/; if that fails it waits for the next start. Calls back
-	/// with whether it went.</summary>
-	public static void Send(string category, string report, byte[]? png, Action<bool> done, string root = "bug-reports")
+	/// <summary>Sends a report (and its screenshot) to root/ (Reported or Requested), the category in the file name; if that
+	/// fails it waits for the next start. Calls back with whether it went.</summary>
+	public static void Send(string category, string report, byte[]? png, Action<bool> done, string root = Reported)
 	{
-		var folder = string.Concat(category.Select(c => char.IsLetterOrDigit(c) || c is ' ' or '-' ? c : '-')).Replace("  ", " ").Trim(' ', '-');
-		var name = $"{root}/{folder}/{DateTime.Now:yyyy-MM-dd HH-mm} {App.Version} {Guid.NewGuid().ToString("N")[..6]}";
+		var label = string.Concat(category.Select(c => char.IsLetterOrDigit(c) || c is ' ' or '-' ? c : '-')).Replace("  ", " ").Trim(' ', '-');
+		var name = $"{root}/{DateTime.Now:yyyy-MM-dd HH-mm} {App.Version} {label} {Guid.NewGuid().ToString("N")[..6]}";
 		_ = Task.Run(async () =>
 		{
 			var ok = true;
@@ -130,7 +134,7 @@ public static class BugReports
 				try
 				{
 					// (the repo path is in the file name, "/" as "~")
-					var name = Path.GetFileNameWithoutExtension(md).Replace('~', '/');
+					var name = Moved(Path.GetFileNameWithoutExtension(md).Replace('~', '/'));
 					var report = await File.ReadAllBytesAsync(md);
 					await Put(name + ".md", report);
 					var png = Path.ChangeExtension(md, ".png");
@@ -146,6 +150,17 @@ public static class BugReports
 				}
 			}
 		});
+	}
+
+	/// <summary>A report kept by 0.12.3b or older (bug-reports/&lt;category&gt;/… or feedback/&lt;kind&gt;/…) goes where new ones
+	/// go, the category moved into the name before the id.</summary>
+	static string Moved(string name)
+	{
+		var parts = name.Split('/');
+		if (parts.Length != 3 || parts[0] is not ("bug-reports" or "feedback")) return name;
+		var id = parts[2].LastIndexOf(' ');
+		if (id < 0) return name;
+		return $"{(parts[0] == "feedback" ? Requested : Reported)}/{parts[2][..id]} {parts[1]}{parts[2][id..]}";
 	}
 
 	static void Keep(string name, string report, byte[]? png)

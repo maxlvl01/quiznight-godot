@@ -158,8 +158,8 @@ public static class BugReportWindow
 				send!.Disabled = true;
 				status.Text = Lang.T("Sending …");
 				var (folder, report, root) = bug
-					? (category, BugReports.Make(category, text.Text, details), "bug-reports")
-					: (Kinds[kind!.Value].Folder, BugReports.MakeFeedback(Kinds[kind.Value].Folder, category, text.Text), "feedback");
+					? (category, BugReports.Make(category, text.Text, details), BugReports.Reported)
+					: (Kinds[kind!.Value].Folder, BugReports.MakeFeedback(Kinds[kind.Value].Folder, category, text.Text), BugReports.Requested);
 				BugReports.Send(folder, report, shot.ButtonPressed ? png : null, ok =>
 				{
 					if (!GodotObject.IsInstanceValid(overlay)) return;
