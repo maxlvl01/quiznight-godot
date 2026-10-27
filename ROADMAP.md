@@ -29,7 +29,8 @@ check doesn't need one) updates itself to 0.12.0b, and the new build then upload
       your PC (copied into the game's user folder, so it stays when the original moves; checked by `Guard` like other pictures).
 - [ ] **The animated "Pinke Geilheit Spacing Team" background** as its own choice next to the still one. Godot can't play
       GIFs, so it gets converted when it's added (frames, or a looping .ogv), and it stays still when "Background motion" is
-      off. Needs the GIF file itself: the picture pasted in chat came through as a single still frame (600×600).
+      off. The GIF: `Downloads/ezgif-5-2d0da948e0.gif` (7.3 MB, 600×600, 39 frames at 100 ms = a 3.9 s loop). It's
+      smaller than the still one (1024×1024), so it will look a little softer on big monitors.
 - [ ] **Test drop-downs in the Test lab:** a few drop-downs (short, long, scrolling) to check how they open and roll in.
 
 
