@@ -33,6 +33,9 @@ check doesn't need one) updates itself to 0.12.0b, and the new build then upload
       24 fps, a 3.875 s loop, no sound) → a looping .ogv. (The GIF, `Downloads/ezgif-5-2d0da948e0.gif`, is only 600×600
       at 10 fps.)
 - [ ] **A space skin** (a new `Ui.Skins` entry: deep space colours, not just a palette swap):
+      - **Only in the main menu:** the stars, black hole, planets, ships and guests play behind the home screen only
+        (like `Seasonal.OnScreen`); every other screen gets just the skin's colours. The rocket belongs to the intro's
+        Start, which leads into the home screen.
       - **Twinkling stars** behind the screens (drawn in code, a few hundred, each with its own slow twinkle), a **black hole**
         (dark core with a glowing, slowly turning accretion ring that bends the stars near it), and a few **planets**
         drifting very slowly (one ringed).
