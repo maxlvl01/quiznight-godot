@@ -24,7 +24,7 @@ public partial class TestLabScreen : Control
 	{
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		AddChild(_player);
-		var left = U.V(14, Buzzers(), Microphone(), Questions());
+		var left = U.V(14, Buzzers(), Microphone(), Questions(), DropDownTests());
 		var right = U.V(14, Sounds(), Maps(), OneOffs());
 		var page = U.V(14,
 			U.H(16, U.Link("← Home", () => App.I.GoHome()).With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter), U.Heading("Test lab", 34)),
@@ -59,7 +59,7 @@ public partial class TestLabScreen : Control
 			armedAt = 0;
 			testing = false;
 			result.Text = Lang.F("Your reaction: {0} ms", ms);
-		}, 120);
+		}, 120) { Repeatable = true };
 		var start = U.Small("Reaction test", () =>
 		{
 			testing = true;
@@ -78,7 +78,28 @@ public partial class TestLabScreen : Control
 			sounds.AddChild(U.Small("▶ " + Lang.T(label), () => Sfx.PlayBuzzer(id)));
 		sounds.AddChild(U.Small("▶ Right", () => Sfx.PlayAnswer(true)));
 		sounds.AddChild(U.Small("▶ Wrong", () => Sfx.PlayAnswer(false)));
-		return U.Card(10, U.Eyebrow("Buzzers"), U.H(14, button, U.V(8, start, result).Grow()), sounds);
+		var closeUp = U.Small("🔍 Up close", ShowBuzzerUpClose).Tip("The buzzer big, to look at it in detail");
+		return U.Card(10, U.Eyebrow("Buzzers"), U.H(14, button, U.V(8, start, result, closeUp).Grow()), sounds);
+	}
+
+	/// <summary>The buzzer as big as the window allows, with a size slider, still pressable (and playing its sound).</summary>
+	static void ShowBuzzerUpClose()
+	{
+		var overlay = new VideoGuide.GuideOverlay();
+		var holder = new CenterContainer();
+		var size = new HSlider { MinValue = 200, MaxValue = 520, Step = 10, Value = 460, CustomMinimumSize = new Vector2(320, 0) };
+		void Make()
+		{
+			foreach (var child in holder.GetChildren()) child.QueueFree();
+			holder.AddChild(new BuzzButton(() => Sfx.PlayBuzzer(Settings.BuzzerSound), (float)size.Value) { Repeatable = true });
+		}
+		size.ValueChanged += _ => Make();
+		Make();
+		overlay.SetContent(U.Pad(U.V(10,
+			U.Eyebrow("The buzzer up close"),
+			holder,
+			U.H(10, U.Muted("Size", 13), size, U.Small("Close", overlay.QueueFree))), 20, 16, 20, 16));
+		App.I.AddChild(overlay);
 	}
 
 	// ---------- songs and sounds ----------
@@ -220,6 +241,22 @@ public partial class TestLabScreen : Control
 		args.AddRange(new[] { "--headless", "--", "--no-steam", "--bot", name });
 		if (pretendVersion != null) args.AddRange(new[] { "--pretend-version", pretendVersion });
 		OS.CreateProcess(OS.GetExecutablePath(), args.ToArray());
+	}
+
+	// ---------- drop-downs ----------
+
+	/// <summary>Drop-downs of every length, to see them roll out and back in (a long one scrolls).</summary>
+	static Control DropDownTests()
+	{
+		static OptionButton Make(int count, string what)
+		{
+			var box = new OptionButton();
+			for (var i = 1; i <= count; i++) box.AddItem(Lang.F(what, i));
+			return box;
+		}
+		return U.Card(10, U.Eyebrow("Drop-downs"),
+			U.Muted("A short one, a medium one and a long one that scrolls.", 12),
+			U.H(8, Make(3, "Choice {0}"), Make(9, "Item {0}"), Make(60, "Entry number {0}")));
 	}
 
 	// ---------- maps ----------

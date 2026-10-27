@@ -20,8 +20,10 @@ public partial class MicRecorder : Node
 	float _mixRate = 44100;
 
 	public bool Recording { get; private set; }
-	/// <summary>How loud the microphone is right now (0–1), so players see it works.</summary>
+	/// <summary>How loud the microphone is right now (0–1, after Settings.MicVolume), so players see it works.</summary>
 	public float Level { get; private set; }
+	/// <summary>The last moment (msec) the sound hit the top (too loud: it clips).</summary>
+	public ulong ClippedAt { get; private set; }
 	public double Seconds => _samples.Count / (double)_mixRate;
 	/// <summary>Reached the longest a recording may be (QuestionLimits.RecordingMaxSec): it stopped by itself.</summary>
 	public event Action? Full;
@@ -83,9 +85,12 @@ public partial class MicRecorder : Node
 		}
 		var frames = _capture.GetBuffer(n);
 		var peak = 0f;
+		var gain = Storage.Settings.MicGain;
 		foreach (var f in frames)
 		{
-			var mono = (f.X + f.Y) / 2;
+			var mono = (f.X + f.Y) / 2 * gain;
+			if (Math.Abs(mono) >= 0.99f) ClippedAt = Time.GetTicksMsec();
+			mono = Math.Clamp(mono, -1f, 1f);
 			peak = Math.Max(peak, Math.Abs(mono));
 			if (Recording) _samples.Add(mono);
 		}

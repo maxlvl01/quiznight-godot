@@ -11,6 +11,10 @@ public partial class QuizOverviewScreen : Control
 {
 	readonly Quiz _quiz;
 	readonly VBoxContainer _questions = U.V(6);
+	readonly HBoxContainer _sortBar = U.H(8);
+	/// <summary>How the list is shown: "play" (the order they're played in), "type" or "created". Only the view: the play order
+	/// changes only with "Play them in this order". Kept while the game runs, for every quiz.</summary>
+	static string _sort = "play";
 	readonly VBoxContainer _foot = U.V(8);
 	readonly Label _error = U.Error();
 	readonly LineEdit _title;
@@ -40,6 +44,7 @@ public partial class QuizOverviewScreen : Control
 			U.Link("← My quizzes", App.I.GoQuizzes, 14).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin),
 			U.Eyebrow("Quiz"),
 			title,
+			_sortBar,
 			new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.With(s => s.AddChild(_questions.Grow())).GrowV(),
 			_error,
 			_foot);
@@ -131,8 +136,47 @@ public partial class QuizOverviewScreen : Control
 	{
 		_questions.Clear();
 		if (_quiz.Questions.Count == 0) _questions.AddChild(U.Muted("No questions yet — pick a type on the right.", 13));
-		for (var i = 0; i < _quiz.Questions.Count; i++) _questions.AddChild(Row(i));
+		foreach (var i in Shown()) _questions.AddChild(Row(i));
+		RefreshSortBar();
 		RefreshFoot();
+	}
+
+	/// <summary>The questions' play indexes in the order the list shows them (ties keep the play order).</summary>
+	List<int> Shown()
+	{
+		var all = Enumerable.Range(0, _quiz.Questions.Count);
+		return (_sort switch
+		{
+			"type" => all.OrderBy(i => System.Array.IndexOf(QuestionType.All, KindOf(_quiz.Questions[i]))),
+			// (questions made before 0.12.0d5 don't know when: they come first, in play order)
+			"created" => all.OrderBy(i => _quiz.Questions[i].CreatedAt),
+			_ => all.OrderBy(i => i),
+		}).ThenBy(i => i).ToList();
+	}
+
+	/// <summary>A picture reveal sorts with the pictures (it's one of their modes).</summary>
+	static string KindOf(Question q) => q.Type == QuestionType.Image ? QuestionType.Picture : q.Type;
+
+	void RefreshSortBar()
+	{
+		_sortBar.Clear();
+		_sortBar.Visible = _quiz.Questions.Count > 1;
+		_sortBar.AddChild(U.Muted("Show", 13, false).With(l => l.SizeFlagsVertical = SizeFlags.ShrinkCenter));
+		_sortBar.AddChild(U.Segmented(new[] { ("play", "Play order"), ("type", "By type"), ("created", "Order made") }, _sort, id =>
+		{
+			_sort = id;
+			Callable.From(RefreshList).CallDeferred();
+		}).Grow());
+		var shown = Shown();
+		if (_sort != "play" && !shown.SequenceEqual(Enumerable.Range(0, shown.Count)))
+			_sortBar.AddChild(U.Small("Play in this order", () =>
+			{
+				_quiz.Questions = shown.Select(i => _quiz.Questions[i]).ToList();
+				_sort = "play";
+				Save();
+				_history.Record();
+				RefreshList();
+			}).Tip("Changes the order the questions are played in to the one shown (Ctrl+Z takes it back)"));
 	}
 
 	Control Row(int i)
@@ -171,8 +215,9 @@ public partial class QuizOverviewScreen : Control
 		var text = U.V(0, prompt, sub).Grow();
 		var grip = new GripIcon { CustomMinimumSize = new Vector2(12, 20), SizeFlagsVertical = SizeFlags.ShrinkCenter };
 		// (click opens the question; drag it onto another row to move it there)
-		var open = new QuestionRowButton(i, Move) { Flat = true, MouseDefaultCursorShape = CursorShape.PointingHand, TooltipText = Lang.T("Click to edit, drag to move") }.Grow();
+		var open = new QuestionRowButton(i, Move) { Draggable = _sort == "play", Flat = true, MouseDefaultCursorShape = CursorShape.PointingHand, TooltipText = Lang.T("Click to edit, drag to move") }.Grow();
 		open.Pressed += () => App.I.GoQuestion(_quiz.Id, q.Id, null);
+		if (_sort != "play") open.TooltipText = Lang.T("Click to edit (drag to move in play order)");
 		open.Preview = () => U.Panel(U.Text(q.Prompt == "" ? Lang.T("No question text") : q.Prompt, 14, C.Text, Fonts.Bold).Raw(), "Card2")
 			.With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel2, 10, C.Accent, 2, 12, 8)));
 		var content = U.H(10, text, grip);
@@ -227,6 +272,8 @@ public partial class QuestionRowButton : Button
 	readonly int _index;
 	readonly System.Action<int, int> _move;
 	public System.Func<Control>? Preview;
+	/// <summary>Off while the list is sorted another way than the play order (where a row lands would be unclear).</summary>
+	public bool Draggable = true;
 	/// <summary>Where a dragged row would land while one is over this row: -1 above, 1 below, 0 none.</summary>
 	int _dropSide;
 
@@ -243,6 +290,7 @@ public partial class QuestionRowButton : Button
 
 	public override Variant _GetDragData(Vector2 atPosition)
 	{
+		if (!Draggable) return default;
 		if (Preview?.Invoke() is { } preview)
 		{
 			preview.Modulate = new Color(1, 1, 1, 0.9f);
@@ -254,7 +302,7 @@ public partial class QuestionRowButton : Button
 
 	public override bool _CanDropData(Vector2 atPosition, Variant data)
 	{
-		if (data.VariantType != Variant.Type.Dictionary || data.AsGodotDictionary() is not { } d || !d.ContainsKey("kind") || d["kind"].AsString() != DragKind) return false;
+		if (!Draggable || data.VariantType != Variant.Type.Dictionary || data.AsGodotDictionary() is not { } d || !d.ContainsKey("kind") || d["kind"].AsString() != DragKind) return false;
 		SetDropSide(atPosition.Y < Size.Y / 2 ? -1 : 1);
 		return true;
 	}

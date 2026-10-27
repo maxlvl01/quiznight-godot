@@ -189,6 +189,16 @@ public static class Settings
 		set => Set("microphone", value);
 	}
 
+	/// <summary>How loud recordings are (0–100): 50 = as the microphone gives it, more = louder (up to +24 dB), less = quieter.</summary>
+	public static int MicVolume
+	{
+		get => GetPercent("volume_mic", 50);
+		set => Set("volume_mic", value.ToString());
+	}
+
+	/// <summary>MicVolume as a factor for the samples (50 → 1, 100 → 16, 0 → 1/16).</summary>
+	public static float MicGain => Godot.Mathf.DbToLinear((MicVolume - 50) / 50f * 24);
+
 	/// <summary>Uses the chosen microphone, if it's still there (else the system's default).</summary>
 	public static void ApplyMicrophone()
 	{

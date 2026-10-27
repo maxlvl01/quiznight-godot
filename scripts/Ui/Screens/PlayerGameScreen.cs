@@ -697,6 +697,9 @@ public partial class BuzzButton : Button
 	float _press;
 	readonly float _size;
 
+	/// <summary>Buzzes on every press (the Test lab's free buzzer), not just the first like in a game.</summary>
+	public bool Repeatable { get; init; }
+
 	public BuzzButton() : this(() => { }) { }
 
 	public BuzzButton(Action onBuzz, float size = 240)
@@ -812,7 +815,7 @@ public partial class BuzzButton : Button
 	void Buzz()
 	{
 		if (_sent || Disabled) return;
-		_sent = true;
+		_sent = !Repeatable;
 		_onBuzz();
 	}
 

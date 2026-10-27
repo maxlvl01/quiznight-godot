@@ -49,7 +49,7 @@ public partial class HomeScreen : Control
 		}
 		brand.Center();
 
-		var page = U.V(18, brand,
+		var page = U.V(16, brand,
 			U.Muted("Quiz nights with your friends — everyone on their own PC.", 17, false, HorizontalAlignment.Center).Center());
 		// "Update available" under the logo, once a check found a newer version.
 		if (notice != null) page.AddChild(U.Panel(U.Text(notice, 15, null, null, true), "Notice").With(p =>
@@ -101,13 +101,6 @@ public partial class HomeScreen : Control
 		updateButton.MouseExited += () => arrow.Hovered = false;
 		page.AddChild(U.H(6, U.Muted($"v{App.Version}", 12, false), updateButton, U.Muted("·", 12, false), U.Link("What's new", () => WhatsNew.ShowCurrent(this), 12),
 			U.Muted("·", 12, false), U.Link("🏆 Statistics", App.I.GoStatistics, 12)).Center());
-		// (yellow dots mark what's new since the last update, e.g. on Settings: this clears them)
-		if (New.Any)
-			page.AddChild(U.H(6, U.Text("●", 12, C.Gold), U.Link("Mark all as read", () =>
-			{
-				New.MarkAllRead();
-				App.I.GoHome();
-			}, 12).Tip("Removes the yellow dots on what's new since your last update")).Center());
 		void ShowUpdate()
 		{
 			if (!IsInstanceValid(updateButton)) return;
@@ -124,7 +117,8 @@ public partial class HomeScreen : Control
 
 		// (two spotlights sweep over the logo, behind the page)
 		AddChild(new Spotlights { Target = 120 });
-		AddChild(U.Page(page, 960, 56));
+		// (it all fits in the window: 720 high at the base size, no scrolling)
+		AddChild(U.Page(page, 960, 56, 0));
 		var corner = U.H(8, U.Small("☀ Light mode", LightMode), New.Mark(U.Small("Settings", App.I.GoSettings), "settings."), U.Small("Quit", () => App.I.AskQuit()));
 		// (developer mode: a small badge in the corner, so the page doesn't get longer)
 		if (App.LanUnlocked)
@@ -143,6 +137,18 @@ public partial class HomeScreen : Control
 		// (developer mode: quick checks, Screens/TestLabScreen)
 		if (App.LanUnlocked)
 			corner.AddChild(U.Small("Test lab", App.I.GoTestLab).Tip("Developer mode: buzzers, sounds, microphone, question screens, bots …"));
+		// (yellow dots mark what's new since the last update, e.g. on Settings: this clears them; up here with the other
+		// buttons, so the page doesn't get longer)
+		if (New.Any)
+		{
+			var markRead = U.Small("● " + Lang.T("Mark all as read"), () =>
+			{
+				New.MarkAllRead();
+				App.I.GoHome();
+			}).Tip("Removes the yellow dots on what's new since your last update").With(b => b.AddThemeColorOverride("font_color", C.Gold));
+			corner.AddChild(markRead);
+			corner.MoveChild(markRead, 0);
+		}
 		corner.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight, LayoutPresetMode.KeepSize, 20);
 		corner.GrowHorizontal = GrowDirection.Begin;
 		AddChild(corner);

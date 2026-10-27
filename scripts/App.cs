@@ -512,7 +512,7 @@ public partial class App : Control
 			return;
 		}
 		var question = questionId != null ? quiz.Questions.FirstOrDefault(q => q.Id == questionId)
-			: newType != null && QuestionType.IsKnown(newType) ? QuizRules.NewQuestion(newType, QuizStore.MakeId()) : null;
+			: newType != null && QuestionType.IsKnown(newType) ? QuizRules.NewQuestion(newType, QuizStore.MakeId()).With(q => q.CreatedAt = QuizStore.NowMs()) : null;
 		if (question == null) GoQuiz(quizId);
 		else Show(new QuestionEditorScreen(quiz, question, questionId == null), questionId != null ? () => GoQuestion(quizId, questionId, null) : null);
 	}

@@ -837,11 +837,11 @@ public static class U
 	}
 
 	/// <summary>A page that scrolls, with its content centred at a readable width.</summary>
-	public static ScrollContainer Page(Control content, float maxWidth = 960, int padTop = 36)
+	public static ScrollContainer Page(Control content, float maxWidth = 960, int padTop = 36, int padBottom = -1)
 	{
 		var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
 		scroll.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		var col = new Column { MaxWidth = maxWidth, PadTop = padTop, PadBottom = Mathf.Min(36, padTop) };
+		var col = new Column { MaxWidth = maxWidth, PadTop = padTop, PadBottom = padBottom >= 0 ? padBottom : Mathf.Min(36, padTop) };
 		col.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		col.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
 		col.AddChild(content);

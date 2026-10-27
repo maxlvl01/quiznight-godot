@@ -363,6 +363,8 @@ public sealed class Question
 	/// asks the host to check it again (<see cref="MapPresets.NeedsCheck"/>).
 	/// </summary>
 	public string? MapCheckedIn;
+	/// <summary>When it was made (Unix ms; 0 = before 0.12.0d5, unknown): the quiz overview can list questions in this order.</summary>
+	public long CreatedAt;
 	/// <summary>Players buzz first and only then place their pin.</summary>
 	public bool BuzzFirst;
 
@@ -471,8 +473,9 @@ public static class QuizRules
 	/// 9: every question can have a category (category, categorySecret); step by step can be one sentence in parts
 	///    (stepsMode "sentence", its parts in hints).
 	/// 10: map pin questions remember the version their correct spot was checked on (mapCheckedIn).
+	/// 11: questions remember when they were made (createdAt), for sorting the quiz overview's list.
 	/// </summary>
-	public const int FormatVersion = 10;
+	public const int FormatVersion = 11;
 
 	public static readonly string[] ChoiceLetters = { "A", "B", "C", "D" };
 

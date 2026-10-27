@@ -270,11 +270,20 @@ public partial class SettingsScreen : Control
 	{
 		var devices = AudioServer.GetInputDeviceList().Select(d => (d, d == "Default" ? Lang.T("Windows' default microphone") : d)).ToArray();
 		var current = devices.Any(d => d.Item1 == Settings.Microphone) ? Settings.Microphone : "Default";
-		return U.Field("Microphone", U.Select(devices, current, id =>
+		var field = U.Field("Microphone", U.Select(devices, current, id =>
 		{
 			Settings.Microphone = id;
 			Settings.ApplyMicrophone();
 		}), "Used by Interactive questions (you record yourself). Change it if the game picks the wrong one.").With(f => New.Mark(f, "settings.microphone"));
+		// (how loud recordings are, saved at once like the microphone; the meter only listens while it's switched on)
+		var meter = new MicMeter();
+		var check = new CheckButton { Text = Lang.T("Check the level"), FocusMode = FocusModeEnum.None };
+		check.Toggled += on => meter.Listening = on;
+		return U.V(8, field,
+			Volume("Microphone volume", "How loud your recordings are. 50% is as your microphone gives it; turn it up if you sound quiet, down if the meter turns red.", Settings.MicVolume, v => Settings.MicVolume = v)
+				.With(r => New.Mark((Control)r.GetChild(0), "settings.micvolume")),
+			U.H(12, check, meter.Grow()),
+			U.Muted("Speak normally: the bar should reach the yellow part. Red means too loud (it crackles): turn it down.", 12));
 	}
 
 	Control BuzzerSection()
@@ -329,5 +338,61 @@ public partial class SettingsScreen : Control
 		row.TooltipText = Lang.T(hint);
 		slider.TooltipText = Lang.T(hint);
 		return row;
+	}
+}
+
+/// <summary>The microphone's level as a bar (after Microphone volume): green, yellow from 70 %, red where it clips. Listens only while on.</summary>
+public partial class MicMeter : Control
+{
+	MicRecorder? _mic;
+
+	public MicMeter()
+	{
+		CustomMinimumSize = new Vector2(200, 22);
+		SizeFlagsVertical = SizeFlags.ShrinkCenter;
+	}
+
+	public bool Listening
+	{
+		get => _mic != null;
+		set
+		{
+			if (value == Listening) return;
+			if (value) AddChild(_mic = new MicRecorder());
+			else
+			{
+				_mic!.QueueFree();
+				_mic = null;
+			}
+			QueueRedraw();
+		}
+	}
+
+	public override void _Process(double delta)
+	{
+		if (_mic != null) QueueRedraw();
+	}
+
+	public override void _Draw()
+	{
+		var r = new Rect2(Vector2.Zero, Size);
+		DrawStyleBox(KeyBox.Fill(C.Ink, 6), r);
+		var inner = r.Grow(-3);
+		if (_mic == null)
+		{
+			var font = Fonts.Regular;
+			var text = Lang.T("Off");
+			DrawString(font, inner.Position + new Vector2(6, inner.Size.Y / 2 + 5), text, HorizontalAlignment.Left, -1, 12, C.Muted);
+			return;
+		}
+		var clipped = Time.GetTicksMsec() - _mic.ClippedAt < 1200 && _mic.ClippedAt > 0;
+		var level = Mathf.Clamp(_mic.Level, 0, 1);
+		// (the zones, faint, then the level over them)
+		DrawRect(new Rect2(inner.Position + new Vector2(inner.Size.X * 0.7f, 0), new Vector2(inner.Size.X * 0.25f, inner.Size.Y)), new Color(C.Gold, 0.15f));
+		DrawRect(new Rect2(inner.Position + new Vector2(inner.Size.X * 0.95f, 0), new Vector2(inner.Size.X * 0.05f, inner.Size.Y)), new Color(C.Coral, 0.25f));
+		var colour = clipped ? C.Coral : level >= 0.7f ? C.Gold : C.Teal;
+		DrawRect(new Rect2(inner.Position, new Vector2(inner.Size.X * level, inner.Size.Y)), colour);
+		if (clipped)
+			DrawString(Fonts.Bold, inner.Position + new Vector2(6, inner.Size.Y / 2 + 5), Lang.T("Too loud!"), HorizontalAlignment.Left, -1, 12, Colors.White);
 	}
 }
