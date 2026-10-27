@@ -10,7 +10,7 @@ namespace QuizNight.Ui;
 
 public partial class MediaIcon : Control
 {
-	public enum Kind { Play, Pause, Previous, Next, List, Note, Gear, Info, Shuffle, Repeat, Bug }
+	public enum Kind { Play, Pause, Previous, Next, List, Note, Gear, Info, Shuffle, Repeat, Bug, Idea }
 
 	Kind _kind;
 	public Kind Shape
@@ -141,6 +141,20 @@ public partial class MediaIcon : Control
 				DrawCircle(P(0.5f, 0.24f), 0.13f * m, Color);
 				DrawCircle(P(0.5f, 0.6f), 0.3f * m, Color);
 				DrawLine(P(0.5f, 0.34f), P(0.5f, 0.88f), C.Panel2, Mathf.Max(1f, 0.05f * m));
+				break;
+			}
+			case Kind.Idea:
+			{
+				// (a light bulb: round glass, a narrower neck, two lines of screw thread, three rays above)
+				var w = Mathf.Max(1.2f, 0.08f * m);
+				DrawCircle(P(0.5f, 0.42f), 0.27f * m, Color);
+				DrawColoredPolygon(new[] { P(0.31f, 0.56f), P(0.69f, 0.56f), P(0.63f, 0.74f), P(0.37f, 0.74f) }, Color);
+				DrawLine(P(0.37f, 0.81f), P(0.63f, 0.81f), Color, w);
+				DrawLine(P(0.41f, 0.92f), P(0.59f, 0.92f), Color, w);
+				DrawLine(P(0.5f, 0.3f), P(0.5f, 0.56f), C.Panel2, Mathf.Max(1f, 0.05f * m));
+				DrawLine(P(0.08f, 0.2f), P(0.16f, 0.26f), Color, w);
+				DrawLine(P(0.92f, 0.2f), P(0.84f, 0.26f), Color, w);
+				DrawLine(P(0.5f, 0.0f), P(0.5f, 0.06f), Color, w);
 				break;
 			}
 			case Kind.Note:

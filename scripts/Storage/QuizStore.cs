@@ -53,7 +53,11 @@ public static class QuizStore
 				try
 				{
 					var quiz = QuizJson.Parse(File.ReadAllText(file), out _);
-					if (quiz != null && quiz.Id != "" && Path.GetFileName(file) == quiz.Id + Extension) Cache[quiz.Id] = quiz;
+					if (quiz != null && quiz.Id != "" && Path.GetFileName(file) == quiz.Id + Extension)
+					{
+						DateQuestions(quiz);
+						Cache[quiz.Id] = quiz;
+					}
 				}
 				catch (IOException e)
 				{
@@ -71,9 +75,20 @@ public static class QuizStore
 		return Cache.TryGetValue(id, out var q) ? q : null;
 	}
 
+	/// <summary>Questions made before 0.12.0d5 don't know when they were made. They get a made time from where they are
+	/// now (the quiz's own made time + their place, in ms: before every question made since), so "Order made" stays
+	/// the same after the play order changes (it followed the play order, so "Play in this order" seemed to undo it).</summary>
+	public static void DateQuestions(Quiz quiz)
+	{
+		var start = Math.Max(1, quiz.CreatedAt);
+		for (var i = 0; i < quiz.Questions.Count; i++)
+			if (quiz.Questions[i].CreatedAt <= 0) quiz.Questions[i].CreatedAt = start + i;
+	}
+
 	/// <summary>Saves a quiz. Throws UserError when the disk says no.</summary>
 	public static Quiz Save(Quiz quiz)
 	{
+		DateQuestions(quiz);
 		// Drop maps no question uses anymore, so saved and exported quizzes stay small.
 		var used = quiz.Questions.Where(q => q.Type == QuestionType.MapPin && q.MapId != null).Select(q => q.MapId).ToHashSet();
 		quiz.Maps = quiz.Maps.Where(m => used.Contains(m.Id)).ToList();

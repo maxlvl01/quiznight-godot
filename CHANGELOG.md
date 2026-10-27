@@ -13,6 +13,15 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.12.2b]
+
+### Added
+- **Give feedback, not just bugs.** The 🐞 button now first asks what you'd like to send: **Report a bug** (as before) or **Give feedback**. Feedback is for ideas: pick what it's about (a map, a question type, quality of life, something else), write it, press Send, and it goes to Max sorted by that. No log is added to feedback, and the screenshot is off unless you tick it. "‹ Back" goes back to the choice.
+- **Leave developer mode:** double-click the teal DEV badge on the home screen. LAN play and the developer buttons are hidden again until the code is typed again (or, in a test build, until the game restarts).
+
+### Fixed
+- **"Order made" changed after "Play in this order".** Questions made before 0.12 don't know when they were made, so "Order made" showed them in their play order. After "Play in this order" changed that order, "Order made" changed with it and the original order was lost. Now such questions get a made time from where they are the first time 0.12.2b opens the quiz, so the order stays put. A quiz whose order was already changed keeps its current order as its "made" order.
+
 ## [0.12.1b]
 
 ### Fixed

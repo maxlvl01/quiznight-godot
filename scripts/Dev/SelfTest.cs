@@ -890,6 +890,11 @@ public static class SelfTest
 		made.CreatedAt = 1761530000123;
 		Eq(QuizJson.ReadQuestion(QuizJson.WriteQuestion(made)).CreatedAt, 1761530000123L, "a question's made time survives saving");
 		Eq(QuizJson.ReadQuestion(QuizJson.WriteQuestion(QuizRules.NewQuestion(QuestionType.Classic, "old"))).CreatedAt, 0L, "a question without a made time reads as 0");
+		// (0.12.2b: undated questions get one from their place, so reordering doesn't change "Order made")
+		var undated = new Quiz { CreatedAt = 1000, Questions = { QuizRules.NewQuestion(QuestionType.Classic, "a"), QuizRules.NewQuestion(QuestionType.Classic, "b"), made } };
+		Storage.QuizStore.DateQuestions(undated);
+		undated.Questions.Reverse();
+		Check(undated.Questions.OrderBy(q => q.CreatedAt).Select(q => q.Id).SequenceEqual(new[] { "a", "b", "made" }), "old questions keep their made order after the play order changes");
 		Check(Mathf.IsEqualApprox(Mathf.DbToLinear((50 - 50) / 50f * 24), 1f) && Mathf.DbToLinear((100 - 50) / 50f * 24) > 15, "microphone volume: 50 % leaves it, 100 % is +24 dB");
 		Check(Storage.Backgrounds.Valid(Storage.Backgrounds.Animated) == Storage.Backgrounds.Animated && Storage.Backgrounds.IsVideo(Storage.Backgrounds.Animated) && Storage.Backgrounds.Path(Storage.Backgrounds.Animated).EndsWith(".ogv"), "the animated background is a video");
 		Check(ResourceLoader.Exists(Storage.Backgrounds.Path(Storage.Backgrounds.Animated)), "the animated background's video is in the game");

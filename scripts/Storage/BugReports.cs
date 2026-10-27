@@ -1,6 +1,7 @@
 // Bug reports, sent by hand (the 🐞 button, Ui/BugReport): one Markdown file per report in Max's private results repo
 // (bug-reports/<category>/<date> <version> <id>.md), from the same template every time, with a screenshot next to it
-// (.png, same name). If the upload fails (no internet), the report waits in user://bug-reports and goes on the next start.
+// (.png, same name). Feedback (ideas: maps, question types, quality of life …) goes the same way to feedback/<kind>/, without
+// the log. If the upload fails (no internet), the report waits in user://bug-reports and goes on the next start.
 
 using System;
 using System.IO;
@@ -60,11 +61,26 @@ public static class BugReports
 		.AppendLine("```")
 		.ToString();
 
-	/// <summary>Sends a report (and its screenshot); if that fails it waits for the next start. Calls back with whether it went.</summary>
-	public static void Send(string category, string report, byte[]? png, Action<bool> done)
+	/// <summary>Feedback from the template: what it's about, where it was sent from, then the idea (no log: it's not a bug).</summary>
+	public static string MakeFeedback(string kind, string where, string text) => new StringBuilder()
+		.AppendLine($"# Feedback: {kind}")
+		.AppendLine()
+		.AppendLine($"- **Version:** {App.Version}{(Updater.TestChannel ? " (test build)" : OS.HasFeature("template") ? "" : " (editor)")}")
+		.AppendLine($"- **Date:** {DateTime.Now:yyyy-MM-dd HH:mm} ({DateTime.UtcNow:HH:mm} UTC)")
+		.AppendLine($"- **Language / skin:** {Settings.Language} / {Settings.Skin}")
+		.AppendLine($"- **Sent from:** {where}")
+		.AppendLine()
+		.AppendLine("## Idea")
+		.AppendLine()
+		.AppendLine(text.Trim())
+		.ToString();
+
+	/// <summary>Sends a report (and its screenshot) to root/category/; if that fails it waits for the next start. Calls back
+	/// with whether it went.</summary>
+	public static void Send(string category, string report, byte[]? png, Action<bool> done, string root = "bug-reports")
 	{
 		var folder = string.Concat(category.Select(c => char.IsLetterOrDigit(c) || c is ' ' or '-' ? c : '-')).Replace("  ", " ").Trim(' ', '-');
-		var name = $"bug-reports/{folder}/{DateTime.Now:yyyy-MM-dd HH-mm} {App.Version} {Guid.NewGuid().ToString("N")[..6]}";
+		var name = $"{root}/{folder}/{DateTime.Now:yyyy-MM-dd HH-mm} {App.Version} {Guid.NewGuid().ToString("N")[..6]}";
 		_ = Task.Run(async () =>
 		{
 			var ok = true;

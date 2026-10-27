@@ -120,12 +120,23 @@ public partial class HomeScreen : Control
 		// (it all fits in the window: 720 high at the base size, no scrolling)
 		AddChild(U.Page(page, 960, 56, 0));
 		var corner = U.H(8, U.Small("☀ Light mode", LightMode), New.Mark(U.Small("Settings", App.I.GoSettings), "settings."), U.Small("Quit", () => App.I.AskQuit()));
-		// (developer mode: a small badge in the corner, so the page doesn't get longer)
+		// (developer mode: a small badge in the corner, so the page doesn't get longer; double-clicking it leaves developer
+		// mode until the game restarts or the code is typed again)
 		if (App.LanUnlocked)
 			corner.AddChild(U.Pill("DEV", C.Teal).With(p =>
 			{
-				p.TooltipText = Updater.TestChannel ? Lang.T("Developer mode (test build): LAN play is unlocked.") : Lang.T("Developer mode: LAN play is unlocked until Quiznight closes.");
+				p.TooltipText = (Updater.TestChannel ? Lang.T("Developer mode (test build): LAN play is unlocked.") : Lang.T("Developer mode: LAN play is unlocked until Quiznight closes."))
+					+ "\n" + Lang.T("Double-click to leave developer mode.");
 				p.MouseFilter = MouseFilterEnum.Stop;
+				p.MouseDefaultCursorShape = CursorShape.PointingHand;
+				p.GuiInput += e =>
+				{
+					if (e is not InputEventMouseButton { DoubleClick: true, Pressed: true, ButtonIndex: MouseButton.Left }) return;
+					App.LanUnlocked = false;
+					// (a pretend update from "Test update" goes too)
+					if (UpdatePrompt.Available is { } shown && UpdatePrompt.IsPretend(shown)) UpdatePrompt.Pretend("");
+					Callable.From(() => App.I.GoHome()).CallDeferred();
+				};
 			}));
 		// (developer mode: shows the home screen as if an update were out, to see the logo pulse; click again to stop)
 		if (App.LanUnlocked)
