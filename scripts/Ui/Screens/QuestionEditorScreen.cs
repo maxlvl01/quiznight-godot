@@ -471,14 +471,11 @@ public partial class QuestionEditorScreen : Control
 				_draft.Items[at] = t;
 				Changed();
 			}, 80).Grow());
-			if (timeline)
+			row.AddChild(U.Input(_draft.ItemLabels[at], at == 0 ? "e.g. 1993" : "", t =>
 			{
-				row.AddChild(U.Input(_draft.ItemLabels[at], at == 0 ? "e.g. 1993" : "", t =>
-				{
-					_draft.ItemLabels[at] = t;
-					Changed();
-				}, QuestionLimits.TimelineLabelMaxLength).MinSize(120).Tip("Shown once it's placed").With(e => e.SizeFlagsHorizontal = SizeFlags.Fill));
-			}
+				_draft.ItemLabels[at] = t;
+				Changed();
+			}, QuestionLimits.TimelineLabelMaxLength).MinSize(120).Tip(timeline ? "Shown once it's placed" : "Shown next to the item in the answer").With(e => e.SizeFlagsHorizontal = SizeFlags.Fill));
 			row.AddChild(remove);
 			rows.AddChild(row);
 		}
@@ -515,7 +512,7 @@ public partial class QuestionEditorScreen : Control
 			U.Field("Items, in the right order", U.V(8, rows, add.With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin)),
 				timeline
 					? Lang.F("Type them in order ({0}–{1} items) with what each one shows once it's placed, e.g. its year. A random one is already on the timeline when the question starts.", QuestionLimits.OrderItemsMin, max)
-					: Lang.F("Type them top to bottom ({0}–{1} items). Players get them shuffled.", QuestionLimits.OrderItemsMin, max)));
+					: Lang.F("Type them top to bottom ({0}–{1} items). Players get them shuffled. The box on the right (e.g. a year or a size) is optional and only shows in the answer.", QuestionLimits.OrderItemsMin, max)));
 
 		Control settings;
 		if (timeline)

@@ -1174,9 +1174,9 @@ public sealed class Game
 		entry.Points = points;
 	}
 
-	/// <summary>"Doom → Half-Life → Portal" (a timeline with its labels: "Doom (1993) → …").</summary>
+	/// <summary>"Doom → Half-Life → Portal" (with the items' labels if they have any: "Doom (1993) → …").</summary>
 	static string OrderText(Question q) => string.Join(" → ", q.CorrectOrder.Select(i =>
-		q.IsTimeline && q.ItemLabel(i) is { Length: > 0 } label ? $"{q.Items[i]} ({label})" : q.Items[i]));
+		q.ItemLabel(i) is { Length: > 0 } label ? $"{q.Items[i]} ({label})" : q.Items[i]));
 
 	static List<int> Picks(AnswerValue v) => v.Picks ?? (v.Num is { } n ? new List<int> { (int)n } : new List<int>());
 

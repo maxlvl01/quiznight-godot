@@ -202,7 +202,8 @@ public static class LangDe
 		["Top of the list means"] = "Oben in der Liste heißt",
 		["e.g. Oldest"] = "z. B. Ältestes",
 		["Items, in the right order"] = "Einträge, in der richtigen Reihenfolge",
-		["Type them top to bottom ({0}–{1} items). Players get them shuffled."] = "Von oben nach unten eintippen ({0}–{1} Einträge). Die Spieler bekommen sie gemischt.",
+		["Type them top to bottom ({0}–{1} items). Players get them shuffled. The box on the right (e.g. a year or a size) is optional and only shows in the answer."] = "Von oben nach unten eintippen ({0}–{1} Einträge). Die Spieler bekommen sie gemischt. Das Feld rechts (z. B. ein Jahr oder eine Größe) ist optional und erscheint nur in der Antwort.",
+		["Shown next to the item in the answer"] = "Steht in der Antwort neben dem Eintrag",
 		["Bottom of the list means"] = "Unten in der Liste heißt",
 		["e.g. Newest"] = "z. B. Neuestes",
 		["Everyone puts the items in order on their own screen. Only a perfect order gets the points; the reveal shows how many each player had in the right place."] =

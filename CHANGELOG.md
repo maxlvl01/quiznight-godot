@@ -13,6 +13,11 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.12.7d1]
+
+### Fixed
+- **"Put in order" with "Everyone at once" can now have a year or other unit on each item.** The box next to each item (e.g. "1993", "120 cm") only existed for the timeline mode, so a quiz maker couldn't add years to a list that everyone sorts at the same time. The editor only drew the box when "Take turns on a timeline" was picked, and the quiz file and the answer text ignored the labels in the other mode. The box is now there in both modes (optional, and not shown to players while they sort), is saved in the quiz file, and the answer shows "Doom (1993) → Half-Life (1998) → …". (Thanks for the report!)
+
 ## [0.12.6b]
 
 ### Added

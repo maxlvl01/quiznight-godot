@@ -119,11 +119,8 @@ public static class QuizJson
 				o["timeLimitSec"] = q.TimeLimitSec;
 				o["orderMode"] = q.OrderMode;
 				if (q.WrongCosts && !q.IsTimeline) o["wrongCosts"] = true;
-				if (q.IsTimeline)
-				{
-					o["itemLabels"] = new JsonArray(q.Items.Select((_, i) => (JsonNode)JsonValue.Create(q.ItemLabel(i))!).ToArray());
-					o["keepGoing"] = q.KeepGoing;
-				}
+				o["itemLabels"] = new JsonArray(q.Items.Select((_, i) => (JsonNode)JsonValue.Create(q.ItemLabel(i))!).ToArray());
+				if (q.IsTimeline) o["keepGoing"] = q.KeepGoing;
 				break;
 			case QuestionType.Write:
 				o["image"] = WriteImage(q.Image);
