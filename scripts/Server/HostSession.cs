@@ -28,6 +28,7 @@ public sealed class HostSession : IDisposable
 	public HostSession(Room room, IHostTransport net, NetMode mode, int lanPort = 0)
 	{
 		Room = room;
+		Room.BuzzWait = Limits.BuzzWindowMs;
 		Mode = mode;
 		LanPort = lanPort;
 		_net = net;
@@ -184,7 +185,7 @@ public sealed class HostSession : IDisposable
 				Broadcast();
 				break;
 			case Msg.Buzz when playerId != null && Playing():
-				if (Room.Game!.BuzzIn(playerId)) Broadcast();
+				if (Room.Game!.BuzzIn(playerId, Msg.Read<BuzzRequest>(msg.Data))) Broadcast();
 				break;
 			case Msg.Answer when playerId != null:
 			{

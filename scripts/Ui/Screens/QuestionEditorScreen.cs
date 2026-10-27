@@ -15,9 +15,11 @@ public partial class QuestionEditorScreen : Control
 	List<MapAsset> _maps;
 	/// <summary>Ctrl+Z / Ctrl+Y: every change to the draft, back and forth (EditHistory).</summary>
 	readonly EditHistory<QuestionSnapshot> _history;
-	readonly bool _isNew;
 	bool _dirty;
 	readonly Label _issues = U.Text("", 13, C.Muted, null, true);
+	/// <summary>"✓ Saved" next to Save question after Ctrl+S, fading out.</summary>
+	readonly Label _saved = U.Text("", 14, C.Teal, Fonts.Bold);
+	Tween? _savedFade;
 	readonly VBoxContainer _form = U.V(16);
 	ImageField? _primaryImage;
 	MediaField? _mediaField;
@@ -29,7 +31,6 @@ public partial class QuestionEditorScreen : Control
 		_quiz = quiz;
 		_draft = question.Clone();
 		_maps = quiz.Maps.Select(m => m.Clone()).ToList();
-		_isNew = isNew;
 		SetAnchorsPreset(LayoutPreset.FullRect);
 
 		// (an image reveal is a picture question shown as a reveal: same title)
@@ -38,7 +39,8 @@ public partial class QuestionEditorScreen : Control
 			U.Link("← Back to quiz", Back, 14),
 			U.Heading(title, 22, false).Grow().With(l => l.HorizontalAlignment = HorizontalAlignment.Center),
 			new UpdateBadge(),
-			Tutorial.Mark(U.Btn("Save question", "AccentButton", Save, 15).With(b => b.TooltipText = "Ctrl+S"), "editor.save")), "Bar");
+			_saved.With(l => l.Modulate = Colors.Transparent),
+			Tutorial.Mark(U.Btn("Save question", "AccentButton", Save, 15).With(b => b.TooltipText = "Saves and goes back to the quiz. Ctrl+S saves and stays here."), "editor.save")), "Bar");
 		var body = U.V(12, Tutorial.Mark(_issues, "editor.issues"), _form);
 		var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.GrowV();
 		scroll.AddChild(U.Pad(body.Grow().GrowV(), 28, 16, 28, 28).Grow().GrowV());
@@ -1033,23 +1035,36 @@ public partial class QuestionEditorScreen : Control
 		Dialogs.Confirm(this, "Discard your changes to this question?", "Discard", () => App.I.GoQuiz(_quiz.Id));
 	}
 
-	/// <summary>Ctrl+S: the same as "Save question".</summary>
+	/// <summary>Ctrl+S: saves and stays on the question ("Saved" flashes in the top right), so editing goes on.</summary>
 	public bool SaveKey()
 	{
-		Save();
+		if (Store())
+		{
+			_saved.Text = Lang.T("✓ Saved");
+			_saved.Modulate = Colors.White;
+			_savedFade?.Kill();
+			_savedFade = CreateTween();
+			_savedFade.TweenInterval(1.2);
+			_savedFade.TweenProperty(_saved, "modulate:a", 0f, 0.6);
+		}
 		return true;
 	}
 
+	/// <summary>"Save question": saves and goes back to the quiz.</summary>
 	void Save()
 	{
-		if (_isNew && _quiz.Questions.All(q => q.Id != _draft.Id)) _quiz.Questions.Add(_draft);
-		else
-		{
-			var i = _quiz.Questions.FindIndex(q => q.Id == _draft.Id);
-			if (i >= 0) _quiz.Questions[i] = _draft;
-			else _quiz.Questions.Add(_draft);
-		}
-		_quiz.Maps = _maps;
+		if (Store()) App.I.GoQuiz(_quiz.Id);
+	}
+
+	/// <summary>Writes the draft into the quiz and saves the file. The quiz gets copies, so later changes stay in the draft
+	/// until the next save (backing out still discards them).</summary>
+	bool Store()
+	{
+		var saved = _draft.Clone();
+		var i = _quiz.Questions.FindIndex(q => q.Id == _draft.Id);
+		if (i >= 0) _quiz.Questions[i] = saved;
+		else _quiz.Questions.Add(saved);
+		_quiz.Maps = _maps.Select(m => m.Clone()).ToList();
 		try
 		{
 			QuizStore.Save(_quiz);
@@ -1057,10 +1072,10 @@ public partial class QuestionEditorScreen : Control
 		catch (UserError e)
 		{
 			Dialogs.Info(this, e.Message, "Couldn't save");
-			return;
+			return false;
 		}
 		_dirty = false;
-		App.I.GoQuiz(_quiz.Id);
+		return true;
 	}
 
 	public override void _Input(InputEvent e)

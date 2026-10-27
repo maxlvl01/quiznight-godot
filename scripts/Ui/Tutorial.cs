@@ -38,7 +38,7 @@ public static class Tutorial
 			new("editor.round", "Round settings", "Points, time limit and how the question is scored. Hover over a setting to learn more about it."),
 			new("editor.bonus", "Bonus points", "Optional extra points for something on top, e.g. \"Also name the game\". At the reveal you give them to the players who earned them. 0 = no bonus."),
 			new("editor.category", "Categories", "Put the question in a category, or write your own. Players only see it if \"Show categories\" is on in the lobby (it makes questions easier); \"Keep it secret\" hides it even then. Categories always count for the statistics."),
-			new("editor.save", "Save", "Save question (Ctrl+S) keeps it and goes back to the quiz. \"← Back to quiz\" (or Esc) leaves without saving, and asks first if you changed something."),
+			new("editor.save", "Save", "Save question keeps it and goes back to the quiz; Ctrl+S saves and stays on the question. \"← Back to quiz\" (or Esc) leaves without saving, and asks first if you changed something."),
 			new(null, "Shortcuts", "Ctrl+Z takes back a change, Ctrl+Y does it again. Ctrl+V pastes a picture (a screenshot, say), and you can drop picture, sound and video files onto the window."),
 		},
 	};

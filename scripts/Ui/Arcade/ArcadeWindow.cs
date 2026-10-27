@@ -67,6 +67,8 @@ public partial class ArcadeWindow : Control
 	Control? _game;
 	string? _matchId;
 	string _billiardMode = BilliardMode.Eight;
+	/// <summary>The 1 vs 1 game the challenge buttons are for: Pong or Billiard (then _billiardMode says which).</summary>
+	bool _billiard;
 
 	public ArcadeWindow() : this(null!) { }
 
@@ -196,14 +198,26 @@ public partial class ArcadeWindow : Control
 			versus.AddChild(U.H(6, U.Muted(Lang.F("Waiting for {0} to accept {1} …", _link.Name(mine.To), Lang.T(ArcadeGame.Label(mine.Game))), 13).Grow(),
 				U.Small("Cancel", () => _link.Send(new ArcadeRequest { Kind = ArcadeRequest.Cancel }))));
 		var busy = view?.Matches.SelectMany(m => new[] { m.A, m.B }).ToHashSet() ?? new HashSet<string>();
-		// (which billiard game the Billiard buttons challenge to; kept while the window is open)
-		versus.AddChild(U.H(8, U.Muted("Billiard game:", 13, false).With(l => l.SizeFlagsVertical = SizeFlags.ShrinkCenter),
-			U.Select(BilliardMode.All.Select(m => (m, BilliardMode.Label(m))).ToArray(), _billiardMode, m =>
-			{
-				_billiardMode = m;
-				Callable.From(ShowMenu).CallDeferred();
-			}).Grow()));
-		versus.AddChild(U.Muted(BilliardMode.Rules(_billiardMode), 12));
+		// Pick the game first (Pong or Billiard, and which billiard game; kept while the window is open), then challenge
+		// someone to it. (Until 0.12.3d3 Pong was only a small button next to each player, so with nobody to play it
+		// didn't show at all.)
+		versus.AddChild(U.Segmented(new[] { ("pong", "Pong"), ("billiard", "Billiard") }, _billiard ? "billiard" : "pong", id =>
+		{
+			_billiard = id == "billiard";
+			Callable.From(ShowMenu).CallDeferred();
+		}));
+		if (_billiard)
+		{
+			versus.AddChild(U.H(8, U.Muted("Billiard game:", 13, false).With(l => l.SizeFlagsVertical = SizeFlags.ShrinkCenter),
+				U.Select(BilliardMode.All.Select(m => (m, BilliardMode.Label(m))).ToArray(), _billiardMode, m =>
+				{
+					_billiardMode = m;
+					Callable.From(ShowMenu).CallDeferred();
+				}).Grow()));
+			versus.AddChild(U.Muted(BilliardMode.Rules(_billiardMode), 12));
+		}
+		else versus.AddChild(U.Muted("Classic Pong: move your paddle with the mouse (or ↑ ↓). First to 5.", 12));
+		var game = _billiard ? _billiardMode : ArcadeGame.Pong;
 		var opponents = _link.Opponents();
 		if (opponents.Count == 0) versus.AddChild(U.Muted("Nobody to play against yet (players on older versions don't have the mini games).", 13));
 		foreach (var id in opponents)
@@ -212,12 +226,8 @@ public partial class ArcadeWindow : Control
 			var row = U.H(6, U.Text(_link.Name(id), 15, C.Text).Raw().Grow());
 			if (busy.Contains(id)) row.AddChild(U.Muted("playing", 12, false));
 			else
-				foreach (var game in new[] { ArcadeGame.Pong, _billiardMode })
-				{
-					var g = game;
-					row.AddChild(U.Small(Lang.T(ArcadeGame.Label(g)), () => _link.Send(new ArcadeRequest { Kind = ArcadeRequest.Challenge, Game = g, Who = who }))
-						.With(b => b.Disabled = mine != null || busy.Contains(me)));
-				}
+				row.AddChild(U.Small(Lang.F("Challenge to {0}", Lang.T(ArcadeGame.Label(game))), () => _link.Send(new ArcadeRequest { Kind = ArcadeRequest.Challenge, Game = game, Who = who }))
+					.With(b => b.Disabled = mine != null || busy.Contains(me)));
 			versus.AddChild(row);
 		}
 
@@ -274,7 +284,7 @@ public partial class ArcadeWindow : Control
 		_body.AddChild(tabs);
 		_body.AddChild(scroll);
 		_body.AddChild(U.H(8, U.Small("← Back to the menu", ShowMenu), U.Fill(),
-			U.Muted(reaction ? "Best of 5 tries, in seconds. Purple: best of all time · green: a personal best." : "Highest score. Purple: best of all time · green: a personal best.", 12, false)));
+			U.Muted(reaction ? "Average of 5 tries, in seconds. Purple: best of all time · green: a personal best." : "Highest score. Purple: best of all time · green: a personal best.", 12, false)));
 	}
 
 	/// <summary>

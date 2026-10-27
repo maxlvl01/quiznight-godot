@@ -13,6 +13,20 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.12.3d3]
+
+### Added
+- **Fair buzzers, whatever your ping.** Until now, whoever's buzz *reached the host* first answered first, so a player with a slow connection lost close races even when they pressed first. Now each player's own game measures their reaction time, from the moment the buzzers opened on *their* screen to their press, and sends it with the buzz. After the first buzz the host waits a short moment (0.3 s) for buzzes still on their way, then the fastest reaction answers; later buzzes join the line by their time too. A time can never be slower than what the host saw, and at most 0.5 s faster (more than any ping), so a faked time can't win by more than that. A Fast Pass still goes first. Players on older versions are timed when their buzz arrives, as before.
+- **Ctrl+S saves without closing the question.** In the question editor Ctrl+S saves and you stay on the question; a green "✓ Saved" shows next to the button for a moment. "Save question" still saves and goes back to the quiz.
+- **A desktop shortcut on the first start.** The very first time the game starts on a PC (the downloaded game, not editor runs), it puts a "Quiznight" shortcut on the desktop, unless there already is one. It only happens once, so if you delete it, it stays deleted.
+
+### Changed
+- **Answer time per buzz starts at 15 s** (was 10 s) in new lobbies.
+- **The reaction test counts the average of your five tries**, not the best one: one lucky press no longer makes a record. A false start no longer uses up a try; that try is just done again. The high scores list averages from now on (the best single tries from before don't compete with them).
+
+### Fixed
+- **Pong was missing from the mini games menu.** It was only a small button next to each player's name in the 1 vs 1 list, so with nobody else (on 0.12 or later) in the lobby it didn't show at all, and next to Billiard it was easy to miss. 1 vs 1 now starts with a **Pong / Billiard** choice that's always there (Billiard then shows which billiard game), and each player has one "Challenge to …" button.
+
 ## [0.12.3d2]
 
 ### Added

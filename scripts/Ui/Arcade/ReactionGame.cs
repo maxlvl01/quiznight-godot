@@ -1,6 +1,7 @@
 // The reaction test for the lobby's mini games, alone and on your own PC (so the time has no network in it): press Start,
 // wait for the buzzer to light up (a random 1.5–4 s), then buzz (click it or press Space) as fast as you can. Five tries;
-// buzzing before it lights up is a false start. The best time goes to the host (ArcadeView.ReactionBest).
+// buzzing before it lights up is a false start, and that try is done again. The average of the five goes to the host
+// (ArcadeView.ReactionBest: each player's best average); until 0.12.3d3 it was the best single try.
 
 using System;
 using System.Collections.Generic;
@@ -75,26 +76,31 @@ public partial class ReactionGame : Control
 		if (!_waiting) return;
 		_waiting = false;
 		int? ms = _litAt > 0 ? (int)(Time.GetTicksMsec() - _litAt) : null;
+		_buzzer.Disabled = true;
+		// (a false start doesn't use up the try: it's done again, so the average is always of five real times)
+		if (ms == null)
+		{
+			_status.Text = Lang.T("False start! That try again.");
+			_start.Text = Lang.T("Try again");
+			_start.Visible = true;
+			return;
+		}
 		_results.Add(ms);
 		_round++;
-		_buzzer.Disabled = true;
-		if (ms != null) Sfx.PlayBuzzer(Settings.BuzzerSound);
-		_status.Text = ms is { } t ? Lang.F("{0} ms", t) : Lang.T("False start!");
-		_times.Text = string.Join("   ", _results.Select(r => r is { } v ? $"{v} ms" : "✕"));
+		Sfx.PlayBuzzer(Settings.BuzzerSound);
+		_status.Text = Lang.F("{0} ms", ms.Value);
 		var times = _results.OfType<int>().ToList();
+		_times.Text = string.Join("   ", times.Select(v => $"{v} ms"));
 		if (_round < Tries)
 		{
 			_start.Text = Lang.T("Next try");
 			_start.Visible = true;
 			return;
 		}
-		// (the best of the five goes to the lobby's list)
-		if (times.Count > 0)
-		{
-			_status.Text = Lang.F("Best {0} ms · average {1} ms", times.Min(), (int)times.Average());
-			_done(times.Min());
-		}
-		else _status.Text = Lang.T("Five false starts: patience!");
+		// (the average of the five goes to the lobby's list)
+		var average = (int)Math.Round(times.Average());
+		_status.Text = Lang.F("Average {0} ms · best try {1} ms", average, times.Min());
+		_done(average);
 		_start.Text = Lang.T("Again");
 		_start.Visible = true;
 	}

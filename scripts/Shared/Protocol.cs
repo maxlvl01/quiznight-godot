@@ -33,7 +33,13 @@ public static class Limits
 	public const int MinPlayersToStart = 2;
 	/// <summary>Seats in a room (no setting: big enough for big nights; one colour each in PlayerColors).</summary>
 	public const int MaxPlayers = 24;
-	public const int AnswerTimeMin = 3, AnswerTimeMax = 60, AnswerTimeDefault = 10;
+	public const int AnswerTimeMin = 3, AnswerTimeMax = 60, AnswerTimeDefault = 15;
+	/// <summary>Fair buzzers: after the first buzz of a round the host waits this long for buzzes still on their way, then
+	/// the fastest reaction answers first (Game.BuzzIn).</summary>
+	public const int BuzzWindowMs = 300;
+	/// <summary>Fair buzzers: the most a player's own reaction time can be ahead of what the host saw (their ping, both
+	/// ways); a claimed time faster than that is cut to it, so a made-up time can't win by more.</summary>
+	public const int BuzzPingCreditMs = 500;
 
 	// Room codes skip look-alike characters (0/O, 1/I) so they are easy to read out loud.
 	public const string CodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -455,6 +461,9 @@ public sealed class GameView
 	public bool Shown = true;
 	/// <summary>Buzzer questions: whether players can buzz right now.</summary>
 	public bool BuzzersOpen = true;
+	/// <summary>Counts up each time the buzzers open (a new question, unlocked, everyone may buzz again): a player's game
+	/// times its buzz from the moment it saw this round open (BuzzRequest).</summary>
+	public int BuzzRound;
 	public RevealView? Reveal;
 	/// <summary>Timeline questions, once shown.</summary>
 	public TimelineView? Timeline;
@@ -592,6 +601,17 @@ public sealed class JokerRequest
 {
 	public string Kind = Shared.Joker.Double;
 	public bool On = true;
+}
+
+/// <summary>
+/// A buzz with the player's reaction time, measured on their own PC from the moment the buzzers opened on their screen
+/// (so ping doesn't count against them). Players before 0.12.3d3 send a bare buzz: the host times it on arrival.
+/// </summary>
+public sealed class BuzzRequest
+{
+	/// <summary>The GameView.BuzzRound the time is from (a time from another round is ignored).</summary>
+	public int Round;
+	public int ReactionMs;
 }
 
 public sealed class AnswerRequest

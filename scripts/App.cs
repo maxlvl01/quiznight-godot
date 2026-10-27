@@ -58,6 +58,7 @@ public partial class App : Control
 		Trace.On = Updater.TestChannel;
 		CrashReports.Start();
 		BugReports.SendWaiting();
+		DesktopShortcut.MakeOnFirstStart(firstStart);
 		Trace.Log("start", $"Quiznight {Version} test build · {OS.GetName()} {OS.GetVersion()} · {DisplayServer.ScreenGetSize()} · skin {Settings.Skin} · {Settings.Language} · {Settings.WindowMode} {Settings.WindowSize}");
 		// (dev runs: --skin ID, --dyslexic and --colour-vision MODE try them without saving)
 		var devArgs = OS.GetCmdlineUserArgs();

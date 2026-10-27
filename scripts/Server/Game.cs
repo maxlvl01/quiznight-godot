@@ -44,6 +44,8 @@ public interface IGameHooks
 	int Score(string playerId);
 	void Award(string playerId, int points);
 	long Now();
+	/// <summary>How long the first buzz of a round waits for others on their way (0: it answers at once).</summary>
+	int BuzzWindowMs();
 }
 
 public sealed class Game
@@ -54,6 +56,8 @@ public sealed class Game
 		public string Status = BuzzStatus.Waiting;
 		public long AtMs;
 		public bool FastPass;
+		/// <summary>How fast they were, for the order: their own reaction time, kept within what the host saw (BuzzIn).</summary>
+		public long ReactionMs;
 	}
 
 	public int Index { get; private set; }
@@ -73,6 +77,12 @@ public sealed class Game
 	readonly Quiz _quiz;
 	readonly IGameHooks _hooks;
 	long _openedAt;
+	/// <summary>When this round of buzzers opened (host clock), and which round it is (GameView.BuzzRound).</summary>
+	long _buzzOpenAt;
+	int _buzzRound;
+	/// <summary>Fair buzzers: the first buzz of a round waits until then for others still on their way; then the fastest
+	/// reaction answers (Decide).</summary>
+	long? _decideAt;
 	long? _endsAt;
 	// Insertion order matters: it is the order answers are listed in.
 	readonly List<(string PlayerId, AnswerValue Value)> _answers = new();
@@ -233,9 +243,18 @@ public sealed class Game
 		_votes.Clear();
 		_favourite = null;
 		_late.Clear();
+		_decideAt = null;
 		Shown = false;
 		BuzzersOpen = false;
 		if (!_hooks.HostShowsQuestions()) StartShown(now);
+	}
+
+	/// <summary>A new round of buzzers opens: reaction times count from now.</summary>
+	void BuzzersOpened(long now)
+	{
+		_buzzOpenAt = now;
+		_buzzRound++;
+		_decideAt = null;
 	}
 
 	/// <summary>The question appears: its timer starts and (unless the host unlocks them) the buzzers open.</summary>
@@ -246,6 +265,7 @@ public sealed class Game
 		var limit = TimeLimitSec(Question);
 		_endsAt = limit is { } l ? now + l * 1000L : null;
 		BuzzersOpen = Question.IsBuzzer && !_hooks.HostUnlocksBuzzers();
+		if (BuzzersOpen) BuzzersOpened(now);
 		if (Question.IsTimeline) StartTimeline(now);
 	}
 
@@ -263,6 +283,7 @@ public sealed class Game
 	{
 		if (Stage != Shared.Stage.Open || !Shown || !Question.IsBuzzer || BuzzersOpen == open || open && Paused) return false;
 		BuzzersOpen = open;
+		if (open) BuzzersOpened(_hooks.Now());
 		return true;
 	}
 
@@ -278,6 +299,7 @@ public sealed class Game
 		_buzzes.Clear();
 		_answeringSince = null;
 		BuzzersOpen = true;
+		BuzzersOpened(_hooks.Now());
 		return true;
 	}
 
@@ -286,6 +308,11 @@ public sealed class Game
 	{
 		// (paused: every clock stands still)
 		if (Paused) return false;
+		if (Stage == Shared.Stage.Open && _decideAt is { } decide && _hooks.Now() >= decide)
+		{
+			Decide();
+			return true;
+		}
 		if (Stage == Shared.Stage.Open && _tlTurnEnds is { } turnEnds && _hooks.Now() >= turnEnds)
 		{
 			MissTurn(TimelineEventKind.TimeUp);
@@ -317,6 +344,7 @@ public sealed class Game
 			if (Shown && Question.IsBuzzer && !Paused && _buzzes.All(b => b.Status is BuzzStatus.Wrong or BuzzStatus.Correct))
 			{
 				if (_buzzes.Count > 0 && Active().All(id => _buzzes.Any(b => b.PlayerId == id))) ReopenBuzzers();
+				if (!BuzzersOpen) BuzzersOpened(now);
 				BuzzersOpen = true;
 			}
 			return true;
@@ -330,24 +358,46 @@ public sealed class Game
 		return false;
 	}
 
-	public bool BuzzIn(string playerId)
+	/// <summary>
+	/// A buzz. Fair buzzers: the order goes by reaction time, measured on the player's own PC from when the buzzers opened
+	/// on their screen (timing; none from older players: the time the host saw), so ping doesn't decide. A time can't be
+	/// slower than what the host saw, nor more than BuzzPingCreditMs faster. The first buzz of a round waits
+	/// BuzzWindowMs for others still on their way, then the fastest answers (Tick → Decide); later ones join the line by
+	/// their time.
+	/// </summary>
+	public bool BuzzIn(string playerId, BuzzRequest? timing = null)
 	{
 		var q = Question;
-		Trace.Log("game", $"buzz from {playerId} on question {Index + 1}: open={BuzzersOpen} shown={Shown} paused={Paused} fastPass={Played(playerId, Joker.FastPass, Index)} queue={string.Join(",", _buzzes.Select(b => $"{b.PlayerId}:{b.Status}"))}");
+		Trace.Log("game", $"buzz from {playerId} on question {Index + 1}: open={BuzzersOpen} shown={Shown} paused={Paused} fastPass={Played(playerId, Joker.FastPass, Index)} reaction={(timing != null ? $"{timing.ReactionMs} ms (round {timing.Round}, now {_buzzRound})" : "-")} queue={string.Join(",", _buzzes.Select(b => $"{b.PlayerId}:{b.Status}"))}");
 		if (Stage != Shared.Stage.Open || !q.IsBuzzer || !Shown || !BuzzersOpen || Paused || _late.Contains(playerId) || _buzzes.Any(b => b.PlayerId == playerId)) return false;
 		var now = _hooks.Now();
-		var someoneAnswering = _buzzes.Any(b => b.Status == BuzzStatus.Answering);
+		var seen = Math.Max(0, now - _buzzOpenAt);
 		var buzz = new Buzz
 		{
 			PlayerId = playerId,
-			Status = someoneAnswering ? BuzzStatus.Waiting : BuzzStatus.Answering,
+			Status = BuzzStatus.Waiting,
 			AtMs = q.HasPlayClock ? PlayTimeMs(now) : now - _openedAt,
 			FastPass = Played(playerId, Joker.FastPass, Index),
+			ReactionMs = timing is { } t && t.Round == _buzzRound && t.ReactionMs >= 0
+				? Math.Clamp(t.ReactionMs, Math.Max(0, seen - Limits.BuzzPingCreditMs), seen)
+				: seen,
 		};
+		var answering = _buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Answering);
+		if (answering == null && _hooks.BuzzWindowMs() > 0)
+		{
+			// (nobody answering yet: wait a moment for buzzes still on their way)
+			_decideAt ??= now + _hooks.BuzzWindowMs();
+			_buzzes.Add(buzz);
+		}
+		else if (answering == null)
+		{
+			buzz.Status = BuzzStatus.Answering;
+			_buzzes.Add(buzz);
+			_answeringSince = now;
+		}
 		// A Fast Pass always answers first: it takes over from whoever is answering (they wait first in line again) and
 		// goes ahead of everyone waiting. It was played blind, before the question was shown: that's the gamble.
-		var answering = _buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Answering);
-		if (buzz.FastPass && answering is { FastPass: false })
+		else if (buzz.FastPass && !answering.FastPass)
 		{
 			answering.Status = BuzzStatus.Waiting;
 			buzz.Status = BuzzStatus.Answering;
@@ -356,13 +406,28 @@ public sealed class Game
 		}
 		else
 		{
-			var at = buzz.FastPass ? _buzzes.FindIndex(b => b.Status == BuzzStatus.Waiting && !b.FastPass) : -1;
+			var at = _buzzes.FindIndex(b => b.Status == BuzzStatus.Waiting && Ahead(buzz, b));
 			if (at >= 0) _buzzes.Insert(at, buzz);
 			else _buzzes.Add(buzz);
-			if (!someoneAnswering) _answeringSince = now;
 		}
 		_hooks.NoteBuzzTime(playerId, buzz.AtMs);
 		return true;
+	}
+
+	/// <summary>Whether buzz a goes before b in the line: a Fast Pass first, then the faster reaction (ties: who came first).</summary>
+	static bool Ahead(Buzz a, Buzz b) => a.FastPass != b.FastPass ? a.FastPass : a.ReactionMs < b.ReactionMs;
+
+	/// <summary>The wait after the first buzz is over: the line is put in order and its first answers.</summary>
+	void Decide()
+	{
+		_decideAt = null;
+		var waiting = _buzzes.Where(b => b.Status == BuzzStatus.Waiting).OrderBy(b => b.FastPass ? 0 : 1).ThenBy(b => b.ReactionMs).ToList();
+		if (waiting.Count == 0 || _buzzes.Any(b => b.Status == BuzzStatus.Answering)) return;
+		_buzzes.RemoveAll(b => b.Status == BuzzStatus.Waiting);
+		_buzzes.AddRange(waiting);
+		waiting[0].Status = BuzzStatus.Answering;
+		_answeringSince = _hooks.Now();
+		Trace.Log("game", $"buzz order: {string.Join(", ", waiting.Select(b => $"{b.PlayerId} {b.ReactionMs} ms{(b.FastPass ? " (Fast Pass)" : "")}"))}");
 	}
 
 	/// <summary>Mark the player who is answering after a buzz right or wrong.</summary>
@@ -1298,6 +1363,7 @@ public sealed class Game
 			Question = Shown || viewer == "host" || !open ? PublicQuestion() : new PublicQuestion { Type = Question.Type, Category = ShownCategory, Points = Question.HasRankPoints ? Question.MaxPoints : Question.Points, RankScoring = Question.HasRankPoints, Buzzer = Question.IsBuzzer, Written = Question.IsWritten, Mode = Question.IsClassicLike ? Question.Mode : null, OrderMode = Question.Type == QuestionType.Order ? Question.OrderMode : null, WrongCosts = (Question.IsChoice || Question.Type == QuestionType.Order && !Question.IsTimeline) && Question.WrongCosts, Judging = Question.IsInteractive ? Question.Judging : null },
 			Shown = Shown || !open,
 			BuzzersOpen = BuzzersOpen,
+			BuzzRound = _buzzRound,
 			EndsAt = open ? _endsAt : null,
 			AnswersClosed = open && AnswersClosed,
 			AnswerEndsAt = open && _answeringSince is { } since ? since + _hooks.AnswerTimeSec() * 1000L : null,
@@ -1402,6 +1468,8 @@ public sealed class Game
 		// The clocks pick up where they stopped.
 		var away = _hooks.Now() - since;
 		_openedAt += away;
+		_buzzOpenAt += away;
+		if (_decideAt != null) _decideAt += away;
 		if (_endsAt != null) _endsAt += away;
 		if (_answeringSince != null) _answeringSince += away;
 		if (_tlTurnEnds != null) _tlTurnEnds += away;

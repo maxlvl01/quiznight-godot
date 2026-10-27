@@ -218,6 +218,52 @@ public static class SelfTest
 		Eq(g.View("host").Buzzes.First(b => b.Status == BuzzStatus.Answering).PlayerId, "ann", "then it's their turn");
 	}
 
+	/// <summary>Fair buzzers: the first buzz waits a moment, then the fastest reaction (timed on the player's PC) answers;
+	/// made-up times are cut to what the host saw.</summary>
+	static void FairBuzzers()
+	{
+		(Room, Clock, Game, int) Fresh(params string[] players)
+		{
+			var (room, clock) = NewRoom(Dev.SampleQuiz.Build(), players);
+			room.BuzzWait = Limits.BuzzWindowMs;
+			room.Start();
+			return (room, clock, room.Game!, room.Game!.View(players[0]).BuzzRound);
+		}
+		string Line(Game g) => string.Join(",", g.View("host").Buzzes.Select(b => $"{b.PlayerId}:{b.Status}"));
+
+		var (room, clock, g, round) = Fresh("ann", "bob");
+		clock.Now += 900;
+		g.BuzzIn("bob", new BuzzRequest { Round = round, ReactionMs = 850 });
+		clock.Now += 100;
+		g.BuzzIn("ann", new BuzzRequest { Round = round, ReactionMs = 600 });
+		Check(g.View("host").Buzzes.All(b => b.Status == BuzzStatus.Waiting), "right after the first buzz nobody answers yet (waiting for buzzes on their way)");
+		clock.Now += 250;
+		room.Tick();
+		Eq(Line(g), $"ann:{BuzzStatus.Answering},bob:{BuzzStatus.Waiting}", "Ann's buzz arrived later but she reacted faster on her PC: she answers first");
+
+		(room, clock, g, round) = Fresh("cat", "dan", "eve");
+		clock.Now += 700;
+		g.BuzzIn("dan", new BuzzRequest { Round = round, ReactionMs = 450 });
+		clock.Now += 300;
+		g.BuzzIn("cat", new BuzzRequest { Round = round, ReactionMs = 0 });
+		g.BuzzIn("eve");
+		clock.Now += 300;
+		room.Tick();
+		Eq(Line(g), $"dan:{BuzzStatus.Answering},cat:{BuzzStatus.Waiting},eve:{BuzzStatus.Waiting}",
+			"a claimed 0 ms is cut to what the host saw minus the most ping can explain (500 ms), so an honest 450 ms still wins; an older player without a time comes last");
+		g.Judge(false);
+		Eq(g.View("host").Buzzes.First(b => b.Status == BuzzStatus.Answering).PlayerId, "cat", "a wrong answer passes it on in that order");
+
+		(room, clock, g, round) = Fresh("fay", "gus");
+		clock.Now += 2000;
+		g.BuzzIn("fay");
+		clock.Now += 100;
+		g.BuzzIn("gus", new BuzzRequest { Round = round + 7, ReactionMs = 100 });
+		clock.Now += 300;
+		room.Tick();
+		Eq(Line(g), $"fay:{BuzzStatus.Answering},gus:{BuzzStatus.Waiting}", "a time from another buzzer round doesn't count");
+	}
+
 	/// <summary>Jokers, joining during a game, and the pause when someone leaves.</summary>
 	static void JokersAndSeats()
 	{
@@ -489,6 +535,7 @@ public static class SelfTest
 		TypedAndBonus();
 		JokersAndSeats();
 		FastPassFirst();
+		FairBuzzers();
 		Safety();
 		Undo();
 		Files();
@@ -1180,6 +1227,8 @@ public static class SelfTest
 
 		bob.Buzz();
 		Check(await Until(() => ann.State?.Game?.Buzzes.Count == 1), "buzz reaches everyone");
+		// (fair buzzers: the host waits a moment for other buzzes, then Bob answers)
+		Check(await Until(() => ann.State?.Game?.Buzzes.FirstOrDefault()?.Status == BuzzStatus.Answering), "after the short wait the buzzer answers");
 		host.Judge(true);
 		Check(await Until(() => ann.State?.Game?.Stage == Stage.Reveal), "reveal reaches players");
 		Eq(ann.State!.Score("lan:bob-id"), 1, "score sent");

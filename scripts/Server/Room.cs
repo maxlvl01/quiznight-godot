@@ -123,6 +123,9 @@ public sealed class Room : IGameHooks
 	// ---------- IGameHooks ----------
 
 	public long Now() => _clock();
+	/// <summary>Fair buzzers' wait after the first buzz (HostSession sets Limits.BuzzWindowMs; rule checks keep 0: at once).</summary>
+	public int BuzzWait;
+	public int BuzzWindowMs() => BuzzWait;
 	public IReadOnlyList<string> ActivePlayerIds() => Players.Where(p => p.Connected).Select(p => p.Id).ToList();
 	public int AnswerTimeSec() => Settings.AnswerTimeSec;
 	public bool HostShowsQuestions() => Settings.HostShowsQuestions;

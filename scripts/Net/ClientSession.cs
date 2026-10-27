@@ -154,6 +154,7 @@ public sealed class ClientSession : IDisposable
 			case Msg.State:
 				if (Msg.Read<RoomState>(msg.Data) is not { } state) return;
 				ServerClock.Sync(state.ServerNow);
+				NoteBuzzersOpen(state);
 				State = state;
 				Assets.Learn(state.Game?.Question.Files);
 				Changed?.Invoke();
@@ -184,7 +185,26 @@ public sealed class ClientSession : IDisposable
 
 	// ---------- player actions ----------
 
-	public void Buzz() => _net?.Send(Msg.Encode(Msg.Buzz));
+	/// <summary>Fair buzzers: the buzzer round open on this screen, and when it opened here (this PC's clock).</summary>
+	int? _openRound;
+	ulong _openedAtMs;
+
+	void NoteBuzzersOpen(RoomState state)
+	{
+		if (state.Game is not { BuzzersOpen: true } game)
+		{
+			_openRound = null;
+			return;
+		}
+		if (_openRound == game.BuzzRound) return;
+		_openRound = game.BuzzRound;
+		_openedAtMs = Godot.Time.GetTicksMsec();
+	}
+
+	/// <summary>A buzz, with how long after the buzzers opened on this screen it was pressed (the host orders by that).</summary>
+	public void Buzz() => _net?.Send(_openRound is { } round
+		? Msg.Encode(Msg.Buzz, new BuzzRequest { Round = round, ReactionMs = (int)Math.Min(int.MaxValue, Godot.Time.GetTicksMsec() - _openedAtMs) })
+		: Msg.Encode(Msg.Buzz));
 
 	/// <summary>The lobby's mini games: a challenge, a paddle, a shot … (Shared/Arcade.cs).</summary>
 	public void Arcade(ArcadeRequest request) => _net?.Send(Msg.Encode(Msg.Arcade, request));

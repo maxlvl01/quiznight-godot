@@ -13,8 +13,9 @@ namespace QuizNight.Shared;
 public static class ArcadeGame
 {
 	public const string Tetris = "tetris";
-	/// <summary>Alone: buzz as soon as the buzzer lights up, five tries; the best time counts (ms, lower is better).</summary>
-	public const string Reaction = "reaction";
+	/// <summary>Alone: buzz as soon as the buzzer lights up, five tries; the average counts (ms, lower is better). Its own key
+	/// since 0.12.3d3 ("reaction" was the best single try), so old best tries never compete with averages in the lists.</summary>
+	public const string Reaction = "reaction_avg";
 	public const string Pong = "pong";
 	public const string Billiard = "billiard";
 
