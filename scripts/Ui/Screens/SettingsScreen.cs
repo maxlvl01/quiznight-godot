@@ -297,7 +297,9 @@ public partial class SettingsScreen : Control
 			on.SetPressedNoSignal(true);
 			note.Text = Lang.T("Done: every tutorial shows again the next time its screen opens.");
 		}).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin);
-		return New.Mark(U.V(6, U.H(12, on, again), note), "settings.tutorials");
+		// (the tick box on its own line, the button under it: Settings' tick boxes wrap their text, so one squeezed into a
+		// row next to the button shrank to nothing and stretched the row)
+		return New.Mark(U.V(6, on, again, note), "settings.tutorials");
 	}
 
 	/// <summary>

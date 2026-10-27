@@ -13,6 +13,9 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+### Fixed
+- **The tutorials setting looked broken.** In Settings, the "Show tutorials" tick box had no text and "↺ Show tutorials again" was a huge, tall key. Settings lets its tick boxes wrap onto two lines, and this one sat in a row next to the button with no room of its own, so it shrank to nothing, its text wrapped one letter per line out of sight, and the row stretched the button with it. The tick box now has its own line, with the button under it.
+
 ## [0.12.3d3]
 
 ### Added
