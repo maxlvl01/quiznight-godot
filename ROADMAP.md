@@ -10,7 +10,22 @@ off (`- [x]`) when they're done, with the version they came in.
 
 ---
 
-## 0.12.0d5 — collecting (nothing built yet)
+## 0.12.0d6 — collecting (nothing built yet)
+
+- [ ] **Answer time per buzz: 15 s by default** (the lobby rule "Answer time per buzz"; new lobbies start at 15 s).
+- [ ] **Pong is missing from the Mini games menu:** find out why it's gone (it's in `ArcadeGame`) and bring it back.
+- [ ] **Ctrl+S saves without closing the question:** in the question editor it saves and stays on the question, with a
+      small "Saved" confirmation in the top right, so incremental edits don't throw you out each time.
+- [ ] **Fair buzzers despite ping:** each player's PC measures their own reaction time (from the moment the buzzers open
+      on their screen to their press) and sends it with the buzz; the host orders buzzes by that time instead of by when
+      they arrive, so a player with a slow connection isn't behind. (Waits a short moment for late buzzes before
+      deciding; times that can't be true are capped by what the host saw.)
+- [ ] **The popups' ✕ (close) button:** not properly aligned and doesn't fit the design language: make it a proper key
+      like the other buttons (KeyBox), lined up with the popup's title and corner.
+
+---
+
+## 0.12.0d5 — building
 
 **Before 0.12.0b goes public, check:** a public 0.11.4b (it has no results token, see 0.12.0d3's changelog; its update
 check doesn't need one) updates itself to 0.12.0b, and the new build then uploads results and crash logs again.
