@@ -13,6 +13,8 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.12.3b]
+
 ### Fixed
 - **The tutorials setting looked broken.** In Settings, the "Show tutorials" tick box had no text and "↺ Show tutorials again" was a huge, tall key. Settings lets its tick boxes wrap onto two lines, and this one sat in a row next to the button with no room of its own, so it shrank to nothing, its text wrapped one letter per line out of sight, and the row stretched the button with it. The tick box now has its own line, with the button under it.
 
@@ -37,11 +39,6 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 - **Turn tutorials off, or see them again.** "Turn off tutorials" in any bubble stops them all. Settings has **Show tutorials** (on/off) and **↺ Show tutorials again**, which brings back every tour you've already seen.
 - **Max gets a push on his phone and PC for every bug report and idea**, so he sees them straight away instead of when he next looks in the reports folder. Reports that couldn't go at first (no internet) push when they're sent on the next start, marked "sent late". Tapping the push opens the report.
 - **Reports and feedback say who sent them**: your Steam name and Steam ID (with a link to your profile), so Max can ask you about a bug and credit your idea in the changelog when it makes it into the game. Without Steam the report has your in-game name. The 🐞 window and Settings → What the game sends say so.
-
-## [0.12.3d1]
-
-### Changed
-- **Test builds are back in step with the public version.** The test channel had stopped at 0.12.0d6, so test builds never got 0.12.1b and 0.12.2b. This test build is the same game as the public 0.12.2b (log in bug reports, bug or feedback in the 🐞 window, leave developer mode by double-clicking DEV, "Order made" fix).
 
 ## [0.12.2b]
 
