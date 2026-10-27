@@ -15,6 +15,18 @@ off (`- [x]`) when they're done, with the version they came in.
 **Before 0.12.0b goes public, check:** a public 0.11.4b (it has no results token, see 0.12.0d3's changelog; its update
 check doesn't need one) updates itself to 0.12.0b, and the new build then uploads results and crash logs again.
 
+**Bugs found in 0.12.0d4:**
+- [ ] **The buzzer sound plays only once:** pressing the buzzer again (Test lab's free buzzer) stays silent instead of
+      playing the sound each time it's pressed.
+- [ ] **The Reaction test in the Test lab is broken:** find out what goes wrong there and fix it.
+
+**Ideas:**
+- [ ] **Sort the editor's question list** (the list on the left): by question type, or by the order they were created in.
+- [ ] **Look at the buzzer up close:** a way to enlarge the buzzer and see it in detail (for example the engraving).
+- [ ] **Microphone volume slider** in Settings: the test recording with Max's mic came out very quiet. It starts at 50 %
+      (the normal level) and goes louder from there, with an input meter next to it that shows whether it's clipping.
+- [ ] **Test drop-downs in the Test lab:** a few drop-downs (short, long, scrolling) to check how they open and roll in.
+
 
 ---
 
