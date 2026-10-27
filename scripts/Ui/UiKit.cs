@@ -95,6 +95,12 @@ public static class C
 				(Text, Muted, Accent, AccentInk, Orange) = (H("#ffffff"), H("#dcaaae"), H("#ed1c24"), H("#ffffff"), H("#ffd23f"));
 				Ink = H("#0d0203");
 				break;
+			// (deep space: near-black navy, starlight blue, a rocket-flame orange; behind the home screen, SpaceScene)
+			case Skins.Space:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#04050d"), H("#0d1029"), H("#151a3d"), H("#2b3a78"), H("#86b6ff"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#eef1ff"), H("#8e97c6"), H("#ff8a3d"), H("#1f0b00"), H("#ffd166"));
+				Ink = H("#010208");
+				break;
 			// (October: pumpkin orange, witch purple, slime green)
 			case Skins.Halloween:
 				(Bg, Panel, Panel2, Border, Blue) = (H("#120a14"), H("#22122a"), H("#2f1839"), H("#5a2d6e"), H("#a06bff"));
@@ -170,6 +176,7 @@ public static class Skins
 	public const string NewYear = "new-year";
 	public const string Carnival = "carnival";
 	public const string Valentine = "valentine";
+	public const string Space = "space";
 
 	public static readonly (string Id, string Label)[] All =
 	{
@@ -180,6 +187,7 @@ public static class Skins
 		(Amoled, "AMOLED black"),
 		(Daylight, "Daylight"),
 		(Effzeh, "#effzeh"),
+		(Space, "Space"),
 		(Halloween, "Halloween"),
 		(Christmas, "Christmas"),
 		(NewYear, "Happy New Year"),

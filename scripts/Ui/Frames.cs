@@ -41,18 +41,24 @@ public partial class ScreenFrame : Container
 		DrawTextureRect(StageGlow(), frame, false);
 		// (seasonal skins: snow and fairy lights, or cobwebs, bats and pumpkins, behind the screens' cards)
 		if (Seasonal.OnScreen) Seasonal.DrawScreen(this, frame, _t);
+		// (the space skin: stars, a black hole, planets and passers-by, behind the home screen only)
+		else if (SpaceScene.OnScreen) SpaceScene.Draw(this, frame, (float)_t);
 	}
 
-	double _t;
+	// (dev: `--space-time T` starts the scenes at that second, e.g. 41 for the Death Star firing)
+	double _t = OS.GetCmdlineUserArgs() is var args && System.Array.IndexOf(args, "--space-time") is var i and >= 0 && i + 1 < args.Length
+		&& double.TryParse(args[i + 1], System.Globalization.CultureInfo.InvariantCulture, out var start) ? start : 0;
 	bool _wasOn;
 
 	public override void _Process(double delta)
 	{
 		// (redrawn while on, and once more when it goes off: another screen then has a clean background)
-		var on = Seasonal.OnScreen;
+		var space = SpaceScene.OnScreen;
+		var on = Seasonal.OnScreen || space;
 		if (on || _wasOn) QueueRedraw();
 		_wasOn = on;
-		if (on && !Announcer.ReduceMotion) _t += delta;
+		// (the space scene also stands still with Background movement off)
+		if (on && !Announcer.ReduceMotion && (!space || Storage.Settings.BackgroundMotion)) _t += delta;
 	}
 
 	static GradientTexture2D? _glow;

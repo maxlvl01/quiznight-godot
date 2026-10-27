@@ -176,6 +176,8 @@ public partial class IntroSequence : Control
 		_started?.Invoke();
 		MouseFilter = MouseFilterEnum.Ignore;
 		var home = App.I.CurrentScreen as HomeScreen;
+		// (the space skin: a rocket lifts off as the home screen comes up)
+		if (C.Skin == Skins.Space && !Announcer.ReduceMotion && Storage.Settings.BackgroundMotion) App.I.AddChild(new RocketLaunch());
 		var logo = _title!.Logo;
 		var t = CreateTween().SetParallel();
 		const double glide = 0.9;
