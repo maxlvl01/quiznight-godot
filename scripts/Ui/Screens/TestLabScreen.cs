@@ -41,25 +41,30 @@ public partial class TestLabScreen : Control
 
 	// ---------- buzzers ----------
 
-	/// <summary>Every buzzer sound, and a reaction test: wait for the button to turn on, then buzz as fast as you can.</summary>
+	/// <summary>
+	/// The buzzer, free to press: it goes down like in a game and plays your buzzer sound (Settings). "Reaction test"
+	/// locks it until a random moment, then times how fast you buzz.
+	/// </summary>
 	Control Buzzers()
 	{
-		var result = U.Text("Press Start, wait for the buzzer to unlock, then buzz.", 14, C.Muted, null, true);
+		var result = U.Text(Lang.T("Press it: your buzzer sound from Settings."), 14, C.Muted, null, true);
 		ulong armedAt = 0;
+		var testing = false;
 		BuzzButton? button = null;
 		button = new BuzzButton(() =>
 		{
-			if (armedAt == 0) return;
+			Sfx.PlayBuzzer(Settings.BuzzerSound);
+			if (!testing || armedAt == 0) return;
 			var ms = Time.GetTicksMsec() - armedAt;
 			armedAt = 0;
-			button!.Disabled = true;
-			Sfx.PlayBuzzer(Settings.BuzzerSound);
+			testing = false;
 			result.Text = Lang.F("Your reaction: {0} ms", ms);
-		}, 120) { Disabled = true };
-		var start = U.Small("Start", () =>
+		}, 120);
+		var start = U.Small("Reaction test", () =>
 		{
-			button.Disabled = true;
+			testing = true;
 			armedAt = 0;
+			button.Disabled = true;
 			result.Text = Lang.T("Wait for it …");
 			GetTree().CreateTimer(1.5 + GD.Randf() * 2.5).Timeout += () =>
 			{
@@ -67,7 +72,7 @@ public partial class TestLabScreen : Control
 				button.Disabled = false;
 				armedAt = Time.GetTicksMsec();
 			};
-		});
+		}).Tip("The buzzer locks until a random moment; then buzz as fast as you can");
 		var sounds = U.H(6);
 		foreach (var (id, label) in Sfx.BuzzerChoices().Where(c => c.Id != Sfx.Off))
 			sounds.AddChild(U.Small("▶ " + Lang.T(label), () => Sfx.PlayBuzzer(id)));

@@ -743,17 +743,18 @@ public partial class BuzzButton : Button
 		DrawStyleBox(KeyBox.Fill(new Color(0, 0, 0, 0.3f), (int)(40 * k)), new Rect2(origin + new Vector2(-6, 14) * k, new Vector2(plate + 12 * k, plate + plateDepth)));
 		DrawKey(new Rect2(origin, new Vector2(plate, plate + plateDepth)), metal, plateDepth, 36 * k, 5 * k, light);
 		// (the sponsor engraved in the plate's top strip, above the key: cut into the metal, not in its colours, so a dark
-		// edge on top and a lit one underneath, like light falling into the letters from above)
-		var engraving = (int)(10 * k);
-		if (engraving >= 6)
+		// edge on top and a lit one underneath, like light falling into the letters from above; on every size, small
+		// buzzers just get small letters)
+		var engraving = Mathf.Max(5, (int)(10 * k));
 		{
 			var brand = Fonts.Spaced;
 			const string Sponsor = "TRACKGLOW";
 			var width = brand.GetStringSize(Sponsor, HorizontalAlignment.Left, -1, engraving).X;
 			var at = new Vector2(origin.X + (plate - width) / 2, origin.Y + 14.5f * k);
-			DrawString(brand, at + new Vector2(0, -0.9f * k), Sponsor, HorizontalAlignment.Left, -1, engraving, new Color(metal.Darkened(0.45f), 0.55f * light));
-			DrawString(brand, at + new Vector2(0, 0.9f * k), Sponsor, HorizontalAlignment.Left, -1, engraving, new Color(metal.Lightened(0.6f), 0.7f * light));
-			DrawString(brand, at, Sponsor, HorizontalAlignment.Left, -1, engraving, new Color(metal.Darkened(0.12f), light));
+			var cut = Mathf.Max(1f, 1.2f * k);
+			DrawString(brand, at + new Vector2(0, -cut), Sponsor, HorizontalAlignment.Left, -1, engraving, new Color(metal.Darkened(0.6f), 0.85f * light));
+			DrawString(brand, at + new Vector2(0, cut), Sponsor, HorizontalAlignment.Left, -1, engraving, new Color(Colors.White, 0.9f * light));
+			DrawString(brand, at, Sponsor, HorizontalAlignment.Left, -1, engraving, new Color(metal.Darkened(0.28f), light));
 		}
 		// (the darker hollow the key sits in)
 		var well = new Rect2(origin + new Vector2(20, 18) * k, new Vector2(plate - 40 * k, plate - 36 * k));
