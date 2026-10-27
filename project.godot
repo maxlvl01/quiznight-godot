@@ -11,13 +11,18 @@ config_version=5
 [application]
 
 config/name="QuizNight!"
-config/version="0.9.6b"
+config/version="0.12.6b"
 run/main_scene="res://scenes/Main.tscn"
 config/use_custom_user_dir=true
 config/custom_user_dir_name="Quiznight"
 config/features=PackedStringArray("4.7", "C#", "GL Compatibility")
 run/max_fps=60
+run/flush_stdout_on_print=true
 config/icon="res://assets/icon/icon.png"
+boot_splash/bg_color=Color(0.109804, 0.105882, 0.133333, 1)
+boot_splash/image="res://assets/splash/splash.png"
+boot_splash/stretch_mode=1
+boot_splash/use_filter=true
 
 [audio]
 
@@ -27,8 +32,9 @@ driver/enable_input=true
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
-window/size/window_width_override=1600
-window/size/window_height_override=900
+window/size/window_width_override=800
+window/size/window_height_override=450
+window/size/borderless=true
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 

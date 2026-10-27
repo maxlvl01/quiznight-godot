@@ -70,10 +70,16 @@ public static class QuizJson
 			["prompt"] = q.Prompt,
 			["points"] = q.Points,
 		};
+		if (q.CreatedAt > 0) o["createdAt"] = q.CreatedAt;
 		if (q.HasBonus)
 		{
 			o["bonusPoints"] = q.BonusPoints;
 			o["bonusText"] = q.BonusText;
+		}
+		if (q.Category != "")
+		{
+			o["category"] = q.Category;
+			if (q.CategorySecret) o["categorySecret"] = true;
 		}
 		if (q.CanBeTyped) o["typed"] = q.Typed;
 		// (typed questions have a time limit; classic writes it anyway)
@@ -140,6 +146,7 @@ public static class QuizJson
 			case QuestionType.Steps:
 				o["answer"] = q.AnswerText;
 				o["hints"] = new JsonArray(q.Hints.Select(h => (JsonNode)JsonValue.Create(h)!).ToArray());
+				if (q.IsSentence) o["stepsMode"] = q.StepsMode;
 				break;
 			case QuestionType.Interactive:
 				o["timeLimitSec"] = q.TimeLimitSec;
@@ -149,6 +156,7 @@ public static class QuizJson
 				o["image"] = WriteImage(q.Image);
 				o["mapId"] = q.MapId;
 				o["target"] = q.Target is { } t ? new JsonObject { ["x"] = t.X, ["y"] = t.Y } : null;
+				if (q.MapCheckedIn != null) o["mapCheckedIn"] = q.MapCheckedIn;
 				o["buzzFirst"] = q.BuzzFirst;
 				WriteCloseness(o, q);
 				break;
@@ -161,6 +169,8 @@ public static class QuizJson
 		var type = Str(o, "type");
 		var q = QuestionType.IsKnown(type) ? QuizRules.NewQuestion(type, Str(o, "id")) : new Question { Id = Str(o, "id"), Type = type };
 		q.Prompt = Str(o, "prompt", q.Prompt);
+		// (read as a whole number first: a question copied in memory still holds it as one)
+		q.CreatedAt = o["createdAt"] is JsonValue made && made.TryGetValue<long>(out var madeMs) ? Math.Max(0, madeMs) : (long)Math.Max(0, Num(o, "createdAt", 0));
 		q.Points = (int)Num(o, "points", q.Points);
 		q.Image = ReadImage(o["image"]);
 		if (o["slides"] is JsonArray slides)
@@ -214,17 +224,28 @@ public static class QuizJson
 				.Take(ScoringPresets.PlacesMax).ToList();
 		q.MapId = o["mapId"] is JsonValue mid && mid.TryGetValue<string>(out var mapId) ? mapId : null;
 		q.Target = ReadPoint(o["target"]);
+		q.MapCheckedIn = o["mapCheckedIn"] is JsonValue mc && mc.TryGetValue<string>(out var checkedIn) && AppVersion.Parse(checkedIn) != null ? checkedIn : null;
 		if (o["hints"] is JsonArray hints)
 		{
 			q.Hints = hints.Select(h => h is JsonValue v && v.TryGetValue<string>(out var s) ? s : "").Take(QuestionLimits.HintsMax).ToList();
 			while (q.Hints.Count < QuestionLimits.HintsMax) q.Hints.Add("");
 		}
 		q.Judging = Str(o, "judging", Judging.Vote) == Judging.Host ? Judging.Host : Judging.Vote;
+		q.StepsMode = Str(o, "stepsMode", StepsMode.Hints) == StepsMode.Sentence ? StepsMode.Sentence : StepsMode.Hints;
 		q.BuzzFirst = o["buzzFirst"] is JsonValue bf && bf.TryGetValue<bool>(out var b) && b;
 		q.Typed = o["typed"] is JsonValue ty && ty.TryGetValue<bool>(out var typed) && typed;
 		q.BonusPoints = Math.Clamp((int)Num(o, "bonusPoints", 0), 0, QuestionLimits.BonusPointsMax);
 		q.BonusText = Str(o, "bonusText");
 		if (q.BonusText.Length > QuestionLimits.BonusTextMaxLength) q.BonusText = q.BonusText[..QuestionLimits.BonusTextMaxLength];
+		q.Category = Categories.Clean(Str(o, "category"));
+		// "Write the answer" was its own type until 0.10.3b; it's the classic question's "Everyone types" now
+		if (q.Type == QuestionType.Write)
+		{
+			q.Type = QuestionType.Classic;
+			q.Mode = ClassicMode.Buzzer;
+			q.Typed = true;
+		}
+		q.CategorySecret = q.Category != "" && o["categorySecret"] is JsonValue cs && cs.TryGetValue<bool>(out var secret) && secret;
 		return q;
 	}
 
@@ -241,14 +262,19 @@ public static class QuizJson
 		return o;
 	}
 
-	public static MapAsset ReadMap(JsonObject o) => new()
+	public static MapAsset ReadMap(JsonObject o)
 	{
-		Id = Str(o, "id"),
-		Name = Str(o, "name"),
-		Image = ReadImage(o["image"]) ?? new ImageAsset(),
-		WidthKm = o["widthKm"] is JsonValue w && w.TryGetValue<double>(out var km) ? km : null,
-		PresetId = o["presetId"] is JsonValue p && p.TryGetValue<string>(out var pid) ? pid : null,
-	};
+		var presetId = o["presetId"] is JsonValue p && p.TryGetValue<string>(out var pid) ? pid : null;
+		return new()
+		{
+			Id = Str(o, "id"),
+			// (a built-in map renamed since: its new name)
+			Name = MapPresets.CurrentName(presetId, Str(o, "name")),
+			Image = ReadImage(o["image"]) ?? new ImageAsset(),
+			WidthKm = o["widthKm"] is JsonValue w && w.TryGetValue<double>(out var km) ? km : null,
+			PresetId = presetId,
+		};
+	}
 
 	public static NormPoint? ReadPoint(JsonNode? node) =>
 		node is JsonObject t && t["x"] is JsonValue x && t["y"] is JsonValue y && x.TryGetValue<double>(out var px) && y.TryGetValue<double>(out var py)

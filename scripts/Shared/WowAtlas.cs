@@ -192,6 +192,45 @@ public static class WowAtlas
 		return best;
 	}
 
+	/// <summary>
+	/// WoW Forever's zones that Classic doesn't have (its zone art from OpenMap shows them, the zone list above doesn't):
+	/// rough outlines on the world map (in its pixels, 1002 × 668), found with DevTools' --unzoned-mask, so hovering and
+	/// "Jump to zone…" name them. Only names: distances stay in Classic's yards. Replace with Forever's own zone data once
+	/// it's out (after 4 November 2026).
+	/// </summary>
+	public static readonly IReadOnlyList<(string Name, (double X, double Y)[] Outline)> ExtraZones = new[]
+	{
+		("Gilneas", new (double, double)[] { (665, 250), (705, 247), (718, 260), (713, 278), (680, 281), (664, 268) }),
+		("Riverglades", new (double, double)[] { (832, 372), (871, 372), (877, 395), (875, 434), (805, 435), (802, 402), (832, 399) }),
+	};
+
+	/// <summary>A new (WoW Forever) zone at this point of the world map, if it's in one.</summary>
+	public static string? ExtraZoneAt(NormPoint p)
+	{
+		double x = p.X * ImageWidth, y = p.Y * ImageHeight;
+		foreach (var (name, outline) in ExtraZones)
+		{
+			// (point in polygon: count the edges a ray to the right crosses)
+			var inside = false;
+			for (int i = 0, j = outline.Length - 1; i < outline.Length; j = i++)
+			{
+				var (xi, yi) = outline[i];
+				var (xj, yj) = outline[j];
+				if (yi > y != yj > y && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+			}
+			if (inside) return name;
+		}
+		return null;
+	}
+
+	/// <summary>The middle and size of a new zone's outline on the world map (0–1), to zoom to it.</summary>
+	public static (double X, double Y, double W, double H) ExtraZoneRect(string name)
+	{
+		var o = ExtraZones.First(z => z.Name == name).Outline;
+		double x0 = o.Min(p => p.X), x1 = o.Max(p => p.X), y0 = o.Min(p => p.Y), y1 = o.Max(p => p.Y);
+		return (x0 / ImageWidth, y0 / ImageHeight, (x1 - x0) / ImageWidth, (y1 - y0) / ImageHeight);
+	}
+
 	const double YardKm = 0.9144 / 1000;
 
 	/// <summary>

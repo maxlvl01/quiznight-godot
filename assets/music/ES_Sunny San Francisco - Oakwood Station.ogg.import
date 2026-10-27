@@ -1,0 +1,19 @@
+[remap]
+
+importer="oggvorbisstr"
+type="AudioStreamOggVorbis"
+uid="uid://bwnaf7emfomvh"
+path="res://.godot/imported/ES_Sunny San Francisco - Oakwood Station.ogg-c03d7c565c64aef8e73389c684577d78.oggvorbisstr"
+
+[deps]
+
+source_file="res://assets/music/ES_Sunny San Francisco - Oakwood Station.ogg"
+dest_files=["res://.godot/imported/ES_Sunny San Francisco - Oakwood Station.ogg-c03d7c565c64aef8e73389c684577d78.oggvorbisstr"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

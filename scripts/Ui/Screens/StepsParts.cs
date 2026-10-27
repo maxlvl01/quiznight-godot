@@ -2,6 +2,7 @@
 // just flipped turns over like a card.
 
 using System;
+using System.Collections.Generic;
 using Godot;
 using QuizNight.Shared;
 
@@ -22,7 +23,7 @@ public partial class HintCard : PanelContainer
 		_size = size;
 		SizeFlagsHorizontal = SizeFlags.ExpandFill;
 		MouseFilter = MouseFilterEnum.Ignore;
-		var badge = U.Text(number.ToString(), size, C.Bg, Fonts.Black, false, HorizontalAlignment.Center).MinSize(size * 1.8f, 0);
+		var badge = U.Text(number.ToString(), size, C.OnBright, Fonts.Black, false, HorizontalAlignment.Center).MinSize(size * 1.8f, 0);
 		var badgePanel = U.Panel(badge, "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Accent, 999, null, 0, 6, 2)));
 		badgePanel.SizeFlagsVertical = SizeFlags.ShrinkCenter;
 		var points = U.Mono(worth == 1 ? Lang.T("1 pt") : Lang.F("{0} pts", worth), 14, C.Muted);
@@ -69,6 +70,7 @@ public static class StepsParts
 	/// <summary>All the hint cards: flipped ones face up, the rest face down. flipLast: the newest one turns over now.</summary>
 	public static Control Cards(PublicQuestion q, bool flipLast, int size = 22)
 	{
+		if (q.StepsMode == StepsMode.Sentence) return Sentence(q, flipLast, size);
 		var box = U.V(size >= 20 ? 8 : 5);
 		var count = q.HintCount ?? 0;
 		var shown = q.Hints?.Count ?? 0;
@@ -76,6 +78,47 @@ public static class StepsParts
 			box.AddChild(new HintCard(i + 1, i < shown ? q.Hints![i] : null, count - i, flipLast && i == shown - 1, size));
 		return box;
 	}
+
+	/// <summary>
+	/// A sentence question: the parts read so far, then a blurred block for each part to come (the same length for all,
+	/// so nothing gives away how long the rest is: players never get its text). The newest part fades in.
+	/// </summary>
+	static Control Sentence(PublicQuestion q, bool fadeLast, int size)
+	{
+		var count = q.HintCount ?? 0;
+		var shown = q.Hints?.Count ?? 0;
+		static string Hex(Color c) => c.ToHtml(true);
+		var parts = new List<string>();
+		for (var i = 0; i < count; i++)
+		{
+			var worth = count - i;
+			var tag = $"[font_size={Math.Max(11, size / 2)}][color=#{Hex(C.Muted)}]{(worth == 1 ? Lang.T("1 pt") : Lang.F("{0} pts", worth))}[/color][/font_size]";
+			parts.Add(i < shown
+				? $"[color=#{Hex(i == shown - 1 ? C.Text : new Color(C.Text, 0.8f))}]{Escape(q.Hints![i])}[/color] {tag}"
+				: $"[color=#{Hex(new Color(C.Muted, 0.35f))}]▓▓▓▓▓▓▓▓▓▓▓▓[/color] {tag}");
+		}
+		var label = new RichTextLabel
+		{
+			BbcodeEnabled = true, FitContent = true, ScrollActive = false, AutowrapMode = TextServer.AutowrapMode.WordSmart,
+			AutoTranslateMode = Node.AutoTranslateModeEnum.Disabled, MouseFilter = Control.MouseFilterEnum.Ignore,
+			Text = string.Join("   ", parts),
+		};
+		label.AddThemeFontSizeOverride("normal_font_size", size + 4);
+		label.AddThemeFontOverride("normal_font", Fonts.Bold);
+		label.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		// (room between the lines, so the parts and their points read as one sentence)
+		label.AddThemeConstantOverride("line_separation", size / 2);
+		var panel = U.Panel(U.Pad(label, 18, 14, 18, 14));
+		panel.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel2, 14, C.Accent, 2, 0, 0));
+		if (fadeLast)
+		{
+			label.Modulate = new Color(1, 1, 1, 0.4f);
+			label.Ready += () => label.CreateTween().TweenProperty(label, "modulate:a", 1f, 0.35);
+		}
+		return panel;
+	}
+
+	static string Escape(string s) => s.Replace("[", "[lb]");
 
 	/// <summary>"Right now: 4 points" under the cards.</summary>
 	public static Control Worth(PublicQuestion q, int size = 17) =>

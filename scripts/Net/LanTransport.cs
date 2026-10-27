@@ -20,7 +20,11 @@ public sealed class LanHostTransport : IHostTransport
 	sealed class Peer
 	{
 		public required StreamPeerTcp Tcp;
-		public readonly FrameReader Reader = new();
+		// (a player's messages are small: the biggest is a 200 KB part of a recording)
+		public readonly FrameReader Reader = new(1024 * 1024);
+		/// <summary>When it connected: a connection that hasn't joined after JoinWithinSec is dropped.</summary>
+		public double ConnectedAt;
+		public bool Joined;
 		// What's still to send: written without blocking as the network takes it (Flush), so a big
 		// video never freezes the host's game.
 		public readonly Queue<byte[]> Out = new();
@@ -30,6 +34,17 @@ public sealed class LanHostTransport : IHostTransport
 
 	/// <summary>TrySend refuses once this much is waiting for a player.</summary>
 	const long MaxQueued = 2 * 1024 * 1024;
+	/// <summary>At most this many connections at once (a room seats far fewer): more are turned away.</summary>
+	const int MaxConnections = 48;
+	const double JoinWithinSec = 15;
+
+	/// <summary>The connection has joined the room (HostSession): it's no longer dropped for not joining.</summary>
+	public void MarkJoined(string peer)
+	{
+		if (_peers.TryGetValue(peer, out var p)) p.Joined = true;
+	}
+
+	static double Now => Time.GetTicksMsec() / 1000.0;
 
 	readonly TcpServer _server = new();
 	readonly Dictionary<string, Peer> _peers = new();
@@ -111,14 +126,24 @@ public sealed class LanHostTransport : IHostTransport
 		while (_server.IsListening() && _server.IsConnectionAvailable())
 		{
 			var tcp = _server.TakeConnection();
+			if (_peers.Count >= MaxConnections)
+			{
+				tcp.DisconnectFromHost();
+				continue;
+			}
 			tcp.SetNoDelay(true);
 			var id = $"lan{++_nextId}";
-			_peers[id] = new Peer { Tcp = tcp };
+			_peers[id] = new Peer { Tcp = tcp, ConnectedAt = Now };
 			PeerConnected?.Invoke(id);
 		}
 		foreach (var (id, peer) in _peers.ToList())
 		{
 			if (!_peers.ContainsKey(id)) continue; // dropped by a handler during this loop
+			if (!peer.Joined && Now - peer.ConnectedAt > JoinWithinSec)
+			{
+				Disconnect(id); // (connected but never said who it is: not one of ours)
+				continue;
+			}
 			peer.Tcp.Poll();
 			if (peer.Tcp.GetStatus() == StreamPeerTcp.Status.Connected) Flush(peer);
 			if (peer.Tcp.GetStatus() != StreamPeerTcp.Status.Connected)

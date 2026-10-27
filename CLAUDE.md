@@ -4,8 +4,9 @@ Called **Quiznight?** since 0.9.0b (was "Quiznight!"): only what players see cha
 icon `tools/make_icon.py`, release titles). File and folder names stay "Quiznight"/"QuizNight!" (`config/name` names the
 exported data folder the updater's file lists use, `config/custom_user_dir_name` the saved quizzes), so don't rename those.
 
-A desktop app for hosting quiz nights with friends (Jackbox style: the host's screen goes on the
-TV or into a Discord stream). The **host is the quizmaster and never plays**. Players join with a
+A desktop app for hosting quiz nights with friends. **Everyone plays on their own PC** (talking on Discord): nobody
+watches a shared TV or a stream of the host's screen, so don't design for that. The **host is the quizmaster and never
+plays** the quiz. Players join with a
 4-character room code on their own PC.
 
 This is the Godot 4.7 / C# port of the web version at `C:\Users\Xbox3\Desktop\Quiznight!`
@@ -17,7 +18,7 @@ the original design decisions; most still apply.
 - **Steam networking with the Spacewar app ID (480).** Internal program for friends, never
   published, so Valve's public test app is enough. Consequences: everyone needs Steam running and
   shows as "playing Spacewar"; lobby searches see every Spacewar lobby, so ours are tagged
-  (`quiznight`, `quiznight_code`, `quiznight_host` lobby data).
+  (`quiznight`, `quiznight_room` = a hash of the room code, `quiznight_host` lobby data).
 - **The host's app is the server.** `HostSession` runs the `Room`/`Game` in-process; players
   connect to the host's Steam ID through Steam's relay (`SteamNetworkingSockets`). The lobby only
   makes the room code findable. Host leaves = room closed.
@@ -26,7 +27,7 @@ the original design decisions; most still apply.
   the developer code `61969` is typed on the home screen (until the game closes); editor runs always have it,
   `--lan-locked` shows the exported look.
 - **Quiz files extend the web version's format** (`.quiznight.json`, now format 5: multi choice, image reveal, timeline,
-  put in order, write the answer, typed buzzer questions, bonus points), so old exports import as-is.
+  put in order, write the answer (read as classic + `Typed` since 0.10.3b), typed buzzer questions, bonus points), so old exports import as-is.
   Buzzer kinds with `Typed` play like write the answer (`Question.IsWritten`); a bonus is given by the host at the reveal
   (`Game.ToggleBonus`), and the host can change scores any time (`HostSession.AdjustScore`).
   `QuizJson` reads forgivingly (= migration) and writes only each type's fields.
@@ -70,11 +71,18 @@ the original design decisions; most still apply.
   `GameView.FastPassTaken`, not who); Double is open to everyone. They're played for `Game.JokerIndex` (the hidden current question, or the next one
   during a reveal), can be taken back until that question is shown, and are secret until then. Double multiplies the
   reveal's points (`RevealEntry.Doubled`; timeline points as they're placed; written ticks and bonuses too). A Fast
-  Pass buzz is inserted ahead of everyone waiting.
+  Pass buzz always answers first: it takes over from whoever is answering (they wait first in line) and goes ahead of everyone waiting.
 - **Leaving during a game keeps the seat** (`Room.Leave`/`Disconnect`): the game pauses (`Game.Paused`: no timers,
   buzzes, answers, Show or Next; the host's media pauses) until everyone is back (`Room.Join` with the same id) or the host
   continues. New players can join a running game (`Player.JoinedAt`); during an open question they sit it out
   (`Game.LateJoin`, `GameView.LateIds`). LAN players keep one client id per app run, so rejoining gets the seat back.
+- **Saved nights** (`Server/SavedNight.cs`, `Storage/NightSaves.cs`: `user://saves/<quiz id>.json`): the host's game
+  (`HostSession.Autosaves`, set by `App.HostQuiz`, not tests) writes `Room.SaveJson()` on every broadcast if it changed:
+  during a reveal everything up to that question, while one runs the snapshot taken when it opened (`Room.NoteOpened`);
+  nothing during question 1. The quiz page / list offers Continue → `App.HostQuiz(quiz, resume: save)` → `Room.Restore`
+  (saved seats `Player.Saved`, away, never dropped from the lobby; LAN seats reclaimed by name, Steam by id) → Start =
+  `Room.GoOn` (Game opens at `save.Next`, used jokers restored). Deleted when the night finishes. `--continue` with
+  `--host-sample` continues its save.
 - **Ranking** (`Room.Ranking`, sent as `RoomState.Ranking`/`Places`): points, then who reached that score first
   (`PlayerStats.ScoreChangedAt`), then average buzz/answer time, then average km off; fully equal players share a place.
   Players' scoreboards show the top 3 and the positions around them (`GameParts.ShownPositions`), the host's everyone.
@@ -142,11 +150,24 @@ dotnet build "QuizNight!.csproj"                              # compile — run 
 "$G" --path . --resolution 1600x900 -- --no-steam --open mapPin --shot out.png    # screenshot a screen
 ```
 
-`--sound FILE` / `--video FILE` (with `--host-sample` or `--open`: the sound question plays that file / a video question follows it), `--screen home|quizzes|quiz|settings`, `--open classic|choice|multi|picture|estimation|mapPin|wow|sound|image|order|timeline|write` (`--map-preset ID` with mapPin), `--start-at N` (with `--autopilot`), `--bot-drag` (a windowed bot drags the timeline item with real mouse events), `--map-zoom Z [--map-at X,Y]` (WoW map), `--lang en|de` (this run only), `--shot FILE --after SEC`
+`--sound FILE` / `--video FILE` (with `--host-sample` or `--open`: the sound question plays that file / a video question follows it), `--screen home|quizzes|quiz|settings|testlab|dialog` (dialog: a pop-up over home), `--open classic|choice|multi|picture|estimation|mapPin|wow|sound|image|order|timeline|write` (`--map-preset ID` with mapPin), `--start-at N` (with `--autopilot`), `--bot-drag` (a windowed bot drags the timeline item with real mouse events), `--map-zoom Z [--map-at X,Y]` (WoW map), `--lang en|de` (this run only), `--skin ID --space-time T --space-check` (space scene at second T; prints any shape Godot can't fill, which would log an error every frame; add Godot's `--time-scale 8` before `--` to run through its visits), `--screen testlab --dropdown-check` (does the long drop-down scroll on its first open), `--shot FILE --after SEC`
 (see `DevTools.cs`). Full solo test: host with `--autopilot --players 2` plus two `--bot` instances.
 Screenshots need a window (no `--headless`); the window opens briefly on the user's screen.
 
 ## Gotchas learned so far
+
+- **The game starts as a small borderless window (800×450, project.godot's window size override + borderless):** that's
+  the anti-cheat splash (`Ui/IntroSequence.cs`: `AntiCheatSplash`, its first frame is the boot splash, `--make-splash`).
+  App then turns it into the saved window (`Prefs.ApplyWindow`) and plays the intro (`IntroSequence`: video, cards,
+  title screen whose logo glides into `HomeScreen.Logo`). Runs with arguments after `--` get their window at once, no
+  intro. Dev: `--splash [--intro-from N] [--intro-start]`, `--anti-cheat`. No music while `IntroSequence.HoldsMusic`.
+- **Anything from outside is checked (`Shared/Guard.cs`):** pictures by their header size before decoding, packed quizzes
+  and zips read capped, recordings must be the game's own WAV format, CSV cells formula-safe, file ids plain. Over Steam a
+  join needs the room code (`JoinRequest.Code`) and a Steam-confirmed ID (claimed ones are refused); the lobby list only
+  has `SteamService.CodeKey` (PBKDF2) of the code; kicked players stay out; `RoomSettings.FriendsOnly`. LAN host frames
+  ≤ 1 MB, joins within 15 s, ≤ 48 connections. The self-test's `Safety()` covers these.
+- **Custom cursors** (`assets/cursors`, `tools/make_cursors.py`) are set in `App.UseCursors`, cleared in `App._ExitTree`
+  (else Godot reports their textures as leaked at exit).
 
 - **`default_texture_filter=3` is Nearest Mipmap** (the project setting's order differs from CanvasItem's enum), so
   scaled art looks blocky. Maps set `TextureFilter = LinearWithMipmaps` on their canvas.
@@ -169,10 +190,26 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
 - **Exporting:** the 4.7.2 mono templates are installed (Windows x86_64). C# export needs `QuizNight!.sln`
   next to the csproj. The build lands in `build/Quiznight/`; `steam_api64.dll` ends up in the
   `data_QuizNight!_windows_x86_64` folder and Steam works from there (checked with `--steam-check`).
+- **Test builds first (from 0.10.3b):** every new version goes to the private `maxlvl01/quiznight-test-releases` with
+  `tools/release.sh --test` (zips only, title "… (test)"); Max downloads and tries it there. Only when he says a version is
+  ready does it go public with plain `tools/release.sh` (players shouldn't download every hotfix). Going public folds the test
+  versions' changelog sections since the last public release into that version's one section (`tools/fold_changelog.py`,
+  run by `release.sh`; commit CHANGELOG.md afterwards), so players see one version with everything. Test builds have
+  `test-channel.txt` next to the exe (release.sh puts it in test zips) and update from the test repo instead
+  (`Updater.TestChannel`: the release list via the API, as pre-releases aren't "latest"; zips only; read with the shipped
+  `results-token.txt`, which needs Contents: read on quiznight-test-releases). Test builds also start in developer mode, log every step
+  (`Shared/Trace.Log`, timestamped: screens, connections, messages, the game's steps) with Godot's verbose output
+  (`override.cfg` in test zips), and send each run's whole log to the results repo's `test-logs/` on the next start
+  (`Storage/CrashReports`; public builds send crash/error logs to `crashes/` only). 0.10.3b was public for a few minutes and is a
+  draft on the public repo now (nobody had downloaded it); drafts aren't deleted either.
 - **Releases & updates:** `tools/release.sh` exports, zips and publishes a GitHub release on the public
-  `maxlvl01/quiznight-releases` repo (code lives in the private `maxlvl01/quiznight-godot`; `maxlvl01/quiznight` is the web version). Exported games check
+  `maxlvl01/quiznight-releases` repo (code lives in `maxlvl01/quiznight-godot`, which is public on GitHub; `maxlvl01/quiznight` is the web version). Exported games check
   it at startup (`Storage/Updater.cs`) and update themselves; "What's new" is read from the shipped
   CHANGELOG.md, so its `## [version]` / `### Added|Changed|Fixed|Removed` layout matters.
+  **Updates are signed:** `release.sh` signs each zip and update list (`<file>.sig`, `openssl dgst -sha256 -sign`) with Max's
+  release key, `~/.quiznight/release-signing-key.pem` (ECDSA P-256, never in git: back it up; `QUIZNIGHT_SIGNING_KEY`
+  overrides the path). The game has the public half (`Updater.ReleaseKey`, also `tools/release-signing-public.pem`) and
+  installs nothing whose signature doesn't check out (from 0.11.2b on; older builds don't check).
   Updates come in packs: each release has `update-windows.json` / `update-linux.json` (every file's SHA-256 and the
   pack it's in, made by `tools/manifest.py`). Packs are zips by kind (game, engine, maps, anyconverter) named by a
   hash of their contents; only new packs are uploaded (usually just the two game packs), the rest point into older
@@ -181,6 +218,18 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
   `.gz` per file with `manifest-*.json`; removed again, nothing used them.) Test against a local server
   with `QUIZNIGHT_UPDATE_FEED=<url of a fake releases/latest JSON>`. `build/` has a `.gdignore` (else the editor
   imports the copied maps).
+- **Exports trim .NET** (`PublishTrimmed`, `TrimMode=partial` in the csproj, ExportRelease only): only libraries marked
+  trimmable shrink, our code/GodotSharp/Facepunch stay whole. Two feature switches trimming turns off must stay on, or the
+  exported game breaks: `_EnableConsumingManagedCodeFromNativeHosting` (Godot starts .NET from its native host; off = the
+  game crashes at start, `hostfxr_get_runtime_delegate failed`) and `JsonSerializerIsReflectionEnabledByDefault` (our
+  JSON goes through reflection). `release.sh` also deletes .NET's debugger/dump files (`strip_dotnet`). Editor runs aren't
+  trimmed: test trimming-related changes on an export (`--selftest` on the exported exe).
+- **Slim engine (Windows):** the Windows export uses a custom export template built from the Godot 4.7.2-stable source
+  (`C:\godot-src\godot-4.7.2-stable`) with `tools/engine_profile.py`: no 3D, physics, navigation, XR, Vulkan/D3D12,
+  GDScript, networking modules, ZIP, regex … (37 MB instead of 105 MB). `export_presets.cfg` points at
+  `C:/godot-src/templates/quiznight-windows-release.exe`; `release.sh` stops if it's missing. If the game starts using
+  an engine feature that's left out (a 3D node, physics, Godot's RegEx/ZIPReader …), it works in the editor but not in the
+  export: put the module back in the profile and rebuild (~9 min). Linux uses the stock template (no WSL here).
 - **AnyConverter** (the user's separate Python/tkinter converter, `C:\Users\Xbox3\Desktop\AnyConverter`, not in git)
   ships in the Windows zip as `AnyConverter/AnyConverter.exe` and in the Linux zip as `AnyConverter/AnyConverter`;
   `release.sh` copies them from its `dist/` (`AnyConverter.exe`, and `linux/AnyConverter-linux-x86_64.tar.gz` from its
@@ -191,10 +240,15 @@ Screenshots need a window (no `--headless`); the window opens briefly on the use
 ## Versioning rules
 
 Same as the web version: **MAJOR.MINOR.HOTFIX** (`0.4.0a` = alpha, `0.7.1b` = beta; the home screen stamp follows the letter), stored in
-`project.godot` (`application/config/version`). Add changelog entries under `[Unreleased]` in
+`project.godot` (`application/config/version`). **Test builds from 0.12 on are `0.12.0d1`, `0.12.0d2` …** (d = dev, then the test
+build's number; `AppVersion.Build`, stamp "DEV"): they sort before every other version with the same numbers, so the public
+release gets its own version (e.g. `0.12.0b`, `release.sh` refuses to publish a d version) and `fold_changelog.py` folds the
+d sections into it. Test builds before 0.12 still used b numbers. Older test builds can't read d versions, so a 0.11.x test
+build won't update to 0.12.0d1 by itself: download it once by hand. Add changelog entries under `[Unreleased]` in
 CHANGELOG.md while working (plain language, for friends to read). Big updates (a new MINOR, x.y.0) get a name, chosen
 by Claude: `## [0.8.0b] — "Jokers Wild": what's in it`; `release.sh` makes the release title "Quiznight 0.8.0b — Jokers
-Wild" from it. If the quiz file format changes,
+Wild" from it. Players see a named update as its MAJOR.MINOR ("0.11 — Opening Night", `Changelog.Release.Shown`, also the
+release title), while the game's version stays the full one (0.11.3b). If the quiz file format changes,
 bump `QuizRules.FormatVersion` and keep old files loading.
 
 **Never `git push` (or push tags, create releases/PRs) without the user's explicit approval for that

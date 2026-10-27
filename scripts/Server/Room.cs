@@ -19,6 +19,10 @@ public sealed class Player
 	public int? JoinedAt;
 	/// <summary>Left during the game and not back yet: the question (1-based) they left at.</summary>
 	public int? LeftAt;
+	/// <summary>Their game's version ("" = before 0.12).</summary>
+	public string Version = "";
+	/// <summary>A seat from a saved night (Room.Restore): it keeps its points in the lobby until they're back.</summary>
+	public bool Saved;
 }
 
 /// <summary>What breaks ties between players with the same score (see Room.Ranking).</summary>
@@ -26,20 +30,46 @@ public sealed class PlayerStats
 {
 	/// <summary>When their score last changed: of two with the same score, the one who got there first is ahead.</summary>
 	public long? ScoreChangedAt;
+	/// <summary>Answers locked in and recordings sent: time from the question's start.</summary>
 	public long AnswerMs;
 	public int Answers;
+	/// <summary>Buzzes: time to buzz in (much quicker than typing, so it's its own average).</summary>
+	public long BuzzMs;
+	public int Buzzes;
 	public double Km;
 	public int KmAnswers;
 	/// <summary>Questions they scored on.</summary>
 	public int Scored;
+
+	/// <summary>Points the host handed out: bonuses and score changes by hand (taking some away counts against it).</summary>
+	public int HostPoints;
 
 	/// <summary>Estimations: how far off, in % of the right number.</summary>
 	public double PercentOff;
 	public int PercentAnswers;
 
 	public double? AvgAnswerMs => Answers > 0 ? (double)AnswerMs / Answers : null;
+	public double? AvgBuzzMs => Buzzes > 0 ? (double)BuzzMs / Buzzes : null;
 	public double? AvgKm => KmAnswers > 0 ? Km / KmAnswers : null;
 	public double? AvgPercentOff => PercentAnswers > 0 ? PercentOff / PercentAnswers : null;
+}
+
+/// <summary>One player's go at one question, for the per-question rows of the saved results (stats per question type).</summary>
+public sealed class QuestionStat
+{
+	/// <summary>Points from the question itself (with Double, bonus and hand-ticked answers; not the host's score changes).</summary>
+	public int Points;
+	public bool Right;
+	/// <summary>Answered, buzzed, recorded or took a timeline turn (else they just let it pass).</summary>
+	public bool Answered;
+	public int Buzzes, WrongBuzzes, Placements, PlacementsRight;
+	public long? BuzzMs, AnswerMs;
+	public double? Km, PercentOff;
+	/// <summary>Step by step: the hint (1 = first) they got it right at.</summary>
+	public int? Hint;
+	public string Joker = "";
+	/// <summary>Typed answers: letters off from the closest accepted answer (0 = spelled perfectly).</summary>
+	public int? Typos;
 }
 
 public sealed class Room : IGameHooks
@@ -57,6 +87,16 @@ public sealed class Room : IGameHooks
 	public readonly Dictionary<string, PlayerStats> Stats = new();
 
 	public PlayerStats StatsOf(string playerId) => Stats.TryGetValue(playerId, out var s) ? s : Stats[playerId] = new PlayerStats();
+
+	/// <summary>Per question (0-based index) and player: how it went, for the saved results.</summary>
+	public readonly Dictionary<(int Question, string Player), QuestionStat> QuestionStats = new();
+
+	/// <summary>The current question's record for a player.</summary>
+	QuestionStat Q(string playerId)
+	{
+		var key = (Game?.Index ?? 0, playerId);
+		return QuestionStats.TryGetValue(key, out var s) ? s : QuestionStats[key] = new QuestionStat();
+	}
 
 	public readonly string Code;
 	/// <summary>Full quiz including answers and media — never send this to players as-is.</summary>
@@ -85,13 +125,33 @@ public sealed class Room : IGameHooks
 	// ---------- IGameHooks ----------
 
 	public long Now() => _clock();
+	/// <summary>Fair buzzers' wait after the first buzz (HostSession sets Limits.BuzzWindowMs; rule checks keep 0: at once).</summary>
+	public int BuzzWait;
+	public int BuzzWindowMs() => BuzzWait;
 	public IReadOnlyList<string> ActivePlayerIds() => Players.Where(p => p.Connected).Select(p => p.Id).ToList();
 	public int AnswerTimeSec() => Settings.AnswerTimeSec;
 	public bool HostShowsQuestions() => Settings.HostShowsQuestions;
 	public bool HostUnlocksBuzzers() => Settings.HostUnlocksBuzzers;
 	public bool JokerAllowed(string kind) => Settings.Jokers.Contains(kind);
+	public bool ShowCategories() => Settings.ShowCategories;
 	public int Score(string playerId) => Scores.GetValueOrDefault(playerId);
+	/// <summary>Points from the current question (they count for its per-question stats too).</summary>
 	public void Award(string playerId, int points)
+	{
+		ChangeScore(playerId, points);
+		if (Game != null) Q(playerId).Points += points;
+	}
+
+	/// <summary>The host changes a score by hand: it counts for the night (and the host's points), not for any question.</summary>
+	public void AdjustScore(string playerId, int points)
+	{
+		ChangeScore(playerId, points);
+		NoteHostPoints(playerId, points);
+	}
+
+	public void NoteHostPoints(string playerId, int points) => StatsOf(playerId).HostPoints += points;
+
+	void ChangeScore(string playerId, int points)
 	{
 		Scores[playerId] = (Scores.TryGetValue(playerId, out var s) ? s : 0) + points;
 		if (points != 0) StatsOf(playerId).ScoreChangedAt = Now();
@@ -99,9 +159,47 @@ public sealed class Room : IGameHooks
 
 	public void NoteAnswerTime(string playerId, long ms)
 	{
+		ms = Math.Max(0, ms);
 		var s = StatsOf(playerId);
-		s.AnswerMs += Math.Max(0, ms);
-		s.Answers++;
+		var q = Q(playerId);
+		// (a new recording replaces the last one: its time too)
+		if (q.AnswerMs is { } before) s.AnswerMs -= before;
+		else s.Answers++;
+		s.AnswerMs += ms;
+		q.AnswerMs = ms;
+		q.Answered = true;
+	}
+
+	public void NoteBuzzTime(string playerId, long ms)
+	{
+		ms = Math.Max(0, ms);
+		var s = StatsOf(playerId);
+		s.BuzzMs += ms;
+		s.Buzzes++;
+		var q = Q(playerId);
+		q.BuzzMs ??= ms;
+		q.Buzzes++;
+		q.Answered = true;
+	}
+
+	public void NoteWrongBuzz(string playerId) => Q(playerId).WrongBuzzes++;
+
+	public void NoteTypos(string playerId, int typos) => Q(playerId).Typos = typos;
+
+	public void NotePlacement(string playerId, bool right)
+	{
+		var q = Q(playerId);
+		q.Placements++;
+		if (right) q.PlacementsRight++;
+		q.Answered = true;
+	}
+
+	public void NoteTookPart(string playerId, bool answered, string? joker, int? hint)
+	{
+		var q = Q(playerId);
+		q.Answered |= answered;
+		q.Joker = joker ?? "";
+		q.Hint = hint ?? q.Hint;
 	}
 
 	public void NoteDistance(string playerId, double km)
@@ -109,27 +207,34 @@ public sealed class Room : IGameHooks
 		var s = StatsOf(playerId);
 		s.Km += km;
 		s.KmAnswers++;
+		Q(playerId).Km = km;
 	}
 
-	public void NoteScored(string playerId) => StatsOf(playerId).Scored++;
+	public void NoteScored(string playerId)
+	{
+		StatsOf(playerId).Scored++;
+		Q(playerId).Right = true;
+	}
 
 	public void NotePercentOff(string playerId, double percent)
 	{
 		var s = StatsOf(playerId);
 		s.PercentOff += percent;
 		s.PercentAnswers++;
+		Q(playerId).PercentOff = percent;
 	}
 
 	/// <summary>
 	/// Everyone's position: most points first; same points, whoever got there first; then the faster average
-	/// buzz/answer time; then the closer average map pin; then who joined first. Players equal in all of these share a place.
+	/// answer time, then the faster average buzz time; then the closer average map pin; then who joined first. Players
+	/// equal in all of these share a place.
 	/// </summary>
 	public (List<string> Order, Dictionary<string, int> Places) Ranking()
 	{
-		(int, long, double, double) Key(Player p)
+		(int, long, double, double, double) Key(Player p)
 		{
 			var s = StatsOf(p.Id);
-			return (-Score(p.Id), s.ScoreChangedAt ?? long.MaxValue, s.AvgAnswerMs ?? double.MaxValue, s.AvgKm ?? double.MaxValue);
+			return (-Score(p.Id), s.ScoreChangedAt ?? long.MaxValue, s.AvgAnswerMs ?? double.MaxValue, s.AvgBuzzMs ?? double.MaxValue, s.AvgKm ?? double.MaxValue);
 		}
 		var order = Players.Select((p, joined) => (P: p, Key: Key(p), Joined: joined)).OrderBy(x => x.Key).ThenBy(x => x.Joined).ToList();
 		var places = new Dictionary<string, int>();
@@ -146,10 +251,10 @@ public sealed class Room : IGameHooks
 		{
 			Ranking = order,
 			Places = places,
-			AvgAnswerMs = Stats.Where(s => s.Value.AvgAnswerMs != null).ToDictionary(s => s.Key, s => s.Value.AvgAnswerMs!.Value),
 			Stats = Stats.ToDictionary(s => s.Key, s => new NightStats
 			{
-				Scored = s.Value.Scored, Answers = s.Value.Answers, AvgAnswerS = s.Value.AvgAnswerMs / 1000, AvgKm = s.Value.AvgKm, AvgPercentOff = s.Value.AvgPercentOff,
+				Scored = s.Value.Scored, Answers = s.Value.Answers, AvgAnswerS = s.Value.AvgAnswerMs / 1000, Buzzes = s.Value.Buzzes,
+				AvgBuzzS = s.Value.AvgBuzzMs / 1000, AvgKm = s.Value.AvgKm, AvgPercentOff = s.Value.AvgPercentOff,
 			}),
 			Code = Code,
 			Quiz = new QuizInfo { Id = Quiz.Id, Title = Quiz.Title, QuestionCount = Quiz.Questions.Count },
@@ -159,7 +264,8 @@ public sealed class Room : IGameHooks
 			Phase = Phase,
 			Settings = Settings.Clone(),
 			HostConnected = true,
-			Players = Players.Select(p => new PublicPlayer { Id = p.Id, Name = p.Name, Color = p.Color, Connected = p.Connected, JoinedAt = p.JoinedAt, LeftAt = p.LeftAt }).ToList(),
+			ResumeFrom = Phase == Shared.Phase.Lobby && Resume is { } save ? Math.Min(save.Next, Quiz.Questions.Count - 1) + 1 : null,
+			Players = Players.Select(p => new PublicPlayer { Id = p.Id, Name = p.Name, Color = p.Color, Connected = p.Connected, JoinedAt = p.JoinedAt, LeftAt = p.LeftAt, Version = p.Version }).ToList(),
 		};
 	}
 
@@ -180,7 +286,8 @@ public sealed class Room : IGameHooks
 	/// </summary>
 	public (Player? Player, string? Error) Join(string id, string rawName)
 	{
-		var existing = GetPlayer(id);
+		Trace.Log("room", $"join {id} as \"{rawName}\" ({Phase}, {Players.Count} in the room)");
+		var existing = GetPlayer(id) ?? Reclaim(id, rawName);
 		if (existing != null)
 		{
 			existing.Connected = true;
@@ -213,6 +320,29 @@ public sealed class Room : IGameHooks
 		return (player, null);
 	}
 
+	/// <summary>
+	/// A saved night's lobby: a LAN player gets their seat back by their name (their game's id is new every start). Steam
+	/// ids stay the same, so Steam seats only go back to the same account.
+	/// </summary>
+	Player? Reclaim(string id, string rawName)
+	{
+		if (Resume == null || Phase != Shared.Phase.Lobby || id.StartsWith("steam:")) return null;
+		var name = CleanName(rawName);
+		var seat = Players.Find(p => p.Saved && !p.Connected && !p.Id.StartsWith("steam:") && string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+		if (seat == null) return null;
+		var old = seat.Id;
+		seat.Id = id;
+		if (Scores.Remove(old, out var score)) Scores[id] = score;
+		if (Stats.Remove(old, out var stats)) Stats[id] = stats;
+		foreach (var key in QuestionStats.Keys.Where(k => k.Player == old).ToList())
+		{
+			QuestionStats.Remove(key, out var q);
+			QuestionStats[(key.Question, id)] = q!;
+		}
+		foreach (var j in Resume.Jokers.Where(j => j.PlayerId == old)) j.PlayerId = id;
+		return seat;
+	}
+
 	/// <summary>A player changes their name (in the lobby only, and not to one someone else uses).</summary>
 	public Result Rename(string id, string rawName)
 	{
@@ -228,6 +358,7 @@ public sealed class Room : IGameHooks
 	/// <summary>The connection dropped. During a game the seat and score stay, and the game waits for them.</summary>
 	public void Disconnect(string id)
 	{
+		Trace.Log("room", $"disconnected {id} ({Phase})");
 		var p = GetPlayer(id);
 		if (p == null || !p.Connected) return;
 		p.Connected = false;
@@ -240,7 +371,8 @@ public sealed class Room : IGameHooks
 	/// <summary>A player leaves: in the lobby their seat goes; during a game it's kept so they can come back.</summary>
 	public void Leave(string id)
 	{
-		if (Playing) Disconnect(id);
+		Trace.Log("room", $"leave {id} ({Phase})");
+		if (Playing || GetPlayer(id) is { Saved: true }) Disconnect(id);
 		else Remove(id);
 	}
 
@@ -252,8 +384,11 @@ public sealed class Room : IGameHooks
 		Game.CheckAllAnswered();
 	}
 
-	public void UpdateSettings(int? answerTimeSec = null, bool? hostShows = null, bool? hostUnlocks = null, (string Kind, bool On)? joker = null)
+	public void UpdateSettings(int? answerTimeSec = null, bool? hostShows = null, bool? hostUnlocks = null, (string Kind, bool On)? joker = null,
+		bool? categories = null, bool? friendsOnly = null)
 	{
+		if (categories is { } cats) Settings.ShowCategories = cats;
+		if (friendsOnly is { } friends) Settings.FriendsOnly = friends;
 		if (joker is { } j && Joker.All.Contains(j.Kind))
 		{
 			Settings.Jokers.Remove(j.Kind);
@@ -264,32 +399,135 @@ public sealed class Room : IGameHooks
 		if (hostUnlocks is { } unlocks) Settings.HostUnlocksBuzzers = unlocks;
 	}
 
+	/// <summary>When the quiz started (local time), for the results: the match history shows the night's start.</summary>
+	public DateTime? StartedAt;
+
 	public Result Start()
 	{
+		Trace.Log("room", $"start: {string.Join(", ", Players.Select(p => $"{p.Name}{(p.Connected ? "" : " (away)")}"))}");
 		if (Phase != Shared.Phase.Lobby) return Result.Fail("The quiz is already running.");
 		var connected = Players.Count(p => p.Connected);
 		if (connected < Limits.MinPlayersToStart) return Result.Fail(Lang.F("You need at least {0} connected players.", Limits.MinPlayersToStart));
 		Phase = Shared.Phase.Playing;
+		if (Resume is { } save) return GoOn(save);
+		StartedAt = DateTime.Now;
 		Scores.Clear();
 		Stats.Clear();
+		QuestionStats.Clear();
 		foreach (var p in Players)
 		{
 			Scores[p.Id] = 0;
 			p.JoinedAt = p.LeftAt = null;
 		}
 		Game = new Game(Quiz, this, null, SharedFiles);
+		NoteOpened();
+		return Result.Success();
+	}
+
+	// ---------- saving the night (SavedNight, Storage.NightSaves) ----------
+
+	/// <summary>The saved night this lobby continues (Restore), until the quiz starts.</summary>
+	public SavedNight? Resume { get; private set; }
+
+	/// <summary>The night as it was when the current question opened (what a save holds until its reveal).</summary>
+	string? _openSave;
+
+	void NoteOpened() => _openSave = Game is { Index: > 0 } g ? Snapshot(g.Index).ToJson() : null;
+
+	/// <summary>
+	/// The night so far, to save: during a reveal, everything up to and with this question; while a question runs,
+	/// everything before it. Null when there's nothing to keep (no game, or still on the first question).
+	/// </summary>
+	public string? SaveJson() =>
+		!Playing ? null
+		: Game!.Stage == Shared.Stage.Reveal ? Snapshot(Game.Index + 1).ToJson()
+		: _openSave;
+
+	/// <summary>Everything up to question <paramref name="next"/> (0-based; it and the ones after it are still to play).</summary>
+	SavedNight Snapshot(int next) => new()
+	{
+		Version = Godot.ProjectSettings.GetSetting("application/config/version").AsString(),
+		QuizId = Quiz.Id,
+		QuizTitle = Quiz.Title,
+		Questions = Quiz.Questions.Count,
+		Next = next,
+		StartedAt = StartedAt,
+		Settings = Settings.Clone(),
+		Players = Players.Select(p => new SavedPlayer
+		{
+			Id = p.Id, Name = p.Name, Color = p.Color, Score = Score(p.Id), JoinedAt = p.JoinedAt, LeftAt = p.LeftAt, Stats = StatsOf(p.Id),
+		}).ToList(),
+		QuestionStats = QuestionStats.Where(q => q.Key.Question < next)
+			.Select(q => new SavedQuestionStat { Question = q.Key.Question, Player = q.Key.Player, Stat = q.Value }).ToList(),
+		Jokers = Game?.UsedJokers(next) ?? new(),
+	};
+
+	/// <summary>
+	/// The lobby continues a saved night: its rules, and everyone's seat with their points and stats (away until they
+	/// join again).
+	/// </summary>
+	public void Restore(SavedNight save)
+	{
+		if (Phase != Shared.Phase.Lobby) return;
+		Resume = save;
+		var s = save.Settings;
+		(Settings.AnswerTimeSec, Settings.BuzzerSound, Settings.PodiumSound) = (s.AnswerTimeSec, s.BuzzerSound, s.PodiumSound);
+		(Settings.HostShowsQuestions, Settings.HostUnlocksBuzzers, Settings.ShowCategories, Settings.FriendsOnly) = (s.HostShowsQuestions, s.HostUnlocksBuzzers, s.ShowCategories, s.FriendsOnly);
+		Settings.Jokers = s.Jokers.Where(Joker.All.Contains).ToList();
+		Players.Clear();
+		Scores.Clear();
+		Stats.Clear();
+		QuestionStats.Clear();
+		foreach (var p in save.Players.Where(p => p.Id != "").DistinctBy(p => p.Id).Take(Limits.MaxPlayers))
+		{
+			Players.Add(new Player { Id = p.Id, Name = p.Name, Color = p.Color, JoinedAt = p.JoinedAt, LeftAt = p.LeftAt, Saved = true });
+			Scores[p.Id] = p.Score;
+			Stats[p.Id] = p.Stats ?? new PlayerStats();
+		}
+		foreach (var q in save.QuestionStats.Where(q => q.Stat != null)) QuestionStats[(q.Question, q.Player)] = q.Stat;
+	}
+
+	/// <summary>
+	/// Start, for a saved night: everyone keeps their points and goes on at the next question. Whoever isn't back keeps
+	/// their seat (they can still come back); new players join from here, like joining a running game.
+	/// </summary>
+	Result GoOn(SavedNight save)
+	{
+		Resume = null;
+		StartedAt = save.StartedAt ?? DateTime.Now;
+		var next = Math.Clamp(save.Next, 0, Quiz.Questions.Count);
+		foreach (var p in Players)
+		{
+			if (!p.Saved)
+			{
+				Scores[p.Id] = 0;
+				p.JoinedAt = next + 1;
+			}
+			else if (!p.Connected) p.LeftAt ??= next + 1;
+		}
+		Game = new Game(Quiz, this, null, SharedFiles, next);
+		Game.RestoreJokers(save.Jokers.Where(j => GetPlayer(j.PlayerId) != null));
+		// (saved during the last reveal: straight to the podium)
+		if (next >= Quiz.Questions.Count)
+		{
+			Game.Next();
+			Phase = Shared.Phase.Finished;
+		}
+		NoteOpened();
 		return Result.Success();
 	}
 
 	/// <summary>Reveal if still open, otherwise the next question (or the podium after the last one).</summary>
 	public void Next()
 	{
+		Trace.Log("room", $"next (question {(Game?.Index ?? -1) + 1}, {Game?.Stage})");
 		if (Game == null || Phase != Shared.Phase.Playing || Game.Paused) return;
 		if (Game.Stage == Stage.Open) Game.HostReveal();
 		else
 		{
 			Game.Next();
 			if (Game.Finished) Phase = Shared.Phase.Finished;
+			else NoteOpened();
 		}
 	}
 
@@ -304,7 +542,13 @@ public sealed class Room : IGameHooks
 		Game = null;
 		Scores.Clear();
 		Stats.Clear();
-		foreach (var p in Players) p.JoinedAt = p.LeftAt = null;
+		QuestionStats.Clear();
+		foreach (var p in Players)
+		{
+			p.JoinedAt = p.LeftAt = null;
+			p.Saved = false;
+		}
+		_openSave = null;
 		Phase = Shared.Phase.Lobby;
 	}
 
@@ -315,7 +559,7 @@ public sealed class Room : IGameHooks
 		if (Phase == Shared.Phase.Lobby)
 		{
 			var now = Now();
-			changed |= Players.RemoveAll(p => !p.Connected && p.DisconnectedAt is { } at && now - at > PlayerGraceMs) > 0;
+			changed |= Players.RemoveAll(p => !p.Saved && !p.Connected && p.DisconnectedAt is { } at && now - at > PlayerGraceMs) > 0;
 		}
 		return changed;
 	}

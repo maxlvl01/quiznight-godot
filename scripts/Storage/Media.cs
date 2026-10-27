@@ -28,7 +28,38 @@ public static class Media
 	/// their size), Vorbis audio, good quality. -y overwrites an older conversion with the same name.
 	/// </summary>
 	public static string ConvertCommand(string input, string output) =>
-		$"ffmpeg -y -i \"{input}\" -vf \"scale='min(1280,iw)':-2\" -c:v libtheora -q:v 7 -c:a libvorbis -q:a 5 \"{output}\"";
+		$"ffmpeg -y -i \"{input}\" -vf \"scale='min({MaxVideo.W},iw)':'min({MaxVideo.H},ih)':force_original_aspect_ratio=decrease:force_divisible_by=2\" -c:v libtheora -q:v 7 -c:a libvorbis -q:a 5 \"{output}\"";
+
+	/// <summary>
+	/// The biggest a quiz's video needs to be (720p): sharp enough on everyone's screen, and much less to send to every
+	/// player. AnyConverter (--max-size) and the ffmpeg command shrink to it.
+	/// </summary>
+	public static readonly (int W, int H) MaxVideo = (1280, 720);
+
+	/// <summary>An .ogv's picture size, from its Theora header (null if it isn't one).</summary>
+	public static (int W, int H)? TheoraSize(byte[] head)
+	{
+		var mark = new byte[] { 0x80, (byte)'t', (byte)'h', (byte)'e', (byte)'o', (byte)'r', (byte)'a' };
+		for (var i = 0; i + 20 <= head.Length; i++)
+		{
+			if (!head.AsSpan(i, 7).SequenceEqual(mark)) continue;
+			// (after the 7-byte mark: version (3 bytes), frame size in 16-px blocks (2 + 2), then the picture size, 24 bits each)
+			var w = head[i + 14] << 16 | head[i + 15] << 8 | head[i + 16];
+			var h = head[i + 17] << 16 | head[i + 18] << 8 | head[i + 19];
+			return w > 0 && h > 0 ? (w, h) : null;
+		}
+		return null;
+	}
+
+	/// <summary>A video asset's picture size (only its start is decoded).</summary>
+	public static (int W, int H)? VideoSize(MediaAsset media)
+	{
+		var comma = media.DataUrl.IndexOf(',');
+		if (comma < 0) return null;
+		var start = media.DataUrl.Substring(comma + 1, Math.Min(16384, media.DataUrl.Length - comma - 1) / 4 * 4);
+		try { return TheoraSize(Convert.FromBase64String(start)); }
+		catch (FormatException) { return null; }
+	}
 
 	static string MimeFor(string ext) => ext switch
 	{

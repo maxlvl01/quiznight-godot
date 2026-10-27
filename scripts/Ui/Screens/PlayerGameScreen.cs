@@ -53,19 +53,24 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 
 	int _heardIndex = -1;
 	int _heardBuzzes;
+	readonly AnswerSounds _answerSounds = new();
 
 	public void Refresh(RoomState room)
 	{
 		_room = room;
 		var game = room.Game!;
+		// (the game music pauses for questions with their own sound: sound, video, interactive)
+		App.I.Audio.Quiet(game.Stage == Stage.Open && game.Shown && game.Question.Type is QuestionType.Sound or QuestionType.Video or QuestionType.Interactive);
 		var q = game.Question;
 		var me = room.Player(MyId);
+		App.I.Announcer.Follow(room, MyId);
 		// A new buzz in this question plays the host's buzzer sound, so everyone hears that someone buzzed.
 		// Not on the first state after (re)joining, which may already contain old buzzes.
 		var heard = game.Index == _heardIndex ? _heardBuzzes : 0;
 		if (_heardIndex >= 0 && game.Buzzes.Count > heard) Sfx.PlayRoomBuzzer(room.Settings.BuzzerSound);
 		_heardIndex = game.Index;
 		_heardBuzzes = game.Buzzes.Count;
+		_answerSounds.Update(game, MyId);
 		_clips.Update(game);
 		_bar.Set($"{game.Index}|{me.Name}|{room.Score(MyId)}|{game.JokerIndex}", () =>
 		{
@@ -74,12 +79,15 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 				U.Pill(Lang.F("Question {0} / {1}", game.Index + 1, game.Total)),
 				Chips.Question(q),
 				U.Pill(GameParts.PointsPill(q)));
+			// (the category, when the lobby shows them)
+			if (q.Category != "") row.AddChild(GameParts.CategoryPill(q.Category));
 			if (GameParts.NextPill(game) is { } next) row.AddChild(next);
 			row.AddChild(U.Fill());
 			row.AddChild(new RoomCodeButton(room.Code));
 			row.AddChild(new Avatar(me, 28));
 			row.AddChild(U.Bold(me.Name, 17).Raw());
 			row.AddChild(U.Pill(Lang.F("{0} pts", room.Score(MyId)), C.Accent));
+			row.AddChild(MediaIcon.SettingsGear());
 			return U.Panel(row, "Bar");
 		});
 
@@ -161,7 +169,8 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 				}).With(s => s.SizeFlagsHorizontal = SizeFlags.ShrinkCenter),
 				_readyTab == "stats"
 					? U.Panel(NightStatsView.Table(room, MyId), "Card2")
-					: U.Panel(U.V(8, GameParts.Row(10, new TypeIcon(q.Type, 26), U.Bold(Chips.TypeLabel(q), 20).Raw()),
+					: U.Panel(U.V(8, GameParts.Row(10, new TypeIcon(q.Type, 26), U.Bold(Chips.TypeLabel(q), 20).Raw(),
+							q.Category != "" ? GameParts.CategoryPill(q.Category) : U.Gap(0)),
 						U.Text(NightStatsView.HowItWorks(q), 17, C.Text, null, true).Raw()), "Card2")));
 			return;
 		}
@@ -170,9 +179,17 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			_panel.Set($"{key}|late", () => Status(U.Bold("Watch along", 26), U.Muted("You're in from the next question.", 16)));
 			return;
 		}
+		// The answers (or votes) are in or the time is up, and the host reveals next. Without an answer of their own this
+		// player missed it; with one they still see it, now with "the host reveals it" instead of "waiting for the others".
+		var closed = game.AnswersClosed ? "|closed" : "";
+		if (game.AnswersClosed && game.MyAnswer == null && game.Interactive?.MyVote == null)
+		{
+			_panel.Set($"{key}|missed", () => Status(U.Bold(game.Interactive != null ? "Voting is over" : "Time's up!", 28), U.Muted("The host reveals the answer in a moment…", 16)));
+			return;
+		}
 		if (game.Interactive is { } ia)
 		{
-			_panel.Set($"{key}|ia|{ia.Phase}|{(ia.Phase == InteractivePhase.Recording ? "" : ia.Clip.ToString())}|{ia.MyVote}", () => Interactive(room, ia));
+			_panel.Set($"{key}{closed}|ia|{ia.Phase}|{(ia.Phase == InteractivePhase.Recording ? "" : ia.Clip.ToString())}|{ia.MyVote}", () => Interactive(room, ia));
 			return;
 		}
 		if (q.Buzzer)
@@ -182,13 +199,13 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			var place = game.Buzzes.Where(b => b.Status == BuzzStatus.Waiting).ToList().FindIndex(b => b.PlayerId == MyId);
 			_panel.Set($"{key}|{mine?.Status}|{place}|{answering?.PlayerId}|{game.BuzzersOpen}|{game.Paused}", () => Buzzer(room));
 		}
-		else if (q.Choices != null) _panel.Set($"{key}|{game.MyAnswer?.Num}|{string.Join(",", game.MyAnswer?.Picks ?? new List<int>())}", () => Choices(room));
+		else if (q.Choices != null) _panel.Set($"{key}{closed}|{game.MyAnswer?.Num}|{string.Join(",", game.MyAnswer?.Picks ?? new List<int>())}", () => Choices(room));
 		else if (game.Timeline is { } tl)
 			_panel.Set($"{key}|tl|{tl.Phase}|{tl.PendingGap}|{tl.Placed.Count}|{tl.TurnPlayerId}|{string.Join(",", tl.WrongGaps)}|{tl.Last?.Kind}{tl.Last?.PlayerId}{tl.Last?.Item}", () => Timeline(room));
-		else if (q.Type == QuestionType.Order) _panel.Set($"{key}|{game.MyAnswer?.Picks != null}", () => Order(room));
-		else if (q.Written) _panel.Set($"{key}|{game.MyAnswer?.Text}", () => Write(room));
-		else if (q.Type == QuestionType.Estimation) _panel.Set($"{key}|{game.MyAnswer?.Num}", () => Estimate(room));
-		else _panel.Set($"{key}|{game.MyAnswer?.Point != null}", () => MapPin(room));
+		else if (q.Type == QuestionType.Order) _panel.Set($"{key}{closed}|{game.MyAnswer?.Picks != null}", () => Order(room));
+		else if (q.Written) _panel.Set($"{key}{closed}|{game.MyAnswer?.Text}", () => Write(room));
+		else if (q.Type == QuestionType.Estimation) _panel.Set($"{key}{closed}|{game.MyAnswer?.Num}", () => Estimate(room));
+		else _panel.Set($"{key}{closed}|{game.MyAnswer?.Point != null}", () => MapPin(room));
 	}
 
 	/// <summary>
@@ -200,39 +217,53 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		var game = room.Game!;
 		var allowed = Joker.All.Where(room.Settings.Jokers.Contains).ToList();
 		if (allowed.Count == 0) return null;
-		var box = U.V(6, U.Eyebrow("Your jokers"));
+		// (small keys with just a drawn icon: the bolt for the Fast Pass, a big ×2 for Double points; the name and what to do
+		// with it are the tooltip, the line underneath says the one that matters now)
+		var row = U.H(8);
+		var lines = new System.Collections.Generic.List<string>();
 		foreach (var kind in allowed)
 		{
 			var k = kind;
 			var mine = game.Jokers.FirstOrDefault(j => j.PlayerId == MyId && j.Kind == k);
 			string hint;
 			Button button;
+			var used = false;
 			if (mine != null && (mine.Index < game.Index || mine.Index == game.Index && (game.Shown || game.Stage == Stage.Reveal)))
 			{
-				button = U.Btn(Joker.Label(k), "SmallButton", null, 14);
-				button.Disabled = true;
+				button = U.Btn("", "SmallButton", null, 14);
+				button.Disabled = used = true;
 				hint = Lang.F("Used on question {0}.", mine.Index + 1);
 			}
 			else if (mine != null)
 			{
-				button = U.Btn("✓ " + Lang.T(Joker.Label(k)), "TealButton", () => _client.PlayJoker(k, false), 14);
+				button = U.Btn("", "TealButton", () => _client.PlayJoker(k, false), 14);
 				hint = Lang.F("Played on question {0}. Click to take it back.", mine.Index + 1);
+				lines.Insert(0, hint);
 			}
 			else
 			{
-				button = U.Btn(Joker.Label(k), "SmallButton", () => _client.PlayJoker(k, true), 14);
+				button = U.Btn("", "SmallButton", () => _client.PlayJoker(k, true), 14);
 				var fastOff = k == Joker.FastPass && !game.JokerBuzzer;
 				var taken = k == Joker.FastPass && game.FastPassTaken;
-				button.Disabled = game.JokerIndex == null || fastOff || taken;
+				button.Disabled = used = game.JokerIndex == null || fastOff || taken;
 				hint = game.JokerIndex is not { } next ? Lang.T("Play it before a question starts.")
 					: fastOff ? Lang.T("Only for buzzer questions: the next one isn't.")
 					: taken ? Lang.T("Someone else already has the Fast Pass for this question.")
 					: Lang.F("Plays on question {0}.", next + 1);
+				lines.Add(hint);
 			}
-			button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-			box.AddChild(button);
-			box.AddChild(U.Muted(hint, 12));
+			button.CustomMinimumSize = new Vector2(58, 46);
+			button.TooltipText = Lang.T(Joker.Label(k)) + "\n" + hint;
+			button.AccessibilityName = Lang.T(Joker.Label(k));
+			var icon = new JokerIcon(k, used);
+			icon.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, 6);
+			// (on the key's face: its side is the bottom few pixels)
+			icon.OffsetBottom -= 3;
+			button.AddChild(icon);
+			row.AddChild(button);
 		}
+		var box = U.V(6, U.Eyebrow("Your jokers"), row);
+		if (lines.Count > 0) box.AddChild(U.Muted(lines[0], 12));
 		return box;
 	}
 
@@ -257,11 +288,14 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		}
 		if (ia.Phase == InteractivePhase.Voting)
 			return Status(U.Bold(ia.MyVote is { } v && v < ia.Clips.Count ? Lang.F("You voted for {0}", room.Player(ia.Clips[v].PlayerId).Name) : Lang.T("Voting"), 26),
-				U.Muted("Waiting for the others to vote…", 16));
+				U.Muted(game.AnswersClosed ? "The host reveals the result in a moment…" : "Waiting for the others to vote…", 16));
 		if (ia.Clips.Count == 0) return Status(U.Muted("Nobody sent a recording.", 16));
 		return Status(InteractiveParts.ClipCard(room, ia, 22),
 			U.Muted(ia.Judging == Judging.Host ? "The host plays everyone's recording and picks a favourite." : "The host plays everyone's recording. Then everyone votes for the best.", 16));
 	}
+
+	/// <summary>Under a locked-in answer: the others are still answering, or everyone's in and the host reveals next.</summary>
+	static string Waiting(GameView game) => game.AnswersClosed ? "Everyone's in! The host reveals the answer in a moment…" : "Waiting for the others…";
 
 	static Control Status(params Control[] kids)
 	{
@@ -337,17 +371,23 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			if (game.Question.Choices![i] is not { } text) continue;
 			var index = i;
 			var b = new Button { MouseDefaultCursorShape = CursorShape.PointingHand, CustomMinimumSize = new Vector2(0, 72) };
+			// (a key in the answer's own colour, like every button: KeyBox; a picked answer stays pushed in)
 			void Style(bool picked)
 			{
-				b.AddThemeStyleboxOverride("normal", UiTheme.Box(picked && multi ? C.Panel2.Lerp(C.Choice[index], 0.2f) : C.Panel2, 14, picked ? C.Choice[index] : C.Border, picked ? 3 : 1, 14, 10));
-				b.AddThemeStyleboxOverride("hover", UiTheme.Box(C.Panel2.Lerp(C.Choice[index], picked && multi ? 0.3f : 0.15f), 14, C.Choice[index], picked ? 3 : 1, 14, 10));
-				b.AddThemeStyleboxOverride("pressed", UiTheme.Box(C.Panel2.Lerp(C.Choice[index], 0.25f), 14, C.Choice[index], 2, 14, 10));
-				b.AddThemeStyleboxOverride("disabled", UiTheme.Box(C.Panel2, 14, picked ? C.Choice[index] : C.Border, picked ? 3 : 1, 14, 10));
+				var color = C.Choice[index];
+				b.AddThemeStyleboxOverride("normal", new KeyBox(picked ? color.Darkened(0.06f) : color, 16, 14, 10, 3, 7, picked));
+				b.AddThemeStyleboxOverride("hover", new KeyBox(color.Lightened(0.12f), 16, 14, 10, 3, 7, picked));
+				b.AddThemeStyleboxOverride("pressed", new KeyBox(color.Darkened(0.06f), 16, 14, 10, 3, 7, true));
+				b.AddThemeStyleboxOverride("hover_pressed", new KeyBox(color.Darkened(0.03f), 16, 14, 10, 3, 7, true));
+				b.AddThemeStyleboxOverride("disabled", new KeyBox(color, 16, 14, 10, 3, 7, picked));
+				b.AddThemeStyleboxOverride("focus", new StyleBoxEmpty());
+				// (the text sits on the key's face: it moves down with it when pushed in)
+				if (b.GetChildCount() > 0 && b.GetChild(0) is MarginContainer m) (m.OffsetTop, m.OffsetBottom) = picked ? (5, -3) : (0, -7);
 			}
 			Style(picks.Contains(i));
 			b.Disabled = locked != null;
 			if (locked != null && !picks.Contains(i)) b.Modulate = new Color(1, 1, 1, 0.4f);
-			var row = GameParts.Row(14, GameParts.Letter(i, 44), U.Text(text, 20, C.Text, Fonts.Bold, true).Raw());
+			var row = GameParts.Row(14, GameParts.Letter(i, 44, true), U.Text(text, 20, GameParts.ChoiceInk, Fonts.Bold, true).Raw());
 			row.MouseFilter = MouseFilterEnum.Ignore;
 			foreach (var c in row.GetChildren().OfType<Control>()) c.MouseFilter = MouseFilterEnum.Ignore;
 			b.AddChild(U.Pad(row, 14, 0, 14, 0).With(m =>
@@ -355,6 +395,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 				m.SetAnchorsPreset(LayoutPreset.FullRect);
 				m.MouseFilter = MouseFilterEnum.Ignore;
 			}));
+			Style(picks.Contains(i));
 			b.Pressed += () =>
 			{
 				if (!multi)
@@ -377,7 +418,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		if (locked != null)
 		{
 			var letters = string.Join(", ", locked.Select(i => QuizRules.ChoiceLetters[i]));
-			list.AddChild(U.Muted(Lang.F("Locked in: {0}. Waiting for the others…", letters), 15, false, HorizontalAlignment.Center).Center());
+			list.AddChild(U.Muted(Lang.F(game.AnswersClosed ? "Locked in: {0}. The host reveals the answer in a moment…" : "Locked in: {0}. Waiting for the others…", letters), 15, false, HorizontalAlignment.Center).Center());
 		}
 		list.AddChild(error);
 		return list;
@@ -388,7 +429,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		var game = room.Game!;
 		var unit = game.Question.Unit ?? "";
 		if (game.MyAnswer?.Num is { } mine)
-			return Status(U.Muted("Locked in", 15), U.Text($"{Server.Game.Fmt(mine)} {unit}".Trim(), 44, C.Text, Fonts.Mono).Raw(), U.Muted("Waiting for the others…", 14));
+			return Status(U.Muted("Locked in", 15), U.Text($"{Server.Game.Fmt(mine)} {unit}".Trim(), 44, C.Text, Fonts.Mono).Raw(), U.Muted(Waiting(game), 14));
 		var error = U.Error();
 		var lockIn = U.Btn("Lock in guess", "TealButton", null, 20);
 		lockIn.Disabled = true;
@@ -413,7 +454,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		{
 			var mine = U.V(6, U.Muted("Locked in", 15));
 			for (var i = 0; i < locked.Count; i++) mine.AddChild(U.Text($"{i + 1}. {items[locked[i]]}", 18).Raw());
-			mine.AddChild(U.Muted("Waiting for the others…", 14));
+			mine.AddChild(U.Muted(Waiting(game), 14));
 			return Status(mine);
 		}
 		// Starts in the order the host shows them.
@@ -549,7 +590,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 	{
 		var game = room.Game!;
 		if (game.MyAnswer?.Text is { } mine)
-			return Status(U.Muted("Locked in", 15), U.Text(mine, 32, C.Text, Fonts.Bold, true).Raw(), U.Muted("Waiting for the others…", 14));
+			return Status(U.Muted("Locked in", 15), U.Text(mine, 32, C.Text, Fonts.Bold, true).Raw(), U.Muted(Waiting(game), 14));
 		var error = U.Error();
 		var watch = WatchHint(game.Question);
 		var lockIn = U.Btn("Lock in answer", "TealButton", null, 20);
@@ -571,7 +612,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 	{
 		var game = room.Game!;
 		var q = game.Question;
-		if (game.MyAnswer?.Point != null) return Status(U.Bold("Pin locked in", 24), U.Muted("Waiting for the others…", 15));
+		if (game.MyAnswer?.Point != null) return Status(U.Bold("Pin locked in", 24), U.Muted(Waiting(game), 15));
 		NormPoint? pin = null;
 		var error = U.Error();
 		var lockIn = U.Btn("Tap the map to place your pin", "TealButton", null, 18);
@@ -656,41 +697,137 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 	}
 }
 
-/// <summary>The big round BUZZ! button. Space works too.</summary>
+/// <summary>
+/// The big buzzer: a big red key with rounded corners on a silver base plate, like the buttons (KeyBox), the logo's Q? embossed on it, drawn (so it stays
+/// sharp at any size). It goes down when pressed and is grey while the buzzers are locked. Space works too.
+/// </summary>
 public partial class BuzzButton : Button
 {
 	readonly Action _onBuzz;
 	bool _sent;
+	float _press;
+	readonly float _size;
+
+	/// <summary>Buzzes on every press (the Test lab's free buzzer), not just the first like in a game.</summary>
+	public bool Repeatable { get; init; }
 
 	public BuzzButton() : this(() => { }) { }
 
 	public BuzzButton(Action onBuzz, float size = 240)
 	{
 		_onBuzz = onBuzz;
-		Text = "BUZZ!";
-		CustomMinimumSize = new Vector2(size, size);
+		_size = size;
+		// (the button is the hit area; everything is drawn in _Draw)
+		CustomMinimumSize = new Vector2(size * 1.3f, size * 1.1f);
+		AccessibilityName = Lang.T("Buzz in");
+		AccessibilityDescription = Lang.T("Click or press Space to buzz in.");
 		MouseDefaultCursorShape = CursorShape.PointingHand;
-		AddThemeFontOverride("font", Fonts.Black);
-		AddThemeFontSizeOverride("font_size", (int)(46 * size / 240));
-		foreach (var (state, color) in new[] { ("normal", C.Coral), ("hover", C.Coral.Lightened(0.08f)), ("pressed", C.Coral.Darkened(0.12f)), ("focus", C.Coral) })
+		foreach (var state in new[] { "normal", "hover", "pressed", "hover_pressed", "disabled", "focus" }) AddThemeStyleboxOverride(state, new StyleBoxEmpty());
+		ButtonDown += () =>
 		{
-			var box = UiTheme.Box(color, 999, new Color("#a33a46"), 0);
-			box.BorderWidthBottom = state == "pressed" ? 4 : 12;
-			AddThemeStyleboxOverride(state, box);
+			Buzz();
+			Squash();
+		};
+		MouseEntered += QueueRedraw;
+		MouseExited += QueueRedraw;
+	}
+
+	/// <summary>Down and back up, with a little bounce.</summary>
+	void Squash()
+	{
+		var t = CreateTween();
+		t.TweenMethod(Callable.From<float>(v => { _press = v; QueueRedraw(); }), 0f, 1f, 0.06);
+		t.TweenMethod(Callable.From<float>(v => { _press = v; QueueRedraw(); }), 1f, 0f, 0.35).SetTrans(Tween.TransitionType.Elastic).SetEase(Tween.EaseType.Out);
+	}
+
+	public override void _Draw()
+	{
+		var k = _size / 240f;
+		var ink = C.Ink;
+		var off = Disabled;
+		var hover = !off && IsHovered();
+		// (drawn like the buttons, KeyBox: every part has a lit face and a side in its own colour's shadow)
+		var red = off ? C.Panel2.Lightened(0.15f) : hover ? new Color("#ff4a64") : new Color("#e8233f");
+		var metal = off ? C.Panel2.Lightened(0.3f) : new Color("#d9dee6");
+		var light = off ? 0.15f : 1f;
+		var plate = 236 * k;
+		var plateDepth = 16 * k;
+		var origin = new Vector2((Size.X - plate) / 2, (Size.Y - plate - plateDepth) / 2);
+		// (shadow on the table, then the silver base plate)
+		DrawStyleBox(KeyBox.Fill(new Color(0, 0, 0, 0.3f), (int)(40 * k)), new Rect2(origin + new Vector2(-6, 14) * k, new Vector2(plate + 12 * k, plate + plateDepth)));
+		DrawKey(new Rect2(origin, new Vector2(plate, plate + plateDepth)), metal, plateDepth, 36 * k, 5 * k, light);
+		// (the sponsor engraved in the plate's top strip, above the key: cut into the metal, not in its colours, so a dark
+		// edge on top and a lit one underneath, like light falling into the letters from above; on every size, small
+		// buzzers just get small letters)
+		var engraving = Mathf.Max(5, (int)(10 * k));
+		{
+			var brand = Fonts.Spaced;
+			const string Sponsor = "TRACKGLOW";
+			var width = brand.GetStringSize(Sponsor, HorizontalAlignment.Left, -1, engraving).X;
+			var at = new Vector2(origin.X + (plate - width) / 2, origin.Y + 14.5f * k);
+			// (the edges only a sliver of the letters' thin strokes: offset by more, they read as three copies of the word)
+			var cut = Mathf.Max(0.6f, engraving * 0.06f);
+			DrawString(brand, at + new Vector2(0, -cut * 0.7f), Sponsor, HorizontalAlignment.Left, -1, engraving, new Color(metal.Darkened(0.65f), 0.5f * light));
+			DrawString(brand, at + new Vector2(0, cut), Sponsor, HorizontalAlignment.Left, -1, engraving, new Color(Colors.White, 0.85f * light));
+			DrawString(brand, at, Sponsor, HorizontalAlignment.Left, -1, engraving, new Color(metal.Darkened(0.42f), light));
 		}
-		foreach (var c in new[] { "font_color", "font_hover_color", "font_pressed_color", "font_focus_color" }) AddThemeColorOverride(c, new Color("#2a0a0e"));
-		// Locked: grey, until the host unlocks the buzzers.
-		var locked = UiTheme.Box(C.Panel2, 999, C.Border, 0);
-		locked.BorderWidthBottom = 12;
-		AddThemeStyleboxOverride("disabled", locked);
-		AddThemeColorOverride("font_disabled_color", C.Muted);
-		ButtonDown += Buzz;
+		// (the darker hollow the key sits in)
+		var well = new Rect2(origin + new Vector2(20, 18) * k, new Vector2(plate - 40 * k, plate - 36 * k));
+		DrawStyleBox(KeyBox.Fill(ink, (int)(28 * k)), well);
+		DrawStyleBox(KeyBox.Fill(metal.Darkened(0.55f), (int)(24 * k)), well.Grow(-4 * k));
+		// (the red key: its side gets shorter as it's pressed, so the face goes down)
+		var depth = (26 - 18 * _press) * k;
+		var key = new Rect2(well.Position + new Vector2(10, 4 + 26 - depth / k) * k, new Vector2(well.Size.X - 20 * k, well.Size.Y - 14 * k - (26 * k - depth)));
+		var face = DrawKey(key, red, depth, 26 * k, 6 * k, light);
+		// (the brand embossed on the key instead of a label: the logo's Q and its orange ?, raised out of the face, lit from
+		// above: a light edge on top, a shadow under)
+		var font = Fonts.Black;
+		var size = (int)(92 * k);
+		var q = font.GetStringSize("Q", HorizontalAlignment.Left, -1, size).X;
+		var mark = font.GetStringSize("?", HorizontalAlignment.Left, -1, size).X;
+		var x = face.GetCenter().X - (q + mark) / 2;
+		var y = face.GetCenter().Y + size * 0.3f;
+		var question = off ? C.Muted : C.Accent;
+		void Raised(string text, float at, Color color)
+		{
+			var pos = new Vector2(at, y);
+			DrawString(font, pos + new Vector2(0, 4 * k), text, HorizontalAlignment.Left, -1, size, new Color(color.Darkened(0.55f), 0.9f));
+			DrawString(font, pos + new Vector2(0, -2.5f * k), text, HorizontalAlignment.Left, -1, size, new Color(color.Lightened(0.55f), light * 0.9f));
+			DrawString(font, pos, text, HorizontalAlignment.Left, -1, size, color);
+		}
+		Raised("Q", x, red.Lightened(0.12f));
+		Raised("?", x + q, question);
+	}
+
+	/// <summary>A key like <see cref="KeyBox"/>, at this size: outline, side, face with a bevel and a shine. Returns the face.</summary>
+	Rect2 DrawKey(Rect2 r, Color color, float depth, float radius, float outline, float light)
+	{
+		DrawStyleBox(KeyBox.Fill(C.Ink, (int)radius), r);
+		var inner = r.Grow(-outline);
+		var rad = (int)Mathf.Max(2, radius - outline);
+		DrawStyleBox(KeyBox.Fill(color.Darkened(0.42f), rad), inner);
+		var face = new Rect2(inner.Position, new Vector2(inner.Size.X, inner.Size.Y - depth));
+		var faceBox = KeyBox.Fill(color, rad);
+		faceBox.BorderWidthTop = (int)Mathf.Max(2, 4 * _size / 240f);
+		faceBox.BorderColor = color.Lightened(0.45f);
+		faceBox.BorderBlend = true;
+		DrawStyleBox(faceBox, face);
+		var inset = face.Size.X * 0.07f;
+		DrawStyleBox(KeyBox.Fill(new Color(1, 1, 1, 0.2f * light), (int)Mathf.Max(2, rad - inset)),
+			new Rect2(face.Position + new Vector2(inset, inset * 0.6f), new Vector2(face.Size.X - 2 * inset, face.Size.Y * 0.4f)));
+		return face;
+	}
+
+	public override void _Notification(int what)
+	{
+		if (what == NotificationResized) QueueRedraw();
+		if (what == NotificationReady && Disabled) AccessibilityName = Lang.T("Buzzers are locked");
 	}
 
 	void Buzz()
 	{
 		if (_sent || Disabled) return;
-		_sent = true;
+		_sent = !Repeatable;
 		_onBuzz();
 	}
 
@@ -701,5 +838,39 @@ public partial class BuzzButton : Button
 			Buzz();
 			GetViewport().SetInputAsHandled();
 		}
+	}
+}
+
+/// <summary>A joker's icon on its key: the Fast Pass bolt, or a chunky ×2 for Double points (greyed when it can't be played).</summary>
+public partial class JokerIcon : Control
+{
+	readonly string _kind;
+	readonly bool _off;
+
+	public JokerIcon() : this(Joker.Double, false) { }
+
+	public JokerIcon(string kind, bool off)
+	{
+		_kind = kind;
+		_off = off;
+		MouseFilter = MouseFilterEnum.Ignore;
+	}
+
+	public override void _Draw()
+	{
+		var m = Mathf.Min(Size.X, Size.Y);
+		var color = _off ? C.Muted : _kind == Joker.FastPass ? C.Gold : C.Pink;
+		if (_kind == Joker.FastPass)
+		{
+			if (Bolt.Icon((int)m, color) is { } tex) DrawTextureRect(tex, new Rect2((Size - new Vector2(m, m)) / 2, new Vector2(m, m)), false);
+			return;
+		}
+		var font = Fonts.Black;
+		var size = (int)(m * 0.95f);
+		const string text = "×2";
+		var w = font.GetStringSize(text, HorizontalAlignment.Left, -1, size);
+		var pos = new Vector2((Size.X - w.X) / 2, Size.Y / 2 + size * 0.36f);
+		DrawStringOutline(font, pos, text, HorizontalAlignment.Left, -1, size, Mathf.Max(3, size / 7), C.Ink);
+		DrawString(font, pos, text, HorizontalAlignment.Left, -1, size, color);
 	}
 }

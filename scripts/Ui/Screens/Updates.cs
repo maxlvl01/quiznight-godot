@@ -50,7 +50,7 @@ public static class WhatsNew
 		foreach (var release in releases)
 		{
 			if (releases.Count > 1 || release.Title != "")
-				box.AddChild(U.Bold($"{release.VersionText}" + (release.Title != "" ? $" — {release.Title}" : ""), 18).Raw());
+				box.AddChild(U.Bold($"{release.Shown}" + (release.Title != "" ? $" — {release.Title}" : ""), 18).Raw());
 			foreach (var section in release.Sections.Where(s => s.Items.Count > 0))
 			{
 				var (label, color) = Kind(section.Kind);
@@ -131,7 +131,7 @@ public partial class UpdateBadge : Button
 /// <summary>At startup (exported builds): looks for a newer version and installs it, restarting the game.</summary>
 public static class UpdatePrompt
 {
-	/// <summary>A newer version, once a check found one (the home screen shows it: a note under the logo, a green button).</summary>
+	/// <summary>A newer version, once a check found one (the home screen shows it: the logo's outline pulses green, a green arrow).</summary>
 	public static Updater.Release? Available { get; private set; }
 	public static bool Checking { get; private set; }
 	public static event Action? Changed;
@@ -182,10 +182,13 @@ public static class UpdatePrompt
 	public static void Pretend(string version) =>
 		Set(AppVersion.Parse(version) is { } v ? new Updater.Release(v, "", 0, null) : null, false);
 
+	/// <summary>Only pretended (dev tools): there's nothing to download.</summary>
+	public static bool IsPretend(Updater.Release release) => release.ZipUrl == "";
+
 	/// <summary>Downloads and installs the release, then restarts.</summary>
 	public static async void Install(Node owner, Updater.Release release)
 	{
-		if (!Updater.Enabled) return;
+		if (!Updater.Enabled || IsPretend(release)) return;
 		var overlay = new VideoGuide.GuideOverlay { Closable = false };
 		var status = U.Muted(Lang.F("Downloading version {0}…", release.Version), 15);
 		var bar = new ProgressBar { MinValue = 0, MaxValue = 1, Step = 0, ShowPercentage = false, CustomMinimumSize = new Vector2(0, 10) };

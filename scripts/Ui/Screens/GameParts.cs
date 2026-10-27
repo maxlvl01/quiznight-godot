@@ -25,10 +25,14 @@ public static class GameParts
 	/// A place in the stats tables: a small box in the medal's colour for the top 3, a plain one after that, "–" for
 	/// none (centred in its row, so it lines up with the profile pictures).
 	/// </summary>
+	/// <summary>"Category: Geography" (the quiz maker's own categories as they wrote them).</summary>
+	public static Control CategoryPill(string category) =>
+		U.Pill(Lang.F("Category: {0}", Categories.Label(category)), C.Sky).Raw();
+
 	public static Control PlaceBox(int? place)
 	{
 		var medal = place is { } n ? C.Medal(n) : null;
-		var label = U.Mono(place is { } m ? Lang.Ordinal(m) : "–", 13, medal != null ? C.Bg : C.Muted).Raw();
+		var label = U.Mono(place is { } m ? Lang.Ordinal(m) : "–", 13, medal != null ? C.OnBright : C.Muted).Raw();
 		label.HorizontalAlignment = HorizontalAlignment.Center;
 		var box = U.Panel(label, "Clear").MinSize(44);
 		box.AddThemeStyleboxOverride("panel", UiTheme.Box(medal ?? C.Panel2, 6, null, 0, 6, 2));
@@ -46,7 +50,7 @@ public static class GameParts
 	/// </summary>
 	public static Control SeatStatus(PublicPlayer p, RoomState room, bool playerView)
 	{
-		if (!p.Connected) return U.Muted(playerView ? "Reconnecting…" : "Offline", 12, false);
+		if (!p.Connected) return U.Muted(room.ResumeFrom != null ? "Not back yet" : playerView ? "Reconnecting…" : "Offline", 12, false);
 		var percent = room.Downloads.GetValueOrDefault(p.Id, 100);
 		if (percent >= 100) return U.Muted(room.Downloads.Count > 0 ? "Ready" : "Joined", 12, false);
 		var row = U.H(5, new DownloadRing(percent, 14), U.Muted(Lang.F("Downloading {0} %", percent), 12, false));
@@ -65,13 +69,13 @@ public static class GameParts
 		: p.JoinedAt is { } joined ? U.Muted(Lang.F("joined at Q {0}/{1}", joined, room.Quiz.QuestionCount), 12, false)
 		: null;
 
-	/// <summary>"×2" and "⚡" pills for the jokers a player plays on the current question (once it's shown).</summary>
+	/// <summary>"×2" and lightning bolt pills for the jokers a player plays on the current question (once it's shown).</summary>
 	static void AddJokers(HBoxContainer row, RoomState room, string playerId)
 	{
 		var game = room.Game;
 		if (game == null) return;
 		foreach (var j in game.Jokers.Where(j => j.PlayerId == playerId && j.Index == game.Index && (game.Shown || game.Stage == Stage.Reveal)))
-			row.AddChild(U.Pill(Joker.Icon(j.Kind), C.Accent).Tip(Joker.Label(j.Kind)));
+			row.AddChild(Bolt.JokerPill(j.Kind, C.Accent, true).Tip(Joker.Label(j.Kind)));
 	}
 
 	/// <summary>
@@ -147,11 +151,23 @@ public static class GameParts
 			var ring = progress != null && p.Connected && progress.TryGetValue(p.Id, out var percent) ? new[] { (Control)new DownloadRing(percent, 16) } : Array.Empty<Control>();
 			var row = Row(8, RankBadge(room.Place(p.Id), true), new Avatar(p, 26), new NameRow(p, SeatNote(p, room), ring).Grow());
 			// (what decides between equal scores, on hover)
-			if (room.AvgAnswerMs.TryGetValue(p.Id, out var ms)) row.TooltipText = Lang.F("Average answer time: {0} s", (ms / 1000).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture));
+			if (room.Stats.GetValueOrDefault(p.Id) is { } st)
+				row.TooltipText = string.Join("\n", new[]
+				{
+					st.AvgAnswerS is { } a ? Lang.F("Average answer time: {0} s", a.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)) : null,
+					st.AvgBuzzS is { } b ? Lang.F("Average buzz time: {0} s", b.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)) : null,
+				}.Where(t => t != null));
 			AddJokers(row, room, p.Id);
 			if (Moved(room, rows, gained, p.Id) is { } moved) row.AddChild(moved);
 			if (gained.TryGetValue(p.Id, out var g) && g != 0) row.AddChild(U.Text($"+{g}", 14, C.Teal, Fonts.Bold));
-			row.AddChild(U.Mono($"{room.Score(p.Id)}", 16));
+			// (centred in the row, level with the − and + keys' faces, which sit 1–2 px above their middle)
+			row.AddChild(U.Mono($"{room.Score(p.Id)}", 18).With(l =>
+			{
+				l.VerticalAlignment = VerticalAlignment.Center;
+				l.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
+				l.HorizontalAlignment = HorizontalAlignment.Right;
+				l.CustomMinimumSize = new Vector2(28, 0);
+			}));
 			if (adjust != null)
 			{
 				var id = p.Id;
@@ -281,9 +297,12 @@ public static class GameParts
 				BuzzStatus.Wrong => "Wrong",
 				_ => "Correct",
 			};
-			var statusText = b.FastPass ? "⚡ " + Lang.F("Fast Pass · {0}", Lang.T(status)) : Lang.T(status);
+			var statusText = b.FastPass ? Lang.F("Fast Pass · {0}", Lang.T(status)) : Lang.T(status);
+			var statusRow = U.H(4, U.Muted(statusText, 12, false).Raw());
+			if (b.FastPass) statusRow.AddChild(Bolt.Rect(13));
+			if (b.FastPass) statusRow.MoveChild(statusRow.GetChild(1), 0);
 			var row = Row(8, RankBadge(i + 1), new Avatar(p, 26),
-				U.V(0, U.Text(p.Name, 15).Raw(), U.Muted(statusText, 12, false).Raw()).Grow(),
+				U.V(0, U.Text(p.Name, 15).Raw(), statusRow).Grow(),
 				U.Mono(game.Question.HasPlayClock ? U.FormatSeconds(b.AtSec) : $"{b.AtSec:0.00} s", 13, C.Muted));
 			var border = b.Status switch { BuzzStatus.Answering => C.Accent, BuzzStatus.Correct => C.Teal, _ => C.Border };
 			var bg = b.Status == BuzzStatus.Answering ? new Color(C.Accent, 0.1f) : C.Panel2;
@@ -373,12 +392,29 @@ public static class GameParts
 	/// <summary>One item on the timeline: its text and (once placed) its label, e.g. the year.</summary>
 	public static Control TimelineCard(string text, string label, bool start = false, bool big = false)
 	{
-		var box = U.V(2, U.Text(text, big ? 24 : 17, C.Text, Fonts.Bold, true, HorizontalAlignment.Center).Raw());
-		if (label != "") box.AddChild(U.Mono(label, big ? 20 : 16, C.Accent).Raw().With(l => l.HorizontalAlignment = HorizontalAlignment.Center));
+		// (a key like the rest of the game: dark outline and an edge underneath; the item to place is orange, the start
+		// card green-tinted, and the year sits on a chip of its own)
+		var box = U.V(6, U.Text(text, big ? 24 : 17, big ? C.AccentInk : C.Text, Fonts.Bold, true, HorizontalAlignment.Center).Raw());
+		if (label != "")
+		{
+			var chip = U.Panel(U.Mono(label, big ? 18 : 15, start ? C.Ink : C.AccentInk).Raw().With(l => l.HorizontalAlignment = HorizontalAlignment.Center), "Clear");
+			chip.AddThemeStyleboxOverride("panel", UiTheme.Box(start ? C.Lime : C.Accent, 999, C.Ink, 2, 10, 1));
+			chip.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
+			box.AddChild(chip);
+		}
 		var card = U.Panel(box, "Clear").MinSize(big ? 220 : 120, big ? 0 : 64);
-		card.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel2, 12, start ? C.Lime : C.Border, start ? 2 : 1, 12, 10));
+		card.AddThemeStyleboxOverride("panel", new KeyBox(big ? C.Accent : start ? C.Panel2.Lerp(C.Lime, 0.18f) : C.Panel2, 14, 14, 12, 3, 5, false));
 		card.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
 		return card;
+	}
+
+	/// <summary>A round key with a mark on it, between the cards: ✗ a gap tried and wrong, ▼ the gap locked in.</summary>
+	static Control TimelineMark(string mark, Color color)
+	{
+		var key = U.Panel(U.Text(mark, 18, C.Ink, Fonts.Black, false, HorizontalAlignment.Center).MinSize(22, 0), "Clear");
+		key.AddThemeStyleboxOverride("panel", new KeyBox(color, 999, 8, 9, 3, 4, false));
+		key.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
+		return key;
 	}
 
 	/// <summary>
@@ -392,7 +428,7 @@ public static class GameParts
 		var flow = U.Flow(8);
 		flow.Alignment = FlowContainer.AlignmentMode.Center;
 		// The ends sit right next to the first and last gap, so the arrows line up with the timeline.
-		Control End(string text) => U.Muted(text, 14, false).Raw().With(l => l.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter);
+		Control End(string text) => U.Text(text, 14, C.Muted, Fonts.Bold).Raw().With(l => l.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter);
 		flow.AddChild(End("◀ " + (q.OrderTop ?? "")));
 		for (var g = 0; g <= tl.Placed.Count; g++)
 		{
@@ -408,8 +444,8 @@ public static class GameParts
 					flow.AddChild(b);
 				}
 			}
-			else if (wrong) flow.AddChild(U.Text("✗", 24, C.Coral, Fonts.Black).With(l => l.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter));
-			else if (gap == picked) flow.AddChild(U.Text("▼", 26, C.Teal, Fonts.Black).With(l => l.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter));
+			else if (wrong) flow.AddChild(TimelineMark("✗", C.Coral));
+			else if (gap == picked) flow.AddChild(TimelineMark("▼", C.Teal));
 			if (g < tl.Placed.Count)
 			{
 				var c = tl.Placed[g];
@@ -448,19 +484,23 @@ public static class GameParts
 			if (q.Choices![i] is not { } text) continue;
 			var color = C.Choice[i];
 			var correct = reveal?.CorrectIndices?.Contains(i) == true;
-			var bg = correct ? C.Panel2.Lerp(color, 0.22f) : C.Panel2;
-			var tile = U.Panel(GameParts.Row(14, Letter(i, 44), U.Text(text, 22, null, Fonts.Bold, true).Raw(),
-				reveal?.Counts is { } counts ? U.Mono($"{counts[i]}", 20, C.Muted) : U.Gap(0)), "Clear").Grow();
-			tile.AddThemeStyleboxOverride("panel", UiTheme.Box(bg, 14, correct ? color : C.Border, correct ? 3 : 1, 16, 14));
+			// (a key in the answer's own colour, like the players' buttons; at the reveal the right ones stay bright)
+			var tile = U.Panel(GameParts.Row(14, Letter(i, 44, true), U.Text(text, 22, ChoiceInk, Fonts.Bold, true).Raw(),
+				reveal?.Counts is { } counts ? U.Mono($"{counts[i]}", 20, ChoiceInk) : U.Gap(0)), "Clear").Grow();
+			tile.AddThemeStyleboxOverride("panel", new KeyBox(color, 16, 16, 14, 3, 7, false));
 			if (reveal != null && !correct) tile.Modulate = new Color(1, 1, 1, 0.35f);
 			grid.AddChild(tile);
 		}
 		return grid;
 	}
 
-	public static Control Letter(int i, int size) =>
-		U.Panel(U.Text(QuizRules.ChoiceLetters[i], size / 2, new Color("#14151b"), Fonts.Black, false, HorizontalAlignment.Center), "Clear")
-			.With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Choice[i], 10, null, 0, 0, 2))).MinSize(size, size);
+	/// <summary>Dark text on the bright answer colours.</summary>
+	public static readonly Color ChoiceInk = new("#14151b");
+
+	/// <param name="onKey">On a key in the answer's own colour: a dark badge with the letter in that colour.</param>
+	public static Control Letter(int i, int size, bool onKey = false) =>
+		U.Panel(U.Text(QuizRules.ChoiceLetters[i], size / 2, onKey ? C.Choice[i] : ChoiceInk, Fonts.Black, false, HorizontalAlignment.Center), "Clear")
+			.With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(onKey ? ChoiceInk with { A = 0.85f } : C.Choice[i], 10, null, 0, 0, 2))).MinSize(size, size);
 
 	public static List<MapPin> RevealPins(RoomState room) =>
 		room.Game!.Reveal!.Entries

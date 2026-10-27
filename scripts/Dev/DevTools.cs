@@ -2,6 +2,7 @@
 //   --selftest                     run the checks and quit (exit code 0 = all passed)
 //   --host-sample | --host FILE    host the sample quiz / a quiz file in LAN mode
 //   --sound FILE / --video FILE    with --host-sample or --open: the sound question plays that file / a video question follows it
+//   --continue                     with --host-sample / --host: continue that quiz's saved night (Storage.NightSaves)
 //   --autopilot [--players N]      as host: start with N players, judge buzzes, go to the next question
 //   --start-at N                   with --autopilot: skip straight to question N (1 = first)
 //   --quit-at-end                  quit a few seconds after the podium
@@ -10,6 +11,10 @@
 //   --screen home|quizzes|quiz|settings|eternal|history|delete  open that screen (delete: the delete question, deleting nothing)
 //   --lang en|de                   use that language this run (not saved)
 //   --video-guide [FILE]           open a new video question with the MP4 → .ogv guide
+//   --whats-new                    the home screen with this version's What's new open
+//   --settings-window              with --host-sample: Settings open as a window over the lobby
+//   --new TYPE                     the question editor on a new question of that type (mapPin: the map grid)
+//   --buzzer                       the BUZZ! button alone (unlocked and locked)
 //   --shot FILE [--after SEC]      save a screenshot after SEC seconds (default 2) and quit
 //   --shots DIR                    save a screenshot of every new game moment into DIR
 
@@ -35,6 +40,26 @@ public sealed class DevTools
 	double _time;
 	double? _shotAt;
 	bool _mapZoomed;
+	bool _rowDragged;
+	int _introKeys;
+	bool _undoChecked;
+	bool _arcadeOpened, _bugOpened;
+	bool _dropdownOpened;
+	int _dropdownChecks;
+	bool _scrolled;
+
+	async void MakeSplash(string path)
+	{
+		await Ui.IntroSequence.Save(_app, path);
+		_app.Quit(0);
+	}
+
+	async void SavePoster(string path)
+	{
+		var (_, csvs, from, until, label) = EternalTableScreen.Current();
+		GD.Print("Poster: " + await EternalTableScreen.SavePicture(_app, csvs, from, until, label, path));
+		_app.Quit(0);
+	}
 
 	static Ui.WowMapCanvas? FindWowCanvas(Node node) =>
 		node as Ui.WowMapCanvas ?? node.GetChildren().Select(FindWowCanvas).FirstOrDefault(c => c != null);
@@ -89,6 +114,14 @@ public sealed class DevTools
 	/// </summary>
 	Quiz WithTestMedia(Quiz sample)
 	{
+		// (--sentence: the step by step question is one sentence in parts instead of hint cards)
+		if (Has("--sentence") && sample.Questions.FirstOrDefault(q => q.IsSteps) is { } steps)
+		{
+			steps.StepsMode = StepsMode.Sentence;
+			steps.Prompt = "Which city are we looking for?";
+			steps.AnswerText = "Berlin";
+			steps.Hints = new() { "This city, founded in 1237,", "was split by a wall from 1961 to 1989", "and is Germany's capital today.", "", "" };
+		}
 		var sq = sample.Questions.FirstOrDefault(q => q.Type == QuestionType.Sound);
 		if (Value("--sound") is { } sound && sq != null)
 		{
@@ -108,6 +141,14 @@ public sealed class DevTools
 		return sample;
 	}
 
+	static ScrollContainer? FindScroll(Node n)
+	{
+		if (n is ScrollContainer sc) return sc;
+		foreach (var c in n.GetChildren())
+			if (FindScroll(c) is { } found) return found;
+		return null;
+	}
+
 	public static DevTools? FromArgs(App app, string[] args) => args.Length == 0 ? null : new DevTools(app, args).Setup();
 
 	DevTools Setup()
@@ -121,10 +162,25 @@ public sealed class DevTools
 		if (int.TryParse(Value("--players"), out var n)) _players = n;
 		if (int.TryParse(Value("--start-at"), out var first)) _startAt = first - 1;
 		if (Value("--lang") is { } lang) Lang.Use(lang);
+		// (this run's background picture, not saved: e.g. pinke-geilheit-animated)
+		if (Value("--background") is { } background) Settings.BackgroundThisRun = background;
 		// (the home screen as if that version were out: the update note and the green button)
 		if (Value("--pretend-update") is { } newer) Ui.Screens.UpdatePrompt.Pretend(newer);
 		// (the map grid as if that built-in map had come with this update: its NEW badge)
 		if (Value("--pretend-new-map") is { } newMap) MapPresets.PretendNew = newMap;
+		if (Value("--pretend-changed-map") is { } changedMap) MapPresets.PretendChanged = changedMap;
+		if (Value("--pretend-version") is { } version) ClientSession.PretendVersion = version;
+		// (made-up quiz nights for the statistics screens, this run only: --fake-results [N])
+		if (Has("--fake-results")) Storage.Results.Fake = FakeResults.Make(int.TryParse(Value("--fake-results"), out var fake) ? fake : 30);
+		// --overflow: after 3 s, prints how much the screen's scrolling area is taller than the window (0 = fits) and quits
+		if (Has("--overflow"))
+			_app.GetTree().CreateTimer(3).Timeout += () =>
+			{
+				var scroll = _app.CurrentScreen is { } screen ? FindScroll(screen) : null;
+				var over = scroll == null ? 0 : scroll.GetVScrollBar().MaxValue - scroll.GetVScrollBar().Page;
+				GD.Print($"OVERFLOW {Value("--open") ?? "screen"} {Math.Max(0, over):0}");
+				_app.GetTree().Quit();
+			};
 		// --press TEXT[#N]: presses the first (or Nth) button whose text starts with TEXT, once, as soon as there is one
 		// (e.g. "⋮" on a scoreboard, "▶#2" for the podium sound in Settings)
 		if (Value("--press") is { } pressArg)
@@ -142,7 +198,34 @@ public sealed class DevTools
 			_app.AddChild(timer);
 		}
 
-		if (Has("--selftest"))
+		// (--make-splash FILE: the intro's first card as the boot splash picture, then quit; --splash: play the intro in this run)
+		if (Has("--splash")) _app.AddChild(new Ui.IntroSequence(null) { StartAt = int.TryParse(Value("--intro-from"), out var from) ? from : 0 });
+		// (--anti-cheat: the anti-cheat window's content over this run's window, to look at)
+		if (Has("--anti-cheat")) _app.AddChild(new Ui.AntiCheatSplash(null));
+		if (Value("--make-splash") is { } splashFile)
+		{
+			TakesOver = true;
+			Callable.From(() => MakeSplash(splashFile)).CallDeferred();
+		}
+		// (--unzoned-mask FILE: the WoW map's land (zone art) that no Classic zone covers, red, the rest grey; to find
+		// where new zones are, WowAtlas.ExtraZones)
+		else if (Value("--unzoned-mask") is { } maskFile)
+		{
+			TakesOver = true;
+			var art = Images.LoadBuiltinImage(Ui.WowMapArt.Overview(2))!;
+			var mask = Image.CreateEmpty(WowAtlas.ImageWidth, WowAtlas.ImageHeight, false, Image.Format.Rgba8);
+			for (var y = 0; y < WowAtlas.ImageHeight; y++)
+			for (var x = 0; x < WowAtlas.ImageWidth; x++)
+			{
+				var land = art.GetPixel(x * 2, y * 2).A > 0.6f;
+				var p = new NormPoint((x + 0.5) / WowAtlas.ImageWidth, (y + 0.5) / WowAtlas.ImageHeight);
+				var zoned = WowAtlas.WorldToLocation(p) is { } loc && WowAtlas.ZoneAt(loc) != null;
+				mask.SetPixel(x, y, !land ? new Color(0, 0, 0, 0) : zoned ? new Color(0.5f, 0.5f, 0.5f) : new Color(1, 0, 0));
+			}
+			mask.SavePng(maskFile);
+			_app.GetTree().Quit();
+		}
+		else if (Has("--selftest"))
 		{
 			TakesOver = true;
 			RunSelfTest();
@@ -170,7 +253,9 @@ public sealed class DevTools
 			TakesOver = true;
 			var sample = WithTestMedia(SampleQuiz.Build());
 			var quiz = Value("--host") is { } file ? QuizStore.Import(file) : QuizStore.Save(sample);
-			_app.HostQuiz(quiz, NetMode.Lan);
+			_app.HostQuiz(quiz, NetMode.Lan, Has("--continue") ? NightSaves.Load(quiz.Id) : null);
+			// --settings-window: Settings open over the lobby (or the game), for screenshots
+			if (Has("--settings-window")) _app.GetTree().CreateTimer(1.5).Timeout += Ui.Screens.SettingsWindow.Open;
 		}
 		else if (Value("--open") is { } type)
 		{
@@ -186,9 +271,39 @@ public sealed class DevTools
 				pin.MapId = map.Id;
 				pin.Target = new NormPoint(0.5, 0.5);
 			}
+			// --map-grid (with --open mapPin): no map chosen yet, so the editor shows the map grid
+			if (Has("--map-grid")) sample.Questions.First(x => x.Type == QuestionType.MapPin).MapId = null;
 			var quiz = QuizStore.Save(sample);
 			var q = quiz.Questions.FirstOrDefault(x => x.Type == type || (type == "choice" && x.Mode == ClassicMode.Choice) || (type == "multi" && x.IsMulti) || (type == "image" && x.Type == QuestionType.Image) || (type == "timeline" && x.IsTimeline) || (type == "wow" && x.MapId != null && quiz.MapById(x.MapId)?.PresetId == WowAtlas.PresetId)) ?? quiz.Questions[0];
 			_app.GoQuestion(quiz.Id, q.Id, null);
+		}
+		else if (Has("--whats-new"))
+		{
+			// --whats-new: the home screen with this version's notes open
+			TakesOver = true;
+			_app.GoHome();
+			Callable.From(() => Ui.Screens.WhatsNew.ShowCurrent(_app)).CallDeferred();
+		}
+		else if (Has("--buzzer"))
+		{
+			// --buzzer: the BUZZ! button on its own, up close (as big as the Test lab shows it), unlocked and locked, for screenshots
+			TakesOver = true;
+			var row = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
+			row.AddThemeConstantOverride("separation", 60);
+			row.AddChild(new Ui.Screens.BuzzButton(() => { }, 460));
+			row.AddChild(new Ui.Screens.BuzzButton(() => { }));
+			row.AddChild(new Ui.Screens.BuzzButton(() => { }, 160) { Disabled = true });
+			var page = new CenterContainer();
+			page.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+			page.AddChild(row);
+			_app.Show(page, null);
+		}
+		else if (Value("--new") is { } newType)
+		{
+			// --new TYPE: the editor on a new question of that type (e.g. mapPin: the map grid)
+			TakesOver = true;
+			var quiz = QuizStore.Save(SampleQuiz.Build());
+			_app.GoQuestion(quiz.Id, null, newType);
 		}
 		else if (Has("--video-guide"))
 		{
@@ -213,13 +328,54 @@ public sealed class DevTools
 				case "settings":
 					_app.GoSettings();
 					break;
+				case "testlab":
+					_app.GoTestLab();
+					break;
+				// (a pop-up over the home screen: its title bar and close button)
+				case "dialog":
+					_app.GoHome();
+					Callable.From(() => Ui.Dialogs.Info(_app, "Three ways to play: buzz in, A B C D, or multiple choice.", "Classic question")).CallDeferred();
+					break;
+				case "credits":
+					_app.GoHome();
+					Ui.CreditsWindow.Open();
+					break;
+				case "credits-wall":
+				{
+					_app.GoHome();
+					var bg = new ColorRect { Color = Ui.C.Bg };
+					bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+					var center = new CenterContainer();
+					center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+					center.AddChild(new Ui.CreditsWall());
+					_app.AddChild(bg);
+					_app.AddChild(center);
+					break;
+				}
 				case "eternal":
 					// (--sort COL [--ascending]: the table sorted by that column)
 					if (Value("--sort") is { } col) EternalTableScreen.SortBy(col, Has("--ascending"));
+					// (--table all|season:N|beta, --ranking quiz|F1…, --kind type:mapPin[/skyrim]|cat:geography, --graph positions|points)
+					EternalTableScreen.View(Value("--table"), Value("--ranking"), Value("--kind"), Value("--graph"));
+					// (--poster FOLDER: save the award pack's pictures there, then quit)
+					if (Value("--poster") is { } poster)
+						Callable.From(() => SavePoster(poster)).CallDeferred();
 					_app.GoEternalTable();
 					break;
 				case "history":
 					_app.GoMatchHistory();
+					break;
+				// (the newest night on its own screen, with its graphs: --graph points for the other one)
+				case "night":
+					if (Storage.Results.Nights(Storage.Results.BundledCsvs()).FirstOrDefault() is { } newest)
+					{
+						MatchNightScreen.GraphKind = Value("--graph") ?? "positions";
+						_app.GoMatchNight(newest);
+					}
+					break;
+				// (--player ID, e.g. fake:Ann with --fake-results)
+				case "profile":
+					_app.GoProfile(Value("--player") ?? "fake:Ann");
 					break;
 				// (My quizzes with the mouse over the first trash can)
 				case "trash-hover":
@@ -341,6 +497,12 @@ public sealed class DevTools
 	{
 		_time += delta;
 		// --map-zoom Z [--map-at X,Y]: zoom the WoW map (for screenshots of its layers)
+		// (--scroll PX: the screen's page scrolled down, to see what's below the window)
+		if (_time >= 1 && !_scrolled && int.TryParse(Value("--scroll"), out var scroll) && Find<ScrollContainer>(_app) is { } page)
+		{
+			_scrolled = true;
+			page.ScrollVertical = scroll;
+		}
 		if (_time >= 0.5 && !_mapZoomed && float.TryParse(Value("--map-zoom"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var mapZoom))
 		{
 			_mapZoomed = true;
@@ -350,6 +512,83 @@ public sealed class DevTools
 				var center = mapAt is { Length: 2 } ? new NormPoint(double.Parse(mapAt[0], System.Globalization.CultureInfo.InvariantCulture), double.Parse(mapAt[1], System.Globalization.CultureInfo.InvariantCulture)) : canvas.Target ?? new NormPoint(0.5, 0.5);
 				canvas.ZoomTo(center, mapZoom);
 			}
+		}
+		// --intro-start (with --splash): Escape skips the cards at 1 s, a key starts from the title screen at 2.5 s
+		if (Has("--intro-start") && _introKeys < 2 && _time >= (_introKeys == 0 ? 1 : 2.5))
+		{
+			_introKeys++;
+			var key = new InputEventKey { Keycode = _introKeys == 1 ? Key.Escape : Key.Space, Pressed = true };
+			_app.GetViewport().PushInput(key, true);
+		}
+		// --arcade menu|pong|billiard (hosting): at 6 s the mini games window opens; pong/billiard challenge the first player
+		// (a bot accepts by itself)
+		if (_time >= 6 && !_arcadeOpened && Value("--arcade") is { } arcadeGame && _app.Host != null)
+		{
+			_arcadeOpened = true;
+			Bot.All(_app).OfType<Ui.Screens.HostLobbyScreen>().FirstOrDefault()?.OpenArcade();
+			var window = Bot.All(_app).OfType<Ui.Arcade.ArcadeWindow>().FirstOrDefault();
+			// (scores: the high scores with a made-up lobby; reaction: the reaction test)
+			if (arcadeGame == "scores")
+			{
+				_app.Host.ArcadeRequest(new ArcadeRequest { Kind = ArcadeRequest.ReactionTime, Value = 231 });
+				Callable.From(() => window?.ShowScores(ArcadeGame.Reaction)).CallDeferred();
+			}
+			else if (arcadeGame == "reaction") window?.PlayReaction();
+			else if (arcadeGame != "menu" && _app.Host.Room.Players.FirstOrDefault() is { } first)
+				_app.Host.ArcadeRequest(new ArcadeRequest { Kind = ArcadeRequest.Challenge, Game = arcadeGame, Who = first.Id });
+		}
+		// --bug-report [bug|feedback]: at 2 s the bug report window opens (as if 🐞 was pressed; bug/feedback: that form); --bug-check sends a test report and quits
+		if (_time >= 2 && !_bugOpened && (Has("--bug-report") || Has("--bug-check")))
+		{
+			_bugOpened = true;
+			if (Has("--bug-report")) Ui.BugButton.Open(Value("--bug-report"));
+			else
+				Storage.BugReports.Send("Test", Storage.BugReports.Make("Test", "A test report from --bug-check: delete me.", "- **Room:** none" + System.Environment.NewLine),
+					_app.GetViewport().GetTexture().GetImage()?.SavePngToBuffer(), ok =>
+					{
+						GD.Print(ok ? "Bug report sent" : "Bug report NOT sent");
+						_app.Quit(ok ? 0 : 1);
+					});
+		}
+		// --open-dropdown [N]: opens the screen's first (or Nth, from 1) dropdown at 1 s (to see its arrow and how it unfolds)
+		if (_time >= 1 && !_dropdownOpened && Has("--open-dropdown"))
+		{
+			_dropdownOpened = true;
+			var nth = int.TryParse(Value("--open-dropdown"), out var n) ? n - 1 : 0;
+			Bot.All(_app).OfType<OptionButton>().Where(o => o.IsVisibleInTree()).Skip(nth).FirstOrDefault()?.ShowPopup();
+		}
+		// --dropdown-check (with --screen testlab): opens the long test drop-down twice and prints whether its list scrolls each time
+		if (Has("--dropdown-check") && _dropdownChecks < 5 && _time >= 1 + _dropdownChecks * 0.7)
+		{
+			var box = Bot.All(_app).OfType<OptionButton>().Where(o => o.IsVisibleInTree()).OrderByDescending(o => o.ItemCount).First();
+			var popup = box.GetPopup();
+			static ScrollContainer? FindScroll(Node n) => n as ScrollContainer ?? n.GetChildren(true).Select(FindScroll).FirstOrDefault(s => s != null);
+			switch (_dropdownChecks++)
+			{
+				case 0 or 2:
+					box.ShowPopup();
+					break;
+				case 1 or 3:
+					var list = FindScroll(popup)!;
+					var bar = list.GetVScrollBar();
+					GD.Print($"Drop-down open {_dropdownChecks / 2}: list {popup.Size}, scroll area {list.Size}, scrolls {bar.MaxValue > bar.Page + 1} (max {bar.MaxValue}, page {bar.Page})");
+					popup.Hide();
+					break;
+				default:
+					_app.Quit(0);
+					break;
+			}
+		}
+		if (_time >= 1.5 && !_undoChecked && Has("--undo-check"))
+		{
+			_undoChecked = true;
+			UndoCheck();
+		}
+		// --drag-row (with --screen quiz): drags question 1 below question 3 with real mouse events and prints the new order
+		if (_time >= 1 && !_rowDragged && Has("--drag-row"))
+		{
+			_rowDragged = true;
+			DragRow();
 		}
 		if (_shotAt is { } at && _time >= at)
 		{
@@ -361,6 +600,65 @@ public sealed class DevTools
 		if (_shotsDir != null) WatchMoments();
 		if (_autopilot) Autopilot();
 		_bot?.Process(_time);
+	}
+
+	async void DragRow()
+	{
+		var rows = Bot.All(_app).OfType<Ui.Screens.QuestionRowButton>().ToList();
+		if (rows.Count < 3) return;
+		var vp = _app.GetViewport();
+		var tree = _app.GetTree();
+		var a = rows[0].GetGlobalRect().GetCenter();
+		var r = rows[2].GetGlobalRect();
+		var b = new Vector2(r.GetCenter().X, r.Position.Y + r.Size.Y * 0.8f);
+		vp.PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = true, Position = a, GlobalPosition = a, ButtonMask = MouseButtonMask.Left }, true);
+		await _app.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+		for (var i = 1; i <= 15; i++)
+		{
+			var p = a.Lerp(b, i / 15f);
+			vp.PushInput(new InputEventMouseMotion { Position = p, GlobalPosition = p, Relative = (b - a) / 15, ButtonMask = MouseButtonMask.Left }, true);
+			await _app.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+		}
+		await _app.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+		if (_shotPath != null) Screenshot(_shotPath.Replace(".png", "-drag.png"));
+		vp.PushInput(new InputEventMouseButton { ButtonIndex = MouseButton.Left, Pressed = false, Position = b, GlobalPosition = b }, true);
+		for (var i = 0; i < 5; i++) await _app.ToSignal(tree, SceneTree.SignalName.ProcessFrame);
+		string Order() => string.Join(" | ", Bot.All(_app).OfType<Ui.Screens.QuestionRowButton>().Take(4).Select(row => Bot.All(row).OfType<Label>().First().Text));
+		GD.Print("ORDER " + Order());
+		// (and Ctrl+Z puts it back, Ctrl+Y moves it again)
+		await Keys(Key.Z, false);
+		GD.Print("UNDO " + Order());
+		await Keys(Key.Y, false);
+		GD.Print("REDO " + Order());
+	}
+
+	/// <summary>Ctrl + a key (with Shift if asked), as real key presses, then a few frames.</summary>
+	async Task Keys(Key key, bool shift)
+	{
+		var vp = _app.GetViewport();
+		vp.PushInput(new InputEventKey { Keycode = key, CtrlPressed = true, ShiftPressed = shift, Pressed = true }, true);
+		vp.PushInput(new InputEventKey { Keycode = key, CtrlPressed = true, ShiftPressed = shift, Pressed = false }, true);
+		for (var i = 0; i < 5; i++) await _app.ToSignal(_app.GetTree(), SceneTree.SignalName.ProcessFrame);
+	}
+
+	/// <summary>--undo-check (with --open classic): presses a + button twice, then Ctrl+Z, Ctrl+Y, Ctrl+Z, Ctrl+Shift+Z.</summary>
+	async void UndoCheck()
+	{
+		if (_app.CurrentScreen is not Ui.Screens.QuestionEditorScreen editor) return;
+		string Now() => QuizJson.WriteQuestion(((Ui.Screens.QuestionEditorScreen)_app.CurrentScreen!).Draft).ToJsonString();
+		var before = Now();
+		if (Bot.All(editor).OfType<Button>().FirstOrDefault(x => x.Text == "+" && x.IsVisibleInTree() && !x.Disabled) is not { } plus) return;
+		plus.EmitSignal(BaseButton.SignalName.Pressed);
+		for (var i = 0; i < 3; i++) await _app.ToSignal(_app.GetTree(), SceneTree.SignalName.ProcessFrame);
+		plus.EmitSignal(BaseButton.SignalName.Pressed);
+		var changed = Now();
+		await Keys(Key.Z, false);
+		var undone = Now();
+		await Keys(Key.Y, false);
+		var redone = Now();
+		await Keys(Key.Z, false);
+		await Keys(Key.Z, true);
+		GD.Print($"UNDOCHECK changed={changed != before} undo-back={undone == before} redo-again={redone == changed} shiftZ-redo={Now() == changed}");
 	}
 
 	void Screenshot(string path)
@@ -413,7 +711,7 @@ public sealed class DevTools
 		var s = host.State;
 		var g = s.Game;
 		var answering = g?.Buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Answering);
-		var key = $"{s.Phase}|{g?.Index}|{g?.Stage}|{g?.Shown}|{g?.BuzzersOpen}|{answering?.PlayerId}|{g?.Buzzes.Count}|{s.Players.Count(p => p.Connected)}|{g?.Timeline?.Placed.Count}|{g?.Timeline?.TurnPlayerId}|{g?.Timeline?.WrongGaps.Count}|{g?.Timeline?.Phase}|{g?.Question.Slide}|{g?.Question.Hints?.Count}|{g?.Interactive?.Phase}|{g?.Interactive?.Clip}|{g?.Interactive?.Plays}|{g?.Interactive?.DoneIds.Count}";
+		var key = $"{s.Phase}|{g?.Index}|{g?.Stage}|{g?.Shown}|{g?.BuzzersOpen}|{answering?.PlayerId}|{g?.Buzzes.Count}|{s.Players.Count(p => p.Connected)}|{g?.Timeline?.Placed.Count}|{g?.Timeline?.TurnPlayerId}|{g?.Timeline?.WrongGaps.Count}|{g?.Timeline?.Phase}|{g?.Question.Slide}|{g?.Question.Hints?.Count}|{g?.Interactive?.Phase}|{g?.Interactive?.Clip}|{g?.Interactive?.Plays}|{g?.Interactive?.DoneIds.Count}|{g?.AnswersClosed}";
 		if (key != _pilotKey)
 		{
 			_pilotKey = key;
@@ -449,6 +747,12 @@ public sealed class DevTools
 				if (g.Question is { SlideCount: > 1, Slide: { } slide } && slide < g.Question.SlideCount - 1 && answering == null)
 				{
 					if (waited > 1.5) host.SetSlide(slide + 1);
+					break;
+				}
+				// Everyone's answers (or votes) are in: reveal, like a host after a moment of suspense.
+				if (g.AnswersClosed)
+				{
+					if (waited > 1.5) host.Reveal();
 					break;
 				}
 				// Interactive: wait for the recordings, play each one, then let everyone vote (or pick the first as favourite).
@@ -512,6 +816,58 @@ public sealed class DevTools
 	sealed class Bot(App app, bool drag = false, Action<string>? shot = null)
 	{
 		readonly Random _rng = new();
+		ArcadeFrame? _arcade;
+		bool _arcadeHooked;
+		double _arcadeAt, _acceptAt = -1;
+
+		/// <summary>
+		/// The lobby's mini games: a bot accepts any challenge after a moment, follows the ball in Pong (a bit late, so
+		/// it can lose) and shoots at the nearest ball in Billiard.
+		/// </summary>
+		void PlayArcade(Net.ClientSession client, double now)
+		{
+			if (!_arcadeHooked)
+			{
+				_arcadeHooked = true;
+				client.ArcadeFrame += f => _arcade = f.Winner == null ? f : null;
+			}
+			if (client.State?.Arcade?.Invites.FirstOrDefault(i => i.To == client.MyId) is { } invite)
+			{
+				if (_acceptAt < 0) _acceptAt = now + 1.5;
+				else if (now >= _acceptAt)
+				{
+					_acceptAt = -1;
+					client.Arcade(new ArcadeRequest { Kind = ArcadeRequest.Accept, Who = invite.From });
+				}
+			}
+			if (_arcade == null || now - _arcadeAt < 0.1) return;
+			_arcadeAt = now;
+			if (_arcade.Pong is { } p)
+			{
+				var mine = _arcade.A == client.MyId ? p.PaddleA : p.PaddleB;
+				var aim = p.BallY + (_rng.NextDouble() - 0.5) * 0.5;
+				var y = mine + Math.Clamp(aim - mine, -0.35, 0.35);
+				client.Arcade(new ArcadeRequest { Kind = ArcadeRequest.Paddle, Value = y / PongState.H });
+			}
+			else if (_arcade.Billiard is { Lag: true } lag && !lag.LagShot[_arcade.A == client.MyId ? 0 : 1] && now - _arcadeShotAt > 2)
+			{
+				// (the lag for the break: straight at the far cushion, about hard enough to come back)
+				_arcadeShotAt = now;
+				client.Arcade(new ArcadeRequest { Kind = ArcadeRequest.Shot, Angle = (_rng.NextDouble() - 0.5) * 0.02, Power = 0.55 + _rng.NextDouble() * 0.15 });
+			}
+			else if (_arcade.Billiard is { Moving: false, Lag: false } b && (b.Turn == "A" ? _arcade.A : _arcade.B) == client.MyId && now - _arcadeShotAt > 2)
+			{
+				_arcadeShotAt = now;
+				var cue = BilliardRules.CueFor(b);
+				var targets = BilliardRules.Targets(b).OrderBy(i => Math.Pow(b.X[i] - b.X[cue], 2) + Math.Pow(b.Y[i] - b.Y[cue], 2)).ToList();
+				if (targets.Count == 0) return;
+				var target = targets[0];
+				var angle = Math.Atan2(b.Y[target] - b.Y[cue], b.X[target] - b.X[cue]) + (_rng.NextDouble() - 0.5) * 0.08;
+				client.Arcade(new ArcadeRequest { Kind = ArcadeRequest.Shot, Angle = angle, Power = 0.5 + _rng.NextDouble() * 0.5 });
+			}
+		}
+
+		double _arcadeShotAt;
 		string? _handled;
 		double _actAt = -1;
 		Action? _action;
@@ -530,6 +886,7 @@ public sealed class DevTools
 				}
 				return;
 			}
+			PlayArcade(client, now);
 			var g = client.State?.Game;
 			// Jokers: a bot plays a Fast Pass on the first buzzer question it can, and Double points on the third question.
 			if (client.State?.Phase == Phase.Playing && g?.JokerIndex is { } jokerAt && client.State.Settings.Jokers.Count > 0)
@@ -562,7 +919,7 @@ public sealed class DevTools
 					_actAt = now + 1 + _rng.NextDouble() * 2;
 					var index = g.Index;
 					var others = Enumerable.Range(0, ia.Clips.Count).Where(i => ia.Clips[i].PlayerId != client.MyId).ToList();
-					_action = ia.Phase == InteractivePhase.Recording ? () => client.SendRecording(index, SampleQuiz.Beep(1 + _rng.NextDouble() * 2), _ => { })
+					_action = ia.Phase == InteractivePhase.Recording ? () => client.SendRecording(index, BotRecording(1 + _rng.NextDouble() * 2), _ => { })
 						: ia.Phase == InteractivePhase.Voting && others.Count > 0 ? () => client.Answer(index, AnswerValue.Number(others[_rng.Next(others.Count)]), _ => { })
 						: null;
 				}
@@ -631,7 +988,11 @@ public sealed class DevTools
 				lockIn.EmitSignal(BaseButton.SignalName.Pressed);
 		}
 
-		static IEnumerable<Control> All(Node n)
+		/// <summary>A beep as the game records sound (16 kHz mono, Ui.MicRecorder): the host takes no other kind.</summary>
+		static byte[] BotRecording(double seconds) =>
+			Ui.MicRecorder.Wav(Enumerable.Range(0, (int)(16000 * seconds)).Select(i => 0.3f * MathF.Sin(i * 0.17f)).ToArray(), 16000);
+
+		internal static IEnumerable<Control> All(Node n)
 		{
 			foreach (var child in n.GetChildren())
 			{

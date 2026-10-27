@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using QuizNight.Shared;
 using QuizNight.Storage;
@@ -159,6 +160,10 @@ public partial class MediaField : VBoxContainer
 		{
 			_video = new VideoStreamPlayer { Stream = video, Bus = Prefs.MusicBus };
 			_body.AddChild(U.Panel(new VideoFrame(_video) { CustomMinimumSize = new Vector2(0, 220) }, "Inset"));
+			// (bigger than 720p: more to send to every player than it needs; the convert guide shrinks it)
+			if (Media.VideoSize(_media) is { } size && (size.W > Media.MaxVideo.W || size.H > Media.MaxVideo.H))
+				_body.AddChild(U.H(8, U.Text(Lang.F("⚠ This video is {0}×{1}: 720p is plenty, and smaller is quicker to send to everyone.", size.W, size.H), 13, C.Orange, null, true).Grow(),
+					U.Small("Shrink it to 720p", ShrinkVideo)));
 		}
 		else Fail(Media.VideoHelp);
 		_play = U.Small("▶ Play", TogglePlay);
@@ -212,6 +217,21 @@ public partial class MediaField : VBoxContainer
 
 	void ShowGuide(string? video) => VideoGuide.Show(this, video, LoadFile);
 
+	/// <summary>
+	/// The video as a file again (it's only in the quiz), named .mkv so the converter's .ogv doesn't take its place, then
+	/// the convert guide: AnyConverter (or the ffmpeg command) makes it 720p and it's added back.
+	/// </summary>
+	void ShrinkVideo()
+	{
+		if (_media == null || Server.DataUrl.Bytes(_media.DataUrl, out _) is not { } bytes) return;
+		var dir = ProjectSettings.GlobalizePath("user://shrink");
+		System.IO.Directory.CreateDirectory(dir);
+		var name = string.Concat(System.IO.Path.GetFileNameWithoutExtension(_media.Name).Select(c => char.IsLetterOrDigit(c) || c is ' ' or '-' ? c : '_')).Trim();
+		var path = System.IO.Path.Combine(dir, (name == "" ? "video" : name) + ".mkv");
+		System.IO.File.WriteAllBytes(path, bytes);
+		ShowGuide(path);
+	}
+
 	public void LoadFile(string path)
 	{
 		if (!IsSound && Media.IsConvertibleVideo(path))
@@ -262,8 +282,47 @@ public static class RoundSettings
 		{
 			q.BonusPoints = (int)Math.Clamp(Math.Round(v ?? 0), 0, QuestionLimits.BonusPointsMax);
 			changed();
-		}, 0, QuestionLimits.BonusPointsMax, true).MinSize(84).With(n => n.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin);
-		return U.Field("Bonus points (optional)", U.H(8, points, what), "You give the bonus to players at the reveal. 0 = no bonus.");
+		}, 0, QuestionLimits.BonusPointsMax, true).WithSteps();
+		// (every type's round settings have the bonus, so the category comes along with it)
+		return U.V(12, Tutorial.Mark(U.Field("Bonus points (optional)", U.H(8, points, what), "You give the bonus to players at the reveal. 0 = no bonus."), "editor.bonus"),
+			Category(q, changed));
+	}
+
+	/// <summary>
+	/// An optional category: one of the suggestions or your own. Players only see it if the host turns on "Show
+	/// categories" in the lobby (and never if it's kept secret); the results keep it for stats per category.
+	/// </summary>
+	public static VBoxContainer Category(Question q, Action changed)
+	{
+		const string none = "", own = "\u0001own";
+		var preset = Categories.Presets.FirstOrDefault(p => Categories.Key(p) == Categories.Key(q.Category));
+		var items = new List<(string, string)> { (none, Lang.T("No category")) };
+		items.AddRange(Categories.Presets.Select(p => (p, Lang.T(p))));
+		items.Add((own, Lang.T("Your own…")));
+		var custom = U.Input(preset == null ? q.Category : "", "e.g. 90s cartoons", t =>
+		{
+			q.Category = Categories.Clean(t);
+			changed();
+		}, Categories.MaxLength);
+		custom.Visible = q.Category != "" && preset == null;
+		var secret = new CheckBox { Text = Lang.T("Keep it secret"), ButtonPressed = q.CategorySecret, MouseDefaultCursorShape = Control.CursorShape.PointingHand, Disabled = q.Category == "" };
+		secret.TooltipText = Lang.T("Never shown to players, even when the lobby shows categories (when the category would give the answer away). It still counts for the stats.");
+		secret.Toggled += on =>
+		{
+			q.CategorySecret = on;
+			changed();
+		};
+		var select = U.Select(items.ToArray(), q.Category == "" ? none : preset ?? own, id =>
+		{
+			custom.Visible = id == own;
+			q.Category = id == own ? Categories.Clean(custom.Text) : id;
+			secret.Disabled = id == none;
+			if (id == none) q.CategorySecret = secret.ButtonPressed = false;
+			changed();
+			if (id == own) custom.GrabFocus();
+		});
+		return Tutorial.Mark(U.Field("Category (optional)", U.V(6, select, custom, secret),
+			"Players only see it if you turn on \"Show categories\" in the lobby: it makes questions easier. It always counts for the stats per category."), "editor.category");
 	}
 
 	/// <summary>Buzzer questions (sound, video, image reveal): buzz in, or everyone types an answer.</summary>
@@ -274,27 +333,30 @@ public static class RoundSettings
 			rebuild();
 		}));
 
+	/// <summary>Two short fields side by side (time limit and points …): the round settings fit without scrolling.</summary>
+	public static HBoxContainer Row(Control a, Control b) => U.H(12, a.Grow(), b.Grow());
+
 	public static PanelContainer Panel(params Control[] kids)
 	{
 		var all = new List<Control> { U.Bold("Round settings", 17) };
 		all.AddRange(kids);
-		return U.Panel(U.V(12, all.ToArray()), "Card2");
+		return Tutorial.Mark(U.Panel(U.V(12, all.ToArray()), "Card2"), "editor.round");
 	}
 
 	/// <summary>Round settings shared by estimation and map pin questions.</summary>
 	public static PanelContainer Closeness(Question q, Action changed, params Control[] extra)
 	{
-		var kids = new List<Control> { TimeLimit(q, changed) };
+		// (points per place, e.g. F1's, or the two classic ways that use the question's points; next to the time limit, so
+		// the settings fit without scrolling)
+		var points = Points(q, changed);
+		var kids = new List<Control> { Row(TimeLimit(q, changed), points) };
 		kids.AddRange(extra);
 		kids.Add(U.Field("If there is a tie", U.Select(TieRule.All, q.TieRule, id =>
 		{
 			q.TieRule = id;
 			changed();
 		})));
-		// (points per place, e.g. F1's, or the two classic ways that use the question's points)
-		var points = Points(q, changed);
 		kids.Add(ScoringField.Make(q, changed, points));
-		kids.Add(points);
 		kids.Add(Bonus(q, changed));
 		return Panel(kids.ToArray());
 	}

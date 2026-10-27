@@ -25,7 +25,10 @@ public static class QuestionType
 	public const string Steps = "steps";
 
 	/// <summary>Order the editor shows them in.</summary>
-	public static readonly string[] All = { MapPin, Estimation, Classic, Picture, Sound, Video, Image, Order, Write, Steps, Interactive };
+	/// <summary>The types to pick from. (Write, "Write the answer", is only read from older files and results: it's the
+	/// classic question's "Everyone types" since 0.10.3b, QuizJson turns it into that.)</summary>
+	/// <summary>The types to pick from (Image is a Picture question shown as a reveal: picked inside Picture).</summary>
+	public static readonly string[] All = { MapPin, Estimation, Classic, Picture, Sound, Video, Order, Steps, Interactive };
 
 	/// <summary>Help: what it does, then its variants and options (the "?" on the type cards).</summary>
 	public record Info(string Label, string Short, string Blurb, string Intro = "", string[]? Details = null);
@@ -36,7 +39,7 @@ public static class QuestionType
 			"Show a screenshot (or none), and everyone places a pin on a map. The closest pin wins.",
 			new[]
 			{
-				"Maps: built-in game maps with real distances (Skyrim, the seamless WoW Classic map and more), or any picture you upload.",
+				"Maps: built-in game maps with real distances (Skyrim, the seamless WoW Forever map and more), or any picture you upload.",
 				"Scoring: only the closest wins, or the top 3 score (3, 2 and 1 times the points).",
 				"Ties: all tied players score, or nobody does.",
 				"Players can click the screenshot to see it big.",
@@ -65,6 +68,7 @@ public static class QuestionType
 				"One picture: e.g. a Steam review, a meme or a chart. Players read it and buzz in.",
 				"Slideshow: add several pictures and flip through them with ◀ ▶ (or the arrow keys); every player's screen follows.",
 				"Answer it like a classic question: buzzer, everyone types, A B C D or multiple choice. A bonus works too.",
+				"Reveal: the picture starts zoomed right in or pixelated and gets clearer over time; players buzz in or type as soon as they know it.",
 			}),
 		[Sound] = new("Sound", "sound", "Play a song or sound effect. Players buzz in; shows how fast it was guessed.",
 			"Play a song or sound effect (MP3, OGG or WAV). It plays on the players' PCs too, once you press Start.",
@@ -82,7 +86,7 @@ public static class QuestionType
 				"Everyone types: everyone types the answer within the time limit.",
 				"Videos must be .ogv: the editor helps you turn an MP4 into one with AnyConverter.",
 			}),
-		[Image] = new("Image reveal", "image reveal", "A picture starts zoomed right in or pixelated and slowly gets clearer. Players buzz in; shows how fast it was guessed.",
+		[Image] = new("Picture · reveal", "picture reveal", "A picture starts zoomed right in or pixelated and slowly gets clearer. Players buzz in; shows how fast it was guessed.",
 			"A picture is hidden and slowly gets clearer, on everyone's screen.",
 			new[]
 			{
@@ -133,6 +137,21 @@ public static class ClassicMode
 	public const string Choice = "choice";
 	/// <summary>Like choice, but several answers can be right; players pick all they think are.</summary>
 	public const string Multi = "multi";
+}
+
+/// <summary>How a step by step question is played.</summary>
+public static class StepsMode
+{
+	/// <summary>Hints as cards, the hardest first, flipped one by one.</summary>
+	public const string Hints = "hints";
+	/// <summary>The question itself in parts: the rest stays blurred until the host reads on, and a buzz stops the reading.</summary>
+	public const string Sentence = "sentence";
+
+	public static readonly (string Id, string Label)[] All =
+	{
+		(Hints, "Hints, the hardest first"),
+		(Sentence, "One sentence in parts"),
+	};
 }
 
 /// <summary>How a put-in-order question is played.</summary>
@@ -270,6 +289,10 @@ public sealed class Question
 	/// <summary>Optional bonus the host can give at the reveal, e.g. "Also name the game" (0 = no bonus).</summary>
 	public int BonusPoints;
 	public string BonusText = "";
+	/// <summary>Optional category ("Geography", or the quiz maker's own): shown to players only if the lobby allows it.</summary>
+	public string Category = "";
+	/// <summary>Never show this question's category, even when the lobby shows categories (it would give it away).</summary>
+	public bool CategorySecret;
 	/// <summary>Classic buzzer, sound, video, image reveal: everyone types their answer instead of buzzing in.</summary>
 	public bool Typed;
 
@@ -335,12 +358,22 @@ public sealed class Question
 	// map pin
 	public string? MapId;
 	public NormPoint? Target;
+	/// <summary>
+	/// The game version the correct spot was last set or checked on (map pin): a built-in map changed by a later update
+	/// asks the host to check it again (<see cref="MapPresets.NeedsCheck"/>).
+	/// </summary>
+	public string? MapCheckedIn;
+	/// <summary>When it was made (Unix ms; 0 = before 0.12.0d5, unknown): the quiz overview can list questions in this order.</summary>
+	public long CreatedAt;
 	/// <summary>Players buzz first and only then place their pin.</summary>
 	public bool BuzzFirst;
 
 	// step by step: the hints, hardest first
 	public List<string> Hints = new() { "", "", "", "", "" };
 	public bool IsSteps => Type == QuestionType.Steps;
+	/// <summary>Step by step: hint cards, or the question as one sentence in parts (Hints are then the parts, in order).</summary>
+	public string StepsMode = Shared.StepsMode.Hints;
+	public bool IsSentence => IsSteps && StepsMode == Shared.StepsMode.Sentence;
 
 	// interactive
 	public string Judging = Shared.Judging.Vote;
@@ -437,8 +470,12 @@ public static class QuizRules
 	/// 6: picture questions (type "picture": slides, answered like classic).
 	/// 7: interactive questions (type "interactive": judging) and step by step (type "steps": hints).
 	/// 8: estimation and map pin can score by place (rankPoints, e.g. F1's 25 / 18 / 15 …).
+	/// 9: every question can have a category (category, categorySecret); step by step can be one sentence in parts
+	///    (stepsMode "sentence", its parts in hints).
+	/// 10: map pin questions remember the version their correct spot was checked on (mapCheckedIn).
+	/// 11: questions remember when they were made (createdAt), for sorting the quiz overview's list.
 	/// </summary>
-	public const int FormatVersion = 8;
+	public const int FormatVersion = 11;
 
 	public static readonly string[] ChoiceLetters = { "A", "B", "C", "D" };
 
@@ -491,6 +528,17 @@ public static class QuizRules
 			if (Distance(a, o) <= allowed) return true;
 		}
 		return false;
+	}
+
+	/// <summary>
+	/// How many letters a typed answer is off from the closest accepted one (case, accents and "the" don't count): 0 is
+	/// spelled perfectly. For the Spelling stat; null if there's nothing to compare with.
+	/// </summary>
+	public static int? Typos(string answer, string accepted)
+	{
+		var a = Normalize(answer);
+		var options = accepted.Split('/', ';', '\n').Select(Normalize).Where(o => o != "").ToList();
+		return a == "" || options.Count == 0 ? null : options.Min(o => Distance(a, o));
 	}
 
 	static string Normalize(string s)
@@ -572,7 +620,7 @@ public static class QuizRules
 		if (q.IsClassicLike)
 			return q.IsMulti ? $"{kind} · {Lang.T("several correct")} · {q.TimeLimitSec} s"
 				: q.IsChoice ? $"{kind} · A–D · {q.TimeLimitSec} s" : q.IsTyped ? $"{kind} · {Lang.T("everyone types")} · {q.TimeLimitSec} s" : $"{kind} · {Lang.T("buzzer")}";
-		if (q.IsSteps) return $"{kind} · {Lang.F("{0} hints", q.FilledHints.Count)}";
+		if (q.IsSteps) return $"{kind} · {(q.IsSentence ? Lang.F("{0} parts", q.FilledHints.Count) : Lang.F("{0} hints", q.FilledHints.Count))}";
 		if (q.IsInteractive) return $"{kind} · {Lang.T(q.Judging == Judging.Host ? "host picks" : "vote")} · {q.TimeLimitSec} s";
 		if (q.Type == QuestionType.Order)
 			return $"{kind} · {(q.IsTimeline ? Lang.T("timeline") + " · " : "")}{Lang.F("{0} items", q.Items.Count(i => !string.IsNullOrWhiteSpace(i)))} · {q.TimeLimitSec} s";
@@ -610,7 +658,8 @@ public static class QuizRules
 		if (q.IsSteps)
 		{
 			if (string.IsNullOrWhiteSpace(q.AnswerText)) issues.Add(Lang.T("The correct answer is missing."));
-			if (q.FilledHints.Count < QuestionLimits.HintsMin) issues.Add(Lang.F("Fill in at least {0} hints.", QuestionLimits.HintsMin));
+			if (q.FilledHints.Count < QuestionLimits.HintsMin)
+				issues.Add(q.IsSentence ? Lang.F("Split the question into at least {0} parts.", QuestionLimits.HintsMin) : Lang.F("Fill in at least {0} hints.", QuestionLimits.HintsMin));
 		}
 		if (q.Type == QuestionType.Image)
 		{
@@ -624,12 +673,19 @@ public static class QuizRules
 			if (q.Image == null) issues.Add(Lang.T("Upload a screenshot."));
 			if (q.MapId == null || maps.All(m => m.Id != q.MapId)) issues.Add(Lang.T("Pick a map."));
 			else if (q.Target == null) issues.Add(Lang.T("Click the map to set the correct spot."));
+			else if (MapPresets.NeedsCheck(maps.First(m => m.Id == q.MapId).PresetId, q.MapCheckedIn) is { } changed)
+				issues.Add(Lang.F("The map was changed in {0}: check the correct spot is still right.", changed.ChangedIn!));
 		}
 		if (q.HasBonus && string.IsNullOrWhiteSpace(q.BonusText)) issues.Add(Lang.T("Say what the bonus is for."));
 		return issues;
 	}
 
 	/// <summary>Problems that stop the whole quiz from being hosted.</summary>
+	/// <summary>Map pin questions whose built-in map an update changed since their correct spot was checked.</summary>
+	public static bool MapNeedsCheck(Question q, IReadOnlyList<MapAsset> maps) =>
+		q.Type == QuestionType.MapPin && q.Target != null && maps.FirstOrDefault(m => m.Id == q.MapId) is { } map
+		&& MapPresets.NeedsCheck(map.PresetId, q.MapCheckedIn) != null;
+
 	public static List<string> QuizIssues(Quiz quiz)
 	{
 		var issues = new List<string>();

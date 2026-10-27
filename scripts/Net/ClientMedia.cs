@@ -32,6 +32,8 @@ public sealed class ClientMedia : IDisposable
 	readonly Dictionary<string, Incoming> _incoming = new();
 	readonly Dictionary<string, Task<string?>> _unlocking = new();
 	readonly Dictionary<string, Resource?> _ready = new();
+	/// <summary>How much the host has said it will send (Guard.MaxSharedTotalBytes at most: a host can't fill the disk).</summary>
+	long _promised;
 
 	public ClientMedia()
 	{
@@ -57,9 +59,12 @@ public sealed class ClientMedia : IDisposable
 	public void Receive(byte[] msg)
 	{
 		if (!MediaChunk.TryDecode(msg, out var id, out var total, out var offset, out var data)) return;
-		if (id.Length == 0 || id.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || id.Contains("..")) return;
+		// (the id becomes a file name: only the plain ids the game makes)
+		if (!Guard.SafeId(id)) return;
 		if (!_incoming.TryGetValue(id, out var file))
 		{
+			if (total > Guard.MaxSharedFileBytes || _promised + total > Guard.MaxSharedTotalBytes || _incoming.Count >= 1000) return;
+			_promised += total;
 			file = new Incoming { File = new FileStream(Path.Combine(_dir, id + ".enc"), FileMode.Create, System.IO.FileAccess.ReadWrite), Total = total };
 			file.File.SetLength(total);
 			_incoming[id] = file;

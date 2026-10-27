@@ -53,7 +53,11 @@ public static class QuizStore
 				try
 				{
 					var quiz = QuizJson.Parse(File.ReadAllText(file), out _);
-					if (quiz != null && quiz.Id != "" && Path.GetFileName(file) == quiz.Id + Extension) Cache[quiz.Id] = quiz;
+					if (quiz != null && quiz.Id != "" && Path.GetFileName(file) == quiz.Id + Extension)
+					{
+						DateQuestions(quiz);
+						Cache[quiz.Id] = quiz;
+					}
 				}
 				catch (IOException e)
 				{
@@ -71,9 +75,20 @@ public static class QuizStore
 		return Cache.TryGetValue(id, out var q) ? q : null;
 	}
 
+	/// <summary>Questions made before 0.12.0d5 don't know when they were made. They get a made time from where they are
+	/// now (the quiz's own made time + their place, in ms: before every question made since), so "Order made" stays
+	/// the same after the play order changes (it followed the play order, so "Play in this order" seemed to undo it).</summary>
+	public static void DateQuestions(Quiz quiz)
+	{
+		var start = Math.Max(1, quiz.CreatedAt);
+		for (var i = 0; i < quiz.Questions.Count; i++)
+			if (quiz.Questions[i].CreatedAt <= 0) quiz.Questions[i].CreatedAt = start + i;
+	}
+
 	/// <summary>Saves a quiz. Throws UserError when the disk says no.</summary>
 	public static Quiz Save(Quiz quiz)
 	{
+		DateQuestions(quiz);
 		// Drop maps no question uses anymore, so saved and exported quizzes stay small.
 		var used = quiz.Questions.Where(q => q.Type == QuestionType.MapPin && q.MapId != null).Select(q => q.MapId).ToHashSet();
 		quiz.Maps = quiz.Maps.Where(m => used.Contains(m.Id)).ToList();
@@ -102,6 +117,7 @@ public static class QuizStore
 		Cache.Remove(id);
 		var path = PathFor(id);
 		if (File.Exists(path)) File.Delete(path);
+		NightSaves.Delete(id);
 	}
 
 	public static Quiz Create(string title = "New quiz")
@@ -155,16 +171,15 @@ public static class QuizStore
 		{
 			using var zip = System.IO.Compression.ZipFile.OpenRead(path);
 			var json = zip.GetEntry("quiz.json") ?? throw new UserError(QuizJson.NotAQuiz);
+			// (zips can unpack to far more than they are: only as much as a quiz and its files can be)
 			string text;
-			using (var r = new StreamReader(json.Open())) text = r.ReadToEnd();
+			using (var r = json.Open()) text = System.Text.Encoding.UTF8.GetString(Guard.ReadCapped(r, Guard.MaxQuizJsonBytes));
 			var quiz = QuizJson.Parse(text, out var error) ?? throw new UserError(error ?? QuizJson.NotAQuiz);
 			foreach (var q in quiz.Questions)
 			{
 				if (q.Media == null || zip.Entries.FirstOrDefault(e => e.FullName.StartsWith($"media/{q.Id}.")) is not { } file) continue;
 				using var s = file.Open();
-				using var bytes = new MemoryStream();
-				s.CopyTo(bytes);
-				q.Media.DataUrl = Server.DataUrl.Make(q.Media.Mime, bytes.ToArray());
+				q.Media.DataUrl = Server.DataUrl.Make(q.Media.Mime, Guard.ReadCapped(s, Guard.MaxSharedFileBytes));
 			}
 			return quiz;
 		}

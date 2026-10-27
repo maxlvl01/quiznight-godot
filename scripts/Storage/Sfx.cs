@@ -11,12 +11,15 @@ namespace QuizNight.Storage;
 
 public static class Sfx
 {
-	public record Sound(string Id, string Label, string Path);
+	/// <summary>A built-in sound; <paramref name="Db"/> evens out quiet recordings.</summary>
+	public record Sound(string Id, string Label, string Path, float Db = 0);
 
 	public static readonly Sound[] Buzzers =
 	{
 		new("soft-beep", "Soft beep", "res://assets/soundeffects/Soft Beep Buzzer.ogg"),
 		new("metal-pipe", "Metal pipe", "res://assets/soundeffects/metal pipe buzzer.ogg"),
+		// (the files are levelled to the same loudness, tools/normalise_audio.py: no boosts needed)
+		new("buzzer-3", "Buzzer 3", "res://assets/soundeffects/Buzzer 3.ogg"),
 	};
 
 	/// <summary>assets/soundeffects/Podium.mp3, .wav or .ogg — whichever is there (MP3 and WAV first).</summary>
@@ -26,7 +29,7 @@ public static class Sfx
 	/// <summary>What plays when the final results show. The host picks one for the room; a player can hear their own.</summary>
 	public static readonly Sound[] Podiums =
 	{
-		new("f1-podium", "F1 Podium", "res://assets/soundeffects/Podium2.wav"),
+		new("f1-podium", "F1 Podium", "res://assets/soundeffects/Podium2.ogg"),
 		new("so-back", "#SoBack", PodiumJingle),
 	};
 
@@ -111,7 +114,8 @@ public static class Sfx
 	public static void PlayBuzzer(string id)
 	{
 		if (id == Off || Load(Valid(id)) is not { } stream) return;
-		Play(stream);
+		// (a quiet recording plays louder: its Db)
+		Play(ref _player, Prefs.SfxBus, stream, Buzzers.FirstOrDefault(b => b.Id == Valid(id))?.Db ?? 0);
 	}
 
 	/// <summary>
@@ -121,11 +125,20 @@ public static class Sfx
 	public static void PlayRoomBuzzer(string hostChoice) =>
 		PlayBuzzer(hostChoice == Custom ? Settings.BuzzerSound : hostChoice);
 
+	static AudioStreamPlayer? _answerPlayer;
+
+	/// <summary>A right or wrong answer (Ui.AnswerSounds decides when), on the sound effects bus beside the buzzer.</summary>
+	public static void PlayAnswer(bool right)
+	{
+		var path = $"res://assets/soundeffects/{(right ? "Correct Answer" : "Wrong Answer")}.ogg";
+		if (ResourceLoader.Exists(path) && GD.Load<AudioStream>(path) is { } stream) Play(ref _answerPlayer, Prefs.SfxBus, stream);
+	}
+
 	/// <summary>Plays a podium sound (on the game music bus).</summary>
 	public static void PlayPodium(string id)
 	{
 		if (Podiums.FirstOrDefault(p => p.Id == ValidPodium(id)) is { } podium && GD.Load<AudioStream>(podium.Path) is { } stream)
-			Play(ref _musicPlayer, Prefs.GameMusicBus, stream);
+			Play(ref _musicPlayer, Prefs.GameMusicBus, stream, podium.Db);
 	}
 
 	/// <summary>The final results: the host's choice for the room, unless this player picked their own in Settings.</summary>
@@ -160,9 +173,8 @@ public static class Sfx
 		if (Previewing) StopAll();
 	}
 
-	static void Play(AudioStream stream) => Play(ref _player, Prefs.SfxBus, stream);
 
-	static void Play(ref AudioStreamPlayer? player, string bus, AudioStream stream)
+	static void Play(ref AudioStreamPlayer? player, string bus, AudioStream stream, float db = 0)
 	{
 		if (player == null || !GodotObject.IsInstanceValid(player))
 		{
@@ -170,6 +182,7 @@ public static class Sfx
 			App.I.AddChild(player);
 		}
 		player.Stream = stream;
+		player.VolumeDb = db;
 		player.Play();
 	}
 }

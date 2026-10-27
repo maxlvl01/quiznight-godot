@@ -11,11 +11,15 @@ namespace QuizNight.Ui.Screens;
 public partial class QuestionEditorScreen : Control
 {
 	readonly Quiz _quiz;
-	readonly Question _draft;
-	readonly List<MapAsset> _maps;
-	readonly bool _isNew;
+	Question _draft;
+	List<MapAsset> _maps;
+	/// <summary>Ctrl+Z / Ctrl+Y: every change to the draft, back and forth (EditHistory).</summary>
+	readonly EditHistory<QuestionSnapshot> _history;
 	bool _dirty;
 	readonly Label _issues = U.Text("", 13, C.Muted, null, true);
+	/// <summary>"✓ Saved" next to Save question after Ctrl+S, fading out.</summary>
+	readonly Label _saved = U.Text("", 14, C.Teal, Fonts.Bold);
+	Tween? _savedFade;
 	readonly VBoxContainer _form = U.V(16);
 	ImageField? _primaryImage;
 	MediaField? _mediaField;
@@ -27,16 +31,17 @@ public partial class QuestionEditorScreen : Control
 		_quiz = quiz;
 		_draft = question.Clone();
 		_maps = quiz.Maps.Select(m => m.Clone()).ToList();
-		_isNew = isNew;
 		SetAnchorsPreset(LayoutPreset.FullRect);
 
-		var title = QuestionType.Infos[_draft.Type].Label + (_draft.Type is QuestionType.MapPin or QuestionType.Estimation or QuestionType.Sound or QuestionType.Video ? " question" : "");
+		// (an image reveal is a picture question shown as a reveal: same title)
+		var title = QuestionType.Infos[_draft.Type == QuestionType.Image ? QuestionType.Picture : _draft.Type].Label + (_draft.Type is QuestionType.MapPin or QuestionType.Estimation or QuestionType.Sound or QuestionType.Video ? " question" : "");
 		var bar = U.Panel(U.H(12,
 			U.Link("← Back to quiz", Back, 14),
 			U.Heading(title, 22, false).Grow().With(l => l.HorizontalAlignment = HorizontalAlignment.Center),
 			new UpdateBadge(),
-			U.Btn("Save question", "AccentButton", Save, 15)), "Bar");
-		var body = U.V(12, _issues, _form);
+			_saved.With(l => l.Modulate = Colors.Transparent),
+			Tutorial.Mark(U.Btn("Save question", "AccentButton", Save, 15).With(b => b.TooltipText = "Saves and goes back to the quiz. Ctrl+S saves and stays here."), "editor.save")), "Bar");
+		var body = U.V(12, Tutorial.Mark(_issues, "editor.issues"), _form);
 		var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.GrowV();
 		scroll.AddChild(U.Pad(body.Grow().GrowV(), 28, 16, 28, 28).Grow().GrowV());
 		_form.SizeFlagsVertical = SizeFlags.ExpandFill;
@@ -44,10 +49,64 @@ public partial class QuestionEditorScreen : Control
 		layout.SetAnchorsPreset(LayoutPreset.FullRect);
 		AddChild(layout);
 		BuildForm();
+		_history = new EditHistory<QuestionSnapshot>(() => QuestionSnapshot.Take(_draft, _maps), snapshot =>
+		{
+			(_draft, _maps) = snapshot.Restore();
+			_dirty = true;
+			BuildForm();
+		});
+	}
+
+	/// <summary>The tour of the editor, the first time it opens.</summary>
+	public override void _Ready() => Tutorial.Offer("editor", this);
+
+	/// <summary>The draft as it is now (dev checks).</summary>
+	public Question Draft => _draft;
+
+	/// <summary>Ctrl+Z: takes back the last change.</summary>
+	public bool Undo() => _history.Undo();
+
+	/// <summary>Ctrl+Y (or Ctrl+Shift+Z): does it again.</summary>
+	public bool Redo() => _history.Redo();
+
+	/// <summary>The correct spot was set or moved: it's checked on the map as it is now.</summary>
+	Action? SpotChecked;
+
+	/// <summary>
+	/// A built-in map an update changed since this question's spot was checked: what changed, and a tick that the spot
+	/// is still right (setting or moving the spot ticks it too). Until then the quiz isn't ready to play.
+	/// </summary>
+	void AddMapCheck(MapAsset map)
+	{
+		SpotChecked = () => _draft.MapCheckedIn = App.Version;
+		var before = _draft.MapCheckedIn;
+		if (MapPresets.NeedsCheck(map.PresetId, before) is not { } changed) return;
+		var box = new CheckBox
+		{
+			Text = Lang.T("Checked: the correct spot is right on the new map"), ButtonPressed = false,
+			MouseDefaultCursorShape = CursorShape.PointingHand,
+		};
+		box.Toggled += on =>
+		{
+			_draft.MapCheckedIn = on ? App.Version : before;
+			Changed();
+		};
+		SpotChecked = () =>
+		{
+			_draft.MapCheckedIn = App.Version;
+			box.SetPressedNoSignal(true);
+		};
+		var note = changed.ChangeNote is { } what ? Lang.T(what) : "";
+		_mapCol.AddChild(U.Card(6,
+			U.Bold(Lang.F("⚠ This map was changed in {0}.", changed.ChangedIn!), 15, C.Orange, wrap: true),
+			U.Muted(Lang.T("Check the correct spot is still in the right place (move it if not), then tick the box. Until then the quiz can't be played.") + (note != "" ? " " + note : ""), 13),
+			box));
 	}
 
 	void Changed(bool rebuild = false)
 	{
+		// (typing changes without rebuilding: those merge into one step while it goes on)
+		_history?.Record(mergeable: !rebuild);
 		_dirty = true;
 		if (rebuild) BuildForm();
 		else UpdateIssues();
@@ -68,6 +127,9 @@ public partial class QuestionEditorScreen : Control
 		}
 	}
 
+	/// <summary>The question's type as the editor calls it (for bug reports: "Editor › Map pin").</summary>
+	public string TypeLabel => QuestionKinds.TypeLabel(_draft.Type);
+
 	void BuildForm()
 	{
 		_form.Clear();
@@ -80,7 +142,6 @@ public partial class QuestionEditorScreen : Control
 			QuestionType.MapPin => MapPinForm(),
 			QuestionType.Image => ImageRevealForm(),
 			QuestionType.Order => OrderForm(),
-			QuestionType.Write => WriteForm(),
 			QuestionType.Interactive => InteractiveForm(),
 			QuestionType.Steps => StepsForm(),
 			_ => MediaForm(),
@@ -132,7 +193,9 @@ public partial class QuestionEditorScreen : Control
 	{
 		var choice = _draft.IsChoice;
 		var picture = _draft.Type == QuestionType.Picture;
-		var left = U.V(14, PromptArea(picture ? "e.g. Which game is this Steam review about?" : "e.g. How many hours did we play last month?"),
+		var left = U.V(14, PromptArea(picture ? "e.g. Which game is this Steam review about?" : "e.g. How many hours did we play last month?"));
+		if (picture) left.AddChild(PictureKind());
+		left.AddChild(
 			U.Segmented(new[]
 				{
 					(ClassicMode.Buzzer, "Buzzer — first to buzz"),
@@ -171,8 +234,9 @@ public partial class QuestionEditorScreen : Control
 		left.AddChild(picture ? SlidesField() : U.Field("Image (optional)", OptionalImage()));
 
 		var settings = new List<Control>();
-		if (choice || _draft.IsTyped) settings.Add(RoundSettings.TimeLimit(_draft, () => Changed()));
-		settings.Add(RoundSettings.Points(_draft, () => Changed()));
+		settings.Add(choice || _draft.IsTyped
+			? RoundSettings.Row(RoundSettings.TimeLimit(_draft, () => Changed()), RoundSettings.Points(_draft, () => Changed()))
+			: RoundSettings.Points(_draft, () => Changed()));
 		if (choice)
 		{
 			// (off by default: a wrong pick loses the question's points)
@@ -182,7 +246,8 @@ public partial class QuestionEditorScreen : Control
 				_draft.WrongCosts = on;
 				Changed();
 			};
-			settings.Add(U.V(2, costs, U.Muted("A wrong answer loses as many points as a right one gets. Not answering costs nothing.", 12)));
+			// (its explanation as a tooltip, so the round settings fit without scrolling)
+			settings.Add(costs.Tip("A wrong answer loses as many points as a right one gets. Not answering costs nothing."));
 		}
 		settings.Add(RoundSettings.Bonus(_draft, () => Changed()));
 		settings.Add(U.Muted(_draft.IsTyped ? TypedHelp : _draft.IsMulti
@@ -365,19 +430,20 @@ public partial class QuestionEditorScreen : Control
 			{
 				_draft.AnswerText = t;
 				Changed();
-			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold))));
-		var settings = RoundSettings.Panel(
-			RoundSettings.AnswerMode(_draft, () => Changed(true)),
-			U.Field("Start playing at (seconds)", new NumberField(_draft.StartSec, v =>
-			{
-				_draft.StartSec = Math.Max(0, v ?? 0);
-				Changed();
-			}, 0, _draft.Media?.DurationSec), "Skip a silent intro or a title card that gives it away."),
-			_draft.Typed ? U.H(12, RoundSettings.TimeLimit(_draft, () => Changed()).Grow(), RoundSettings.Points(_draft, () => Changed()).Grow()) : RoundSettings.Points(_draft, () => Changed()),
-			RoundSettings.Bonus(_draft, () => Changed()),
+			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold))),
+			// (the explanation on the left, where there's room: in the round settings it made the page scroll)
 			U.Muted(_draft.Typed ? TypedHelp : isSound
 				? "The sound plays on your screen. Players buzz in on their own PC; playback pauses when someone buzzes. After a wrong answer it stays paused until you resume it (or reveal the answer if nobody knows it). Once it's guessed, everyone sees how many seconds of listening it took. Answer time per buzz is set in the lobby."
 				: "The video plays on your screen and on the players' screens too (blurred until you start it). Players buzz in on their own PC; playback pauses when someone buzzes. After a wrong answer it stays paused until you resume it (or reveal the answer if nobody knows it). Once it's guessed, everyone sees how many seconds of watching it took. Answer time per buzz is set in the lobby.", 13));
+		var settings = RoundSettings.Panel(
+			RoundSettings.AnswerMode(_draft, () => Changed(true)),
+			RoundSettings.Row(U.Field("Start playing at (seconds)", new NumberField(_draft.StartSec, v =>
+			{
+				_draft.StartSec = Math.Max(0, v ?? 0);
+				Changed();
+			}, 0, _draft.Media?.DurationSec).Tip("Skip a silent intro or a title card that gives it away.")), RoundSettings.Points(_draft, () => Changed())),
+			_draft.Typed ? RoundSettings.TimeLimit(_draft, () => Changed()) : U.Gap(0),
+			RoundSettings.Bonus(_draft, () => Changed()));
 		return Columns((left, 1.6f), (settings, 1));
 	}
 
@@ -461,7 +527,7 @@ public partial class QuestionEditorScreen : Control
 				Changed();
 			};
 			settings = RoundSettings.Panel(
-				U.Field("Time per turn (seconds)", new NumberField(_draft.TimeLimitSec, v =>
+				RoundSettings.Row(U.Field("Time per turn (seconds)", new NumberField(_draft.TimeLimitSec, v =>
 				{
 					_draft.TimeLimitSec = (int)Math.Clamp(Math.Round(v ?? QuestionLimits.TimeLimitMin), QuestionLimits.TimeLimitMin, QuestionLimits.TimeLimitMax);
 					Changed();
@@ -470,8 +536,8 @@ public partial class QuestionEditorScreen : Control
 				{
 					_draft.Points = (int)Math.Clamp(Math.Round(v ?? QuestionLimits.PointsMin), QuestionLimits.PointsMin, QuestionLimits.PointsMax);
 					Changed();
-				}, QuestionLimits.PointsMin, QuestionLimits.PointsMax, true)),
-				U.V(4, keepGoing, U.Muted("Off: the turn passes on after every item.", 12)),
+				}, QuestionLimits.PointsMin, QuestionLimits.PointsMax, true))),
+				keepGoing.Tip("Off: the turn passes on after every item."),
 				RoundSettings.Bonus(_draft, () => Changed()),
 				U.Muted("Players take turns, fewest points first. On your turn you pick where the next item goes on the timeline. Right: it's placed with its label, you score and carry on. Wrong: the next player tries the same item. If nobody gets it, it's placed for free and the next player starts the next item.", 13));
 		}
@@ -484,13 +550,13 @@ public partial class QuestionEditorScreen : Control
 				Changed();
 			};
 			settings = RoundSettings.Panel(
-				RoundSettings.TimeLimit(_draft, () => Changed()),
+				RoundSettings.Row(RoundSettings.TimeLimit(_draft, () => Changed()),
 				U.Field("Points per item in the right place", new NumberField(_draft.Points, v =>
 				{
 					_draft.Points = (int)Math.Clamp(Math.Round(v ?? QuestionLimits.PointsMin), QuestionLimits.PointsMin, QuestionLimits.PointsMax);
 					Changed();
-				}, QuestionLimits.PointsMin, QuestionLimits.PointsMax, true)),
-				U.V(2, costs, U.Muted("Off by default. On: each item in a wrong place takes the same points off again.", 12)),
+				}, QuestionLimits.PointsMin, QuestionLimits.PointsMax, true))),
+				costs.Tip("Off by default. On: each item in a wrong place takes the same points off again."),
 				RoundSettings.Bonus(_draft, () => Changed()),
 				U.Muted("Everyone puts the items in order on their own screen. Every item in its right place gets the points, so 3 of 4 right is still worth something; the reveal shows how many each player had right.", 13));
 		}
@@ -502,28 +568,45 @@ public partial class QuestionEditorScreen : Control
 	Control StepsForm()
 	{
 		while (_draft.Hints.Count < QuestionLimits.HintsMax) _draft.Hints.Add("");
+		var sentence = _draft.IsSentence;
 		var hints = U.V(8);
+		string[] sentenceHints = { "e.g. This city, founded in 1237,", "was split by a wall from 1961 to 1989", "and is Germany's capital today.", "", "" };
 		for (var i = 0; i < QuestionLimits.HintsMax; i++)
 		{
 			var n = i;
 			hints.AddChild(GameParts.Row(10, U.Bold($"{i + 1}.", 16).MinSize(24, 0),
-				U.Input(_draft.Hints[i], i == 0 ? "The hardest hint, e.g. It ended in Leipzig." : i == QuestionLimits.HintsMax - 1 ? "The easiest one (optional)" : "", t =>
+				U.Input(_draft.Hints[i], sentence ? sentenceHints[i] : i == 0 ? "The hardest hint, e.g. It ended in Leipzig." : i == QuestionLimits.HintsMax - 1 ? "The easiest one (optional)" : "", t =>
 				{
 					_draft.Hints[n] = t;
 					Changed();
 				}, QuestionLimits.HintMaxLength).Grow()));
 		}
-		var left = U.V(14, PromptLine(),
+		var mode = U.Field("How it's played", U.Segmented(StepsMode.All, _draft.StepsMode, id =>
+		{
+			_draft.StepsMode = id;
+			Changed(true);
+		}));
+		var left = U.V(14, mode, sentence ? U.Field("Heading (optional)", U.Input(_draft.Prompt, "e.g. Which city are we looking for?", t =>
+			{
+				_draft.Prompt = t;
+				Changed();
+			}, QuestionLimits.PromptMaxLength)) : PromptLine(),
 			U.Field("Answer", U.Input(_draft.AnswerText, "e.g. The Battle of the Nations 1813", t =>
 			{
 				_draft.AnswerText = t;
 				Changed();
 			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold)), "Only you see it, to judge what players say."),
-			U.Field("Hints, the hardest first", hints, Lang.F("{0}–{1} hints. You flip them over one by one.", QuestionLimits.HintsMin, QuestionLimits.HintsMax)));
+			sentence
+				? U.Field("The question, in parts", hints, Lang.F("{0}–{1} parts, in reading order. Players see the first; the rest stays blurred until you read on.", QuestionLimits.HintsMin, QuestionLimits.HintsMax))
+				: U.Field("Hints, the hardest first", hints, Lang.F("{0}–{1} hints. You flip them over one by one.", QuestionLimits.HintsMin, QuestionLimits.HintsMax)));
 		var settings = RoundSettings.Panel(
 			U.Muted("Players buzz in when they know it and say the answer out loud; you judge Correct or Wrong.", 13),
-			U.Muted("Points: right on the first hint gets as many points as there are hints (5 with five), each hint after one less. Double points doubles them.", 13),
-			U.Muted("Every new hint gives everyone another go, also who was wrong before.", 13));
+			U.Muted(sentence
+				? "Points: a right buzz after the first part gets as many points as there are parts (5 with five), each part after one less. Double points doubles them, a Fast Pass answers first."
+				: "Points: right on the first hint gets as many points as there are hints (5 with five), each hint after one less. Double points doubles them.", 13),
+			U.Muted(sentence
+				? "A buzz stops the reading: you can only read on once the answer is judged. Every new part gives everyone another go, also who was wrong before."
+				: "Every new hint gives everyone another go, also who was wrong before.", 13));
 		return Columns((left, 1.6f), (settings, 1));
 	}
 
@@ -557,26 +640,39 @@ public partial class QuestionEditorScreen : Control
 		return Columns((left, 1.6f), (settings, 1));
 	}
 
-	// ---------- write the answer ----------
-
-	Control WriteForm()
-	{
-		var left = U.V(14, PromptArea("e.g. What's the capital of Australia?"),
-			U.Field("Accepted answers", U.Input(_draft.AnswerText, "e.g. Canberra", t =>
-			{
-				_draft.AnswerText = t;
-				Changed();
-			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold)), "Separate several with / (e.g. \"Mount Everest / Everest\"). Case, accents and small typos don't matter."),
-			U.Field("Image (optional)", OptionalImage()));
-		var settings = RoundSettings.Panel(
-			RoundSettings.TimeLimit(_draft, () => Changed()),
-			RoundSettings.Points(_draft, () => Changed()),
-			RoundSettings.Bonus(_draft, () => Changed()),
-			U.Muted("Everyone types their answer on their own screen. Answers that match are ticked for you; at the reveal you can tick or untick any answer, and the points follow.", 13));
-		return Columns((left, 1.6f), (settings, 1));
-	}
-
 	// ---------- image reveal ----------
+
+	/// <summary>
+	/// Picture questions: a still picture or slideshow, or a reveal that gets clearer over time (the old "Image reveal"
+	/// type: inside it's still its own type, so quizzes stay as they were and older games can play them).
+	/// </summary>
+	Control PictureKind() => U.Segmented(new[]
+		{
+			("still", "Picture or slideshow"),
+			("reveal", "Reveal — it gets clearer over time"),
+		},
+		_draft.Type == QuestionType.Image ? "reveal" : "still", kind =>
+		{
+			if (kind == "reveal" && _draft.Type == QuestionType.Picture)
+			{
+				_draft.Type = QuestionType.Image;
+				_draft.Image ??= _draft.Slides.FirstOrDefault();
+				// (a reveal is buzzed or typed: A B C D answers become the right one to type)
+				if (_draft.IsChoice)
+				{
+					_draft.AnswerText = _draft.IsMulti ? string.Join(" / ", _draft.CorrectChoices.Select(i => _draft.Choices[i])) : _draft.Choices[_draft.CorrectChoice];
+					_draft.Mode = ClassicMode.Buzzer;
+					_draft.Typed = true;
+				}
+			}
+			else if (kind == "still" && _draft.Type == QuestionType.Image)
+			{
+				_draft.Type = QuestionType.Picture;
+				if (_draft.Slides.Count == 0 && _draft.Image != null) _draft.Slides = new() { _draft.Image };
+			}
+			else return;
+			Changed(true);
+		});
 
 	Control ImageRevealForm()
 	{
@@ -585,18 +681,8 @@ public partial class QuestionEditorScreen : Control
 			_draft.Image = img;
 			Changed(true);
 		}, Images.ScreenshotMax, "The picture players have to recognise.", false);
-		var left = U.V(14, PromptLine(),
-			U.Field("Picture", _primaryImage),
-			U.Field("Correct answer (only you see this)", U.Input(_draft.AnswerText, "e.g. The Eiffel Tower", t =>
-			{
-				_draft.AnswerText = t;
-				Changed();
-			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold))),
-			// (here, not in the settings: the picture on the left gives up the room)
-			U.H(12, RoundSettings.AnswerMode(_draft, () => Changed(true)).Grow(),
-				_draft.Typed ? RoundSettings.TimeLimit(_draft, () => Changed()).Grow() : U.Gap(0)),
-			RoundSettings.Bonus(_draft, () => Changed()));
-		var right = U.V(14);
+		// (the picture and its preview side by side, so the whole editor fits without scrolling)
+		var pictures = U.H(14, U.Field("Picture", _primaryImage).Grow());
 		if (_draft.Image != null)
 		{
 			var zoom = _draft.RevealStyle == RevealStyle.Zoom;
@@ -608,10 +694,18 @@ public partial class QuestionEditorScreen : Control
 					_draft.Focus = p;
 					Changed(true);
 				};
-			right.AddChild(U.Field("Preview", preview, zoom
+			pictures.AddChild(U.Field("Preview", preview, zoom
 				? "Click the picture to choose the spot it starts zoomed in on (the yellow ring)."
-				: "This is what your screen shows; it gets sharper until the time is up."));
+				: "This is what your screen shows; it gets sharper until the time is up.").Grow());
 		}
+		var left = U.V(14, PromptLine(), PictureKind(), pictures,
+			U.Field("Correct answer (only you see this)", U.Input(_draft.AnswerText, "e.g. The Eiffel Tower", t =>
+			{
+				_draft.AnswerText = t;
+				Changed();
+			}).With(e => e.AddThemeFontOverride("font", Fonts.Bold))),
+			U.H(12, RoundSettings.AnswerMode(_draft, () => Changed(true)).Grow(),
+				_draft.Typed ? RoundSettings.TimeLimit(_draft, () => Changed()).Grow() : U.Gap(0)));
 
 		var settings = RoundSettings.Panel(
 			U.Field("How it's hidden", U.Segmented(RevealStyle.All, _draft.RevealStyle, style =>
@@ -619,17 +713,16 @@ public partial class QuestionEditorScreen : Control
 				_draft.RevealStyle = style;
 				Changed(true);
 			})),
-			// (side by side, so the preview and the settings fit next to the picture)
 			U.H(12,
 				U.Field("Seconds until it's fully clear", new NumberField(_draft.RevealSec, v =>
 				{
 					_draft.RevealSec = (int)Math.Clamp(v ?? QuestionLimits.RevealSecDefault, QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax);
 					Changed();
-				}, QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax, true), Lang.F("{0}–{1} seconds.", QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax)).Grow(1.4f),
+				}, QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax, true).Tip(Lang.F("{0}–{1} seconds.", QuestionLimits.RevealSecMin, QuestionLimits.RevealSecMax))).Grow(1.4f),
 				RoundSettings.Points(_draft, () => Changed()).Grow()),
+			RoundSettings.Bonus(_draft, () => Changed()),
 			_draft.Typed ? U.Muted(TypedHelp, 13) : U.Muted("The picture is shown on your screen only and gets clearer over time. Players buzz in on their own PC; it pauses while someone answers and you mark it Correct or Wrong. Once it's guessed, everyone sees the whole picture and how many seconds it took. Answer time per buzz is set in the lobby.", 13));
-		right.AddChild(settings);
-		return Columns((left, 1.6f), (right, 1));
+		return Columns((left, 1.6f), (settings, 1));
 	}
 
 	// ---------- map pin ----------
@@ -647,17 +740,17 @@ public partial class QuestionEditorScreen : Control
 			_draft.Image = img;
 			Changed();
 		}, Images.ScreenshotMax, "The screenshot players have to locate.", false);
-		var left = U.V(14, U.Bold("1 · Screenshot", 16), _primaryImage, PromptLine());
-		_mapCol = U.V(10);
-		BuildMapColumn();
-		var check = new CheckBox { Text = "Players must buzz in first", ButtonPressed = _draft.BuzzFirst };
+		var check = new CheckBox { Text = "Players must buzz in first", ButtonPressed = _draft.BuzzFirst, TooltipText = Lang.T("Not used in the game yet. Answer time per buzz is a game rule, set in the lobby.") };
 		check.Toggled += on =>
 		{
 			_draft.BuzzFirst = on;
 			Changed();
 		};
-		var right = RoundSettings.Closeness(_draft, () => Changed(), U.V(4, check,
-			U.Muted("Not used in the game yet. Answer time per buzz is a game rule, set in the lobby.", 12)));
+		// (the check box under the screenshot, which shrinks to make room: in the narrow round settings it made the page scroll)
+		var left = U.V(14, U.Bold("1 · Screenshot", 16), _primaryImage, PromptLine(), check);
+		_mapCol = U.V(10);
+		BuildMapColumn();
+		var right = RoundSettings.Closeness(_draft, () => Changed());
 		return Columns((left, 1), (_mapCol, 1.5f), (right, 0.8f));
 	}
 
@@ -711,11 +804,13 @@ public partial class QuestionEditorScreen : Control
 			_mapCol.AddChild(new WowAtlasView(_draft.Target, p =>
 			{
 				_draft.Target = p;
+				SpotChecked?.Invoke();
 				Changed();
 				UpdateHint(true);
 			}, null, U.Flexible));
 			UpdateHint(true);
 			_mapCol.AddChild(hint);
+			AddMapCheck(map);
 		}
 		else
 		{
@@ -724,6 +819,7 @@ public partial class QuestionEditorScreen : Control
 			view.Canvas.OnPick = p =>
 			{
 				_draft.Target = p;
+				SpotChecked?.Invoke();
 				view.Canvas.Target = p;
 				view.Canvas.QueueRedraw();
 				Changed();
@@ -732,6 +828,7 @@ public partial class QuestionEditorScreen : Control
 			_mapCol.AddChild(view);
 			UpdateHint(false);
 			_mapCol.AddChild(hint);
+			AddMapCheck(map);
 			var scale = U.Muted("", 13);
 			void UpdateScale() => scale.Text = (map.WidthKm is > 0
 				? "Players see how far off they were in km/m."
@@ -813,12 +910,24 @@ public partial class QuestionEditorScreen : Control
 	static Control MapCard(Texture2D? picture, string name, string detail, bool chosen, bool isNew, Action pick)
 	{
 		var button = new Button { MouseDefaultCursorShape = CursorShape.PointingHand, SizeFlagsHorizontal = SizeFlags.ExpandFill, TooltipText = name };
-		foreach (var state in new[] { "normal", "hover", "pressed", "focus" })
-			button.AddThemeStyleboxOverride(state, UiTheme.Box(state == "hover" ? C.Panel2.Lightened(0.08f) : C.Panel2, 10, chosen ? C.Blue : state == "hover" ? C.Blue.Darkened(0.3f) : C.Border, chosen ? 2 : 1, 6, 6));
+		// (a key like every button, KeyBox: the chosen map stays pushed in, tinted blue)
+		var face = chosen ? C.Panel2.Lerp(C.Blue, 0.3f) : C.Panel2;
+		button.AddThemeStyleboxOverride("normal", new KeyBox(face, 14, 6, 6, 3, 6, chosen));
+		button.AddThemeStyleboxOverride("hover", new KeyBox(face.Lightened(0.1f), 14, 6, 6, 3, 6, chosen));
+		button.AddThemeStyleboxOverride("pressed", new KeyBox(face.Darkened(0.05f), 14, 6, 6, 3, 6, true));
+		button.AddThemeStyleboxOverride("hover_pressed", new KeyBox(face, 14, 6, 6, 3, 6, true));
+		button.AddThemeStyleboxOverride("focus", new StyleBoxEmpty());
 		button.Pressed += pick;
-		var image = picture != null
-			? new TextureRect { Texture = picture, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, ClipContents = true }
-			: (Control)U.Panel(U.Text("+", 30, C.Muted, Fonts.Bold, false, HorizontalAlignment.Center), "Inset");
+		Control image;
+		if (picture != null)
+		{
+			// (rounded like the "+" tile: the picture is clipped to a rounded panel)
+			var frame = new PanelContainer { ClipChildren = ClipChildrenMode.Only, MouseFilter = MouseFilterEnum.Ignore };
+			frame.AddThemeStyleboxOverride("panel", UiTheme.Box(Colors.White, 10, null, 0, 0, 0));
+			frame.AddChild(new TextureRect { Texture = picture, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered, TextureFilter = TextureFilterEnum.LinearWithMipmaps, ClipContents = true });
+			image = frame;
+		}
+		else image = U.Panel(U.Text("+", 30, C.Muted, Fonts.Bold, false, HorizontalAlignment.Center), "Inset");
 		image.CustomMinimumSize = new Vector2(0, 72);
 		if (isNew)
 		{
@@ -829,17 +938,23 @@ public partial class QuestionEditorScreen : Control
 			pill.GrowHorizontal = GrowDirection.Begin;
 			image.AddChild(pill);
 		}
+		// (long names wrap onto a second line instead of being cut off)
 		var label = U.Bold(name, 12).Raw();
+		label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+		label.MaxLinesVisible = 2;
 		label.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
 		var content = U.V(3, image, label, U.Muted(detail, 11, false));
 		content.MouseFilter = MouseFilterEnum.Ignore;
 		foreach (var c in content.GetChildren().OfType<Control>()) c.MouseFilter = MouseFilterEnum.Ignore;
 		var pad = new MarginContainer { MouseFilter = MouseFilterEnum.Ignore };
-		foreach (var side in new[] { "left", "right", "top", "bottom" }) pad.AddThemeConstantOverride($"margin_{side}", 6);
+		// (the key's side is its bottom 6 px: the content sits on the face, and moves down with it when chosen)
+		foreach (var side in new[] { "left", "right", "top", "bottom" }) pad.AddThemeConstantOverride($"margin_{side}", 8);
+		pad.AddThemeConstantOverride("margin_top", chosen ? 12 : 8);
+		pad.AddThemeConstantOverride("margin_bottom", chosen ? 10 : 14);
 		pad.SetAnchorsPreset(LayoutPreset.FullRect);
 		pad.AddChild(content);
 		button.AddChild(pad);
-		button.CustomMinimumSize = new Vector2(0, 118);
+		button.CustomMinimumSize = new Vector2(0, 150);
 		return button;
 	}
 
@@ -920,16 +1035,36 @@ public partial class QuestionEditorScreen : Control
 		Dialogs.Confirm(this, "Discard your changes to this question?", "Discard", () => App.I.GoQuiz(_quiz.Id));
 	}
 
+	/// <summary>Ctrl+S: saves and stays on the question ("Saved" flashes in the top right), so editing goes on.</summary>
+	public bool SaveKey()
+	{
+		if (Store())
+		{
+			_saved.Text = Lang.T("✓ Saved");
+			_saved.Modulate = Colors.White;
+			_savedFade?.Kill();
+			_savedFade = CreateTween();
+			_savedFade.TweenInterval(1.2);
+			_savedFade.TweenProperty(_saved, "modulate:a", 0f, 0.6);
+		}
+		return true;
+	}
+
+	/// <summary>"Save question": saves and goes back to the quiz.</summary>
 	void Save()
 	{
-		if (_isNew && _quiz.Questions.All(q => q.Id != _draft.Id)) _quiz.Questions.Add(_draft);
-		else
-		{
-			var i = _quiz.Questions.FindIndex(q => q.Id == _draft.Id);
-			if (i >= 0) _quiz.Questions[i] = _draft;
-			else _quiz.Questions.Add(_draft);
-		}
-		_quiz.Maps = _maps;
+		if (Store()) App.I.GoQuiz(_quiz.Id);
+	}
+
+	/// <summary>Writes the draft into the quiz and saves the file. The quiz gets copies, so later changes stay in the draft
+	/// until the next save (backing out still discards them).</summary>
+	bool Store()
+	{
+		var saved = _draft.Clone();
+		var i = _quiz.Questions.FindIndex(q => q.Id == _draft.Id);
+		if (i >= 0) _quiz.Questions[i] = saved;
+		else _quiz.Questions.Add(saved);
+		_quiz.Maps = _maps.Select(m => m.Clone()).ToList();
 		try
 		{
 			QuizStore.Save(_quiz);
@@ -937,10 +1072,10 @@ public partial class QuestionEditorScreen : Control
 		catch (UserError e)
 		{
 			Dialogs.Info(this, e.Message, "Couldn't save");
-			return;
+			return false;
 		}
 		_dirty = false;
-		App.I.GoQuiz(_quiz.Id);
+		return true;
 	}
 
 	public override void _Input(InputEvent e)

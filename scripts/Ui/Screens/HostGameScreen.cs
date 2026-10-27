@@ -55,10 +55,13 @@ public partial class HostGameScreen : Control, IRoomScreen
 	// Buzzes already heard: a new one in the same question plays the buzzer sound.
 	int _heardIndex = -1;
 	int _heardBuzzes;
+	readonly AnswerSounds _answerSounds = new();
 
 	public void Refresh(RoomState room)
 	{
 		var game = room.Game!;
+		// (the game music pauses for questions with their own sound: sound, video, interactive)
+		App.I.Audio.Quiet(game.Stage == Stage.Open && game.Shown && game.Question.Type is QuestionType.Sound or QuestionType.Video or QuestionType.Interactive);
 		var q = game.Question;
 		if (game.Index != _heardIndex)
 		{
@@ -67,6 +70,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 		}
 		if (game.Buzzes.Count > _heardBuzzes) Sfx.PlayBuzzer(_host.BuzzerSound);
 		_heardBuzzes = game.Buzzes.Count;
+		_answerSounds.Update(game, null);
 		var reveal = game.Stage == Stage.Reveal ? game.Reveal : null;
 		HostNotes.Update(game);
 		_game = game;
@@ -87,9 +91,12 @@ public partial class HostGameScreen : Control, IRoomScreen
 				U.Pill(Lang.F("Question {0} / {1}", game.Index + 1, game.Total)),
 				Chips.Question(q),
 				U.Pill(GameParts.PointsPill(q)));
+			// (the category, when the lobby shows them)
+			if (q.Category != "") row.AddChild(GameParts.CategoryPill(q.Category));
 			if (GameParts.NextPill(game) is { } next) row.AddChild(next);
 			row.AddChild(U.Fill());
 			row.AddChild(new RoomCodeButton(room.Code));
+			row.AddChild(MediaIcon.SettingsGear());
 			return U.Panel(row, "Bar");
 		});
 
@@ -176,7 +183,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 
 		var answering = game.Buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Answering);
 		var last = game.Index + 1 >= game.Total;
-		_controls.Set($"{key}{iaKey}|{answering?.PlayerId}|{answering?.AtSec}|{game.Buzzes.Count}|{game.Buzzes.Count(b => b.Status == BuzzStatus.Wrong)}|{game.Shown}|{game.BuzzersOpen}|{tl?.TurnPlayerId}|{tl?.Current}|{tl?.Phase}|{GameParts.PausedText(room)}", () =>
+		_controls.Set($"{key}{iaKey}|{answering?.PlayerId}|{answering?.AtSec}|{game.Buzzes.Count}|{game.Buzzes.Count(b => b.Status == BuzzStatus.Wrong)}|{game.Shown}|{game.BuzzersOpen}|{tl?.TurnPlayerId}|{tl?.Current}|{tl?.Phase}|{game.AnswersClosed}|{GameParts.PausedText(room)}", () =>
 		{
 			var row = GameParts.Row(10);
 			row.Alignment = BoxContainer.AlignmentMode.End;
@@ -198,7 +205,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 			if (game.Stage == Stage.Open && !game.Shown)
 			{
 				row.AddChild(U.Muted("Players don't see this question yet.", 15, false).Grow());
-				row.AddChild(U.Btn("Host notes", "", HostNotes.Open).Tip("The question and answer in a separate window (not in your stream if you share only the game window)"));
+				row.AddChild(U.Btn("Host notes", "", HostNotes.Open).Tip("The question and answer in a separate window, e.g. for your second monitor"));
 				row.AddChild(U.Btn("Show question  (Space)", "AccentButton", _host.ShowQuestion, 20));
 				return row;
 			}
@@ -209,7 +216,9 @@ public partial class HostGameScreen : Control, IRoomScreen
 					row.AddChild(U.Btn("Let everyone buzz again", "", _host.ReopenBuzzers).Tip("Clears the buzzes so far: everyone, also who was wrong, can buzz again"));
 				// (step by step: flip the next hint; who was wrong can buzz again)
 				if (q.HintCount is { } hintCount && (q.Hints?.Count ?? 0) < hintCount)
-					row.AddChild(U.Btn("Next hint  (→)", "AccentButton", _host.NextHint, 20).Tip("Flips the next hint; everyone can buzz again"));
+					row.AddChild(q.StepsMode == StepsMode.Sentence
+						? U.Btn("Read on  (→)", "AccentButton", _host.NextHint, 20).Tip("Shows the next part of the question; everyone can buzz again")
+						: U.Btn("Next hint  (→)", "AccentButton", _host.NextHint, 20).Tip("Flips the next hint; everyone can buzz again"));
 				if (game.BuzzersOpen) row.AddChild(U.Btn("Lock buzzers", "", () => _host.SetBuzzers(false)));
 				else row.AddChild(U.Btn("Unlock buzzers  (Space)", "AccentButton", () => _host.SetBuzzers(true), 20));
 			}
@@ -217,6 +226,14 @@ public partial class HostGameScreen : Control, IRoomScreen
 				row.AddChild(U.Btn(Lang.F("Skip {0}", room.Player(turnId).Name), "", _host.SkipTurn).Tip("The next player tries the same item"));
 			if (tl is { Current: not null, Phase: not TimelinePhase.Locked })
 				row.AddChild(U.Btn("Place it for free", "", _host.PlaceForFree).Tip("Puts the item in its place without points; the next player gets the next one"));
+			// Everyone's answers (or votes) are in, or the time is up: the host reveals when they're ready.
+			if (game.Stage == Stage.Open && game.AnswersClosed)
+			{
+				row.AddChild(U.Text(Lang.T(ia != null ? "Everyone has voted. Reveal the result when you're ready." : "The answers are in. Reveal it when you're ready."), 17, C.Accent, Fonts.Bold, true).Grow());
+				if (game.HostAnswer != null && tl == null) row.AddChild(new PeekButton(game.HostAnswer));
+				row.AddChild(U.Btn("Reveal answer  (Space)", "AccentButton", _host.Reveal, 20));
+				return row;
+			}
 			if (game.Stage == Stage.Open && ia != null)
 			{
 				InteractiveControls(row, room, ia);
@@ -239,9 +256,21 @@ public partial class HostGameScreen : Control, IRoomScreen
 		_side.Clear();
 		GameParts.SideInfo(_side, room, null, _host.AdjustScore);
 		_side.AddChild(U.Gap(6));
-		_side.AddChild(U.Link("End quiz early", () => Dialogs.Confirm(this, "End the quiz now and show the final results?", "End quiz", _host.Finish), 14)
-			.With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin));
+		_side.AddChild(U.Link("End quiz early", AskEnd, 14).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin));
+		_side.AddChild(U.Link("Continue later", AskLater, 14).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin)
+			.Tip("Close the room now (to update the game, say) and go on another time with everyone's points"));
 	}
+
+	/// <summary>"Continue later": the night is saved after every question; the room closes and the quiz's page offers Continue.</summary>
+	void AskLater() => Dialogs.Confirm(this, _host.Room.SaveJson() == null
+			? "Close the room? Nothing is saved before the first question is over, so you'd start again from the beginning."
+			: _host.Room.Game?.Stage == Stage.Reveal
+				? "Close the room and continue later? Everyone is sent back to the home screen. On the quiz's page, Continue opens a new lobby with everyone's points, at the next question."
+				: "Close the room and continue later? Everyone is sent back to the home screen. On the quiz's page, Continue opens a new lobby with everyone's points, and this question starts again.",
+		"Close room", App.I.CloseRoom);
+
+	/// <summary>"End quiz early" (also Escape): asks first.</summary>
+	public void AskEnd() => Dialogs.Confirm(this, "End the quiz now and show the final results?", "End quiz", _host.Finish);
 
 
 	GameView? _game;
@@ -315,11 +344,11 @@ public partial class HostGameScreen : Control, IRoomScreen
 		row.AddChild(U.Btn("Start voting", "AccentButton", _host.StartVoting, 20).Tip("Once you've played them all: everyone votes on their PC"));
 	}
 
-	/// <summary>Space: show the hidden question, then unlock the buzzers. ← →: flip a picture slideshow.</summary>
+	/// <summary>Space: show the hidden question, then unlock the buzzers, or reveal once the answers are in. ← →: flip a picture slideshow.</summary>
 	public override void _UnhandledKeyInput(InputEvent e)
 	{
 		if (e is InputEventKey { Pressed: true, Keycode: Key.Left or Key.Right or Key.Space } k && _game?.Interactive is { Phase: not InteractivePhase.Recording } ia
-			&& _game.Shown && ia.Clips.Count > 0)
+			&& _game.Shown && ia.Clips.Count > 0 && !(k.Keycode == Key.Space && _game.AnswersClosed))
 		{
 			if (k.Keycode == Key.Space) _host.PlayClip();
 			else _host.SetClip(ia.Clip + (k.Keycode == Key.Right ? 1 : -1));
@@ -340,6 +369,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 		}
 		if (e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Space } || _game is not { Stage: Stage.Open, Paused: false } game) return;
 		if (!game.Shown) _host.ShowQuestion();
+		else if (game.AnswersClosed) _host.Reveal();
 		else if (game.Timeline?.Phase == TimelinePhase.Locked) _host.RevealPlacement();
 		else if (game.Timeline?.Phase == TimelinePhase.Result) _host.NextTurn();
 		else if (game.Question.Buzzer && !game.BuzzersOpen && game.Buzzes.All(b => b.Status != BuzzStatus.Answering)) _host.SetBuzzers(true);
@@ -364,16 +394,16 @@ public partial class PeekButton : Button
 		Text = HiddenText;
 		MouseDefaultCursorShape = CursorShape.PointingHand;
 		// (the answer shows in a box above the button: a long one would stretch the whole row)
-		ButtonDown += Show;
-		ButtonUp += Hide;
-		MouseExited += Hide;
+		ButtonDown += ShowAnswer;
+		ButtonUp += HideAnswer;
+		MouseExited += HideAnswer;
 	}
 
 	PanelContainer? _box;
 
-	void Show()
+	void ShowAnswer()
 	{
-		Hide();
+		HideAnswer();
 		var label = U.Text(_answer, 17, C.Text, Fonts.Bold, true).Raw();
 		label.CustomMinimumSize = new Vector2(Mathf.Min(560, _answer.Length * 9 + 20), 0);
 		_box = U.Panel(label, "Clear");
@@ -391,7 +421,7 @@ public partial class PeekButton : Button
 		}).CallDeferred();
 	}
 
-	void Hide()
+	void HideAnswer()
 	{
 		_box?.QueueFree();
 		_box = null;
@@ -464,7 +494,7 @@ public partial class HostMedia : VBoxContainer
 			}
 			_video = new VideoStreamPlayer { Stream = stream, Bus = Prefs.MusicBus };
 			var frame = new VideoFrame(_video) { CustomMinimumSize = new Vector2(0, 200) }.MarkFlexible();
-			AddChild(U.Panel(frame, "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(Colors.Black, 12, null, 0, 0, 0))));
+			AddChild(frame);
 			_toggle = U.Btn("▶ Start video", "AccentButton", Toggle, 17);
 			_time = U.Mono("0:00", 15, C.Muted);
 			AddChild(GameParts.Row(10, _toggle, _time, _hint, _ready));

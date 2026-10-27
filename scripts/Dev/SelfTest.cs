@@ -109,6 +109,56 @@ public static class SelfTest
 	}
 
 	/// <summary>A buzzer question played as "everyone types", the host's bonus and score changes, and the file format.</summary>
+	static void Sentence()
+	{
+		var quiz = new Quiz { Title = "S", Questions = { new Question { Id = "s1", Type = QuestionType.Steps, StepsMode = StepsMode.Sentence, AnswerText = "Berlin",
+			Hints = new() { "This city, founded in 1237,", "was split by a wall", "and is Germany's capital.", "", "" } } } };
+		var back = QuizJson.Parse(QuizJson.Write(quiz), out _)!.Questions[0];
+		// (parsed from text, like a file: in-memory JSON numbers don't convert on read)
+		var old = QuizJson.ReadQuestion((System.Text.Json.Nodes.JsonObject)System.Text.Json.Nodes.JsonNode.Parse(
+			"{\"id\":\"w\",\"type\":\"write\",\"prompt\":\"Capital of Australia?\",\"answer\":\"Canberra\",\"timeLimitSec\":25}")!);
+		Check(old.Type == QuestionType.Classic && old.IsTyped && old.AnswerText == "Canberra" && old.TimeLimitSec == 25,
+			"an old \"Write the answer\" question opens as classic, everyone types (answer and time limit kept)");
+		Check(!QuestionType.All.Contains(QuestionType.Write), "\"Write the answer\" isn't offered as a type any more");
+		Check(!QuestionType.All.Contains(QuestionType.Image) && QuestionKinds.Subtypes(QuestionType.Picture).Contains(QuestionKinds.Reveal),
+			"image reveal is picked inside Picture (Picture → Reveal in the stats)");
+		Check(back.IsSentence && back.FilledHints.Count == 3, "a sentence in parts survives saving");
+		var (room, _) = NewRoom(quiz, "ann", "bob");
+		room.Start();
+		var g = room.Game!;
+		Check(g.View("bob").Question.Hints!.Count == 1 && g.View("bob").Question.StepsMode == StepsMode.Sentence, "players only get the part read so far");
+		g.BuzzIn("ann");
+		Check(!g.NextHint(), "a buzz stops the reading");
+		g.Judge(false);
+		Check(g.NextHint() && g.View("bob").Question.WorthNow == 2, "after a wrong answer the host reads on: 3 parts, now worth 2");
+		g.BuzzIn("bob");
+		g.Judge(true);
+		Eq(room.Score("bob"), 2, "a right buzz after the second of three parts gets 2 points");
+		Check(Storage.Results.Questions(new[] { Storage.Results.Make(room).Csv }).Any(r => r.Subtype == StepsMode.Sentence && r.Hint == 2), "results: the sentence subtype and the part it was got at");
+	}
+
+	static void Categories()
+	{
+		var quiz = Dev.SampleQuiz.Build();
+		quiz.Questions[0].Category = "Geography";
+		quiz.Questions[1].Category = "Music";
+		quiz.Questions[1].CategorySecret = true;
+		var back = QuizJson.Parse(QuizJson.Write(quiz), out _)!;
+		Check(back.Questions[0].Category == "Geography" && back.Questions[1].CategorySecret && !back.Questions[0].CategorySecret, "categories survive saving (secret ones stay secret)");
+		var (room, _) = NewRoom(quiz, "ann", "bob");
+		room.UpdateSettings(hostShows: true);
+		room.Start();
+		Eq(room.Game!.View("ann").Question.Category, "", "categories stay hidden unless the lobby shows them");
+		room.BackToLobby();
+		room.UpdateSettings(categories: true);
+		room.Start();
+		Eq(room.Game!.View("ann").Question.Category, "Geography", "with Show categories, players see it on Get ready");
+		room.Next();
+		room.Next();
+		Eq(room.Game!.View("ann").Question.Category, "", "a secret category is never shown");
+		Check(Storage.Results.Parse(Storage.Results.Make(room).Csv).Any(r => r["question"] == "1" && r["category"] == "Geography"), "the results keep the category");
+	}
+
 	static void TypedAndBonus()
 	{
 		var typed = new Question { Id = "t1", Type = QuestionType.Sound, Prompt = "Name this song!", AnswerText = "Dragonborn", Typed = true, TimeLimitSec = 30, Points = 1,
@@ -120,7 +170,7 @@ public static class SelfTest
 		Eq(QuizRules.QuestionIssues(typed, quiz.Maps).Count, 0, "typed question with a bonus is playable");
 		var back = QuizJson.Parse(QuizJson.Write(quiz), out _)!.Questions[0];
 		Check(back.Typed && back.BonusPoints == 2 && back.BonusText == "Also name the game" && back.TimeLimitSec == 30, "typed, bonus and time limit are saved");
-		Check(QuizRules.QuestionIssues(new Question { Type = QuestionType.Write, Prompt = "x", AnswerText = "y", BonusPoints = 1 }, quiz.Maps)
+		Check(QuizRules.QuestionIssues(new Question { Type = QuestionType.Classic, Typed = true, Prompt = "x", AnswerText = "y", BonusPoints = 1 }, quiz.Maps)
 			.Contains("Say what the bonus is for."), "a bonus needs to say what it's for");
 
 		var (room, clock) = NewRoom(quiz, "ann", "bob");
@@ -132,7 +182,11 @@ public static class SelfTest
 		Check(g.View("host").EndsAt == clock.Now + 30_000, "typed question runs on its time limit");
 		g.Answer("ann", 0, AnswerValue.Written("dragon born"));
 		g.Answer("bob", 0, AnswerValue.Written("Skyrim"));
-		Eq(g.Stage, Stage.Reveal, "reveal once both typed");
+		Check(g.Stage == Stage.Open && g.AnswersClosed && g.View("ann").AnswersClosed && g.View("host").EndsAt == null, "both typed: answers close, the timer goes, the reveal waits for the host");
+		clock.Now += 60_000;
+		Check(!room.Tick() && g.Stage == Stage.Open, "and no timer reveals it either");
+		Check(g.HostReveal(), "the host reveals");
+		Eq(g.Stage, Stage.Reveal, "reveal once the host says so");
 		Eq(room.Scores["ann"], 1, "the right song scores");
 		Eq(room.Scores["bob"], 0, "a wrong one doesn't");
 		Check(g.ToggleBonus("ann") && room.Scores["ann"] == 3, "host gives the bonus (+2)");
@@ -143,6 +197,71 @@ public static class SelfTest
 		room.Next();
 		Check(!g.ToggleBonus("ann"), "no bonus on a question without one");
 		Check(g.BuzzIn("ann"), "the next (buzzer) question still buzzes");
+	}
+
+	/// <summary>A Fast Pass buzz answers first, also when someone else buzzed just before it.</summary>
+	static void FastPassFirst()
+	{
+		var (room, clock) = NewRoom(Dev.SampleQuiz.Build(), "ann", "bob");
+		room.UpdateSettings(hostShows: true);
+		room.Start();
+		var g = room.Game!;
+		Check(g.PlayJoker("bob", Joker.FastPass, true).Ok, "bob plays the Fast Pass");
+		g.ShowQuestion();
+		clock.Now += 2600;
+		g.BuzzIn("ann");
+		clock.Now += 40;
+		g.BuzzIn("bob");
+		var buzzes = g.View("host").Buzzes;
+		Eq(string.Join(",", buzzes.Select(b => $"{b.PlayerId}:{b.Status}")), $"bob:{BuzzStatus.Answering},ann:{BuzzStatus.Waiting}", "a Fast Pass 40 ms after someone else's buzz answers first, they wait");
+		g.Judge(false);
+		Eq(g.View("host").Buzzes.First(b => b.Status == BuzzStatus.Answering).PlayerId, "ann", "then it's their turn");
+	}
+
+	/// <summary>Fair buzzers: the first buzz waits a moment, then the fastest reaction (timed on the player's PC) answers;
+	/// made-up times are cut to what the host saw.</summary>
+	static void FairBuzzers()
+	{
+		(Room, Clock, Game, int) Fresh(params string[] players)
+		{
+			var (room, clock) = NewRoom(Dev.SampleQuiz.Build(), players);
+			room.BuzzWait = Limits.BuzzWindowMs;
+			room.Start();
+			return (room, clock, room.Game!, room.Game!.View(players[0]).BuzzRound);
+		}
+		string Line(Game g) => string.Join(",", g.View("host").Buzzes.Select(b => $"{b.PlayerId}:{b.Status}"));
+
+		var (room, clock, g, round) = Fresh("ann", "bob");
+		clock.Now += 900;
+		g.BuzzIn("bob", new BuzzRequest { Round = round, ReactionMs = 850 });
+		clock.Now += 100;
+		g.BuzzIn("ann", new BuzzRequest { Round = round, ReactionMs = 600 });
+		Check(g.View("host").Buzzes.All(b => b.Status == BuzzStatus.Waiting), "right after the first buzz nobody answers yet (waiting for buzzes on their way)");
+		clock.Now += 250;
+		room.Tick();
+		Eq(Line(g), $"ann:{BuzzStatus.Answering},bob:{BuzzStatus.Waiting}", "Ann's buzz arrived later but she reacted faster on her PC: she answers first");
+
+		(room, clock, g, round) = Fresh("cat", "dan", "eve");
+		clock.Now += 700;
+		g.BuzzIn("dan", new BuzzRequest { Round = round, ReactionMs = 450 });
+		clock.Now += 300;
+		g.BuzzIn("cat", new BuzzRequest { Round = round, ReactionMs = 0 });
+		g.BuzzIn("eve");
+		clock.Now += 300;
+		room.Tick();
+		Eq(Line(g), $"dan:{BuzzStatus.Answering},cat:{BuzzStatus.Waiting},eve:{BuzzStatus.Waiting}",
+			"a claimed 0 ms is cut to what the host saw minus the most ping can explain (500 ms), so an honest 450 ms still wins; an older player without a time comes last");
+		g.Judge(false);
+		Eq(g.View("host").Buzzes.First(b => b.Status == BuzzStatus.Answering).PlayerId, "cat", "a wrong answer passes it on in that order");
+
+		(room, clock, g, round) = Fresh("fay", "gus");
+		clock.Now += 2000;
+		g.BuzzIn("fay");
+		clock.Now += 100;
+		g.BuzzIn("gus", new BuzzRequest { Round = round + 7, ReactionMs = 100 });
+		clock.Now += 300;
+		room.Tick();
+		Eq(Line(g), $"fay:{BuzzStatus.Answering},gus:{BuzzStatus.Waiting}", "a time from another buzzer round doesn't count");
 	}
 
 	/// <summary>Jokers, joining during a game, and the pause when someone leaves.</summary>
@@ -168,11 +287,11 @@ public static class SelfTest
 		Eq(g.View("cat").Jokers.Count, 2, "everyone sees them now");
 		clock.Now += 1000;
 		g.BuzzIn("cat");
+		clock.Now += 5000;
 		g.BuzzIn("bob");
 		g.BuzzIn("ann");
-		Eq(string.Join(",", g.View("host").Buzzes.Select(b => b.PlayerId)), "cat,ann,bob", "the Fast Pass goes ahead of the line, not the one answering");
-		Check(g.View("host").Buzzes[1].FastPass, "the buzz shows its Fast Pass");
-		g.Judge(false);
+		Eq(string.Join(",", g.View("host").Buzzes.Select(b => b.PlayerId)), "ann,cat,bob", "the Fast Pass always answers first, even after someone answered for a while");
+		Check(g.View("host").Buzzes[0].FastPass && g.View("host").Buzzes[0].Status == BuzzStatus.Answering, "the buzz shows its Fast Pass");
 		g.Judge(true);
 		Eq(room.Scores["ann"], 1, "fast pass scores normally");
 		Eq(g.JokerIndex, 1, "during the reveal: jokers for the next question");
@@ -186,6 +305,8 @@ public static class SelfTest
 		Check(dan != null && dan.JoinedAt == 2 && g.View("dan").LateIds.Contains("dan"), "joining during a game: they come in at this question");
 		Check(!g.Answer("dan", 1, AnswerValue.Number(g.Question.CorrectChoice)).Ok, "but can't answer it");
 		foreach (var p in new[] { "ann", "bob", "cat" }) g.Answer(p, 1, AnswerValue.Number(g.Question.CorrectChoice));
+		Check(g.AnswersClosed, "the answers close without them");
+		g.HostReveal();
 		Eq(g.Stage, Stage.Reveal, "the reveal doesn't wait for them");
 		Eq(room.Scores["cat"], g.Question.Points * 2, "double points");
 		Check(g.View("host").Reveal!.Entries.First(e => e.PlayerId == "cat").Doubled, "the reveal shows the double");
@@ -202,6 +323,70 @@ public static class SelfTest
 		Check(room.GetPlayer("cat") is { Connected: false } && room.Scores["cat"] > 0 && g.Paused, "leaving during a game keeps the seat and score, and waits");
 		room.Next();
 		Eq(g.Index, 2, "paused: Next waits for the host to continue");
+	}
+
+	/// <summary>A night saved after every question goes on in a new lobby: points, stats, used jokers and seats (LAN ones by name).</summary>
+	static void SaveAndResume()
+	{
+		var quiz = Dev.SampleQuiz.Build();
+		var (room, clock) = NewRoom(quiz);
+		room.Join("steam:1", "Ann");
+		room.Join("lan:a1", "Bob");
+		room.Join("lan:b1", "Cat");
+		room.Start();
+		var g = room.Game!;
+		Check(room.SaveJson() == null, "nothing to save during the first question");
+		clock.Now += 1000;
+		g.BuzzIn("steam:1");
+		g.Judge(true);
+		Eq(g.Stage, Stage.Reveal, "q1 revealed");
+		Eq(SavedNight.FromJson(room.SaveJson()!)?.Next, 1, "during a reveal the save goes on at the next question");
+		Check(g.PlayJoker("lan:a1", Joker.Double, true).Ok, "Bob plays Double for q2");
+		Check(SavedNight.FromJson(room.SaveJson()!)!.Jokers.Count == 0, "a joker not yet in play isn't saved as used");
+		room.Next();
+		g.Answer("lan:a1", 1, AnswerValue.Number(g.Question.CorrectChoice));
+		g.HostReveal();
+		var bob = room.Score("lan:a1");
+		Eq(bob, g.Question.Points * 2, "Bob's double");
+		room.Next();
+		var ann = room.Score("steam:1");
+		room.AdjustScore("steam:1", 5);
+		var save = SavedNight.FromJson(room.SaveJson()!)!;
+		Check(save.Next == 2 && save.Players.First(p => p.Id == "steam:1").Score == ann, "while a question runs, the save holds the night as it was when it opened");
+		Check(save.Jokers.Count == 1 && save.QuestionStats.Any(q => q.Question == 1 && q.Player == "lan:a1" && q.Stat.Right), "used jokers and per-question stats are saved");
+
+		var room2 = new Room("NEXT", quiz, () => clock.Now);
+		room2.Restore(save);
+		Check(room2.Players.Count == 3 && room2.Players.All(p => !p.Connected) && room2.Score("lan:a1") == bob, "the lobby has everyone's seat and points, away");
+		Eq(room2.ToState("host").ResumeFrom, 3, "the lobby says where it goes on");
+		Check(room2.Join("steam:1", "Annie").Player is { Name: "Ann", Connected: true }, "a Steam player gets their seat back by account");
+		Check(room2.Join("lan:zz", "bob").Player?.Id == "lan:zz" && room2.GetPlayer("lan:a1") == null && room2.Score("lan:zz") == bob,
+			"a LAN player (new id every start) gets their seat back by name");
+		Check(room2.Join("steam:9", "Cat").Player == null && room2.GetPlayer("lan:b1") is { Connected: false }, "a Steam account doesn't take someone else's seat");
+		room2.Join("lan:new", "Dan");
+		room2.Leave("lan:zz");
+		clock.Now += Room.PlayerGraceMs + 1000;
+		room2.Tick();
+		Check(room2.GetPlayer("lan:zz") != null && room2.GetPlayer("lan:b1") != null, "saved seats wait in the lobby");
+		room2.Join("lan:zz", "Bob");
+		Check(room2.Start().Ok, "continue");
+		var g2 = room2.Game!;
+		Eq(g2.Index, 2, "it goes on at the question that was running");
+		Check(room2.GetPlayer("lan:new") is { JoinedAt: 3 } && room2.Score("lan:new") == 0, "a new player joins from here");
+		Check(room2.GetPlayer("lan:b1") is { LeftAt: 3, Connected: false } && !g2.Paused, "whoever isn't back keeps their seat; the game doesn't wait");
+		Check(g2.UsedJokers(99).Any(j => j.PlayerId == "lan:zz" && j.Kind == Joker.Double), "used jokers stay used (with the new id)");
+		Check(room2.QuestionStats.TryGetValue((1, "lan:zz"), out var q2) && q2.Right && room2.StatsOf("lan:zz").Scored == 1, "stats come along");
+		Eq(room2.StartedAt, room.StartedAt, "the night keeps its start time");
+		Check(room2.Join("lan:b1", "Cat").Player != null && room2.Score("lan:b1") == room.Score("lan:b1"), "and they can still come back");
+
+		// Saved during the last reveal: Continue goes straight to the podium.
+		save.Next = quiz.Questions.Count;
+		var room3 = new Room("LAST", quiz, () => clock.Now);
+		room3.Restore(save);
+		room3.Join("steam:1", "Ann");
+		room3.Join("lan:x", "Bob");
+		Check(room3.Start().Ok && room3.Phase == Phase.Finished && room3.Score("lan:x") == bob, "saved after the last question: the podium");
+		Check(SavedNight.FromJson("{ \"quizId\": 5 }") == null && SavedNight.FromJson("nonsense") == null, "a broken save is ignored");
 	}
 
 	/// <summary>The ranking's tiebreaks, the players' short scoreboard and the saved results.</summary>
@@ -228,21 +413,201 @@ public static class SelfTest
 		room.GetPlayer("ann")!.Name = "Ann, \"the\" Great";
 		room.NoteDistance("ann", 12.5);
 		var (_, csv) = Storage.Results.Make(room);
-		var rows = Storage.Results.Parse(csv);
+		var all = Storage.Results.Parse(csv);
+		var rows = all.Where(r => r["question"] == "").ToList();
 		Check(rows.Count == 4 && rows[1]["player"] == "Ann, \"the\" Great" && rows[1]["avg_km_off"] == "12.500" && rows[0]["place"] == "1", "results CSV: one row per player, in place order, names with commas and quotes survive");
 		var table = Storage.Results.Table(new[] { csv, csv.Replace("2026", "2027"), csv });
 		Check(table.Count == 4 && table.First(c => c.Id == "bob") is { Nights: 2, Wins: 2, Podiums: 2, Points: 6 } && table.Last().Points == 4, "eternal table: nights added up per player (the same night twice counts once), most points first");
+		Eq(table.First(c => c.Id == "bob").ChampionshipPoints(ScoringPresets.BuiltIn[0].Points), 50, "championship points: two F1 wins are 50");
+		Eq(Storage.Results.Table(new[] { csv, csv.Replace("2026", "2028") }, from: "2028-01-01").First().Nights, 1, "a season only counts its own nights");
+
+		// Per-question rows: points from the question, the type and subtype, and the host's score changes left out.
+		var q1 = all.Where(r => r["question"] == "1").ToList();
+		Check(q1.Count == 4 && q1.All(r => r["type"] == room.Quiz.Questions[0].Type) && q1.First(r => r["player_id"] == "bob")["q_points"] == "3",
+			"results CSV: one row per player and question, with its type and the points from it");
+		room.AdjustScore("cat", 5);
+		Check(room.StatsOf("cat").HostPoints == 5 && Storage.Results.FavouritePuppy(Storage.Results.Table(new[] { Storage.Results.Make(room).Csv })) == "cat",
+			"score changes by hand count as the host's points: the Host's Favourite Puppy");
+		Check(Storage.Results.Questions(new[] { Storage.Results.Make(room).Csv }).First(r => r.PlayerId == "cat").Points == 2, "the host's score changes don't count for a question");
+
+		Check(QuizRules.Typos("canbera", "Canberra / ACT") == 1 && QuizRules.Typos("The Beatles", "beatles") == 0 && QuizRules.Typos("Zürich", "Zurich") == 0,
+			"typos: letters off from the closest accepted answer (case, accents and \"the\" don't count)");
+
+		// Answer and buzz times are separate: a quick buzz doesn't make someone look fast at typing.
+		var (r2, _) = NewRoom(Dev.SampleQuiz.Build(), "ann", "bob");
+		r2.Start();
+		r2.NoteBuzzTime("ann", 800);
+		r2.NoteAnswerTime("bob", 9000);
+		r2.NoteAnswerTime("ann", 12000);
+		Check(r2.StatsOf("ann") is { Buzzes: 1, Answers: 1, AvgAnswerMs: 12000 } && r2.Ranking().Order[0] == "bob",
+			"buzz time has its own average; ties go by answer time first");
+	}
+
+	/// <summary>A host transport without a network: who each connection is (Steam ID), and what the host sent.</summary>
+	sealed class FakeHost : IHostTransport
+	{
+		public readonly Dictionary<string, string?> Steam = new();
+		public readonly List<(string Peer, string Type, System.Text.Json.Nodes.JsonNode? Data)> Sent = new();
+		public readonly HashSet<string> Dropped = new();
+		public event Action<string>? PeerConnected;
+		public event Action<string>? PeerDisconnected;
+		public event Action<string, byte[]>? Received;
+		public string? PeerSteamId(string peer) => Steam.GetValueOrDefault(peer);
+		public void Send(string peer, byte[] data)
+		{
+			if (Msg.Decode(data) is { } m) Sent.Add((peer, m.Type, m.Data));
+		}
+		public bool TrySend(string peer, byte[] data) => true;
+		public void Disconnect(string peer)
+		{
+			Dropped.Add(peer);
+			PeerDisconnected?.Invoke(peer);
+		}
+		public void Poll() { }
+		public int MaxMessageBytes => 300 * 1024;
+		public void Dispose() { }
+		public void Deliver(string peer, string type, object payload) => Received?.Invoke(peer, Msg.Encode(type, payload));
+		public JoinReply? Reply(string peer) => Sent.LastOrDefault(x => x.Peer == peer && x.Type == Msg.Joined).Data is { } d ? Msg.Read<JoinReply>(d) : null;
+		void Unused() => PeerConnected?.Invoke("");
+	}
+
+	/// <summary>The editors' undo and redo (EditHistory) and the question snapshots they keep.</summary>
+	static void Undo()
+	{
+		var value = 0;
+		var history = new Ui.EditHistory<int>(() => value, v => value = v);
+		value = 1; history.Record();
+		value = 2; history.Record();
+		Check(history.Undo() && value == 1 && history.Undo() && value == 0 && !history.Undo(), "undo goes back step by step, to the start");
+		Check(history.Redo() && value == 1 && history.Redo() && value == 2 && !history.Redo(), "redo goes forward again");
+		history.Undo();
+		value = 5; history.Record();
+		Check(!history.Redo() && history.Undo() && value == 1, "a new change after undoing: the undone step is gone");
+		value = 6; history.Record(mergeable: true);
+		value = 7; history.Record(mergeable: true);
+		Check(history.Undo() && value == 1, "typing in one go is one step");
+
+		var quiz = Dev.SampleQuiz.Build();
+		var q = quiz.Questions.First(x => x.HasImageField && x.Image != null);
+		var snapshot = Ui.QuestionSnapshot.Take(q, quiz.Maps);
+		var (back, _) = snapshot.Restore();
+		Check(QuizJson.WriteQuestion(back).ToJsonString() == QuizJson.WriteQuestion(q).ToJsonString(), "a question comes back from its undo step as it was");
+		Check(ReferenceEquals(back.Image!.DataUrl, q.Image!.DataUrl), "undo steps share the picture, not copy it (memory stays small)");
+	}
+
+	/// <summary>What comes from outside: joins over Steam, pictures, packed quizzes, recordings, CSV cells, frames.</summary>
+	static void Safety()
+	{
+		var room = new Room("ABCD", Dev.SampleQuiz.Build());
+		var net = new FakeHost();
+		var host = new HostSession(room, net, NetMode.Steam) { IsFriend = id => id == 111 };
+		net.Steam["p1"] = "111";
+		net.Steam["p2"] = "222";
+		net.Steam["p3"] = null;
+		net.Deliver("p1", Msg.Join, new JoinRequest { Name = "Ann", Code = "ZZZZ" });
+		Check(net.Reply("p1")?.Ok == false && net.Dropped.Contains("p1"), "Steam: no seat without the right room code");
+		net.Deliver("p3", Msg.Join, new JoinRequest { Name = "Cat", ClientId = "steam-111", Code = "abcd" });
+		Check(net.Reply("p3")?.Ok == false, "Steam: a game that only claims a Steam ID gets no seat");
+		net.Deliver("p1", Msg.Join, new JoinRequest { Name = "Ann", Code = "abcd" });
+		Check(net.Reply("p1")?.Ok == true && room.GetPlayer("steam:111") != null, "Steam: the right code (any case) gets in, as the Steam account Steam names");
+		host.UpdateSettings(friendsOnly: true);
+		net.Deliver("p2", Msg.Join, new JoinRequest { Name = "Bob", Code = "ABCD" });
+		Check(net.Reply("p2")?.Ok == false, "friends only: someone who isn't the host's Steam friend stays out");
+		host.UpdateSettings(friendsOnly: false);
+		net.Deliver("p2", Msg.Join, new JoinRequest { Name = "Bob", Code = "ABCD" });
+		Check(net.Reply("p2")?.Ok == true, "and gets in once it's off");
+		host.Kick("steam:222");
+		net.Deliver("p4", Msg.Join, new JoinRequest { Name = "Bob again", Code = "ABCD" });
+		net.Steam["p4"] = "222";
+		net.Deliver("p4", Msg.Join, new JoinRequest { Name = "Bob again", Code = "ABCD" });
+		Check(net.Reply("p4")?.Ok == false && room.GetPlayer("steam:222") == null, "a kicked player can't come back into the room");
+		Check(SteamService.CodeKey("ABCD") == SteamService.CodeKey("ABCD") && SteamService.CodeKey("ABCD") != SteamService.CodeKey("ABCE")
+			&& !SteamService.CodeKey("ABCD").Contains("ABCD"), "the lobby list only has a hash of the room code");
+
+		// pictures: a header claiming 60 000 × 60 000 pixels is never decoded
+		byte[] Png(int w, int h)
+		{
+			var b = new byte[33];
+			new byte[] { 0x89, (byte)'P', (byte)'N', (byte)'G', 13, 10, 26, 10, 0, 0, 0, 13, (byte)'I', (byte)'H', (byte)'D', (byte)'R' }.CopyTo(b, 0);
+			b[16] = (byte)(w >> 24); b[17] = (byte)(w >> 16); b[18] = (byte)(w >> 8); b[19] = (byte)w;
+			b[20] = (byte)(h >> 24); b[21] = (byte)(h >> 16); b[22] = (byte)(h >> 8); b[23] = (byte)h;
+			return b;
+		}
+		Check(Guard.ImageSize(Png(640, 480)) == (640, 480) && Guard.ImageOk(Png(2048, 2048)), "picture size read from its header");
+		Check(!Guard.ImageOk(Png(60000, 60000)) && !Guard.ImageOk(Png(8000, 8000)) && Storage.Images.Decode(Png(60000, 60000), "image/png") == null,
+			"pictures claiming to be enormous aren't decoded");
+		Check(!Guard.ImageOk(new byte[] { 1, 2, 3, 4, 5 }), "unknown kinds of picture aren't decoded");
+		var webp = Storage.Images.Encode(Image.CreateEmpty(300, 200, false, Image.Format.Rgba8), 2048);
+		Check(Guard.ImageSize(Server.DataUrl.Bytes(webp.DataUrl, out _)!) == (300, 200), "a WebP picture's size from its header");
+
+		// a share code that unpacks to more than a quiz can be
+		var bomb = new System.IO.MemoryStream();
+		using (var br = new System.IO.Compression.BrotliStream(bomb, System.IO.Compression.CompressionLevel.SmallestSize, true))
+			for (var i = 0; i < 80; i++) br.Write(new byte[1024 * 1024]);
+		Check(ShareCode.Unpack(bomb.ToArray(), out var bombError) == null && bombError != null && bomb.Length < 200_000,
+			"a share code that unpacks to gigabytes is turned away (not unpacked)");
+
+		// recordings: only plain 16 kHz mono sound
+		byte[] Wav(int rate, short channels, int dataBytes)
+		{
+			using var ms = new System.IO.MemoryStream();
+			using var w = new System.IO.BinaryWriter(ms);
+			w.Write("RIFF"u8); w.Write(36 + dataBytes); w.Write("WAVE"u8); w.Write("fmt "u8); w.Write(16); w.Write((short)1); w.Write(channels);
+			w.Write(rate); w.Write(rate * 2 * channels); w.Write((short)(2 * channels)); w.Write((short)16); w.Write("data"u8); w.Write(dataBytes);
+			w.Write(new byte[dataBytes]);
+			return ms.ToArray();
+		}
+		Check(Guard.IsPlainWav(Wav(16000, 1, 32000)) && !Guard.IsPlainWav(Wav(44100, 2, 32000)), "recordings: the game's own format only");
+		var lying = Wav(16000, 1, 32000);
+		BitConverter.TryWriteBytes(lying.AsSpan(40), 999_999);
+		Check(!Guard.IsPlainWav(lying), "recordings: a header that lies about its size is turned away");
+
+		// CSV: names that would run as formulas in a spreadsheet
+		Check(Guard.CsvSafe("=HYPERLINK(\"x\")") == "'=HYPERLINK(\"x\")" && Guard.CsvValue(Guard.CsvSafe("=1+1")) == "=1+1"
+			&& Guard.CsvSafe("Max") == "Max" && Guard.CsvValue("'Tis") == "'Tis", "CSV cells can't run as formulas, and read back as they were");
+		Check(Guard.SafeId("A1B2C3D4E5F6A7B8") && !Guard.SafeId("../x") && !Guard.SafeId("CON:") && !Guard.SafeId(""), "file ids: plain ones only");
+
+		// updates: only what Max's release key signed (this signature was made with it by tools/release.sh's openssl call)
+		var signedText = System.Text.Encoding.UTF8.GetBytes("Quiznight release key check");
+		var signature = Convert.FromBase64String("MEUCIBij/xJylBdwaDkg46yuAFrSM8U/0jkq26qAjoc7FOa6AiEAoLAghQoExALTgJgGVqvYKtBUIaAPWgpJceahXv5pCzM=");
+		Check(Storage.Updater.SignedByMax(System.Security.Cryptography.SHA256.HashData(signedText), signature),
+			"updates: a file signed with Max's release key checks out");
+		Check(!Storage.Updater.SignedByMax(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes("Quiznight release key check!")), signature)
+			&& !Storage.Updater.SignedByMax(System.Security.Cryptography.SHA256.HashData(signedText), new byte[70]),
+			"updates: a changed file, or a made-up signature, doesn't");
+
+		// frames: a player's game can't announce a 200 MB message
+		var reader = new FrameReader(1024 * 1024);
+		var threw = false;
+		try
+		{
+			reader.Feed(BitConverter.GetBytes(200 * 1024 * 1024));
+		}
+		catch (InvalidOperationException)
+		{
+			threw = true;
+		}
+		Check(threw, "LAN: a message bigger than a player ever sends is refused");
 	}
 
 	public static async Task<int> Run(Node node)
 	{
 		RankingAndResults();
+		Categories();
+		Sentence();
 		Rules();
 		TypedAndBonus();
 		JokersAndSeats();
+		FastPassFirst();
+		FairBuzzers();
+		SaveAndResume();
+		Safety();
+		Undo();
 		Files();
 		// Load, not just Exists: an Opus .ogg exists but Godot can't import it.
 		foreach (var b in Storage.Sfx.Buzzers) Check(ResourceLoader.Load<AudioStream>(b.Path) != null, $"buzzer sound {b.Id} plays");
+		foreach (var f in new[] { "Correct Answer", "Wrong Answer" })
+			Check(ResourceLoader.Load<AudioStream>($"res://assets/soundeffects/{f}.ogg") != null, $"answer sound {f} plays");
 		foreach (var p in Storage.Sfx.Podiums) Check(ResourceLoader.Load<AudioStream>(p.Path) != null, $"podium sound {p.Id} plays (must be Ogg Vorbis, MP3 or WAV — not Opus)");
 		Atlas();
 		Protocol();
@@ -320,7 +685,11 @@ public static class SelfTest
 		Eq(room.ToState("ann").Players.First(p => p.Id == "cat").LeftAt, 2, "everyone sees when they left");
 		Check(!g.Answer("cat", 1, AnswerValue.Number(0)).Ok && !room.Tick(), "paused: no answers, the clock stands still");
 		Check(g.Continue(), "the host goes on without them");
-		Eq(g.Stage, Stage.Reveal, "reveals when the last missing player is gone");
+		Check(g.Stage == Stage.Open && g.AnswersClosed, "the answers close when the last missing player is gone");
+		Check(!g.Answer("cat", 1, AnswerValue.Number(0)).Ok, "closed: no more answers");
+		Check(room.ToState("host").Game!.AnswersClosed && room.ToState("ann").Game!.AnswersClosed, "everyone sees the answers are closed");
+		room.Next();
+		Eq(g.Stage, Stage.Reveal, "the host's next step reveals");
 		Eq(room.Scores["ann"], 3, "choice points");
 		Eq(g.View("host").Reveal!.Counts![right], 1, "counts");
 
@@ -331,6 +700,8 @@ public static class SelfTest
 		g.Answer("bob", 2, AnswerValue.Number(80));
 		clock.Now += 31_000;
 		Check(room.Tick(), "timer fires");
+		Check(g.Stage == Stage.Open && g.AnswersClosed && !g.Answer("cat", 2, AnswerValue.Number(85)).Ok, "time's up: answers close, cat missed it, the reveal waits");
+		g.HostReveal();
 		var rev = g.View("host").Reveal!;
 		Eq(rev.Entries[0].PlayerId, "ann", "closest first");
 		Eq(rev.Entries[0].Text, "90 keys (+2)", "estimation text");
@@ -342,6 +713,7 @@ public static class SelfTest
 		g.Answer("ann", 3, AnswerValue.At(new NormPoint(0.57, 0.555)));
 		g.Answer("bob", 3, AnswerValue.At(new NormPoint(0.575, 0.555)));
 		g.Answer("cat", 3, AnswerValue.At(new NormPoint(0.9, 0.9)));
+		g.HostReveal();
 		rev = g.View("host").Reveal!;
 		Eq(rev.Entries[0].Text, "0 m off", "exact pin");
 		Check(rev.Entries[1].Text.EndsWith("m off"), "near pin in m: " + rev.Entries[1].Text);
@@ -373,7 +745,9 @@ public static class SelfTest
 		Check(g.Answer("ann", 7, AnswerValue.Picked(rightSet.AsEnumerable().Reverse())).Ok, "ann picks both");
 		g.Answer("bob", 7, AnswerValue.Picked(rightSet.Take(1)));
 		g.Answer("cat", 7, AnswerValue.Picked(new[] { 0, 1, 2, 3 }));
-		Eq(g.Stage, Stage.Reveal, "multi reveals when all answered");
+		Check(g.Stage == Stage.Open && g.AnswersClosed && room.Scores["ann"] == before.Ann, "multi: all answered, nothing scored before the host reveals");
+		g.HostReveal();
+		Eq(g.Stage, Stage.Reveal, "multi reveals when the host says so");
 		Eq(room.Scores["ann"] - before.Ann, 2, "exact set scores");
 		Eq(room.Scores["bob"] - before.Bob, 0, "half the set doesn't");
 		Eq(room.Scores["cat"] - before.Cat, 0, "picking everything doesn't");
@@ -407,21 +781,24 @@ public static class SelfTest
 		g.Answer("ann", 9, AnswerValue.Picked(g.Question.CorrectOrder));
 		g.Answer("bob", 9, AnswerValue.Picked(g.Question.CorrectOrder.AsEnumerable().Reverse()));
 		g.Answer("cat", 9, AnswerValue.Picked(new[] { g.Question.CorrectOrder[1], g.Question.CorrectOrder[0], g.Question.CorrectOrder[2], g.Question.CorrectOrder[3] }));
-		Eq(g.Stage, Stage.Reveal, "order reveals when all answered");
+		Check(g.AnswersClosed, "order: all answered, answers close");
+		g.HostReveal();
+		Eq(g.Stage, Stage.Reveal, "order reveals when the host says so");
 		Eq(room.Scores["ann"] - before.Ann, 8, "perfect order: the points for each of the 4 items");
 		Eq(room.Scores["cat"] - before.Cat, 4, "2 of 4 right still score for those 2");
 		Eq(room.Scores["bob"] - before.Bob, 0, "none right: nothing (no minus unless it's switched on)");
 		Eq(g.View("host").Reveal!.Entries.First(e => e.PlayerId == "cat").Text, "2 of 4 in the right place", "order reveal text");
 		Eq(g.View("host").Reveal!.AnswerText, "Doom → Half-Life → Portal → Elden Ring", "order answer");
 
-		// Write the answer: close enough is ticked; the host can tick or untick.
+		// Everyone types: close enough is ticked; the host can tick or untick.
 		room.Next();
-		Eq(g.Question.Type, QuestionType.Write, "write question");
+		Check(g.Question.Type == QuestionType.Classic && g.Question.IsWritten, "everyone types question");
 		Check(!g.Answer("ann", 10, AnswerValue.Written("   ")).Ok, "empty answer rejected");
 		before = (room.Scores["ann"], room.Scores["bob"], room.Scores["cat"]);
 		g.Answer("ann", 10, AnswerValue.Written("canbera"));
 		g.Answer("bob", 10, AnswerValue.Written("Sydney"));
 		g.Answer("cat", 10, AnswerValue.Written("The Canberra!"));
+		g.HostReveal();
 		Eq(room.Scores["ann"] - before.Ann, 1, "small typo counts");
 		Eq(room.Scores["cat"] - before.Cat, 1, "case, 'the' and punctuation don't matter");
 		Eq(room.Scores["bob"] - before.Bob, 0, "wrong answer doesn't");
@@ -469,7 +846,8 @@ public static class SelfTest
 		// Interactive: everyone records, the host plays them, everyone votes (not for themselves).
 		room.Next();
 		Eq(g.Question.Type, QuestionType.Interactive, "interactive question");
-		var wav = SampleQuiz.Beep(1);
+		// (a second of sound as the game records it: 16 kHz mono)
+		var wav = Ui.MicRecorder.Wav(new float[16000], 16000);
 		Check(!g.SubmitRecording("ann", g.Index, new byte[100]).Ok, "something that isn't a WAV isn't a recording");
 		Check(g.SubmitRecording("ann", g.Index, wav).Ok && g.SubmitRecording("bob", g.Index, wav).Ok, "players send recordings");
 		Check(g.View("ann").Interactive is { Phase: InteractivePhase.Recording, Clips.Count: 0 } && g.AssetDataUrl(Game.RecordingKey(g.Index, 0)) == null,
@@ -484,7 +862,9 @@ public static class SelfTest
 		g.Answer("ann", g.Index, AnswerValue.Number(1));
 		g.Answer("bob", g.Index, AnswerValue.Number(0));
 		g.Answer("cat", g.Index, AnswerValue.Number(0));
-		Eq(g.Stage, Stage.Reveal, "everyone voted: reveal");
+		Check(g.Stage == Stage.Open && g.AnswersClosed && !g.Answer("cat", g.Index, AnswerValue.Number(1)).Ok, "everyone voted: voting closes, the reveal waits for the host");
+		g.HostReveal();
+		Eq(g.Stage, Stage.Reveal, "the host reveals the votes");
 		Check(room.Scores["ann"] - votesBefore.Ann == 2 && room.Scores["bob"] - votesBefore.Bob == 1, "a point per vote");
 		Check(g.View("host").Reveal!.WinnerIds.SequenceEqual(new[] { "ann" }), "most votes wins");
 		Check(Game.WavSeconds(wav) is > 0.9 and < 1.1, "a recording's length comes from its WAV header");
@@ -617,6 +997,20 @@ public static class SelfTest
 		var fasterTie = Game.ClosenessPoints(new List<(string, double)> { ("late", 5), ("early", 5) }, 1, Scoring.Top3, TieRule.Faster);
 		Check(fasterTie["late"].Points == 3 && fasterTie["early"].Points == 2, "faster answer wins a tie (the one who locked in first is ahead)");
 		Eq(QuizRules.NewQuestion(QuestionType.MapPin, "m").TieRule, TieRule.Faster, "new map pins break ties by who was faster");
+		// (0.12.0d5: questions remember when they were made; old ones read as 0)
+		var made = QuizRules.NewQuestion(QuestionType.Classic, "made");
+		made.CreatedAt = 1761530000123;
+		Eq(QuizJson.ReadQuestion(QuizJson.WriteQuestion(made)).CreatedAt, 1761530000123L, "a question's made time survives saving");
+		Eq(QuizJson.ReadQuestion(QuizJson.WriteQuestion(QuizRules.NewQuestion(QuestionType.Classic, "old"))).CreatedAt, 0L, "a question without a made time reads as 0");
+		// (0.12.2b: undated questions get one from their place, so reordering doesn't change "Order made")
+		var undated = new Quiz { CreatedAt = 1000, Questions = { QuizRules.NewQuestion(QuestionType.Classic, "a"), QuizRules.NewQuestion(QuestionType.Classic, "b"), made } };
+		Storage.QuizStore.DateQuestions(undated);
+		undated.Questions.Reverse();
+		Check(undated.Questions.OrderBy(q => q.CreatedAt).Select(q => q.Id).SequenceEqual(new[] { "a", "b", "made" }), "old questions keep their made order after the play order changes");
+		Check(Mathf.IsEqualApprox(Mathf.DbToLinear((50 - 50) / 50f * 24), 1f) && Mathf.DbToLinear((100 - 50) / 50f * 24) > 15, "microphone volume: 50 % leaves it, 100 % is +24 dB");
+		Check(Storage.Backgrounds.Valid(Storage.Backgrounds.Animated) == Storage.Backgrounds.Animated && Storage.Backgrounds.IsVideo(Storage.Backgrounds.Animated) && Storage.Backgrounds.Path(Storage.Backgrounds.Animated).EndsWith(".ogv"), "the animated background is a video");
+		Check(ResourceLoader.Exists(Storage.Backgrounds.Path(Storage.Backgrounds.Animated)), "the animated background's video is in the game");
+		Check(Ui.Skins.Valid(Ui.Skins.Space) == Ui.Skins.Space, "the space skin exists");
 		var costly = QuizRules.NewQuestion(QuestionType.Classic, "w");
 		costly.Mode = ClassicMode.Choice;
 		costly.WrongCosts = true;
@@ -626,6 +1020,10 @@ public static class SelfTest
 		var nights = Storage.Results.Nights(new[] { nightCsv, nightCsv });
 		Check(nights.Count == 2 && nights[0].Quiz == "Quiz A" && nights[0].Host == "Max" && nights[0].Players.Count == 2 && nights[0].Players[0].Name == "Ann" && nights[1].Host == "",
 			"match history: nights newest first, with the host and places (the same night twice counts once)");
+		var started = Storage.Results.Nights(new[] { "date,quiz,place,player_id,player,points,started\n2026-11-02 22:41,Quiz C,1,steam:1,Ann,5,2026-11-02 20:03\n" })[0];
+		Check(Ui.Screens.MatchHistoryScreen.When(started) == "02.11.2026 20:03" && Ui.Screens.MatchHistoryScreen.When(nights[1]) == "01.10.2026",
+			"the match history shows when a night started (older nights without it: just the day)");
+		Check(Storage.Results.Columns.Contains("started"), "results record when the quiz started");
 		Eq(Game.Fmt(0.00000034), "0.00000034", "small numbers keep every digit");
 		Eq(Game.Fmt(0.1 + 0.2), "0.3", "no float noise");
 		Eq(Ui.NumberField.Parse("2,5"), 2.5, "a comma reads as the decimal point");
@@ -651,6 +1049,73 @@ public static class SelfTest
 		// Versions and the changelog (What's new, updater).
 		Check(AppVersion.Parse("0.5.0") > AppVersion.Parse("0.5.0a")!.Value && AppVersion.Parse("0.5.1a") > AppVersion.Parse("0.5.0")!.Value, "version order");
 		Check(AppVersion.Parse("v0.10.0a") > AppVersion.Parse("0.9.3")!.Value, "tags and two-digit numbers");
+		Check(AppVersion.Parse("0.10.0b") > AppVersion.Parse("0.9.6b")!.Value, "0.10.0b is an update for 0.9.6b");
+		Check(AppVersion.Parse("0.12.0d1") is { IsDev: true, Build: 1 } d1 && d1.ToString() == "0.12.0d1", "test build numbers");
+		Check(AppVersion.Parse("0.12.0d1") > AppVersion.Parse("0.11.3b")!.Value && AppVersion.Parse("0.12.0d10") > AppVersion.Parse("0.12.0d9")!.Value,
+			"test builds count up (d10 after d9)");
+		Check(AppVersion.Parse("0.12.0b") > AppVersion.Parse("0.12.0d7")!.Value && AppVersion.Parse("0.12.1d1") > AppVersion.Parse("0.12.0b")!.Value,
+			"a public version comes after its test builds");
+		Check(Ui.UiAudio.IsChristmas(new DateTime(2026, 12, 24)) && !Ui.UiAudio.IsChristmas(new DateTime(2026, 12, 27)) && !Ui.UiAudio.IsChristmas(new DateTime(2026, 11, 30)),
+			"Christmas songs: 1 to 26 December");
+		Check(Storage.CrashReports.HasError("ok\nERROR: System.NullReferenceException: Object reference not set\n   at X")
+			&& !Storage.CrashReports.HasError("ERROR: Couldn't load a font\nWARNING: x"), "crash reports: C# errors found in a log, plain Godot errors not");
+		Check(Storage.CrashReports.Anonymise(@"C:\Users\Max\AppData\Roaming\Quiznight", "max") == @"C:\Users\<user>\AppData\Roaming\Quiznight",
+			"crash reports: the user name is left out of paths");
+		{
+			// An .ogv's picture size from its Theora header (the editor warns above 720p).
+			var head = new byte[] { 1, 2, 0x80, (byte)'t', (byte)'h', (byte)'e', (byte)'o', (byte)'r', (byte)'a', 3, 2, 1, 0, 120, 0, 68, 0x00, 0x07, 0x80, 0x00, 0x04, 0x38, 0 };
+			Check(Storage.Media.TheoraSize(head) == (1920, 1080) && Storage.Media.TheoraSize(new byte[30]) == null, "videos: the picture size is read from the file");
+		}
+		Check(Ui.UiAudio.Describe("res://assets/music/ES_Easy Breezy - Megan Wofford.ogg") == ("Easy Breezy", "Megan Wofford"), "a song's title and artist come from its Epidemic Sound name");
+		Check(Ui.UiAudio.SongsIn("res://assets/music/halloween").Any(s => s.Contains("The Sleepy Sneaky Sway"))
+			&& ResourceLoader.Load<AudioStream>("res://assets/music/halloween/ES_The Sleepy Sneaky Sway - Luella Gren.ogg") != null,
+			"Halloween songs: October's intro song is there and plays");
+		Check(MapPresets.Get(WowAtlas.PresetId)!.Name == "WoW Forever" && MapPresets.CurrentName(WowAtlas.PresetId, "WoW Classic – Azeroth") == "WoW Forever"
+			&& MapPresets.CurrentName(WowAtlas.PresetId, "My WoW") == "My WoW" && MapPresets.CurrentName(null, "WoW Classic – Azeroth") == "WoW Classic – Azeroth",
+			"the WoW map is WoW Forever, also in quizzes saved with its old name (a name the host chose stays)");
+		{
+			var changed = new MapPreset("x", "X", 1, "", "", ChangedIn: "0.12.0d1");
+			MapPresets.PretendChanged = null;
+			Check(MapPresets.NeedsCheck("skyrim", null) == null, "a map no update changed needs no check");
+			MapPresets.PretendChanged = "skyrim";
+			var mapQuiz = new Quiz { Maps = { new MapAsset { Id = "m", PresetId = "skyrim", Image = new ImageAsset { Width = 10, Height = 10 } } } };
+			var q = new Question { Type = QuestionType.MapPin, MapId = "m", Target = new NormPoint(0.5, 0.5), Image = new ImageAsset { DataUrl = "data:image/png;base64,AA==", Width = 1, Height = 1 } };
+			var flagged = QuizRules.MapNeedsCheck(q, mapQuiz.Maps) && QuizRules.QuestionIssues(q, mapQuiz.Maps).Any(i => i.Contains("0.0.1"));
+			Check(flagged, "a changed map flags its questions: " + string.Join(" ", QuizRules.QuestionIssues(q, mapQuiz.Maps)));
+			q.MapCheckedIn = "0.12.0d1";
+			var back = QuizJson.ReadQuestion(QuizJson.WriteQuestion(q));
+			MapPresets.PretendChanged = null;
+			Check(flagged && back.MapCheckedIn == "0.12.0d1" && !QuizRules.MapNeedsCheck(back, mapQuiz.Maps) && changed.ChangedIn == "0.12.0d1",
+				"a changed map flags its questions until their spot is checked (saved in the quiz file)");
+		}
+		{
+			var typeQuiz = new Quiz { Questions = { new Question { Type = QuestionType.Classic }, new Question { Type = QuestionType.Interactive } } };
+			Check(VersionCheck.Missing(typeQuiz, "0.8.5b").Count == 1 && VersionCheck.Missing(typeQuiz, "").Count == 0 && VersionCheck.Missing(typeQuiz, "0.12.0d1").Count == 0
+				&& VersionCheck.Older("", "0.12.0d1") && !VersionCheck.Older("0.12.0d1", "0.12.0d1") && VersionCheck.Older("0.11.4b", "0.12.0b"),
+				"lobby version check: older games are told what they can't play; games before 0.12 count as 0.11.4b");
+		}
+		Check(Ui.Skins.Valid("pinke-geilheit") == Ui.Skins.Default && Ui.Skins.All.First(s => s.Id == Ui.Skins.Default).Label == "Quiznight Purple"
+			&& Ui.Skins.Valid(Ui.Skins.Pink) == Ui.Skins.Pink, "skins: the old Pinke Geilheit id is Quiznight Purple now, the pastel Pinke Geilheit is its own");
+		Check(Ui.Seasons.IsHalloween(new DateTime(2026, 10, 31)) && !Ui.Seasons.IsHalloween(new DateTime(2026, 11, 1))
+			&& Ui.Seasons.IsChristmas(new DateTime(2026, 12, 1)) && !Ui.Seasons.IsChristmas(new DateTime(2027, 1, 2)),
+			"seasonal skins: Halloween all October, Christmas 1 to 26 December");
+		Check(Ui.Seasons.IsNewYear(new DateTime(2026, 12, 27)) && Ui.Seasons.IsNewYear(new DateTime(2027, 1, 7)) && !Ui.Seasons.IsNewYear(new DateTime(2026, 12, 26))
+			&& !Ui.Seasons.IsNewYear(new DateTime(2027, 1, 8)), "New Year skin: 27 December to 7 January");
+		Check(Ui.Seasons.Easter(2026) == new DateTime(2026, 4, 5) && Ui.Seasons.Easter(2027) == new DateTime(2027, 3, 28),
+			"Easter Sunday 2026 and 2027");
+		Check(Ui.Seasons.IsCarnival(new DateTime(2026, 2, 12)) && Ui.Seasons.IsCarnival(new DateTime(2026, 2, 16)) && Ui.Seasons.IsCarnival(new DateTime(2026, 2, 17))
+			&& !Ui.Seasons.IsCarnival(new DateTime(2026, 2, 11)) && !Ui.Seasons.IsCarnival(new DateTime(2026, 2, 18))
+			&& Ui.Seasons.IsCarnival(new DateTime(2026, 11, 11)) && !Ui.Seasons.IsCarnival(new DateTime(2026, 11, 12)) && Ui.Seasons.IsCarnival(new DateTime(2027, 2, 4)),
+			"carnival: Weiberfastnacht to Veilchendienstag (not Ash Wednesday), and 11 November");
+		Check(Ui.Seasons.IsValentine(new DateTime(2027, 2, 14)) && !Ui.Seasons.IsValentine(new DateTime(2027, 3, 1)), "Valentine's Day skin: all of February");
+		Check(Ui.Skins.Valid(Ui.Skins.Effzeh) == Ui.Skins.Effzeh && Ui.Skins.Valid("nonsense") == Ui.Skins.Default,
+			"skins: the new ones are valid, unknown ones fall back to Quiznight Purple");
+		var seasonNow = Ui.Seasons.IsCarnival(Ui.Seasons.Today) ? Ui.Skins.Carnival : Ui.Seasons.IsHalloween(Ui.Seasons.Today) ? Ui.Skins.Halloween : Ui.Seasons.IsChristmas(Ui.Seasons.Today) ? Ui.Skins.Christmas
+			: Ui.Seasons.IsNewYear(Ui.Seasons.Today) ? Ui.Skins.NewYear : Ui.Seasons.IsValentine(Ui.Seasons.Today) ? Ui.Skins.Valentine : null;
+		Check(Ui.Skins.Effective(Ui.Skins.F1, false) == Ui.Skins.F1 && Ui.Skins.Effective(Ui.Skins.F1, true) == (seasonNow ?? Ui.Skins.F1),
+			"skins: the season's skin comes on by itself (unless seasonal skins are off), else the chosen one shows");
+		Check(Ui.Skins.Available.Any(a => Ui.Skins.IsSeasonal(a.Id)) == App.LanUnlocked, "skins: the seasonal ones can only be picked in developer mode");
+		Check(Storage.Sfx.Podiums.All(p => p.Db == 0) && Storage.Sfx.Buzzers.All(b => b.Db == 0), "built-in sounds need no volume boost (their files are levelled)");
 		Check(AppVersion.Parse("hello") == null, "not a version");
 		var notes = Changelog.Parse(Godot.FileAccess.GetFileAsString("res://CHANGELOG.md"));
 		var thisVersion = notes.FirstOrDefault(r => r.Version is { } nv && AppVersion.Parse(App.Version) is { } av && nv.CompareTo(av) == 0);
@@ -668,6 +1133,78 @@ public static class SelfTest
 		var back = WowAtlas.WorldToLocation(world)!.Value;
 		Check(Math.Abs(back.X - loc.X) < 0.01 && Math.Abs(back.Y - loc.Y) < 0.01, "world/zone round trip");
 		Eq(WowAtlas.ZoneAt(loc)?.Id, 1429, "zone lookup");
+		{
+			// The lobby's mini games: a challenge, accepted, played to the end; the record counts it; the quiz starting cuts
+			// a match off for nobody.
+			var arcade = new ArcadeHost { Players = () => new[] { "ann", "ben", ArcadeGame.HostId } };
+			arcade.Request("ann", new ArcadeRequest { Kind = ArcadeRequest.Challenge, Game = ArcadeGame.Pong, Who = "ben" });
+			var started = arcade.Request("ben", new ArcadeRequest { Kind = ArcadeRequest.Accept, Who = "ann" }).Frames.Count == 1;
+			// (both paddles parked at the top: the ball gets past, points pile up)
+			arcade.Request("ann", new ArcadeRequest { Kind = ArcadeRequest.Paddle, Value = 0 });
+			arcade.Request("ben", new ArcadeRequest { Kind = ArcadeRequest.Paddle, Value = 0 });
+			string? winner = null;
+			for (var t = 0; t < 60 * 120 && winner == null; t++) winner = arcade.Tick(1 / 60.0).Frames.FirstOrDefault(f => f.Winner != null)?.Winner;
+			var view = arcade.View();
+			Check(started && winner is "ann" or "ben" && view.Records.Count == 1 && view.Records[0].WinsA + view.Records[0].WinsB == 1 && view.Matches.Count == 0,
+				"mini games: a Pong match is played to 5 and counted");
+			arcade.Request(ArcadeGame.HostId, new ArcadeRequest { Kind = ArcadeRequest.Challenge, Game = ArcadeGame.Billiard, Who = "ann" });
+			arcade.Request("ann", new ArcadeRequest { Kind = ArcadeRequest.Accept, Who = ArcadeGame.HostId });
+			arcade.Request(ArcadeGame.HostId, new ArcadeRequest { Kind = ArcadeRequest.Shot, Angle = 0, Power = 1 });
+			var rolled = false;
+			for (var t = 0; t < 60 * 30; t++) rolled |= arcade.Tick(1 / 60.0).Frames.Any(f => f.Billiard is { Moving: false } b && b.X.All(double.IsFinite));
+			var cut = arcade.StopAll();
+			Check(rolled && cut.Count == 1 && cut[0].Winner == "" && arcade.View().Records.Count == 1, "mini games: a billiard shot rolls to a stop; starting the quiz cuts the match off for nobody");
+			// Every billiard game, played shot by shot at the nearest fair ball: the balls stay on the table, turns pass,
+			// and the pool games end with a winner.
+			foreach (var mode in BilliardMode.All)
+			{
+				var table = BilliardState.New(mode, lag: false);
+				int scoreA = 0, scoreB = 0, shots = 0;
+				string? won = null;
+				var ok = table.X.Count == mode switch { BilliardMode.Eight => 16, BilliardMode.Nine => 10, BilliardMode.Four => 4, BilliardMode.Three => 3, _ => 8 };
+				var turns = new HashSet<string>();
+				while (won == null && shots++ < 400)
+				{
+					var cue = BilliardRules.CueFor(table);
+					var target = BilliardRules.Targets(table).OrderBy(i => Math.Pow(table.X[i] - table.X[cue], 2) + Math.Pow(table.Y[i] - table.Y[cue], 2)).FirstOrDefault(-1);
+					if (target < 0) break;
+					BilliardRules.Shoot(table, Math.Atan2(table.Y[target] - table.Y[cue], table.X[target] - table.X[cue]) + (shots % 3 - 1) * 0.05, 0.6 + shots % 4 * 0.1);
+					for (var t = 0; t < 240 * 30 && table.Moving; t++) BilliardRules.Step(table, 1 / 240.0);
+					won = BilliardRules.Settle(table, ref scoreA, ref scoreB);
+					turns.Add(table.Turn);
+					ok &= table.X.All(double.IsFinite) && table.Y.All(double.IsFinite) && !table.Moving;
+				}
+				Check(ok && turns.Count == 2 && (BilliardMode.Carom(mode) || won != null), $"billiard {mode}: plays through ({shots} shots, {scoreA}–{scoreB}, winner {won ?? "none"})");
+			}
+			// The lag for 8-ball: both shoot off the far cushion; the one that comes back closer to its end breaks.
+			var lagTable = BilliardState.New(BilliardMode.Eight);
+			var lagOk = lagTable.Lag && BilliardRules.LagShoot(lagTable, "A", 0, 0.62) && !BilliardRules.LagShoot(lagTable, "A", 0, 0.62);
+			for (var t = 0; t < 240 * 30 && lagTable.Moving; t++) BilliardRules.Step(lagTable, 1 / 240.0);
+			lagOk &= BilliardRules.EndLag(lagTable) == null && BilliardRules.LagShoot(lagTable, "B", 0, 0.3);
+			for (var t = 0; t < 240 * 30 && lagTable.Moving; t++) BilliardRules.Step(lagTable, 1 / 240.0);
+			// (A's came off the far cushion; B's was too soft to reach it: A breaks, and the rack is set)
+			Check(lagOk && lagTable.LagFar[0] && !lagTable.LagFar[1] && BilliardRules.EndLag(lagTable) == "A" && !lagTable.Lag && lagTable.Turn == "A" && lagTable.X.Count == 16,
+				"8-ball starts with the lag: whoever comes back closest after the far cushion breaks");
+			// The reaction test: each player's best (lowest) time; silly times are ignored. The bests go with the night's
+			// results, and the all-time list is added up from them (without them counting as players or questions).
+			arcade.Request("ann", new ArcadeRequest { Kind = ArcadeRequest.ReactionTime, Value = 240 });
+			arcade.Request("ann", new ArcadeRequest { Kind = ArcadeRequest.ReactionTime, Value = 310 });
+			arcade.Request("ben", new ArcadeRequest { Kind = ArcadeRequest.ReactionTime, Value = 20 });
+			var reactionRoom = new Room("REAC", Dev.SampleQuiz.Build(), () => 0);
+			reactionRoom.Join("ann", "Ann");
+			var (_, reactionCsv) = Storage.Results.Make(reactionRoom, null, new[] { (ArcadeGame.Reaction, "ann", "Ann", 240), (ArcadeGame.Reaction, "ann", "Ann", 199), (ArcadeGame.Tetris, "ann", "Ann", 5000) });
+			var reactionAll = Storage.Results.ArcadeBests(new[] { reactionCsv }, ArcadeGame.Reaction);
+			Check(arcade.View().ReactionBest.GetValueOrDefault("ann") == 240 && !arcade.View().ReactionBest.ContainsKey("ben")
+				&& reactionAll.Count == 1 && reactionAll[0].Value == 199 && Storage.Results.ArcadeBests(new[] { reactionCsv }, ArcadeGame.Tetris)[0].Value == 5000
+				&& Storage.Results.Nights(new[] { reactionCsv }).Count == 1 && Storage.Results.Questions(new[] { reactionCsv }).Count == 0,
+				"mini games: reaction bests in the lobby, in the night's results and all time");
+			arcade.Request("ann", new ArcadeRequest { Kind = ArcadeRequest.Score, Value = 1200 });
+			arcade.Request("ann", new ArcadeRequest { Kind = ArcadeRequest.Score, Value = 800 });
+			Check(arcade.View().TetrisBest["ann"] == 1200, "mini games: Tetris keeps each player's best score");
+		}
+		Check(WowAtlas.ExtraZoneAt(new NormPoint(690.0 / WowAtlas.ImageWidth, 265.0 / WowAtlas.ImageHeight)) == "Gilneas"
+			&& WowAtlas.ExtraZoneAt(new NormPoint(850.0 / WowAtlas.ImageWidth, 415.0 / WowAtlas.ImageHeight)) == "Riverglades"
+			&& WowAtlas.ExtraZoneAt(new NormPoint(0.5, 0.5)) == null, "WoW Forever's new zones are named on the map");
 		var a = WowAtlas.LocationToWorld(new WowAtlas.Location(0, -9000, 0));
 		var b = WowAtlas.LocationToWorld(new WowAtlas.Location(0, -9100, 0));
 		Check(Math.Abs(WowAtlas.DistanceKm(a, b) - 100 * 0.9144 / 1000) < 0.001, "same-continent distance in yards");
@@ -755,6 +1292,8 @@ public static class SelfTest
 
 		bob.Buzz();
 		Check(await Until(() => ann.State?.Game?.Buzzes.Count == 1), "buzz reaches everyone");
+		// (fair buzzers: the host waits a moment for other buzzes, then Bob answers)
+		Check(await Until(() => ann.State?.Game?.Buzzes.FirstOrDefault()?.Status == BuzzStatus.Answering), "after the short wait the buzzer answers");
 		host.Judge(true);
 		Check(await Until(() => ann.State?.Game?.Stage == Stage.Reveal), "reveal reaches players");
 		Eq(ann.State!.Score("lan:bob-id"), 1, "score sent");

@@ -132,7 +132,9 @@ public sealed class ClientAssets(Action<string> request, ClientMedia media) : As
 
 	public void Receive(AssetPart part)
 	{
-		if (part.Parts < 1 || part.Parts > 10_000 || part.Part < 0 || part.Part >= part.Parts || !_requested.Contains(part.Key)) return;
+		// (a picture or recording is at most ~130 MB as base64; over Steam it comes in 300 KB parts)
+		if (part.Parts < 1 || part.Parts > 600 || part.Part < 0 || part.Part >= part.Parts || !_requested.Contains(part.Key)
+			|| (part.Data?.Length ?? 0) > 70 * 1024 * 1024) return;
 		if (!_incoming.TryGetValue(part.Key, out var entry) || entry.Parts.Length != part.Parts)
 		{
 			entry = (part.Mime, new string?[part.Parts]);
@@ -146,7 +148,14 @@ public sealed class ClientAssets(Action<string> request, ClientMedia media) : As
 		foreach (var p in entry.Parts) sb.Append(p);
 		if (entry.Mime.StartsWith("audio/"))
 		{
-			Sounds[part.Key] = Media.LoadSound(Convert.FromBase64String(sb.ToString()), entry.Mime);
+			try
+			{
+				Sounds[part.Key] = Media.LoadSound(Convert.FromBase64String(sb.ToString()), entry.Mime);
+			}
+			catch (FormatException)
+			{
+				Sounds[part.Key] = null;
+			}
 			RaiseLoaded(part.Key);
 			return;
 		}

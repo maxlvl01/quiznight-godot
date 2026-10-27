@@ -108,7 +108,7 @@ public static partial class VideoGuide
 			dim.SetAnchorsPreset(LayoutPreset.FullRect);
 			dim.GuiInput += e =>
 			{
-				if (Closable && e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }) QueueFree();
+				if (Closable && e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left or MouseButton.Right }) QueueFree();
 			};
 			AddChild(dim);
 			var center = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };
@@ -124,7 +124,12 @@ public static partial class VideoGuide
 			content.MinimumSizeChanged += FitToWindow;
 		}
 
-		public override void _Ready() => FitToWindow();
+		public override void _Ready()
+		{
+			FitToWindow();
+			// (opens at the top: while the text was still being wrapped, the scroll could end up at the bottom)
+			GetTree().CreateTimer(0.1).Timeout += () => { if (IsInstanceValid(_scroll)) _scroll.ScrollVertical = 0; };
+		}
 
 		public override void _Notification(int what)
 		{
@@ -135,6 +140,9 @@ public static partial class VideoGuide
 		void FitToWindow()
 		{
 			var w = Mathf.Min(740, Size.X - 48);
+			// (the content gets the card's width itself, less the scroll bar: left to the scroll container, wrapped text
+			// ended up only as wide as the heading)
+			if (_scroll.GetChildCount() > 0) _scroll.GetChild<Control>(0).CustomMinimumSize = new Vector2(w - 14, 0);
 			var contentH = _scroll.GetChildCount() > 0 ? _scroll.GetChild<Control>(0).GetCombinedMinimumSize().Y : 0;
 			_scroll.CustomMinimumSize = new Vector2(w, Mathf.Min(contentH, Size.Y - 120));
 		}
@@ -165,7 +173,9 @@ public static partial class VideoGuide
 	{
 		// Zips made on Windows lose the executable bit.
 		if (OS.GetName() == "Linux") OS.Execute("chmod", new[] { "+x", converter });
-		OS.CreateProcess(converter, video != null ? new[] { "--format", "ogv", WinPath(video) } : new[] { "--format", "ogv" });
+		// (and at most 720p: Media.MaxVideo)
+		var size = $"{Media.MaxVideo.W}x{Media.MaxVideo.H}";
+		OS.CreateProcess(converter, video != null ? new[] { "--format", "ogv", "--max-size", size, WinPath(video) } : new[] { "--format", "ogv", "--max-size", size });
 	}
 
 	static string OgvPath(string video) => Path.ChangeExtension(video, ".ogv");

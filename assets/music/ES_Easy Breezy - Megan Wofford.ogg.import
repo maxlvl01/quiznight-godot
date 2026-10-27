@@ -1,0 +1,19 @@
+[remap]
+
+importer="oggvorbisstr"
+type="AudioStreamOggVorbis"
+uid="uid://cgn2k8ekwhfyf"
+path="res://.godot/imported/ES_Easy Breezy - Megan Wofford.ogg-6772031c4d0578199b98272fe0e48e3e.oggvorbisstr"
+
+[deps]
+
+source_file="res://assets/music/ES_Easy Breezy - Megan Wofford.ogg"
+dest_files=["res://.godot/imported/ES_Easy Breezy - Megan Wofford.ogg-6772031c4d0578199b98272fe0e48e3e.oggvorbisstr"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4

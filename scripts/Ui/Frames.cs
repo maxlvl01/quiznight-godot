@@ -1,6 +1,6 @@
 // Containers that keep things in shape on any screen: the screens at most 16:9 wide (ultrawide monitors
 // get a space picture at the sides instead of stretched-out screens), and videos at their own aspect ratio
-// (letterboxed in black) instead of filling whatever box they're in.
+// (as big as they fit, centred, with nothing painted around them) instead of filling whatever box they're in.
 
 using System;
 using Godot;
@@ -21,9 +21,23 @@ public partial class ScreenFrame : Container
 		}
 	}
 
+	/// <summary>
+	/// The skins' scenes are drawn on this layer behind the screens, cut to the frame, so nothing flying past (a Star
+	/// Destroyer coming in from the side) shows over the picture beside it. (An internal child: the screens' Clear and
+	/// the layout below leave it alone.)
+	/// </summary>
+	readonly Control _scene = new() { ClipContents = true, MouseFilter = MouseFilterEnum.Ignore };
+
+	public ScreenFrame()
+	{
+		AddChild(_scene, false, InternalMode.Front);
+		_scene.Draw += DrawScene;
+	}
+
 	public override void _Notification(int what)
 	{
 		if (what != NotificationSortChildren) return;
+		FitChildInRect(_scene, Frame);
 		foreach (var child in GetChildren())
 			if (child is Control c) FitChildInRect(c, Frame);
 		QueueRedraw();
@@ -37,6 +51,52 @@ public partial class ScreenFrame : Container
 			for (var i = 1; i <= 12; i++)
 				DrawRect(frame.Grow(i * 2), new Color(0, 0, 0, 0.05f));
 		DrawRect(frame, C.Bg);
+		// (the party show stage: a warm spotlight glow from above the middle)
+		DrawTextureRect(StageGlow(), frame, false);
+	}
+
+	void DrawScene()
+	{
+		var frame = new Rect2(Vector2.Zero, _scene.Size);
+		// (seasonal skins: snow and fairy lights, or cobwebs, bats and pumpkins, behind the screens' cards)
+		if (Seasonal.OnScreen) Seasonal.DrawScreen(_scene, frame, _t);
+		// (the space skin: stars, a black hole, planets and passers-by, behind the home screen only)
+		else if (SpaceScene.OnScreen) SpaceScene.Draw(_scene, frame, (float)_t);
+	}
+
+	// (dev: `--space-time T` starts the scenes at that second, e.g. 41 for the Death Star firing)
+	double _t = OS.GetCmdlineUserArgs() is var args && System.Array.IndexOf(args, "--space-time") is var i and >= 0 && i + 1 < args.Length
+		&& double.TryParse(args[i + 1], System.Globalization.CultureInfo.InvariantCulture, out var start) ? start : 0;
+	bool _wasOn;
+
+	public override void _Process(double delta)
+	{
+		// (redrawn while on, and once more when it goes off: another screen then has a clean background)
+		var space = SpaceScene.OnScreen;
+		var on = Seasonal.OnScreen || space;
+		if (on || _wasOn) _scene.QueueRedraw();
+		_wasOn = on;
+		// (the space scene also stands still with Background movement off)
+		if (on && !Announcer.ReduceMotion && (!space || Storage.Settings.BackgroundMotion)) _t += delta;
+	}
+
+	static GradientTexture2D? _glow;
+	static Color _glowFor;
+
+	/// <summary>The stage's glow in the skin's colours (made again when the skin changes).</summary>
+	static GradientTexture2D StageGlow()
+	{
+		if (_glow != null && _glowFor == C.Accent) return _glow;
+		_glowFor = C.Accent;
+		return _glow = new GradientTexture2D
+		{
+			Width = 256, Height = 144, Fill = GradientTexture2D.FillEnum.Radial, FillFrom = new Vector2(0.5f, 0.32f), FillTo = new Vector2(1.05f, 0.95f),
+			Gradient = new Gradient
+			{
+				Colors = new[] { new Color(C.Purple, 0.22f), new Color(C.Accent, 0.05f), new Color(C.Bg, 0) },
+				Offsets = new[] { 0f, 0.55f, 1f },
+			},
+		};
 	}
 }
 
@@ -64,10 +124,29 @@ public partial class SpaceBackdrop : Control
 			""",
 	};
 
+	/// <summary>The out-of-focus layer for the animated background: the video's frame, blurred as it's drawn.</summary>
+	static readonly Shader Blur = new()
+	{
+		Code = """
+			shader_type canvas_item;
+			void fragment() {
+				vec4 sum = vec4(0.0);
+				vec2 step = TEXTURE_PIXEL_SIZE * 5.0;
+				for (int x = -3; x <= 3; x++)
+					for (int y = -3; y <= 3; y++)
+						sum += texture(TEXTURE, UV + vec2(float(x), float(y)) * step);
+				COLOR = sum / 49.0 * COLOR;
+			}
+			""",
+	};
+
 	Texture2D? _sharp;
 	Texture2D? _blurred;
 	/// <summary>The picture shown (a Backgrounds id); a new choice in Settings swaps it.</summary>
 	string? _picture;
+	int _customVersion;
+	/// <summary>Plays the animated background (looping, silent); its frame is both layers.</summary>
+	VideoStreamPlayer? _video;
 	readonly ShaderMaterial _material = new() { Shader = Focus };
 	readonly Control _top = new() { MouseFilter = MouseFilterEnum.Ignore };
 	Vector2 _focus = new(0.5f, 0.5f);
@@ -87,8 +166,24 @@ public partial class SpaceBackdrop : Control
 	void Load(string picture)
 	{
 		_picture = picture;
+		_customVersion = Storage.Backgrounds.Changed;
 		_sharp = _blurred = null;
-		var source = DisplayServer.GetName() == "headless" ? null : GD.Load<Texture2D>(Storage.Backgrounds.Path(picture))?.GetImage();
+		_video?.QueueFree();
+		_video = null;
+		Material = null;
+		if (DisplayServer.GetName() == "headless") return;
+		if (Storage.Backgrounds.IsVideo(picture))
+		{
+			if (GD.Load<VideoStream>(Storage.Backgrounds.Path(picture)) is not { } stream) return;
+			// (not shown itself: its frames are drawn like the picture, in both layers; tiny and see-through just in case)
+			_video = new VideoStreamPlayer { Stream = stream, Loop = true, Autoplay = true, VolumeDb = -80, Modulate = new Color(1, 1, 1, 0), Size = Vector2.One, MouseFilter = MouseFilterEnum.Ignore };
+			_video.Finished += () => _video?.Play();
+			AddChild(_video);
+			MoveChild(_video, 0);
+			Material = new ShaderMaterial { Shader = Blur };
+			return;
+		}
+		var source = Storage.Backgrounds.LoadImage(picture);
 		if (source != null)
 		{
 			// Made once: a smoothly enlarged copy, and a blurred one: halved a few times and doubled back up
@@ -119,12 +214,15 @@ public partial class SpaceBackdrop : Control
 	public override void _Process(double delta)
 	{
 		// (made on first use, and again when Settings picks another one)
-		if (Storage.Settings.Background is var picture && picture != _picture && Size.X > Size.Y * ScreenFrame.MaxAspect + 2) Load(picture);
+		if (Storage.Settings.Background is var picture && (picture != _picture || (picture == Storage.Backgrounds.Custom && _customVersion != Storage.Backgrounds.Changed))
+			&& Size.X > Size.Y * ScreenFrame.MaxAspect + 2) Load(picture);
+		if (_video != null) _sharp = _blurred = _video.GetVideoTexture();
 		// Only on windows wider than 16:9: elsewhere the screens cover it all.
 		Visible = _sharp != null && Size.X > Size.Y * ScreenFrame.MaxAspect + 2;
-		if (!Visible) return;
-		// (the setting off: still, evenly out of focus)
+		// (the setting off: still, evenly out of focus; the animated one stops on its frame)
 		var moving = Storage.Settings.BackgroundMotion;
+		if (_video != null) _video.Paused = !moving || !Visible;
+		if (!Visible) return;
 		_top.Visible = moving;
 		var target = moving ? (GetLocalMousePosition() / Size).Clamp(Vector2.Zero, Vector2.One) : new Vector2(0.5f, 0.5f);
 		// (slow to follow, so quick mouse moves don't swing it around)
@@ -172,7 +270,10 @@ public partial class SpaceBackdrop : Control
 	}
 }
 
-/// <summary>A video player kept at the video's own aspect ratio, centred on black.</summary>
+/// <summary>
+/// A video player kept at the video's own aspect ratio: as big as fits, centred, with an outline around just the video.
+/// Nothing is painted around it (the black bars beside a 16:9 video in a wide box looked like a broken player).
+/// </summary>
 public partial class VideoFrame : Container
 {
 	readonly VideoStreamPlayer? _video;
@@ -183,7 +284,7 @@ public partial class VideoFrame : Container
 	public VideoFrame(VideoStreamPlayer? video)
 	{
 		_video = video;
-		ClipContents = true;
+		// (not clipped: the outline sits just outside the video)
 		if (video == null) return;
 		video.Expand = true;
 		video.CustomMinimumSize = Vector2.Zero;
@@ -200,14 +301,23 @@ public partial class VideoFrame : Container
 		QueueSort();
 	}
 
-	public override void _Draw() => DrawRect(new Rect2(Vector2.Zero, Size), Colors.Black);
+	Rect2 _fit;
+
+	public override void _Draw()
+	{
+		if (_video == null || _fit.Size.X < 1) return;
+		// (black right under the video, for its first frame; the ink outline of the party look around it)
+		DrawRect(_fit, Colors.Black);
+		DrawStyleBox(UiTheme.Box(Colors.Transparent, 14, C.Ink, 4, 0, 0).With(b => b.DrawCenter = false), _fit.Grow(4));
+	}
 
 	public override void _Notification(int what)
 	{
 		if (what != NotificationSortChildren || _video == null) return;
 		var scale = Mathf.Min(Size.X / _videoSize.X, Size.Y / _videoSize.Y);
 		var fit = _videoSize * scale;
-		FitChildInRect(_video, new Rect2((Size - fit) / 2, fit));
+		_fit = new Rect2(((Size - fit) / 2).Round(), fit.Round());
+		FitChildInRect(_video, _fit);
 		QueueRedraw();
 	}
 }

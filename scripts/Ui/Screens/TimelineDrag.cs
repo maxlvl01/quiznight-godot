@@ -23,13 +23,14 @@ public partial class TimelineDragCard : PanelContainer
 		Placed = placed;
 		MouseDefaultCursorShape = CursorShape.Drag;
 		TooltipText = Lang.T(placed ? "Drag it to another gap if you change your mind" : "Drag it into the timeline");
+		// (keys like the timeline's cards: orange in the tray, teal once it sits in a gap)
 		Control content = placed
-			? U.V(2, U.Text(text, 17, C.Text, Fonts.Bold, true, HorizontalAlignment.Center).Raw(),
-				U.Text("Your guess", 12, C.Teal, Fonts.Bold, false, HorizontalAlignment.Center))
-			: GameParts.Row(10, U.Text("⋮⋮", 18, C.Muted, Fonts.Bold), U.Text(text, 24, C.Text, Fonts.Bold, true, HorizontalAlignment.Center).Raw().Grow());
+			? U.V(2, U.Text(text, 17, C.TealInk, Fonts.Bold, true, HorizontalAlignment.Center).Raw(),
+				U.Text("Your guess", 12, new Color(C.TealInk, 0.75f), Fonts.Bold, false, HorizontalAlignment.Center))
+			: GameParts.Row(10, U.Text("⋮⋮", 18, new Color(C.AccentInk, 0.6f), Fonts.Bold), U.Text(text, 24, C.AccentInk, Fonts.Bold, true, HorizontalAlignment.Center).Raw().Grow());
 		AddChild(content);
 		this.MinSize(placed ? 140 : 230, placed ? 64 : 0);
-		AddThemeStyleboxOverride("panel", UiTheme.Box(placed ? C.Panel2.Lerp(C.Teal, 0.08f) : C.Panel2, 12, placed ? C.Teal : C.Accent, 2, 14, 10));
+		AddThemeStyleboxOverride("panel", new KeyBox(placed ? C.Teal : C.Accent, 14, 14, 12, 3, 5, false));
 		SizeFlagsVertical = SizeFlags.ShrinkCenter;
 		SizeFlagsHorizontal = SizeFlags.ShrinkCenter;
 		foreach (var c in content.FindChildren("*", "Control", true, false))

@@ -28,11 +28,14 @@ public sealed class HostSession : IDisposable
 	public HostSession(Room room, IHostTransport net, NetMode mode, int lanPort = 0)
 	{
 		Room = room;
+		Room.BuzzWait = Limits.BuzzWindowMs;
 		Mode = mode;
 		LanPort = lanPort;
 		_net = net;
 		_net.PeerDisconnected += OnPeerDisconnected;
 		_net.Received += OnReceived;
+		// (the mini games: everyone in the lobby whose game has them, and the host)
+		Arcade.Players = () => Room.Players.Where(p => p.Connected && p.Version != "").Select(p => p.Id).Append(ArcadeGame.HostId);
 	}
 
 	public RoomState State => StateFor("host");
@@ -44,6 +47,7 @@ public sealed class HostSession : IDisposable
 	RoomState StateFor(string viewer)
 	{
 		var state = Room.ToState(viewer);
+		if (Room.Phase == Phase.Lobby) state.Arcade = Arcade.View();
 		if (Room.SharedFiles.Count > 0) state.Downloads = Room.Players.ToDictionary(p => p.Id, p => DownloadPercent(p.Id, Room.SharedFiles));
 		if (state.Game is { Stage: Stage.Open } view && Playing() && Room.Game!.CurrentFiles().ToList() is { Count: > 0 } current)
 			view.MediaProgress = Room.Players.ToDictionary(p => p.Id, p => DownloadPercent(p.Id, current));
@@ -73,6 +77,7 @@ public sealed class HostSession : IDisposable
 	{
 		_net.Poll();
 		if (Room.Tick()) Broadcast();
+		if (Room.Phase == Phase.Lobby) ArcadeDone(Arcade.Tick(Godot.Engine.GetMainLoop() is Godot.SceneTree tree ? tree.Root.GetProcessDeltaTime() : 1 / 60.0));
 		SendMedia();
 		var now = Godot.Time.GetTicksMsec() / 1000.0;
 		if (_progressChanged && now - _progressSentAt > 0.4)
@@ -144,18 +149,21 @@ public sealed class HostSession : IDisposable
 	/// <summary>Everyone gets their own view. The host's screen reads the state directly.</summary>
 	public void Broadcast()
 	{
+		Autosave();
 		Changed?.Invoke();
 		foreach (var (peer, playerId) in _peerPlayer.ToList()) _net.Send(peer, Msg.Encode(Msg.State, StateFor(playerId)));
 	}
 
 	void OnPeerDisconnected(string peer)
 	{
+		Trace.Log("host", $"connection {peer} closed");
 		_videoSent.Remove(peer);
 		_peerClient.Remove(peer);
 		if (!_peerPlayer.Remove(peer, out var playerId)) return;
 		// A newer connection may already have taken over this seat.
 		if (PeerOf(playerId) != null) return;
 		Room.Disconnect(playerId);
+		ArcadeDone(Arcade.Gone(playerId));
 		Broadcast();
 	}
 
@@ -163,6 +171,8 @@ public sealed class HostSession : IDisposable
 	{
 		if (Msg.Decode(bytes) is not { } msg) return;
 		_peerPlayer.TryGetValue(peer, out var playerId);
+		// (download progress comes several times a second: not worth a line each)
+		if (msg.Type != Msg.MediaProgress) Trace.Log("host", $"from {playerId ?? peer}: {msg.Type}");
 		switch (msg.Type)
 		{
 			case Msg.Join:
@@ -171,11 +181,12 @@ public sealed class HostSession : IDisposable
 			case Msg.Leave when playerId != null:
 				_peerPlayer.Remove(peer);
 				Room.Leave(playerId);
+				ArcadeDone(Arcade.Gone(playerId));
 				_net.Disconnect(peer);
 				Broadcast();
 				break;
 			case Msg.Buzz when playerId != null && Playing():
-				if (Room.Game!.BuzzIn(playerId)) Broadcast();
+				if (Room.Game!.BuzzIn(playerId, Msg.Read<BuzzRequest>(msg.Data))) Broadcast();
 				break;
 			case Msg.Answer when playerId != null:
 			{
@@ -188,7 +199,7 @@ public sealed class HostSession : IDisposable
 				break;
 			}
 			case Msg.MediaProgress when playerId != null:
-				if (Msg.Read<MediaProgress>(msg.Data) is { } mp)
+				if (Msg.Read<MediaProgress>(msg.Data) is { } mp && Room.SharedFiles.Any(f => f.Id == mp.Id))
 				{
 					if (!_mediaProgress.TryGetValue(playerId, out var got)) _mediaProgress[playerId] = got = new();
 					got[mp.Id] = Math.Clamp(mp.Percent, 0, 100);
@@ -205,6 +216,9 @@ public sealed class HostSession : IDisposable
 			case Msg.Recording when playerId != null:
 				if (Msg.Read<RecordingPart>(msg.Data) is { } rp) ReceiveRecording(peer, playerId, rp);
 				break;
+			case Msg.Arcade when playerId != null && Room.Phase == Phase.Lobby:
+				if (Msg.Read<ArcadeRequest>(msg.Data) is { } arcade) ArcadeDone(Arcade.Request(playerId, arcade));
+				break;
 			case Msg.AssetRequest when playerId != null:
 				if (Msg.Read<AssetRequest>(msg.Data) is { } ar) SendAsset(peer, ar.Key);
 				break;
@@ -213,14 +227,60 @@ public sealed class HostSession : IDisposable
 
 	bool Playing() => Room.Game != null && Room.Phase == Phase.Playing;
 
+	/// <summary>Who the host removed (player ids, and what their game called itself): they can't come back into this room.</summary>
+	readonly HashSet<string> _kicked = new();
+
+	/// <summary>
+	/// Whether a Steam account is the host's Steam friend. Steam mode only; a stand-in for the self-test.
+	/// </summary>
+	public Func<ulong, bool> IsFriend = id => SteamService.Available && new Steamworks.Friend(id).IsFriend;
+
+	void Refuse(string peer, string error)
+	{
+		Godot.GD.Print($"Join refused on connection {peer}: {error}");
+		_net.Send(peer, Msg.Encode(Msg.Joined, new JoinReply { Ok = false, Error = error }));
+		_net.Disconnect(peer);
+	}
+
 	void HandleJoin(string peer, JoinRequest req)
 	{
-		// Steam vouches for who is connecting; on LAN the player's app says who it is (over Steam too, if Steam didn't).
-		var cid = req.ClientId.Trim();
-		var id = _net.PeerSteamId(peer) is { } steamId ? "steam:" + steamId
-			: cid.StartsWith("steam-") && ulong.TryParse(cid.AsSpan(6), out var claimed) && claimed != 0 ? "steam:" + claimed
-			: cid is { Length: > 0 and <= 64 } ? "lan:" + cid
+		// Over Steam, Steam vouches for who is connecting, and nobody else gets a seat: a game claiming to be some Steam
+		// account could otherwise take that player's seat (and points). On LAN the player's game says who it is.
+		var cid = (req.ClientId ?? "").Trim();
+		var steamId = _net.PeerSteamId(peer);
+		if (Mode == NetMode.Steam)
+		{
+			if (steamId == null)
+			{
+				Refuse(peer, "Steam couldn't confirm who you are. Try joining again.");
+				return;
+			}
+			// (the code isn't a password, but without it nobody gets in by guessing the host's Steam ID)
+			if (!string.Equals(Limits.NormalizeCode(req.Code ?? ""), Room.Code, StringComparison.Ordinal))
+			{
+				Refuse(peer, "That room code doesn't match. Check it and try again.");
+				return;
+			}
+			if (Room.Settings.FriendsOnly && !(ulong.TryParse(steamId, out var sid) && IsFriend(sid)))
+			{
+				Refuse(peer, "Only the host's Steam friends can join this room.");
+				return;
+			}
+		}
+		// (a game that can't read this one's messages; games before 0.12 send no number and may join)
+		if (req.Protocol != 0 && req.Protocol != Limits.Protocol)
+		{
+			Refuse(peer, Lang.F("Your Quiznight ({0}) doesn't fit the host's ({1}). Update to the same version, then join again.", req.Version, Godot.ProjectSettings.GetSetting("application/config/version").AsString()));
+			return;
+		}
+		var id = steamId != null ? "steam:" + steamId
+			: cid is { Length: > 0 and <= 64 } && !cid.StartsWith("steam") ? "lan:" + cid
 			: "lan:" + peer;
+		if (_kicked.Contains(id) || cid != "" && _kicked.Contains("client:" + cid))
+		{
+			Refuse(peer, "The host removed you from this room.");
+			return;
+		}
 		// Two people can't be one player: if this id's seat is held right now by a connection whose game said it is
 		// someone else, the ids came out the same by mistake; this one gets a seat of its own.
 		if (PeerOf(id) is { } holderPeer && holderPeer != peer && _peerClient.TryGetValue(holderPeer, out var holderCid)
@@ -234,6 +294,7 @@ public sealed class HostSession : IDisposable
 			_net.Send(peer, Msg.Encode(Msg.Joined, new JoinReply { Ok = false, Error = error }));
 			return;
 		}
+		player.Version = AppVersion.Parse(req.Version) != null ? req.Version : "";
 		// Coming back on a new connection: the old one is stale.
 		if (PeerOf(id) is { } old && old != peer)
 		{
@@ -241,6 +302,7 @@ public sealed class HostSession : IDisposable
 			_net.Disconnect(old);
 		}
 		_peerPlayer[peer] = id;
+		(_net as LanHostTransport)?.MarkJoined(peer);
 		_net.Send(peer, Msg.Encode(Msg.Joined, new JoinReply { Ok = true, PlayerId = id }));
 		Broadcast();
 	}
@@ -265,8 +327,12 @@ public sealed class HostSession : IDisposable
 	{
 		if (Room.GetPlayer(playerId) == null) return;
 		Room.Remove(playerId);
+		ArcadeDone(Arcade.Gone(playerId));
+		// (and they stay out: rejoining with the code would otherwise just bring them back)
+		_kicked.Add(playerId);
 		if (PeerOf(playerId) is { } peer)
 		{
+			if (_peerClient.TryGetValue(peer, out var cid) && cid != "") _kicked.Add("client:" + cid);
 			_net.Send(peer, Msg.Encode(Msg.Kicked));
 			_peerPlayer.Remove(peer);
 			_net.Disconnect(peer);
@@ -296,18 +362,54 @@ public sealed class HostSession : IDisposable
 		}
 	}
 
-	public void UpdateSettings(int? answerTimeSec = null, bool? hostShows = null, bool? hostUnlocks = null, (string Kind, bool On)? joker = null)
+	public void UpdateSettings(int? answerTimeSec = null, bool? hostShows = null, bool? hostUnlocks = null, (string Kind, bool On)? joker = null,
+		bool? categories = null, bool? friendsOnly = null)
 	{
 		if (Room.Phase != Phase.Lobby) return;
-		Room.UpdateSettings(answerTimeSec, hostShows, hostUnlocks, joker);
+		Room.UpdateSettings(answerTimeSec, hostShows, hostUnlocks, joker, categories, friendsOnly);
 		Broadcast();
 	}
 
 	public Result Start()
 	{
 		var result = Room.Start();
-		if (result.Ok) Broadcast();
+		if (!result.Ok) return result;
+		// (a saved night that was already at its last reveal: straight to the podium)
+		SaveResultsIfFinished();
+		// (the quiz starts: every mini game ends, counting for nobody)
+		SendFrames(Arcade.StopAll());
+		Broadcast();
 		return result;
+	}
+
+	// ---------- the lobby's mini games (Shared/Arcade.cs, ArcadeHost) ----------
+
+	/// <summary>The mini games: challenges, matches and this lobby's records.</summary>
+	public readonly ArcadeHost Arcade = new();
+
+	/// <summary>A match the host is in moved on (the host's screen draws it).</summary>
+	public event Action<ArcadeFrame>? ArcadeFrame;
+
+	/// <summary>The host's own mini game requests (plays as ArcadeGame.HostId).</summary>
+	public void ArcadeRequest(ArcadeRequest request)
+	{
+		if (Room.Phase == Phase.Lobby) ArcadeDone(Arcade.Request(ArcadeGame.HostId, request));
+	}
+
+	void ArcadeDone((bool Changed, List<ArcadeFrame> Frames) done)
+	{
+		SendFrames(done.Frames);
+		if (done.Changed) Broadcast();
+	}
+
+	void SendFrames(List<ArcadeFrame> frames)
+	{
+		foreach (var frame in frames)
+		foreach (var id in new[] { frame.A, frame.B })
+		{
+			if (id == ArcadeGame.HostId) ArcadeFrame?.Invoke(frame);
+			else if (PeerOf(id) is { } peer) _net.Send(peer, Msg.Encode(Msg.ArcadeFrame, frame));
+		}
 	}
 
 	public void BackToLobby()
@@ -333,7 +435,7 @@ public sealed class HostSession : IDisposable
 	public void AdjustScore(string playerId, int delta)
 	{
 		if (!Playing() || delta == 0 || Room.Players.All(p => p.Id != playerId)) return;
-		Room.Award(playerId, delta);
+		Room.AdjustScore(playerId, delta);
 		Broadcast();
 	}
 	public void ShowQuestion() => GameAction(g => g.ShowQuestion());
@@ -354,7 +456,8 @@ public sealed class HostSession : IDisposable
 
 	void ReceiveRecording(string peer, string playerId, RecordingPart part)
 	{
-		if (part.Parts < 1 || part.Parts > 64 || part.Part < 0 || part.Part >= part.Parts) return;
+		// (a recording is at most 15 s of 16 kHz sound: about 640 KB as base64, sent in 200 KB parts)
+		if (part.Parts < 1 || part.Parts > 8 || part.Part < 0 || part.Part >= part.Parts || (part.Data?.Length ?? 0) > 200_000 || !Playing()) return;
 		if (!_recordingParts.TryGetValue(playerId, out var entry) || entry.Index != part.Index || entry.Parts.Length != part.Parts)
 			_recordingParts[playerId] = entry = (part.Index, new string?[part.Parts]);
 		entry.Parts[part.Part] = part.Data;
@@ -397,13 +500,48 @@ public sealed class HostSession : IDisposable
 
 	bool _resultsSent;
 
+	// ---------- saving the night (Room.SaveJson, Storage.NightSaves) ----------
+
+	/// <summary>Save the night after every question, so it can go on after a crash or an update (the host's app; not tests).</summary>
+	public bool Autosaves;
+	/// <summary>This room has a save on disk (written or continued): it goes when the night ends.</summary>
+	bool _hasSave;
+
+	void Autosave()
+	{
+		if (!Autosaves) return;
+		if (Room.Phase == Phase.Finished)
+		{
+			if (_hasSave) Storage.NightSaves.Delete(Room.Quiz.Id);
+			_hasSave = false;
+		}
+		else if (Room.SaveJson() is { } json)
+		{
+			Storage.NightSaves.Write(Room.Quiz.Id, json);
+			_hasSave = true;
+		}
+	}
+
+	/// <summary>The lobby continues a saved night (the quiz page's Continue).</summary>
+	public void Restore(SavedNight save)
+	{
+		Room.Restore(save);
+		_hasSave = true;
+		Broadcast();
+	}
+
 	/// <summary>The game is over: its results go to Max's results repo (real games over Steam only, not LAN tests).</summary>
 	void SaveResultsIfFinished()
 	{
 		if (Room.Phase != Phase.Finished || _resultsSent) return;
 		_resultsSent = true;
 		if (Mode != NetMode.Steam || !Storage.ResultsUpload.Enabled) return;
-		var (name, csv) = Storage.Results.Make(Room, (SteamService.PlayerName, "steam:" + SteamService.MySteamId));
+		// (the lobby's mini game bests go with the night: the all-time lists are added up from them; the host plays as
+		// "host", in the results as their Steam id)
+		var hostId = "steam:" + SteamService.MySteamId;
+		var arcade = Arcade.Bests().Select(b => (b.Game, b.PlayerId == ArcadeGame.HostId ? hostId : b.PlayerId,
+			b.PlayerId == ArcadeGame.HostId ? SteamService.PlayerName : Room.GetPlayer(b.PlayerId)?.Name ?? "", b.Value));
+		var (name, csv) = Storage.Results.Make(Room, (SteamService.PlayerName, hostId), arcade);
 		Storage.ResultsUpload.Send(name, csv);
 	}
 

@@ -54,10 +54,17 @@ public partial class QuizListScreen : Control
 		title.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
 		title.ClipText = true;
 		var info = U.H(8, U.Muted(Lang.F("{0} · edited {1}", U.Plural(quiz.Questions.Count, "question", "questions"), edited), 13, false));
-		if (!ready) info.AddChild(U.Pill("Not ready yet", C.Accent));
+		if (quiz.Questions.Any(q => QuizRules.MapNeedsCheck(q, quiz.Maps))) info.AddChild(U.Pill("⚠ A map changed: check", C.Orange));
+		else if (!ready) info.AddChild(U.Pill("Not ready yet", C.Accent));
 		var host = U.Btn("Open lobby", "AccentButton", () => App.I.HostQuiz(quiz), 14);
 		host.Disabled = !ready;
+		// (a night that didn't finish: Continue goes on where it stopped; the quiz's page tells more)
+		Control resume = NightSaves.Load(quiz.Id) is { } save
+			? U.Small(Lang.F("▶ Continue at question {0}", save.Next + 1), () => App.I.HostQuiz(quiz, null, save))
+				.With(b => b.Disabled = !ready).Tip(Lang.F("An unfinished quiz night, saved {0}: everyone gets their points back", save.SavedAt.ToString("dd.MM. HH:mm", System.Globalization.CultureInfo.InvariantCulture)))
+			: U.Fill();
 		var actions = U.H(6,
+			resume,
 			U.Fill(),
 			U.Small("Copy share code", () => ShareInfo.Copy(this, quiz)),
 			U.Small("Export", () => Export(quiz)),

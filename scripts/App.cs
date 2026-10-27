@@ -2,6 +2,7 @@
 // room state to the lobby, game and podium screens.
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using QuizNight.Dev;
@@ -23,7 +24,8 @@ public partial class App : Control
 	/// LAN play is for testing: exported games hide it until the developer code is typed on the home screen
 	/// (until the game closes). Runs from the editor always have it.
 	/// </summary>
-	public static bool LanUnlocked { get; set; } = !OS.HasFeature("template");
+	// (test builds always start in developer mode)
+	public static bool LanUnlocked { get; set; } = !OS.HasFeature("template") || Updater.TestChannel;
 	public const string DevCode = "61969";
 
 	static readonly string LanClientId = QuizStore.MakeId();
@@ -38,6 +40,8 @@ public partial class App : Control
 	readonly Control _screens = new ScreenFrame();
 	readonly VBoxContainer _banners = U.V(0);
 	Control? _screen;
+	/// <summary>The screen showing now (what a bug report says it was opened on).</summary>
+	public Control? Screen => _screen;
 	string? _bannerError;
 	DevTools? _dev;
 
@@ -46,7 +50,21 @@ public partial class App : Control
 	public override void _Ready()
 	{
 		I = this;
-		C.Use(Settings.Skin);
+		// (nothing saved yet: the very first start on this PC, which asks for the accessibility settings first)
+		var firstStart = Settings.NothingSaved;
+		var volumesReset = Settings.ResetVolumesOnce(firstStart);
+		// (sends the last run's log if it crashed or hit an error; exported builds only)
+		// (test builds log every step in detail, and send the log after each session: CrashReports)
+		Trace.On = Updater.TestChannel;
+		CrashReports.Start();
+		BugReports.SendWaiting();
+		DesktopShortcut.MakeOnFirstStart(firstStart);
+		Trace.Log("start", $"Quiznight {Version} test build · {OS.GetName()} {OS.GetVersion()} · {DisplayServer.ScreenGetSize()} · skin {Settings.Skin} · {Settings.Language} · {Settings.WindowMode} {Settings.WindowSize}");
+		// (dev runs: --skin ID, --dyslexic and --colour-vision MODE try them without saving)
+		var devArgs = OS.GetCmdlineUserArgs();
+		var skinArg = Array.IndexOf(devArgs, "--skin");
+		C.Use(skinArg >= 0 && skinArg + 1 < devArgs.Length ? devArgs[skinArg + 1] : Settings.ShownSkin);
+		Fonts.UseDyslexic(Settings.DyslexicFont || devArgs.Contains("--dyslexic"));
 		Theme = UiTheme.Build();
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		_bg.Color = C.Bg;
@@ -57,28 +75,136 @@ public partial class App : Control
 		_banners.SetAnchorsPreset(LayoutPreset.TopWide);
 		_banners.MouseFilter = MouseFilterEnum.Ignore;
 		AddChild(_banners);
-
+		AddChild(_audio);
+		AddChild(new Jukebox());
+		AddChild(new BugButton());
+		AddChild(_colours);
+		AddChild(Announcer);
+		var cv = Array.IndexOf(devArgs, "--colour-vision");
+		_colours.Use(cv >= 0 && cv + 1 < devArgs.Length ? devArgs[cv + 1] : Settings.ColourVision);
+		_audio.TrackStarted += path => AddChild(new NowPlaying(path));
 		GetTree().AutoAcceptQuit = false;
+		if (DisplayServer.GetName() != "headless")
+		{
+			UseCursors();
+			Settings.ApplyMicrophone();
+		}
+		DropDowns.Install(GetTree());
 		// (the name players see; project.godot keeps "QuizNight!", which names the exported data folder that updates rely on)
 		GetWindow().Title = "Quiznight?";
 		GetWindow().FilesDropped += OnFilesDropped;
 
 		var args = OS.GetCmdlineUserArgs();
+		var window = DisplayServer.GetName() != "headless";
+		// (before "What's new" moves the last seen version on: what's new since the player's last update)
+		New.NoteUpdate();
+		// (the game opens as the anti-cheat's small borderless window, like Easy Anti-Cheat's: project.godot's window size;
+		// it becomes the saved window once that's done. Dev and test runs get their window straight away.)
+		var antiCheat = window && args.Length == 0 && !Announcer.ReduceMotion && Settings.Intro == "all";
+		if (window && !antiCheat) GetWindow().Borderless = false;
+		if (antiCheat)
+		{
+			// (in the middle of the screen the game goes to: Windows otherwise puts it wherever it likes)
+			var screen = DisplayServer.ScreenGetUsableRect(Prefs.ValidScreen(Settings.Screen));
+			GetWindow().Size = AntiCheatSplash.WindowSize;
+			GetWindow().Position = screen.Position + (screen.Size - AntiCheatSplash.WindowSize) / 2;
+		}
 		// Saved window size/mode would fight --resolution (screenshots) and means nothing headless.
-		var ownWindow = DisplayServer.GetName() != "headless" && !OS.GetCmdlineArgs().Contains("--resolution");
-		Prefs.ApplyAll(ownWindow);
+		var ownWindow = window && !OS.GetCmdlineArgs().Contains("--resolution");
+		Prefs.ApplyAll(ownWindow && !antiCheat);
 		if (args.Contains("--selftest")) Lang.Use("en");
 		// (shows the exported game's home screen, LAN hidden, when run from the editor)
 		if (args.Contains("--lan-locked")) LanUnlocked = false;
 		if (!args.Contains("--no-steam") && !args.Contains("--selftest") && !args.Contains("--bot")) SteamService.Init();
 		_dev = DevTools.FromArgs(this, args);
-		if (_dev?.TakesOver != true)
+		if (_dev?.TakesOver == true) return;
+		void Go()
 		{
-			GoHome();
+			if (window && (firstStart && args.Length == 0 || args.Contains("--welcome")) && !Settings.AccessibilityAsked)
+			{
+				_afterWelcome = () => Start(args.Length == 0 && window);
+				ShowWelcomeAgain();
+			}
+			else Start(args.Length == 0 && window, volumesReset ? VolumesNotice : null);
+		}
+		if (antiCheat)
+			AddChild(new AntiCheatSplash(() =>
+			{
+				GetWindow().Borderless = false;
+				Prefs.ApplyWindow();
+				Go();
+			}));
+		else Go();
+	}
+
+	const string VolumesNotice = "All volume sliders are at 50 % now, the new standard. Turn them up again in Settings if you liked it louder.";
+
+	/// <summary>The intro (not in dev and test runs, which pass arguments after --), then the home screen.</summary>
+	void Start(bool intro, string? notice = null)
+	{
+		IntroSequence? cards = null;
+		// (the intro's title screen plays the voice line when it's left; the music follows it)
+		if (intro && !Announcer.ReduceMotion) AddChild(cards = new IntroSequence(() => { if (_screen is HomeScreen) _audio.Greet(); }));
+		// (the music waits for the voice line, which comes once the intro is gone: Popups → Greet)
+		_audio.HoldForGreeting();
+		GoHome(notice);
+		// (What's new and the update prompt are windows of their own: they wait until the intro is gone)
+		void Popups()
+		{
+			if (_screen is HomeScreen) _audio.Greet();
+			else _audio.SkipGreeting();
 			WhatsNew.ShowIfUpdated(this);
 			if (Updater.Enabled) Updater.CleanUp();
 			UpdatePrompt.CheckAndInstall(this);
 		}
+		if (cards != null) cards.TreeExited += Popups;
+		else Popups();
+	}
+
+	/// <summary>
+	/// The game's own mouse cursors (assets/cursors, made by tools/make_cursors.py): white with an ink outline and a small
+	/// shadow, like the buttons. Each with where it points, in its 40 px.
+	/// </summary>
+	static void UseCursors()
+	{
+		void Use(string name, Input.CursorShape shape, int x, int y)
+		{
+			var path = $"res://assets/cursors/{name}.png";
+			if (ResourceLoader.Exists(path)) Input.SetCustomMouseCursor(GD.Load<Texture2D>(path), shape, new Vector2(x, y));
+		}
+		Use("arrow", Input.CursorShape.Arrow, 5, 4);
+		Use("hand", Input.CursorShape.PointingHand, 16, 4);
+		Use("drag", Input.CursorShape.Drag, 20, 21);
+		Use("drag", Input.CursorShape.CanDrop, 20, 21);
+		Use("ibeam", Input.CursorShape.Ibeam, 20, 20);
+		Use("forbidden", Input.CursorShape.Forbidden, 20, 20);
+		Use("busy", Input.CursorShape.Busy, 20, 20);
+		Use("busy", Input.CursorShape.Wait, 20, 20);
+		Use("cross", Input.CursorShape.Cross, 20, 20);
+		Use("hsize", Input.CursorShape.Hsize, 20, 20);
+		Use("vsize", Input.CursorShape.Vsize, 20, 20);
+		Use("move", Input.CursorShape.Move, 20, 20);
+	}
+
+	// (the cursors let go of their pictures before the engine shuts down, else it reports them as leaked)
+	public override void _ExitTree()
+	{
+		foreach (var shape in Enum.GetValues<Input.CursorShape>()) Input.SetCustomMouseCursor(null, shape);
+	}
+
+	Action? _afterWelcome;
+
+	/// <summary>The first start's accessibility screen (again, after a language or font change rebuilt it).</summary>
+	public void ShowWelcomeAgain() => Show(new WelcomeScreen(() => _afterWelcome?.Invoke()));
+
+	/// <summary>Where Escape, right-click or "Let's go!" lead from a welcome screen opened later (the Test lab's).</summary>
+	Action? _welcomeBack;
+
+	/// <summary>The first start's welcome screen again, to look at (Test lab): it leads back there.</summary>
+	public void ShowWelcomeFrom(Action back)
+	{
+		_afterWelcome = _welcomeBack = back;
+		ShowWelcomeAgain();
 	}
 
 	/// <summary>Seconds until the next quiet update check (every minute while the game is open).</summary>
@@ -116,20 +242,220 @@ public partial class App : Control
 		Client?.Leave();
 		Client = null;
 		SteamService.Shutdown();
+		CrashReports.Stop();
 		GetTree().Quit(code);
 	}
 
-	void Show(Control screen)
+	/// <summary>Menu music and the buttons' hover and click sounds.</summary>
+	readonly UiAudio _audio = new();
+	public UiAudio Audio => _audio;
+	/// <summary>Speaks game events to screen readers (an invisible live region).</summary>
+	public readonly Announcer Announcer = new();
+	/// <summary>Colour vision help over everything (Settings → Accessibility).</summary>
+	readonly ColourFilter _colours = new();
+
+	public void UseColourVision(string mode)
 	{
+		Settings.ColourVision = mode;
+		_colours.Use(mode);
+	}
+
+	/// <summary>Switches the dyslexia-friendly font: a new theme, and the settings (or first start) screen built again with it.</summary>
+	public void UseDyslexicFont(bool on)
+	{
+		Settings.DyslexicFont = on;
+		Fonts.UseDyslexic(on);
+		Theme = UiTheme.Build();
+		if (_screen is WelcomeScreen) ShowWelcomeAgain();
+		else GoSettings();
+	}
+
+	internal void Show(Control screen, Action? again = null)
+	{
+		// (history for the mouse's back/forward buttons: a screen left by going back can be opened again with forward;
+		// any other way to a new screen starts over, like a browser)
+		if (_backFrom != null && _backFrom == _screen && _shownAgain != null) _forward.Push(_shownAgain);
+		else if (!_forwarding) _forward.Clear();
+		_backFrom = null;
+		_shownAgain = again;
 		Sfx.StopPreview();
 		_screens.Clear();
+		Trace.Log("screen", screen.GetType().Name);
 		_screen = screen;
 		screen.SetAnchorsPreset(LayoutPreset.FullRect);
 		_screens.AddChild(screen);
+		_audio.ScreenChanged(screen);
+		// (the home screen has its own music player instead of the corner jukebox; the welcome screen neither)
+		if (Jukebox.I != null) Jukebox.I.ButtonShown = screen is not (HomeScreen or WelcomeScreen);
 		UpdateBanners();
 	}
 
 	public Control? CurrentScreen => _screen;
+
+	// ---------- Escape: one screen back ----------
+
+	/// <summary>
+	/// Escape goes back one screen (on the home screen it asks to quit): the screen's "← …" link, or what leaving means in a
+	/// room (closing the lobby or ending the quiz ask first). Open dialogs, drop-downs and the picture viewer get the key
+	/// first and close themselves instead.
+	/// </summary>
+	public override void _UnhandledKeyInput(InputEvent e)
+	{
+		if (e is not InputEventKey { Pressed: true, Echo: false } key || _screen == null) return;
+		if (GetChildren().OfType<IntroSequence>().Any()) return;
+		// (the credits window: Escape closes it)
+		if (CreditsWindow.Current != null)
+		{
+			if (key.Keycode == Key.Escape) CreditsWindow.Close();
+			GetViewport().SetInputAsHandled();
+			return;
+		}
+		// (Settings open over a lobby or a game: Escape closes it, Ctrl+S applies; the room underneath isn't touched)
+		if (SettingsWindow.Current is { } window)
+		{
+			var used = key.Keycode == Key.Escape ? window.Leave() : key.Keycode == Key.S && key.CtrlPressed && window.ApplyKey();
+			if (used) GetViewport().SetInputAsHandled();
+			return;
+		}
+		var handled = key.Keycode switch
+		{
+			Key.Escape => _screen is HomeScreen ? AskQuit() : Back(),
+			// Ctrl+S: Apply in Settings, Save in the question editor
+			Key.S when key.CtrlPressed => _screen switch
+			{
+				SettingsScreen settings => settings.ApplyKey(),
+				QuestionEditorScreen editor => editor.SaveKey(),
+				_ => false,
+			},
+			// Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z): undo and redo in the editors (a focused text field undoes its own typing first)
+			Key.Z when key.CtrlPressed && !key.ShiftPressed => _screen switch
+			{
+				QuestionEditorScreen editor => editor.Undo(),
+				QuizOverviewScreen overview => overview.Undo(),
+				_ => false,
+			},
+			Key.Y or Key.Z when key.CtrlPressed => _screen switch
+			{
+				QuestionEditorScreen editor => editor.Redo(),
+				QuizOverviewScreen overview => overview.Redo(),
+				_ => false,
+			},
+			_ => false,
+		};
+		if (handled) GetViewport().SetInputAsHandled();
+	}
+
+	// The mouse's thumb buttons go back and forward like in a browser. (_Input, not _UnhandledInput: every panel stops
+	// mouse clicks, so they'd never get there. An open dialog gets them first.)
+	public override void _Input(InputEvent e)
+	{
+		if (e is not InputEventMouseButton { Pressed: true } button || _screen == null) return;
+		// (a right-click on empty space goes back too, like Escape: not on buttons, fields, sliders or lists)
+		var rightClick = button.ButtonIndex == MouseButton.Right && OnEmptySpace();
+		if (button.ButtonIndex is not (MouseButton.Xbutton1 or MouseButton.Xbutton2) && !rightClick) return;
+		if (GetChildren().OfType<IntroSequence>().Any()) return;
+		var back = rightClick || button.ButtonIndex == MouseButton.Xbutton1;
+		if (CreditsWindow.Current != null)
+		{
+			if (back) CreditsWindow.Close();
+			GetViewport().SetInputAsHandled();
+			return;
+		}
+		// (the mouse's back button closes Settings open over a game, instead of leaving the room)
+		if (SettingsWindow.Current is { } window)
+		{
+			if (back) window.Leave();
+			GetViewport().SetInputAsHandled();
+			return;
+		}
+		if (back ? _screen is not HomeScreen && Back() : Forward()) GetViewport().SetInputAsHandled();
+	}
+
+	/// <summary>Whether the mouse is over empty space: the background, a card, a label, a picture — nothing that takes clicks.</summary>
+	bool OnEmptySpace()
+	{
+		for (Node? node = GetViewport().GuiGetHoveredControl(); node != null && node != this; node = node.GetParent())
+			if (node is BaseButton or LineEdit or TextEdit or Godot.Range or ItemList or Tree or TabBar || node is RichTextLabel { SelectionEnabled: true })
+				return false;
+		return true;
+	}
+
+	readonly Stack<Action> _forward = new();
+	/// <summary>Opens the shown screen again (null for room screens, which can't be).</summary>
+	Action? _shownAgain;
+	Control? _backFrom;
+	bool _forwarding;
+
+	bool Back()
+	{
+		_backFrom = _screen;
+		return GoBack(_screen!);
+	}
+
+	bool Forward()
+	{
+		if (!_forward.TryPop(out var again)) return false;
+		_forwarding = true;
+		try { again(); }
+		finally { _forwarding = false; }
+		return true;
+	}
+
+	/// <summary>Escape or "Quit" on the home screen: asks first.</summary>
+	public bool AskQuit()
+	{
+		if (_screen != null) Dialogs.Confirm(_screen, "Close Quiznight?", "Quit", () => Quit(), "Quit the game");
+		return true;
+	}
+
+	bool GoBack(Control screen)
+	{
+		switch (screen)
+		{
+			case WelcomeScreen when _welcomeBack != null:
+				_welcomeBack();
+				return true;
+			case HomeScreen or WelcomeScreen:
+				return false;
+			case HostLobbyScreen:
+				Dialogs.Confirm(screen, "Close the room? Everyone in it is sent back to the home screen.", "Close room", CloseRoom);
+				return true;
+			case HostGameScreen game:
+				game.AskEnd();
+				return true;
+			case PlayerGameScreen:
+				Dialogs.Confirm(screen, "Leave the game? Your seat and points are kept, and you can come back with the room code.", "Leave", LeaveRoom);
+				return true;
+			case WaitingRoomScreen:
+				LeaveRoom();
+				return true;
+			case PodiumScreen podium:
+				podium.GoBack();
+				return true;
+			case MessageScreen message:
+				if (message.Escape != null) message.Escape();
+				else GoHome();
+				return true;
+		}
+		// (every other screen has a "← Home", "← My quizzes" … link: Escape presses it)
+		if (BackLink(screen) is { } link)
+		{
+			link.EmitSignal(BaseButton.SignalName.Pressed);
+			return true;
+		}
+		GoHome();
+		return true;
+	}
+
+	static BaseButton? BackLink(Node node)
+	{
+		foreach (var child in node.GetChildren())
+		{
+			if (child is Button { Text: var text } button && text.StartsWith("←") && button.IsVisibleInTree() && !button.Disabled) return button;
+			if (BackLink(child) is { } found) return found;
+		}
+		return null;
+	}
 
 	void OnFilesDropped(string[] files)
 	{
@@ -146,32 +472,35 @@ public partial class App : Control
 
 	// ---------- navigation (outside a room) ----------
 
-	public void GoHome(string? notice = null) => Show(new HomeScreen(notice));
-	public void GoQuizzes() => Show(new QuizListScreen());
-	public void GoSettings() => Show(new SettingsScreen());
+	public void GoHome(string? notice = null) => Show(new HomeScreen(notice), () => GoHome());
+	public void GoQuizzes() => Show(new QuizListScreen(), GoQuizzes);
+	public void GoSettings() => Show(new SettingsScreen(), GoSettings);
+	public void GoTestLab() => Show(new TestLabScreen(), GoTestLab);
 
 	/// <summary>Switches the colour skin now: a new theme, and the settings screen built again in its colours.</summary>
 	public void UseSkin(string skin)
 	{
 		Settings.Skin = skin;
-		C.Use(skin);
+		C.Use(Settings.ShownSkin);
 		Theme = UiTheme.Build();
 		_bg.Color = C.Bg;
 		GoSettings();
 	}
-	public void GoEternalTable() => Show(new EternalTableScreen());
-	public void GoMatchHistory() => Show(new MatchHistoryScreen());
+	public void GoEternalTable() => Show(new EternalTableScreen(), GoEternalTable);
+	public void GoMatchHistory() => Show(new MatchHistoryScreen(), GoMatchHistory);
+	/// <summary>A player's profile page (from a name in the Ewige Tabelle or the match history).</summary>
+	public void GoProfile(string playerId) => Show(new ProfileScreen(playerId), () => GoProfile(playerId));
 	/// <summary>Statistics: the Ewige Tabelle or the match history, whichever was open last.</summary>
 	public void GoStatistics()
 	{
 		if (EternalTableScreen.LastTab == "history") GoMatchHistory();
 		else GoEternalTable();
 	}
-	public void GoMatchNight(Storage.Results.Night night) => Show(new MatchNightScreen(night));
+	public void GoMatchNight(Storage.Results.Night night) => Show(new MatchNightScreen(night), () => GoMatchNight(night));
 
 	public void GoQuiz(string id)
 	{
-		if (QuizStore.Get(id) is { } quiz) Show(new QuizOverviewScreen(quiz));
+		if (QuizStore.Get(id) is { } quiz) Show(new QuizOverviewScreen(quiz), () => GoQuiz(id));
 		else GoQuizzes();
 	}
 
@@ -184,14 +513,15 @@ public partial class App : Control
 			return;
 		}
 		var question = questionId != null ? quiz.Questions.FirstOrDefault(q => q.Id == questionId)
-			: newType != null && QuestionType.IsKnown(newType) ? QuizRules.NewQuestion(newType, QuizStore.MakeId()) : null;
+			: newType != null && QuestionType.IsKnown(newType) ? QuizRules.NewQuestion(newType, QuizStore.MakeId()).With(q => q.CreatedAt = QuizStore.NowMs()) : null;
 		if (question == null) GoQuiz(quizId);
-		else Show(new QuestionEditorScreen(quiz, question, questionId == null));
+		else Show(new QuestionEditorScreen(quiz, question, questionId == null), questionId != null ? () => GoQuestion(quizId, questionId, null) : null);
 	}
 
 	// ---------- hosting ----------
 
-	public async void HostQuiz(Quiz quiz, NetMode? forceMode = null)
+	/// <param name="resume">A saved night to continue (the quiz page's Continue): the lobby has everyone's points.</param>
+	public async void HostQuiz(Quiz quiz, NetMode? forceMode = null, SavedNight? resume = null)
 	{
 		var issues = QuizRules.QuizIssues(quiz);
 		if (issues.Count > 0)
@@ -230,7 +560,8 @@ public partial class App : Control
 			code = Room.NewCode();
 			lanPort = lan.Port;
 		}
-		Host = new HostSession(new Room(code, quiz), transport, mode, lanPort) { BuzzerSound = Settings.BuzzerSound, PodiumSound = Settings.PodiumSound };
+		Host = new HostSession(new Room(code, quiz), transport, mode, lanPort) { BuzzerSound = Settings.BuzzerSound, PodiumSound = Settings.PodiumSound, Autosaves = true };
+		if (resume != null) Host.Restore(resume);
 		_hostAssets = new HostAssets(() => Host?.Room);
 		Host.Changed += OnRoomChanged;
 		OnRoomChanged();

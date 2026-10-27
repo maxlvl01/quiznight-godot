@@ -2,6 +2,7 @@
 
 using System;
 using System.Globalization;
+using System.Linq;
 using Godot;
 using QuizNight.Net;
 using QuizNight.Shared;
@@ -28,6 +29,7 @@ public partial class Avatar : Control
 		CustomMinimumSize = new Vector2(size, size);
 		SizeFlagsVertical = SizeFlags.ShrinkCenter;
 		TooltipText = player.Name;
+		AccessibilityName = player.Name;
 		MouseFilter = MouseFilterEnum.Pass;
 	}
 
@@ -79,6 +81,7 @@ public partial class TypeIcon : Control
 	public TypeIcon(string type, float size = 22)
 	{
 		_type = type;
+		AccessibilityName = Lang.T(QuestionType.Infos.TryGetValue(type, out var info) ? info.Label : type);
 		CustomMinimumSize = new Vector2(size, size);
 		SizeFlagsVertical = SizeFlags.ShrinkCenter;
 		MouseFilter = MouseFilterEnum.Ignore;
@@ -109,9 +112,20 @@ public partial class TypeIcon : Control
 				}
 				break;
 			case QuestionType.Classic:
-				DrawArc(P(12, 12), 8.5f * k, 0, Mathf.Tau, 40, color, w, true);
-				DrawArc(P(12, 12), 4 * k, 0, Mathf.Tau, 24, color, w, true);
+			{
+				// (a little arcade buzzer: a dome on a base, like the big BUZZ! button)
+				var dome = new Vector2[21];
+				for (var i = 0; i <= 20; i++)
+				{
+					var a = Mathf.Pi + Mathf.Pi * i / 20;
+					dome[i] = P(12 + Mathf.Cos(a) * 7.5f, 15 + Mathf.Sin(a) * 9);
+				}
+				DrawColoredPolygon(dome, color);
+				DrawPolyline(dome.Append(dome[0]).ToArray(), C.Ink, 1.4f * k, true);
+				DrawRect(new Rect2(P(3, 15.5f), P(18, 4.5f)), C.Ink);
+				DrawPolyline(new[] { P(8, 11.5f), P(9.2f, 8.6f), P(11.6f, 7.2f) }, new Color(1, 1, 1, 0.7f), 1.6f * k, true);
 				break;
+			}
 			case QuestionType.Sound:
 				DrawPolyline(new[] { P(9, 18), P(9, 5), P(20, 3), P(20, 16) }, color, w, true);
 				DrawArc(P(6, 18), 3 * k, 0, Mathf.Tau, 20, color, w, true);
@@ -391,6 +405,25 @@ public partial class NumberField : LineEdit
 		_changed(Value);
 	}
 
+	/// <summary>The field between [−] and [+] buttons that count it down/up by one (it can still be typed in).</summary>
+	public HBoxContainer WithSteps()
+	{
+		void Step(int by)
+		{
+			var n = (Value ?? _min ?? 0) + by;
+			if (_min is { } min) n = Math.Max(min, n);
+			if (_max is { } max) n = Math.Min(max, n);
+			Value = n;
+			Text = Format(n);
+			_changed(n);
+		}
+		SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+		Alignment = HorizontalAlignment.Center;
+		// (room for two digits, not the usual four characters)
+		AddThemeConstantOverride("minimum_character_width", 2);
+		return U.H(6, U.Small("−", () => Step(-1)).MinSize(40), this, U.Small("+", () => Step(1)).MinSize(40));
+	}
+
 	void Clamp()
 	{
 		if (Value is not { } v) return;
@@ -530,5 +563,54 @@ public partial class LinedGrid : GridContainer
 				var y = Mathf.Round(c.Position.Y - gap / 2f);
 				DrawLine(new Vector2(0, y), new Vector2(Size.X, y), color, 1);
 			}
+	}
+}
+
+/// <summary>
+/// The Fast Pass joker's lightning bolt, drawn in the party show style (filled, ink outline) instead of the ⚡ emoji,
+/// which looked out of place. As a texture for buttons, or a small picture for pills and rows.
+/// </summary>
+public static class Bolt
+{
+	const string Svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M14.5 1.5 3.5 14h7l-2 8.5 12-13.5h-7.2z' "
+		+ "fill='#{0}' stroke='#{1}' stroke-width='1.8' stroke-linejoin='round'/></svg>";
+
+	static readonly System.Collections.Generic.Dictionary<(int, Color), Texture2D?> Cache = new();
+
+	/// <summary>The bolt, size × size (null in headless runs, which have no renderer for textures).</summary>
+	public static Texture2D? Icon(int size, Color? color = null)
+	{
+		var c = color ?? C.Gold;
+		if (Cache.TryGetValue((size, c), out var cached)) return cached;
+		Texture2D? texture = null;
+		if (DisplayServer.GetName() != "headless")
+		{
+			var image = new Image();
+			// (drawn at 2× and scaled down, for smooth edges at the canvas_items stretch)
+			if (image.LoadSvgFromString(string.Format(Svg, c.ToHtml(false), C.Ink.ToHtml(false)), size * 2 / 24f) == Error.Ok)
+				texture = ImageTexture.CreateFromImage(image);
+		}
+		Cache[(size, c)] = texture;
+		return texture;
+	}
+
+	/// <summary>The bolt as a control (for pills and rows).</summary>
+	public static Control Rect(int size, Color? color = null) => new TextureRect
+	{
+		Texture = Icon(size, color),
+		ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+		StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+		CustomMinimumSize = new Vector2(size, size),
+		SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+		MouseFilter = Control.MouseFilterEnum.Ignore,
+	};
+
+	/// <summary>A joker's pill: "×2 Double points", or the bolt and "Fast Pass" (just the icon with <paramref name="iconOnly"/>).</summary>
+	public static Control JokerPill(string kind, Color color, bool iconOnly = false)
+	{
+		if (kind != Joker.FastPass) return U.Pill(iconOnly ? "×2" : Lang.T(Joker.Label(kind)), color);
+		var row = U.H(4, Rect(16, color == C.Muted ? C.Muted : C.Gold));
+		if (!iconOnly) row.AddChild(U.Text(Lang.T(Joker.Label(kind)), 14, color, Fonts.Bold));
+		return U.Panel(row, "Pill").With(p => p.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter);
 	}
 }

@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using QuizNight.Server;
 using QuizNight.Shared;
 using QuizNight.Storage;
 
@@ -10,8 +12,15 @@ public partial class QuizOverviewScreen : Control
 {
 	readonly Quiz _quiz;
 	readonly VBoxContainer _questions = U.V(6);
+	readonly HBoxContainer _sortBar = U.H(8);
+	/// <summary>How the list is shown: "play" (the order they're played in), "type" or "created". Only the view: the play order
+	/// changes only with "Play them in this order". Kept while the game runs, for every quiz.</summary>
+	static string _sort = "play";
 	readonly VBoxContainer _foot = U.V(8);
 	readonly Label _error = U.Error();
+	readonly LineEdit _title;
+	/// <summary>Ctrl+Z / Ctrl+Y: moving, deleting and renaming, back and forth (the questions themselves aren't copied).</summary>
+	readonly EditHistory<(string Title, List<Question> Questions)> _history;
 
 	public QuizOverviewScreen() : this(new Quiz()) { }
 
@@ -21,7 +30,7 @@ public partial class QuizOverviewScreen : Control
 		SetAnchorsPreset(LayoutPreset.FullRect);
 
 		// Saving rewrites the whole file (images included), so the title is saved when you leave the field.
-		var title = U.Input(quiz.Title, "Quiz title", t =>
+		var title = _title = U.Input(quiz.Title, "Quiz title", t =>
 		{
 			_quiz.Title = t;
 			_titleDirty = true;
@@ -35,26 +44,31 @@ public partial class QuizOverviewScreen : Control
 		var sidebar = U.V(12,
 			U.Link("← My quizzes", App.I.GoQuizzes, 14).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin),
 			U.Eyebrow("Quiz"),
-			title,
-			new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.With(s => s.AddChild(_questions.Grow())).GrowV(),
+			Tutorial.Mark(title, "overview.title"),
+			_sortBar,
+			Tutorial.Mark(new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.With(s => s.AddChild(_questions.Grow())).GrowV(), "overview.list"),
 			_error,
-			_foot);
+			Tutorial.Mark(_foot, "overview.foot"));
 		var side = U.Panel(sidebar).MinSize(380);
 		side.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel, 0, null, 0, 18, 18));
 
-		var types = new GridContainer { Columns = 3 };
+		var types = Tutorial.Mark(new GridContainer { Columns = 3 }, "overview.types");
 		types.AddThemeConstantOverride("h_separation", 12);
 		types.AddThemeConstantOverride("v_separation", 12);
-		foreach (var type in QuestionType.All)
+		// (alphabetical by the name shown, so also in German)
+		foreach (var type in QuestionType.All.OrderBy(t => Lang.T(QuestionType.Infos[t].Label), System.StringComparer.CurrentCultureIgnoreCase))
 		{
 			var info = QuestionType.Infos[type];
 			// Layers: the clickable card, the name on top (it sets the height: long names wrap, e.g. in German), and the "?"
 			// on the right, level with the name, which tells what the type does (hover) and its variants (click).
 			var card = new MarginContainer { MouseFilter = MouseFilterEnum.Ignore }.Grow();
 			var button = new Button { ThemeTypeVariation = "", MouseDefaultCursorShape = CursorShape.PointingHand, CustomMinimumSize = new Vector2(0, 76) };
-			button.AddThemeStyleboxOverride("normal", UiTheme.Box(C.Panel, 14, C.Border, 1, 16, 14));
-			button.AddThemeStyleboxOverride("hover", UiTheme.Box(C.Panel2, 14, C.ForType(type), 1, 16, 14));
-			button.AddThemeStyleboxOverride("pressed", UiTheme.Box(C.Panel2, 14, C.ForType(type), 1, 16, 14));
+			// (a key like every button, KeyBox: lighter under the mouse, pushed in when clicked)
+			button.AddThemeStyleboxOverride("normal", new KeyBox(C.Panel2, 16, 16, 14, 3, 6, false));
+			button.AddThemeStyleboxOverride("hover", new KeyBox(C.Panel2.Lightened(0.1f), 16, 16, 14, 3, 6, false));
+			button.AddThemeStyleboxOverride("pressed", new KeyBox(C.Panel2.Darkened(0.05f), 16, 16, 14, 3, 6, true));
+			button.AddThemeStyleboxOverride("hover_pressed", new KeyBox(C.Panel2, 16, 16, 14, 3, 6, true));
+			button.AddThemeStyleboxOverride("focus", new StyleBoxEmpty());
 			var t = type;
 			button.Pressed += () => App.I.GoQuestion(_quiz.Id, null, t);
 			card.AddChild(button);
@@ -62,12 +76,12 @@ public partial class QuizOverviewScreen : Control
 			// (the row and everything in it let clicks through to the card underneath)
 			inner.MouseFilter = MouseFilterEnum.Ignore;
 			foreach (var c in inner.GetChildren().OfType<Control>()) c.MouseFilter = MouseFilterEnum.Ignore;
-			card.AddChild(U.Pad(inner, 16, 14, 44, 14).With(m => m.MouseFilter = MouseFilterEnum.Ignore));
+			card.AddChild(U.Pad(inner, 18, 12, 44, 18).With(m => m.MouseFilter = MouseFilterEnum.Ignore));
 			var corner = new Control { MouseFilter = MouseFilterEnum.Ignore };
 			var help = U.Link("?", () => Dialogs.Info(this, TypeHelp(info), info.Label), 20);
 			help.AnchorLeft = help.AnchorRight = 1;
 			help.AnchorTop = help.AnchorBottom = 0.5f;
-			(help.OffsetLeft, help.OffsetTop, help.OffsetRight, help.OffsetBottom) = (-38, -21, -10, 11);
+			(help.OffsetLeft, help.OffsetTop, help.OffsetRight, help.OffsetBottom) = (-40, -24, -12, 8);
 			corner.AddChild(help);
 			card.AddChild(corner);
 			types.AddChild(card);
@@ -78,7 +92,26 @@ public partial class QuizOverviewScreen : Control
 		layout.SetAnchorsPreset(LayoutPreset.FullRect);
 		AddChild(layout);
 		RefreshList();
+		_history = new(() => (_quiz.Title, _quiz.Questions.ToList()), state =>
+		{
+			_quiz.Title = state.Title;
+			_quiz.Questions = state.Questions.ToList();
+			_title.Text = state.Title;
+			_titleDirty = false;
+			Save();
+			RefreshList();
+		});
 	}
+
+	/// <summary>A new quiz (no questions yet): the tour of how a quiz is made, the first time.</summary>
+	public override void _Ready()
+	{
+		Tutorial.Offer("overview", this, _quiz.Questions.Count == 0);
+	}
+
+	public bool Undo() => _history.Undo();
+
+	public bool Redo() => _history.Redo();
 
 	bool _titleDirty;
 
@@ -87,6 +120,7 @@ public partial class QuizOverviewScreen : Control
 		if (!_titleDirty) return;
 		_titleDirty = false;
 		Save();
+		_history.Record();
 	}
 
 	public override void _ExitTree() => SaveTitle();
@@ -109,51 +143,114 @@ public partial class QuizOverviewScreen : Control
 	{
 		_questions.Clear();
 		if (_quiz.Questions.Count == 0) _questions.AddChild(U.Muted("No questions yet — pick a type on the right.", 13));
-		for (var i = 0; i < _quiz.Questions.Count; i++) _questions.AddChild(Row(i));
+		foreach (var i in Shown()) _questions.AddChild(Row(i));
+		RefreshSortBar();
 		RefreshFoot();
+	}
+
+	/// <summary>The questions' play indexes in the order the list shows them (ties keep the play order).</summary>
+	List<int> Shown()
+	{
+		var all = Enumerable.Range(0, _quiz.Questions.Count);
+		return (_sort switch
+		{
+			"type" => all.OrderBy(i => System.Array.IndexOf(QuestionType.All, KindOf(_quiz.Questions[i]))),
+			// (questions made before 0.12.0d5 don't know when: they come first, in play order)
+			"created" => all.OrderBy(i => _quiz.Questions[i].CreatedAt),
+			_ => all.OrderBy(i => i),
+		}).ThenBy(i => i).ToList();
+	}
+
+	/// <summary>A picture reveal sorts with the pictures (it's one of their modes).</summary>
+	static string KindOf(Question q) => q.Type == QuestionType.Image ? QuestionType.Picture : q.Type;
+
+	void RefreshSortBar()
+	{
+		_sortBar.Clear();
+		_sortBar.Visible = _quiz.Questions.Count > 1;
+		_sortBar.AddChild(U.Muted("Show", 13, false).With(l => l.SizeFlagsVertical = SizeFlags.ShrinkCenter));
+		_sortBar.AddChild(U.Segmented(new[] { ("play", "Play order"), ("type", "By type"), ("created", "Order made") }, _sort, id =>
+		{
+			_sort = id;
+			Callable.From(RefreshList).CallDeferred();
+		}).Grow());
+		var shown = Shown();
+		if (_sort != "play" && !shown.SequenceEqual(Enumerable.Range(0, shown.Count)))
+			_sortBar.AddChild(U.Small("Play in this order", () =>
+			{
+				_quiz.Questions = shown.Select(i => _quiz.Questions[i]).ToList();
+				_sort = "play";
+				Save();
+				_history.Record();
+				RefreshList();
+			}).Tip("Changes the order the questions are played in to the one shown (Ctrl+Z takes it back)"));
 	}
 
 	Control Row(int i)
 	{
 		var q = _quiz.Questions[i];
 		var broken = QuizRules.QuestionIssues(q, _quiz.Maps).Count > 0;
-		var num = U.Panel(U.Text($"{i + 1}", 13, C.AccentInk, Fonts.Bold, false, HorizontalAlignment.Center), "Clear")
-			.With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.ForType(q.Type), 6, null, 0, 6, 2))).MinSize(30);
-		num.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+		// (the number is a field: type another one to move the question there)
+		var num = new LineEdit
+		{
+			Text = $"{i + 1}", Alignment = HorizontalAlignment.Center, MaxLength = 3, CustomMinimumSize = new Vector2(34, 0),
+			SizeFlagsVertical = SizeFlags.ShrinkCenter, SelectAllOnFocus = true, TooltipText = Lang.T("Type a number to move the question there"),
+		};
+		foreach (var style in new[] { "normal", "read_only" }) num.AddThemeStyleboxOverride(style, UiTheme.Box(C.ForType(q.Type), 6, null, 0, 4, 2));
+		num.AddThemeStyleboxOverride("focus", UiTheme.Box(C.ForType(q.Type), 6, C.Text, 2, 4, 2));
+		num.AddThemeColorOverride("font_color", C.AccentInk);
+		num.AddThemeColorOverride("caret_color", C.AccentInk);
+		num.AddThemeFontOverride("font", Fonts.Bold);
+		num.AddThemeFontSizeOverride("font_size", 13);
+		num.AddThemeConstantOverride("minimum_character_width", 2);
+		void Renumber()
+		{
+			if (!int.TryParse(num.Text.Trim(), out var to)) to = i + 1;
+			to = Mathf.Clamp(to, 1, _quiz.Questions.Count) - 1;
+			if (to != i) Callable.From(() => Move(i, to)).CallDeferred();
+			else num.Text = $"{i + 1}";
+		}
+		num.TextSubmitted += _ => Renumber();
+		num.FocusExited += Renumber;
 		var prompt = U.Text(q.Prompt == "" ? "No question text" : q.Prompt, 14, q.Prompt == "" ? C.Muted : C.Text, Fonts.Bold);
 		prompt.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
 		prompt.ClipText = true;
 		prompt.SizeFlagsHorizontal = SizeFlags.ExpandFill;
 		var sub = U.H(0, U.Muted(QuizRules.Summary(q), 12, false));
-		if (broken) sub.AddChild(U.Text(" · incomplete", 12, C.Accent));
+		if (QuizRules.MapNeedsCheck(q, _quiz.Maps)) sub.AddChild(U.Text(" · ⚠ map changed: check the spot", 12, C.Orange));
+		else if (broken) sub.AddChild(U.Text(" · incomplete", 12, C.Accent));
 		var text = U.V(0, prompt, sub).Grow();
-		var open = new Button { Flat = true, MouseDefaultCursorShape = CursorShape.PointingHand }.Grow();
+		var grip = new GripIcon { CustomMinimumSize = new Vector2(12, 20), SizeFlagsVertical = SizeFlags.ShrinkCenter };
+		// (click opens the question; drag it onto another row to move it there)
+		var open = new QuestionRowButton(i, Move) { Draggable = _sort == "play", Flat = true, MouseDefaultCursorShape = CursorShape.PointingHand, TooltipText = Lang.T("Click to edit, drag to move") }.Grow();
 		open.Pressed += () => App.I.GoQuestion(_quiz.Id, q.Id, null);
-		var content = U.H(10, num, text);
+		if (_sort != "play") open.TooltipText = Lang.T("Click to edit (drag to move in play order)");
+		open.Preview = () => U.Panel(U.Text(q.Prompt == "" ? Lang.T("No question text") : q.Prompt, 14, C.Text, Fonts.Bold).Raw(), "Card2")
+			.With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel2, 10, C.Accent, 2, 12, 8)));
+		var content = U.H(10, text, grip);
 		content.MouseFilter = MouseFilterEnum.Ignore;
 		foreach (var c in content.GetChildren().OfType<Control>()) c.MouseFilter = MouseFilterEnum.Ignore;
 		foreach (var c in text.GetChildren().OfType<Control>()) c.MouseFilter = MouseFilterEnum.Ignore;
 		open.AddChild(content.With(c => c.SetAnchorsPreset(LayoutPreset.FullRect)));
 		open.CustomMinimumSize = new Vector2(0, 46);
-		var up = U.Small("↑", () => Move(i, i - 1)).Tip("Move up");
-		up.Disabled = i == 0;
-		var down = U.Small("↓", () => Move(i, i + 1)).Tip("Move down");
-		down.Disabled = i == _quiz.Questions.Count - 1;
 		var del = U.Small("×", () => Dialogs.Confirm(this, "Delete this question?", "Delete", () =>
 		{
 			_quiz.Questions.RemoveAt(i);
 			Save();
+			_history.Record();
 			RefreshList();
 		})).Tip("Delete");
-		return U.Panel(U.H(4, open, up, down, del), "Card2").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel2, 10, C.Border, 1, 8, 4)));
+		return U.Panel(U.H(10, num, open, del), "Card2").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel2, 10, C.Border, 1, 8, 4)));
 	}
 
 	void Move(int from, int to)
 	{
+		if (from == to || from < 0 || to < 0 || from >= _quiz.Questions.Count || to >= _quiz.Questions.Count) return;
 		var item = _quiz.Questions[from];
 		_quiz.Questions.RemoveAt(from);
 		_quiz.Questions.Insert(to, item);
 		Save();
+		_history.Record();
 		RefreshList();
 	}
 
@@ -163,12 +260,126 @@ public partial class QuizOverviewScreen : Control
 		var issues = QuizRules.QuizIssues(_quiz);
 		if (issues.Count > 0 && _quiz.Questions.Count > 0)
 			_foot.AddChild(U.Muted(Lang.F("{0} to fix before hosting.", U.Plural(issues.Count, "thing", "things")), 13));
+		if (NightSaves.Load(_quiz.Id) is { } save) _foot.AddChild(ContinueBox(this, _quiz, save, issues.FirstOrDefault(), RefreshFoot));
 		var host = U.Btn("Open lobby", "AccentButton", () => App.I.HostQuiz(_quiz)).Grow().Tip(issues.FirstOrDefault());
 		host.Disabled = issues.Count > 0;
 		_foot.AddChild(U.H(8, U.Btn("Copy share code", "", () => ShareInfo.Copy(this, _quiz)), U.Btn("Export file", "",() => QuizListScreen.ExportQuiz(this, _quiz, _error)), host));
 	}
 
+	/// <summary>
+	/// A quiz night that didn't finish (the game crashed, or was closed to update mid-game): when it was saved, how far it
+	/// got, who leads, and Continue, which opens a lobby with everyone's points up to the last finished question.
+	/// </summary>
+	public static Control ContinueBox(Node owner, Quiz quiz, SavedNight save, string? issue, System.Action discarded)
+	{
+		var leaders = save.Players.OrderByDescending(p => p.Score).Take(3).Select(p => $"{p.Name} {p.Score}");
+		var box = U.V(4,
+			U.Bold("Unfinished quiz night", 16),
+			U.Muted(Lang.F("Saved {0} after question {1} of {2} · {3}", save.SavedAt.ToString("dd.MM. HH:mm", System.Globalization.CultureInfo.InvariantCulture),
+				save.Next, save.Questions, U.Plural(save.Players.Count, "player", "players")), 13),
+			U.Muted(string.Join("  ·  ", leaders), 13).Raw());
+		if (save.Questions != quiz.Questions.Count)
+			box.AddChild(U.Text(Lang.F("⚠ The quiz has changed since: it had {0} questions, now {1}.", save.Questions, quiz.Questions.Count), 13, C.Orange, wrap: true));
+		var go = U.Btn("Continue", "AccentButton", () => App.I.HostQuiz(quiz, null, save))
+			.Tip(issue ?? Lang.T("Opens a lobby with everyone's points. Players join with the new code and get their seat back."));
+		go.Disabled = issue != null;
+		box.AddChild(U.H(8, U.Link("Discard", () => Dialogs.Confirm(owner, "Throw this quiz night away? Its points are gone for good.", "Discard", () =>
+		{
+			NightSaves.Delete(quiz.Id);
+			discarded();
+		}), 13).With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter), U.Fill(), go));
+		return U.Panel(box, "Inset");
+	}
+
 	/// <summary>A type's help, translated: what it does, then its variants as a list.</summary>
 	static string TypeHelp(QuestionType.Info info) =>
 		Lang.T(info.Intro) + "\n\n" + string.Join("\n\n", (info.Details ?? System.Array.Empty<string>()).Select(d => "• " + Lang.T(d)));
+}
+
+/// <summary>
+/// A question row in the quiz overview: clicking opens it, dragging it onto another row moves it there (a line shows
+/// where it lands: above the row's middle before it, below after it).
+/// </summary>
+public partial class QuestionRowButton : Button
+{
+	readonly int _index;
+	readonly System.Action<int, int> _move;
+	public System.Func<Control>? Preview;
+	/// <summary>Off while the list is sorted another way than the play order (where a row lands would be unclear).</summary>
+	public bool Draggable = true;
+	/// <summary>Where a dragged row would land while one is over this row: -1 above, 1 below, 0 none.</summary>
+	int _dropSide;
+
+	public QuestionRowButton() : this(0, (_, _) => { }) { }
+
+	public QuestionRowButton(int index, System.Action<int, int> move)
+	{
+		_index = index;
+		_move = move;
+		MouseExited += () => SetDropSide(0);
+	}
+
+	const string DragKind = "quiznight_question_row";
+
+	public override Variant _GetDragData(Vector2 atPosition)
+	{
+		if (!Draggable) return default;
+		if (Preview?.Invoke() is { } preview)
+		{
+			preview.Modulate = new Color(1, 1, 1, 0.9f);
+			preview.CustomMinimumSize = new Vector2(Mathf.Min(Size.X, 420), 0);
+			SetDragPreview(preview);
+		}
+		return new Godot.Collections.Dictionary { ["kind"] = DragKind, ["index"] = _index };
+	}
+
+	public override bool _CanDropData(Vector2 atPosition, Variant data)
+	{
+		if (!Draggable || data.VariantType != Variant.Type.Dictionary || data.AsGodotDictionary() is not { } d || !d.ContainsKey("kind") || d["kind"].AsString() != DragKind) return false;
+		SetDropSide(atPosition.Y < Size.Y / 2 ? -1 : 1);
+		return true;
+	}
+
+	public override void _DropData(Vector2 atPosition, Variant data)
+	{
+		var from = data.AsGodotDictionary()["index"].AsInt32();
+		var below = atPosition.Y >= Size.Y / 2;
+		SetDropSide(0);
+		// (the slot between rows: dropping below row 3 lands after it; taking the row out first shifts the later ones up)
+		var to = _index + (below ? 1 : 0);
+		if (from < to) to--;
+		_move(from, to);
+	}
+
+	public override void _Notification(int what)
+	{
+		if (what == NotificationDragEnd) SetDropSide(0);
+	}
+
+	void SetDropSide(int side)
+	{
+		if (_dropSide == side) return;
+		_dropSide = side;
+		QueueRedraw();
+	}
+
+	public override void _Draw()
+	{
+		if (_dropSide == 0) return;
+		var y = _dropSide < 0 ? -5f : Size.Y + 5f;
+		DrawLine(new Vector2(-40, y), new Vector2(Size.X + 40, y), C.Accent, 4);
+	}
+}
+
+/// <summary>Six dots: the handle that says "you can drag this row".</summary>
+public partial class GripIcon : Control
+{
+	public GripIcon() => MouseFilter = MouseFilterEnum.Ignore;
+
+	public override void _Draw()
+	{
+		for (var row = 0; row < 3; row++)
+			for (var col = 0; col < 2; col++)
+				DrawCircle(new Vector2(Size.X * (0.25f + col * 0.5f), Size.Y * (0.2f + row * 0.3f)), 1.8f, C.Muted);
+	}
 }

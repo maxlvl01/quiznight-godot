@@ -18,11 +18,15 @@ public partial class MessageScreen : Control
 {
 	public MessageScreen() : this("") { }
 
+	/// <summary>What Escape does here: the button's job (e.g. Cancel), or nothing.</summary>
+	public Action? Escape;
+
 	public MessageScreen(string text, string? button = null, Action? onButton = null)
 	{
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		var box = U.V(16, U.Text(text, 18, C.Muted, null, false, HorizontalAlignment.Center));
 		if (button != null) box.AddChild(U.Btn(button, "", onButton).Center());
+		Escape = onButton;
 		var center = new CenterContainer();
 		center.SetAnchorsPreset(LayoutPreset.FullRect);
 		center.AddChild(box);
@@ -35,6 +39,8 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 	readonly HostSession _host;
 	readonly VBoxContainer _content = U.V(12);
 	string? _error;
+	// (the host was told some players' games are too old and starts anyway)
+	bool _versionsOk;
 
 	public HostLobbyScreen() : this(null!) { }
 
@@ -42,7 +48,34 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 	{
 		_host = host;
 		SetAnchorsPreset(LayoutPreset.FullRect);
-		AddChild(U.Page(U.Panel(_content), 1000, 16));
+		AddChild(U.Page(U.Panel(_content).With(Seasonal.SnowOn), 1000, 16));
+		host.Arcade.HostName = Storage.Settings.PlayerName is { Length: > 0 } name ? name : Lang.T("Host");
+		_arcadeLink = Arcade.ArcadeLink.ForHost(host);
+		_arcadeLink.Frame += OpenOnMatch;
+	}
+
+	// ---------- the mini games (Ui/Arcade) ----------
+
+	readonly Arcade.ArcadeLink _arcadeLink;
+	Arcade.ArcadeWindow? _arcade;
+
+	public void OpenArcade()
+	{
+		if (_arcade == null || !IsInstanceValid(_arcade)) AddChild(_arcade = new Arcade.ArcadeWindow(_arcadeLink));
+	}
+
+	/// <summary>Someone accepted my challenge while the window was closed: it opens on the match.</summary>
+	void OpenOnMatch(ArcadeFrame frame)
+	{
+		if (frame.Winner != null || _arcade != null && IsInstanceValid(_arcade)) return;
+		OpenArcade();
+		_arcade!.OnFrame(frame);
+	}
+
+	public override void _ExitTree()
+	{
+		_arcadeLink.Frame -= OpenOnMatch;
+		_arcadeLink.Unhook();
 	}
 
 	/// <summary>
@@ -54,8 +87,11 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 		_content.Clear();
 		var connected = room.Players.Count(p => p.Connected);
 		_content.AddChild(U.H(8, U.Heading("Lobby", 28, false).Grow(), new RoomCodeButton(room.Code, 32),
-			U.Pill(U.Plural(room.Players.Count, "player", "players"))));
+			U.Pill(U.Plural(room.Players.Count, "player", "players")), MediaIcon.SettingsGear()));
 		_content.AddChild(U.Muted($"{room.Quiz.Title} · {U.Plural(room.Quiz.QuestionCount, "question", "questions")}", 15).Raw());
+		if (room.ResumeFrom is { } from)
+			_content.AddChild(U.Text(Lang.F("▶ A saved quiz night goes on at question {0} of {1}. Everyone gets their seat and points back when they join again ({2}).",
+				from, room.Quiz.QuestionCount, Lang.T(_host.Mode == NetMode.Steam ? "with the same Steam account" : "with the same name")), 14, C.Accent, wrap: true));
 
 		if (_host.Mode == NetMode.Steam)
 			_content.AddChild(U.Muted(Lang.F("Players open Quiznight, choose Steam on the home screen and enter this code. {0} here so far (up to {1}).", room.Players.Count, Limits.MaxPlayers), 13));
@@ -74,9 +110,16 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 		foreach (var p in room.Players)
 		{
 			var id = p.Id;
-			var seat = U.V(4, new Avatar(p, 44).Center(), U.PlayerName(p.Name, 15, HorizontalAlignment.Center, tags),
+			var seat = U.V(4, new Avatar(p, 44).Center(), U.PlayerName(p.Name, 15, HorizontalAlignment.Center, tags));
+			if (room.ResumeFrom != null) seat.AddChild(U.Muted(room.Score(id) == 1 ? Lang.T("1 point") : Lang.F("{0} points", room.Score(id)), 12, false, HorizontalAlignment.Center));
+			seat.AddChild(
 				U.H(4, GameParts.SeatStatus(p, room, false).With(s => s.SizeFlagsVertical = SizeFlags.ShrinkCenter),
 					U.Link("×", () => _host.Kick(id), 15).Tip(Lang.F("Remove {0}", p.Name)).With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter)).Center());
+			// (an older game than the host's: which version, so the host can ask them to update)
+			if (VersionCheck.Older(p.Version, App.Version))
+				seat.AddChild(U.Text(p.Version != "" ? Lang.F("⚠ {0}", p.Version) : Lang.T("⚠ older version"), 12, C.Orange)
+					.With(l => { l.HorizontalAlignment = HorizontalAlignment.Center; l.MouseFilter = MouseFilterEnum.Stop; })
+					.Tip(Lang.F("An older Quiznight than yours ({0}). Ask them to update.", App.Version)));
 			grid.AddChild(U.Panel(seat, "Card2").Grow());
 		}
 		for (var i = room.Players.Count; i < Math.Min(room.Players.Count + 1, Limits.MaxPlayers); i++)
@@ -86,6 +129,8 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 			grid.AddChild(U.Panel(empty, "Card2").With(p => p.Modulate = new Color(1, 1, 1, 0.5f)).Grow());
 		}
 		_content.AddChild(grid);
+		_content.AddChild(Arcade.ArcadeWindow.LobbyStrip(_arcadeLink, OpenArcade));
+		if (_arcade != null && IsInstanceValid(_arcade)) _arcade.Refresh();
 		// (the options sit at the bottom of the screen; the seats grow into the space above them)
 		_content.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
 
@@ -96,11 +141,15 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 				on => _host.UpdateSettings(hostShows: on)),
 			Rule("I unlock the buzzers myself", "After reading the question out (Space).", room.Settings.HostUnlocksBuzzers,
 				on => _host.UpdateSettings(hostUnlocks: on)),
+			Rule("Only my Steam friends can join", "Over Steam: players who aren't on your Steam friends list can't come in, even with the code.",
+				room.Settings.FriendsOnly, on => _host.UpdateSettings(friendsOnly: on)),
+			Rule("Show question categories", "Players see each question's category (e.g. Geography) on the Get ready screen. It makes questions easier; secret ones stay hidden.",
+				room.Settings.ShowCategories, on => _host.UpdateSettings(categories: on)),
 			U.Muted("Jokers (once per player and match)", 13).With(l => l.TooltipText = Lang.T("Played before a question starts.")),
 			Rule("×2 Double points", "Whatever the next question gives counts twice. Anyone can play it.", room.Settings.Jokers.Contains(Joker.Double),
 				on => _host.UpdateSettings(joker: (Joker.Double, on))),
-			Rule("⚡ Fast Pass", "On the next buzzer question, your buzz goes ahead of the line. One player per question.", room.Settings.Jokers.Contains(Joker.FastPass),
-				on => _host.UpdateSettings(joker: (Joker.FastPass, on))));
+			Rule("Fast Pass", "On the next buzzer question, you answer first, even if someone is already answering. One player per question.", room.Settings.Jokers.Contains(Joker.FastPass),
+				on => _host.UpdateSettings(joker: (Joker.FastPass, on))).With(b => b.Icon = Bolt.Icon(15)));
 		var right = U.V(8,
 			Stepper.Make("Answer time per buzz", room.Settings.AnswerTimeSec, Limits.AnswerTimeMin, Limits.AnswerTimeMax,
 				v => _host.UpdateSettings(answerTimeSec: v), " s"),
@@ -108,14 +157,26 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 			PodiumPicker.Make(_host.PodiumSound, id => _host.PodiumSound = id, true));
 		_content.AddChild(U.Panel(U.V(8, U.Eyebrow("Game rules for tonight"), U.H(24, left.Grow(), right.Grow())), "Inset"));
 
+		// What players on older games can't play in this quiz.
+		var cant = room.Players.Where(p => p.Connected)
+			.Select(p => (p.Name, Missing: VersionCheck.Missing(_host.Room.Quiz, p.Version))).Where(c => c.Missing.Count > 0).ToList();
+		foreach (var (name, missing) in cant)
+			_content.AddChild(U.Text(Lang.F("⚠ {0}'s game is too old for {1}. Ask them to update.", name, string.Join(", ", missing)), 13, C.Orange, wrap: true));
+
 		if (_error != null) _content.AddChild(U.Error(_error));
 		void StartQuiz()
 		{
+			if (cant.Count > 0 && !_versionsOk)
+			{
+				Dialogs.Confirm(this, Lang.F("{0} can't play every question on their version (see the lobby). Start anyway?", string.Join(", ", cant.Select(c => c.Name))),
+					"Start anyway", () => { _versionsOk = true; StartQuiz(); });
+				return;
+			}
 			var result = _host.Start();
 			_error = result.Ok ? null : result.Error;
 			if (!result.Ok) Refresh(_host.State);
 		}
-		var start = U.Btn("Start quiz", "AccentButton", StartQuiz);
+		var start = U.Btn(room.ResumeFrom != null ? "Continue quiz" : "Start quiz", "AccentButton", StartQuiz);
 		// Everyone gets the quiz's pictures, sounds and videos first, so nothing has to load mid-question.
 		var loading = room.Players.Where(p => p.Connected && room.Downloads.GetValueOrDefault(p.Id, 100) < 100).ToList();
 		start.Disabled = connected < Limits.MinPlayersToStart || loading.Count > 0;
@@ -147,7 +208,33 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 	{
 		_client = client;
 		SetAnchorsPreset(LayoutPreset.FullRect);
-		AddChild(U.Page(U.Panel(_content), 1000, 16));
+		AddChild(U.Page(U.Panel(_content).With(Seasonal.SnowOn), 1000, 16));
+		_arcadeLink = Arcade.ArcadeLink.ForPlayer(client);
+		_arcadeLink.Frame += OpenOnMatch;
+	}
+
+	// ---------- the mini games (Ui/Arcade) ----------
+
+	readonly Arcade.ArcadeLink _arcadeLink;
+	Arcade.ArcadeWindow? _arcade;
+
+	void OpenArcade()
+	{
+		if (_arcade == null || !IsInstanceValid(_arcade)) AddChild(_arcade = new Arcade.ArcadeWindow(_arcadeLink));
+	}
+
+	/// <summary>Someone accepted my challenge while the window was closed: it opens on the match.</summary>
+	void OpenOnMatch(ArcadeFrame frame)
+	{
+		if (frame.Winner != null || _arcade != null && IsInstanceValid(_arcade)) return;
+		OpenArcade();
+		_arcade!.OnFrame(frame);
+	}
+
+	public override void _ExitTree()
+	{
+		_arcadeLink.Frame -= OpenOnMatch;
+		_arcadeLink.Unhook();
 	}
 
 	/// <summary>While you change your name: the field (kept across updates, so typing isn't lost).</summary>
@@ -160,8 +247,11 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 		_content.Clear();
 		_content.AddChild(U.H(8, U.Heading("Waiting room", 28, false).Grow(),
 			_client.Mode == NetMode.Steam ? new RoomCodeButton(room.Code) : U.Pill(Lang.F("Host {0}", _client.Target)),
-			U.Pill(U.Plural(room.Players.Count, "player", "players"))));
+			U.Pill(U.Plural(room.Players.Count, "player", "players")), MediaIcon.SettingsGear()));
 		_content.AddChild(U.Muted(room.Quiz.Title, 15).Raw());
+		if (room.ResumeFrom is { } from)
+			_content.AddChild(U.Text(Lang.F("▶ The host continues a saved quiz night at question {0} of {1}: everyone keeps their points.", from, room.Quiz.QuestionCount),
+				14, C.Accent, wrap: true));
 
 		var grid = new GridContainer { Columns = 4 };
 		grid.AddThemeConstantOverride("h_separation", 12);
@@ -184,6 +274,9 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 			grid.AddChild(U.Panel(empty, "Card2").With(p => p.Modulate = new Color(1, 1, 1, 0.5f)).Grow());
 		}
 		_content.AddChild(grid);
+		// (the mini games need a version from 0.12 on on both sides: the host sends their part of the state)
+		if (room.Arcade != null) _content.AddChild(Arcade.ArcadeWindow.LobbyStrip(_arcadeLink, OpenArcade));
+		if (_arcade != null && IsInstanceValid(_arcade)) _arcade.Refresh();
 		_content.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
 		_content.AddChild(Rules(room.Settings));
 		_content.AddChild(U.H(16,
@@ -198,15 +291,16 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 		var general = U.V(6,
 			Line(settings.HostShowsQuestions ? "• The host shows each question when ready" : "• Questions show right away"),
 			Line(settings.HostUnlocksBuzzers ? "• The host unlocks the buzzers after reading out" : "• Buzzers open as soon as a question shows"),
+			Line(settings.ShowCategories ? "• You see each question's category" : "• Categories stay hidden"),
 			Line(Lang.F("• Answer time per buzz: {0} s", settings.AnswerTimeSec)));
 		var jokers = U.V(6, U.Muted("Jokers (once each per match)", 13));
 		// (every joker stays listed, greyed out when the host turns it off, so the panel doesn't jump in height)
 		foreach (var kind in Joker.All)
 		{
 			var on = settings.Jokers.Contains(kind);
-			var row = U.H(8, U.Pill(Joker.Label(kind), on ? C.Accent : C.Muted), U.Muted(!on ? Lang.T("Off tonight.") : kind == Joker.Double
+			var row = U.H(8, Bolt.JokerPill(kind, on ? C.Accent : C.Muted), U.Muted(!on ? Lang.T("Off tonight.") : kind == Joker.Double
 				? Lang.T("The next question counts twice. Anyone can play it.")
-				: Lang.T("Your buzz goes ahead of the line. One player per question."), 13).Grow());
+				: Lang.T("You answer first, even if someone is already answering. One player per question."), 13).Grow());
 			if (!on) row.Modulate = new Color(1, 1, 1, 0.45f);
 			jokers.AddChild(row);
 		}
@@ -288,6 +382,13 @@ public partial class PodiumScreen : Control, IRoomScreen
 		Ready += () => AddChild(new Confetti());
 	}
 
+	/// <summary>Escape: the host goes back to the lobby, a player leaves.</summary>
+	public void GoBack()
+	{
+		if (_isHost) _backToLobby?.Invoke();
+		else App.I.LeaveRoom();
+	}
+
 	bool _played;
 
 	public void Refresh(RoomState room)
@@ -305,6 +406,8 @@ public partial class PodiumScreen : Control, IRoomScreen
 		var rest = ranked.Where(r => r.Place > 3).ToList();
 		var me = ranked.FirstOrDefault(r => r.P.Id == _myId);
 
+		// (everything has a sponsor's name, like in American sports)
+		_content.AddChild(U.H(10, U.Eyebrow("The"), new TrackGlowLogo(0.55f) { SizeFlagsVertical = SizeFlags.ShrinkCenter }, U.Eyebrow("Podium")).Center());
 		_content.AddChild(U.Eyebrow(Lang.F("{0} · final results", room.Quiz.Title)).Center());
 		_content.AddChild(U.H(0, U.Heading(top.Count(r => r.Place == 1) > 1 ? "It's a tie at the top" : "And the winner is", 48, false), U.Text("…", 48, C.Accent, Fonts.Black)).Center());
 		if (me.P != null) _content.AddChild(U.H(4, U.Muted("You finished", 16, false), U.Text(Lang.Ordinal(me.Place), 16, C.Accent, Fonts.Bold).Raw(), U.Muted(Lang.F("with {0} points.", me.Score), 16, false)).Center());

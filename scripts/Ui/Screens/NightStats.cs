@@ -14,13 +14,13 @@ public static class NightStatsView
 {
 	static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
-	/// <summary>Place, points, questions scored, average answer time, average distance on maps and % off on estimations.</summary>
+	/// <summary>Place, points, questions scored, average answer and buzz time, average distance on maps and % off on estimations.</summary>
 	public static Control Table(RoomState room, string? me = null)
 	{
-		var grid = new LinedGrid { Columns = 7 };
+		var grid = new LinedGrid { Columns = 8 };
 		grid.AddThemeConstantOverride("h_separation", 16);
 		grid.AddThemeConstantOverride("v_separation", 12);
-		foreach (var h in new[] { "#", "Player", "Points", "Scored", "Ø answer time", "Ø map off", "Ø % off" })
+		foreach (var h in new[] { "#", "Player", "Points", "Scored", "Ø answer time", "Ø buzz time", "Ø map off", "Ø % off" })
 			grid.AddChild(U.Eyebrow(h));
 		foreach (var p in room.Ranked())
 		{
@@ -29,12 +29,16 @@ public static class NightStatsView
 			grid.AddChild(GameParts.Row(6, new Avatar(p, 22), U.Text(p.Name, 15, p.Id == me ? C.Teal : C.Text, p.Id == me ? Fonts.Bold : null).Raw()));
 			grid.AddChild(U.Mono($"{room.Score(p.Id)}", 15, C.Accent));
 			grid.AddChild(U.Mono($"{s.Scored}", 14));
-			grid.AddChild(U.Mono(s.AvgAnswerS is { } a ? a.ToString("0.00", Inv) + " s" : "–", 14, C.Muted));
+			grid.AddChild(U.Mono(Seconds(s.AvgAnswerS), 14, C.Muted));
+			grid.AddChild(U.Mono(Seconds(s.AvgBuzzS), 14, C.Muted));
 			grid.AddChild(U.Mono(s.AvgKm is { } km ? Distance(km) : "–", 14, C.Muted));
 			grid.AddChild(U.Mono(s.AvgPercentOff is { } pct ? Percent(pct) : "–", 14, C.Muted));
 		}
 		return grid;
 	}
+
+	/// <summary>"1.23 s", or "–" for none.</summary>
+	public static string Seconds(double? s) => s is { } v ? v.ToString("0.00", Inv) + " s" : "–";
 
 	public static string Distance(double km) => km < 1 ? (km * 1000).ToString("0", Inv) + " m" : km.ToString(km < 10 ? "0.00" : "0.0", Inv) + " km";
 
@@ -46,7 +50,7 @@ public static class NightStatsView
 		var d = new AcceptDialog { Title = Lang.T("Tonight so far"), OkButtonText = Lang.T("Close") };
 		var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, CustomMinimumSize = new Vector2(700, 260) };
 		scroll.AddChild(U.Pad(Table(room, me), 4, 4, 4, 4));
-		d.AddChild(U.V(10, scroll, U.Muted("Ø map off: how far your pins were on maps with a scale. Ø % off: how far your estimations were, in % of the right number.", 12).MinSize(700, 0)));
+		d.AddChild(U.V(10, scroll, U.Muted("Ø answer time: until you locked in an answer or sent a recording. Ø buzz time: until you buzzed in. Ø map off: how far your pins were on maps with a scale. Ø % off: how far your estimations were, in % of the right number.", 12).MinSize(700, 0)));
 		d.Confirmed += d.QueueFree;
 		d.Canceled += d.QueueFree;
 		owner.AddChild(d);
@@ -59,6 +63,7 @@ public static class NightStatsView
 		var costs = q.WrongCosts ? " " + Lang.T("Careful: a wrong answer costs points.") : "";
 		return q.Type switch
 		{
+			QuestionType.Steps when q.StepsMode == StepsMode.Sentence => Lang.T("The question comes part by part; the rest stays blurred. Buzz in as soon as you know it: the earlier you're right, the more points. A buzz stops the reading."),
 			QuestionType.Steps => Lang.T("Hints come one by one, the hardest first. Buzz in as soon as you know it: the earlier you're right, the more points."),
 			QuestionType.Interactive => Lang.T(q.Judging == Judging.Host
 				? "Do the task with your microphone and send your recording. The host plays them all and picks a favourite."

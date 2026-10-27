@@ -1,5 +1,5 @@
-// The look (two skins: Pinke Geilheit, dark purple with an orange accent and blue outlines; Classic, the web version's
-// grey with yellow and teal) and small helpers for building screens in code.
+// The look (three skins: Quiznight Purple, dark purple with an orange accent and blue outlines; Pinke Geilheit, pastel
+// pink and lavender on dusky rose; Classic, the web version's grey with yellow and teal) and small helpers for building screens in code.
 
 using System;
 using System.Collections.Generic;
@@ -11,7 +11,7 @@ namespace QuizNight.Ui;
 
 public static class C
 {
-	// The palette's own colours (Use switches them): purple/orange/blue, or the classic grey/yellow/teal.
+	// The palette's own colours (Use switches them): purple/orange/blue, or the Alpha skin's grey/yellow/teal, and so on.
 	public static Color Bg, Panel, Panel2, Text, Muted, Accent, AccentInk;
 	/// <summary>Outlines: the blue, dimmed into the background (focus and highlights use Blue itself).</summary>
 	public static Color Border;
@@ -19,6 +19,8 @@ public static class C
 	public static Color Blue;
 	/// <summary>Write the answer (yellow in the purple palette, where orange is the accent).</summary>
 	public static Color Orange;
+	/// <summary>The party show look's thick outlines and the solid drop under buttons and cards (almost black).</summary>
+	public static Color Ink;
 	public static readonly Color Teal = new("#3fd0b0");
 	public static readonly Color TealInk = new("#062019");
 	public static readonly Color Coral = new("#ff6b7a");
@@ -30,6 +32,13 @@ public static class C
 	/// <summary>A–D tiles: coral, sky, the accent, teal.</summary>
 	public static Color[] Choice = Array.Empty<Color>();
 
+	/// <summary>Dark text on bright patches (medals, badges, coloured pills), the same in every skin (C.Bg is light in Daylight).</summary>
+	public static readonly Color OnBright = new("#14151b");
+	/// <summary>A light skin (Daylight): the logo's field is light too.</summary>
+	public static bool Light;
+	/// <summary>Text fields, insets and slider tracks: sunk into the background (near-white in a light skin).</summary>
+	public static Color Well => Light ? new Color("#fbf8f3") : Bg.Darkened(0.3f);
+
 	public static readonly Color Gold = new("#ffc93c");
 	public static readonly Color Silver = new("#c7cbe0");
 	public static readonly Color Bronze = new("#d39a6a");
@@ -40,17 +49,93 @@ public static class C
 	static C() => Use(Skins.Default);
 
 	/// <summary>Switches the skin's colours. The theme and screens built before keep the old ones: rebuild them (App.UseSkin).</summary>
+	/// <summary>The skin in use now.</summary>
+	public static string Skin = Skins.Default;
+
 	public static void Use(string skin)
 	{
-		if (Skins.Valid(skin) == Skins.Classic)
+		Skin = Skins.Valid(skin);
+		// (Bg, Panel, Panel2, Border, Blue), (Text, Muted, Accent, AccentInk, Orange), Ink
+		Color H(string hex) => new(hex);
+		Light = false;
+		switch (Skins.Valid(skin))
 		{
-			(Bg, Panel, Panel2, Border, Blue) = (new("#121318"), new("#1b1d26"), new("#232634"), new("#2e3142"), Teal);
-			(Text, Muted, Accent, AccentInk, Orange) = (new("#ecedf3"), new("#8b8fa3"), new("#f5b942"), new("#1a1408"), new("#ff9f43"));
-		}
-		else
-		{
-			(Bg, Panel, Panel2, Border, Blue) = (new("#150023"), new("#1f0833"), new("#2a1042"), new("#1a5a85"), new("#00c9f6"));
-			(Text, Muted, Accent, AccentInk, Orange) = (new("#efeaf6"), new("#a593bd"), new("#ff8201"), new("#2a1200"), new("#ffd23f"));
+			case Skins.Classic:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#121318"), H("#20232e"), H("#2b2f40"), H("#2e3142"), Teal);
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#ecedf3"), H("#8b8fa3"), H("#f5b942"), H("#1a1408"), H("#ff9f43"));
+				Ink = H("#07080c");
+				break;
+			case Skins.Pink:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#26101f"), H("#3f1a37"), H("#532548"), H("#7a4a80"), H("#c9a7ff"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#fff0f7"), H("#d6abc7"), H("#ff9fd0"), H("#3a0f26"), H("#ffc9a3"));
+				Ink = H("#14060f");
+				break;
+			// (Formula 1: carbon black and grey, F1 red, white, the yellow flag)
+			case Skins.F1:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#0b0b0e"), H("#18181d"), H("#24242b"), H("#3b3b45"), H("#c8ccd6"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#f5f5f7"), H("#9b9ba8"), H("#e10600"), H("#ffffff"), H("#ffd400"));
+				Ink = H("#000000");
+				break;
+			// (true black for OLED screens: the pixels are off)
+			case Skins.Amoled:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#000000"), H("#0b0b0e"), H("#16161b"), H("#2a2a33"), H("#7c9cff"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#f2f2f5"), H("#8c8c99"), H("#ff8201"), H("#1a0b00"), H("#ffd23f"));
+				Ink = H("#000000");
+				break;
+			// (light, but easy on the eyes: warm off-white, never pure white, dark plum text and outlines)
+			case Skins.Daylight:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#e6e0d6"), H("#f4efe7"), H("#e9e2d6"), H("#c4b8a8"), H("#2f7fd8"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#2a2230"), H("#74697a"), H("#e8730c"), H("#ffffff"), H("#c98a00"));
+				Ink = H("#3b3142");
+				Light = true;
+				break;
+			// (1. FC Köln: red and white)
+			case Skins.Effzeh:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#1a0507"), H("#2e0a0e"), H("#3e1015"), H("#7d1f27"), H("#f4f4f4"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#ffffff"), H("#dcaaae"), H("#ed1c24"), H("#ffffff"), H("#ffd23f"));
+				Ink = H("#0d0203");
+				break;
+			// (deep space: near-black navy, starlight blue, a rocket-flame orange; behind the home screen, SpaceScene)
+			case Skins.Space:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#04050d"), H("#0d1029"), H("#151a3d"), H("#2b3a78"), H("#86b6ff"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#eef1ff"), H("#8e97c6"), H("#ff8a3d"), H("#1f0b00"), H("#ffd166"));
+				Ink = H("#010208");
+				break;
+			// (October: pumpkin orange, witch purple, slime green)
+			case Skins.Halloween:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#120a14"), H("#22122a"), H("#2f1839"), H("#5a2d6e"), H("#a06bff"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#f7efe6"), H("#b49cb9"), H("#ff7a00"), H("#1f0d00"), H("#a8e05f"));
+				Ink = H("#07040a");
+				break;
+			// (Cologne carnival: the city's red and white; the confetti brings the colour)
+			case Skins.Carnival:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#24060a"), H("#3e0d15"), H("#521320"), H("#9c3546"), H("#ffffff"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#fff8f2"), H("#e8b4ba"), H("#ffffff"), H("#c8102e"), H("#ffd23f"));
+				Ink = H("#0f0204");
+				break;
+			// (February: rose, pink and red)
+			case Skins.Valentine:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#26091a"), H("#40102d"), H("#55173d"), H("#a8447a"), H("#ff9ec7"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#fff0f6"), H("#e3a8c5"), H("#ff4f8b"), H("#ffffff"), H("#ffd1e3"));
+				Ink = H("#12030b");
+				break;
+			// (December: pine green, Christmas red, gold)
+			case Skins.Christmas:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#0a1912"), H("#12291f"), H("#1a392b"), H("#2f6a4e"), H("#e9f3ff"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#f5f9f5"), H("#a6c3b2"), H("#d8263c"), H("#ffffff"), H("#ffd23f"));
+				Ink = H("#03100a");
+				break;
+			// (New Year: midnight blue, gold and champagne)
+			case Skins.NewYear:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#070b1f"), H("#111a3a"), H("#18244d"), H("#3a4f8f"), H("#e9f3ff"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#f7f3e8"), H("#a9b2d2"), H("#ffc83d"), H("#1d1300"), H("#f3e2b0"));
+				Ink = H("#02040d");
+				break;
+			default:
+				(Bg, Panel, Panel2, Border, Blue) = (H("#150023"), H("#2b0b47"), H("#3a1260"), H("#1a5a85"), H("#00c9f6"));
+				(Text, Muted, Accent, AccentInk, Orange) = (H("#efeaf6"), H("#a593bd"), H("#ff8201"), H("#2a1200"), H("#ffd23f"));
+				Ink = H("#0d0016");
+				break;
 		}
 		Choice = new[] { Coral, Sky, Accent, Teal };
 	}
@@ -72,30 +157,207 @@ public static class C
 	};
 }
 
-/// <summary>The colour skins to choose from in Settings.</summary>
+/// <summary>
+/// The colour skins. Halloween and Christmas aren't picked: in their season they come on by themselves (unless "Seasonal
+/// skins" is off), and afterwards the skin the player chose is back. Developer mode can pick any skin any time.
+/// </summary>
 public static class Skins
 {
+	/// <summary>Quiznight Purple (its id is from when it was called Pinke Geilheit, so saved settings keep it).</summary>
 	public const string Default = "pinke-geilheit";
+	public const string Pink = "pastel-pink";
 	public const string Classic = "classic";
+	public const string F1 = "f1";
+	public const string Amoled = "amoled";
+	public const string Daylight = "daylight";
+	public const string Effzeh = "effzeh";
+	public const string Halloween = "halloween";
+	public const string Christmas = "christmas";
+	public const string NewYear = "new-year";
+	public const string Carnival = "carnival";
+	public const string Valentine = "valentine";
+	public const string Space = "space";
 
 	public static readonly (string Id, string Label)[] All =
 	{
-		(Default, "Pinke Geilheit"),
-		(Classic, "Classic"),
+		(Default, "Quiznight Purple"),
+		(Pink, "Pinke Geilheit"),
+		(Classic, "Alpha"),
+		(F1, "Formula 1"),
+		(Amoled, "AMOLED black"),
+		(Daylight, "Daylight"),
+		(Effzeh, "#effzeh"),
+		(Space, "Space"),
+		(Halloween, "Halloween"),
+		(Christmas, "Christmas"),
+		(NewYear, "Happy New Year"),
+		(Carnival, "Kölle Alaaf (Carnival)"),
+		(Valentine, "Valentine's Day"),
 	};
 
+	/// <summary>Whether a skin can be used today (the seasonal ones only in their season).</summary>
+	public static bool InSeason(string id) => id switch
+	{
+		Halloween => Seasons.IsHalloween(Seasons.Today),
+		Christmas => Seasons.IsChristmas(Seasons.Today),
+		NewYear => Seasons.IsNewYear(Seasons.Today),
+		Carnival => Seasons.IsCarnival(Seasons.Today),
+		Valentine => Seasons.IsValentine(Seasons.Today),
+		_ => true,
+	};
+
+	public static bool IsSeasonal(string id) => id is Halloween or Christmas or NewYear or Carnival or Valentine;
+
+	/// <summary>The skins Settings offers: all of them in developer mode, else the ones that aren't seasonal.</summary>
+	public static (string Id, string Label)[] Available => All.Where(s => App.LanUnlocked || !IsSeasonal(s.Id)).ToArray();
+
+	/// <summary>A known skin, else Quiznight Purple.</summary>
 	public static string Valid(string? id) => All.Any(s => s.Id == id) ? id! : Default;
+
+	/// <summary>
+	/// The skin to show: a seasonal skin picked in developer mode stays (in its season, or while developer mode is on), the
+	/// season's skin when it's Halloween or Christmas time (and seasonal skins are on), else the one the player chose.
+	/// </summary>
+	public static string Effective(string chosen, bool seasonal)
+	{
+		chosen = Valid(chosen);
+		if (IsSeasonal(chosen))
+		{
+			if (InSeason(chosen) || App.LanUnlocked) return chosen;
+			chosen = Default;
+		}
+		if (!seasonal) return chosen;
+		// (the carnival week can fall in February: carnival first)
+		var today = Seasons.Today;
+		if (Seasons.IsCarnival(today)) return Carnival;
+		if (Seasons.IsHalloween(today)) return Halloween;
+		if (Seasons.IsChristmas(today)) return Christmas;
+		if (Seasons.IsNewYear(today)) return NewYear;
+		if (Seasons.IsValentine(today)) return Valentine;
+		return chosen;
+	}
 }
 
+/// <summary>Seasons for the Christmas song and the seasonal skins. Dev runs can pretend another day: --date 2026-12-10.</summary>
+public static class Seasons
+{
+	static DateTime? _today;
+
+	public static DateTime Today => _today ??= OS.GetCmdlineUserArgs() is var args && Array.IndexOf(args, "--date") is var i and >= 0 && i + 1 < args.Length
+		&& DateTime.TryParse(args[i + 1], System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var d) ? d : DateTime.Now;
+
+	/// <summary>1 to 26 December.</summary>
+	public static bool IsChristmas(DateTime day) => day.Month == 12 && day.Day <= 26;
+
+	/// <summary>27 December to 7 January (right after Christmas).</summary>
+	public static bool IsNewYear(DateTime day) => day.Month == 12 && day.Day >= 27 || day.Month == 1 && day.Day <= 7;
+
+	/// <summary>All of October.</summary>
+	public static bool IsHalloween(DateTime day) => day.Month == 10;
+
+	/// <summary>All of February.</summary>
+	public static bool IsValentine(DateTime day) => day.Month == 2;
+
+	/// <summary>
+	/// Cologne carnival: 11 November (the season opens at 11:11) and the street carnival, Weiberfastnacht to Veilchendienstag
+	/// (the Thursday 52 days before Easter Sunday to the Tuesday before Ash Wednesday).
+	/// </summary>
+	public static bool IsCarnival(DateTime day)
+	{
+		if (day.Month == 11 && day.Day == 11) return true;
+		var easter = Easter(day.Year);
+		return day.Date >= easter.AddDays(-52) && day.Date <= easter.AddDays(-47);
+	}
+
+	/// <summary>Easter Sunday (the Gregorian "anonymous" computus).</summary>
+	public static DateTime Easter(int year)
+	{
+		int a = year % 19, b = year / 100, c = year % 100, d = b / 4, e = b % 4, f = (b + 8) / 25, g = (b - f + 1) / 3;
+		int h = (19 * a + b - d - g + 15) % 30, i = c / 4, k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = (a + 11 * h + 22 * l) / 451;
+		var month = (h + l - 7 * m + 114) / 31;
+		var dayOfMonth = (h + l - 7 * m + 114) % 31 + 1;
+		return new DateTime(year, month, dayOfMonth);
+	}
+}
+
+/// <summary>
+/// The party show look's type: Fredoka (rounded, a variable font: one file, any weight) for text, Lilita One (chunky
+/// display) for headings, names and big buttons. Both ship in assets/fonts (OFL); a system font fills in any glyph they
+/// lack (arrows, symbols) and stands in if the files are missing.
+/// </summary>
 public static class Fonts
 {
 	static readonly string[] Sans = { "Sora", "Segoe UI", "Arial" };
-	public static readonly Font Regular = new SystemFont { FontNames = Sans };
-	public static readonly Font Bold = new SystemFont { FontNames = Sans, FontWeight = 700 };
-	public static readonly Font Black = new SystemFont { FontNames = Sans, FontWeight = 800 };
+	static readonly SystemFont System = new() { FontNames = new[] { "Segoe UI", "Segoe UI Symbol", "Arial", "Noto Sans" } };
+
+	static FontFile? Load(string path)
+	{
+		if (!ResourceLoader.Exists(path) || GD.Load<FontFile>(path) is not { } font) return null;
+		font.Fallbacks = new Godot.Collections.Array<Font> { System };
+		return font;
+	}
+
+	static readonly FontFile? Fredoka = Load("res://assets/fonts/Fredoka.ttf");
+	static readonly FontFile? Lilita = Load("res://assets/fonts/LilitaOne-Regular.ttf");
+
+	/// <summary>Fredoka at a weight (300–700), or the system font at that weight.</summary>
+	static Font Weight(int weight)
+	{
+		if (Fredoka == null) return new SystemFont { FontNames = Sans, FontWeight = weight };
+		var tag = (long)TextServerManager.GetPrimaryInterface().NameToTag("wght");
+		return new FontVariation { BaseFont = Fredoka, VariationOpentype = new Godot.Collections.Dictionary { [tag] = weight } };
+	}
+
+	static readonly Font PartyRegular = Weight(450);
+	static readonly Font PartyBold = Weight(600);
+	static readonly Font PartyBlack = (Font?)Lilita ?? new SystemFont { FontNames = Sans, FontWeight = 800 };
+
+	// Settings → Accessibility: a dyslexia-friendly font for all text (assets/fonts/OpenDyslexic-Regular / -Bold, .otf or .ttf)
+	static FontFile? Any(string name) => Load($"res://assets/fonts/{name}.otf") ?? Load($"res://assets/fonts/{name}.ttf");
+	/// <summary>
+	/// OpenDyslexic runs wide: letters and words a little closer, so screens laid out for Fredoka still fit. (Squashing the glyphs with
+	/// a transform made them thinner but kept their full width, so every word looked letter-spaced.)
+	/// </summary>
+	static Font? Narrow(FontFile? f) => f == null ? null : new FontVariation { BaseFont = f, SpacingGlyph = -2, SpacingSpace = -3 };
+	static readonly Font? DyslexicRegular = Narrow(Any("OpenDyslexic-Regular"));
+	static readonly Font? DyslexicBold = Narrow(Any("OpenDyslexic-Bold")) ?? DyslexicRegular;
+	static bool _dyslexic;
+
+	/// <summary>Whether the dyslexia-friendly font came with the game (Settings only offers it then).</summary>
+	public static bool DyslexicAvailable => DyslexicRegular != null;
+
+	/// <summary>Switches all text to the dyslexia-friendly font (or back). Screens and the theme built after this use it.</summary>
+	public static void UseDyslexic(bool on)
+	{
+		_dyslexic = on && DyslexicAvailable;
+		_spaced = null;
+	}
+
+	public static Font Regular => _dyslexic ? DyslexicRegular! : PartyRegular;
+	public static Font Bold => _dyslexic ? DyslexicBold! : PartyBold;
+	/// <summary>Headings, names, big numbers and buttons: Lilita One (the dyslexia font's bold when that's on).</summary>
+	public static Font Black => _dyslexic ? DyslexicBold! : PartyBlack;
+	static Font? _spaced;
 	/// <summary>Small caps labels ("eyebrows") get extra letter spacing.</summary>
-	public static readonly Font Spaced = new FontVariation { BaseFont = Bold, SpacingGlyph = 2 };
-	public static readonly Font Mono =new SystemFont { FontNames = new[] { "JetBrains Mono", "Consolas", "Courier New" }, FontWeight = 700 };
+	public static Font Spaced => _spaced ??= _dyslexic ? Bold : new FontVariation { BaseFont = Bold, SpacingGlyph = 2 };
+	/// <summary>
+	/// Numbers (scores, places, times, room codes, number inputs): Fredoka bold with tabular figures, so digits are all one
+	/// width and columns of numbers line up, in the game's own type (it was the system's Consolas, which looked out of place).
+	/// </summary>
+	public static Font Mono => _dyslexic ? DyslexicBold! : PartyNumbers;
+	static readonly Font PartyNumbers = Numbers();
+
+	static Font Numbers()
+	{
+		if (Fredoka == null) return new SystemFont { FontNames = new[] { "Consolas", "Courier New" }, FontWeight = 700 };
+		var ts = TextServerManager.GetPrimaryInterface();
+		return new FontVariation
+		{
+			BaseFont = Fredoka,
+			VariationOpentype = new Godot.Collections.Dictionary { [(long)ts.NameToTag("wght")] = 650 },
+			OpentypeFeatures = new Godot.Collections.Dictionary { [(long)ts.NameToTag("tnum")] = 1 },
+		};
+	}
 }
 
 public static class UiTheme
@@ -124,15 +386,51 @@ public static class UiTheme
 		return s;
 	}
 
-	static void ButtonType(Theme t, string type, Color bg, Color ink, Color? border, int radius = 10, float padX = 20, float padY = 10)
+	/// <summary>
+	/// The party show look's box: a thick ink outline and a solid drop under it (a thicker bottom edge), so it looks like
+	/// it stands up off the screen. pressed: the drop shrinks and the content moves down, as if pushed in.
+	/// </summary>
+	public static StyleBoxFlat Chunky(Color bg, int radius, float padX = 12, float padY = 8, int outline = 3, int depth = 5, bool pressed = false)
 	{
-		t.SetStylebox("normal", type, Box(bg, radius, border, 1, padX, padY));
-		t.SetStylebox("hover", type, Box(bg.A == 0 ? bg : bg.Lightened(0.08f), radius, border, 1, padX, padY));
-		t.SetStylebox("pressed", type, Box(bg.A == 0 ? bg : bg.Darkened(0.08f), radius, border, 1, padX, padY));
-		t.SetStylebox("hover_pressed", type, Box(bg.A == 0 ? bg : bg.Darkened(0.04f), radius, border, 1, padX, padY));
-		var disabled = bg.A == 0 ? bg : new Color(bg, 0.4f);
-		t.SetStylebox("disabled", type, Box(disabled, radius, border is { } b ? new Color(b, 0.4f) : null, 1, padX, padY));
-		t.SetStylebox("focus", type, Outline(C.Blue, radius));
+		var s = Box(bg, radius, C.Ink, outline, padX, padY);
+		var drop = pressed ? Math.Max(outline, depth / 3) : depth;
+		s.BorderWidthBottom = outline + drop;
+		// (the text is centred on the coloured face, not on face + edge; pushed in: it moves down by what the drop lost,
+		// so the button's height stays)
+		var half = depth / 2f;
+		s.ContentMarginTop = Math.Max(0, padY - half) + (depth - drop);
+		s.ContentMarginBottom = Math.Max(0, padY - half) + drop;
+		return s;
+	}
+
+	/// <param name="outline">Ink outline width; <paramref name="depth"/> the solid edge under it. Small buttons get thin ones
+	/// (a thick edge on a 30 px button looks crowded), big ones the full party show look.</param>
+	static void ButtonType(Theme t, string type, Color bg, Color ink, Color? border, int radius = 16, float padX = 20, float padY = 9, bool chunky = true,
+		int outline = 3, int depth = 5)
+	{
+		if (!chunky || bg.A == 0)
+		{
+			t.SetStylebox("normal", type, Box(bg, radius, border, 1, padX, padY));
+			t.SetStylebox("hover", type, Box(bg, radius, border, 1, padX, padY));
+			t.SetStylebox("pressed", type, Box(bg, radius, border, 1, padX, padY));
+			t.SetStylebox("hover_pressed", type, Box(bg, radius, border, 1, padX, padY));
+			t.SetStylebox("disabled", type, Box(bg, radius, border is { } b0 ? new Color(b0, 0.4f) : null, 1, padX, padY));
+		}
+		else
+		{
+			// (every solid button is drawn as a real key: KeyBox)
+			StyleBox Face(Color c, bool pressed) => new KeyBox(c, radius, padX, padY, outline, depth, pressed);
+			t.SetStylebox("normal", type, Face(bg, false));
+			t.SetStylebox("hover", type, Face(bg.Lightened(0.1f), false));
+			t.SetStylebox("pressed", type, Face(bg.Darkened(0.08f), true));
+			t.SetStylebox("hover_pressed", type, Face(bg.Darkened(0.04f), true));
+			var off = Face(new Color(bg, 0.45f), false);
+			((KeyBox)off).Ink = new Color(C.Ink, 0.6f);
+			t.SetStylebox("disabled", type, off);
+		}
+		var focus = Outline(C.Blue, radius + 2, 2);
+		focus.ExpandMarginLeft = focus.ExpandMarginRight = focus.ExpandMarginTop = focus.ExpandMarginBottom = 3;
+		t.SetStylebox("focus", type, focus);
 		t.SetColor("font_color", type, ink);
 		t.SetColor("font_hover_color", type, bg.A == 0 ? C.Text : ink);
 		t.SetColor("font_pressed_color", type, ink);
@@ -146,7 +444,7 @@ public static class UiTheme
 	{
 		var t = new Theme { DefaultFont = Fonts.Regular, DefaultFontSize = BaseFontSize };
 
-		ButtonType(t, "Button", C.Panel2, C.Text, C.Border);
+		ButtonType(t, "Button", C.Panel2, C.Text, null);
 		foreach (var (name, bg, ink) in new[]
 		{
 			("AccentButton", C.Accent, C.AccentInk),
@@ -158,30 +456,30 @@ public static class UiTheme
 			ButtonType(t, name, bg, ink, null);
 		}
 		t.SetTypeVariation("LinkButton2", "Button");
-		ButtonType(t, "LinkButton2", Colors.Transparent, C.Muted, null, 8, 4, 6);
+		ButtonType(t, "LinkButton2", Colors.Transparent, C.Muted, null, 8, 4, 6, false);
 		t.SetTypeVariation("SmallButton", "Button");
-		ButtonType(t, "SmallButton", C.Panel2, C.Text, C.Border, 8, 12, 5);
+		ButtonType(t, "SmallButton", C.Panel2, C.Text, null, 10, 10, 4, outline: 2, depth: 3);
 		t.SetTypeVariation("ToggleOn", "Button");
-		ButtonType(t, "ToggleOn", new Color(C.Blue, 0.18f), C.Blue, C.Blue, 10, 14, 8);
+		ButtonType(t, "ToggleOn", C.Blue, C.Ink, null, 14, 14, 7, outline: 2, depth: 3);
 		t.SetTypeVariation("ToggleOff", "Button");
-		ButtonType(t, "ToggleOff", C.Bg, C.Muted, C.Border, 10, 14, 8);
+		ButtonType(t, "ToggleOff", C.Panel2, C.Muted, null, 14, 14, 7, outline: 2, depth: 3);
 
 		// OptionButton has its own theme type.
-		ButtonType(t, "OptionButton", C.Bg, C.Text, C.Border, 10, 12, 8);
+		ButtonType(t, "OptionButton", C.Panel2, C.Text, null, 14, 12, 7, outline: 2, depth: 3);
 
-		// Cards and panels
-		t.SetStylebox("panel", "PanelContainer", Box(C.Panel, 14, C.Border, 1, 24, 22));
+		// Cards and panels: outlined in ink, with a drop under the big ones
+		t.SetStylebox("panel", "PanelContainer", Chunky(C.Panel, 24, 24, 22, 4, 7));
 		foreach (var (name, box) in new (string, StyleBox)[]
 		{
-			("Card2", Box(C.Panel2, 12, C.Border, 1, 14, 12)),
-			("Inset", Box(C.Bg, 12, C.Border, 1, 14, 12)),
-			("Chip", Box(C.Panel2, 999, C.Border, 1, 10, 5)),
-			("ChipMe", Box(C.Panel2, 999, C.Blue, 1, 10, 5)),
-			("Pill", Box(C.Panel2, 999, C.Border, 1, 12, 5)),
-			("Notice", Box(C.Panel2, 10, C.Border, 1, 14, 10)),
+			("Card2", Chunky(C.Panel2, 18, 14, 12, 3, 4)),
+			("Inset", Box(C.Light ? C.Well : C.Bg.Darkened(0.25f), 16, C.Ink, 3, 14, 12)),
+			("Chip", Chunky(C.Panel2, 12, 10, 4, 2, 0)),
+			("ChipMe", Chunky(C.Blue.Darkened(0.45f), 12, 10, 4, 2, 0)),
+			("Pill", Chunky(C.Panel2, 12, 12, 4, 2, 0)),
+			("Notice", Chunky(C.Panel2, 14, 14, 10, 2, 2)),
 			("Bar", Box(C.Panel, 0, null, 0, 20, 12)),
-			("Highlight", Box(new Color(C.Accent, 0.1f), 12, C.Accent, 1, 14, 10)),
-			("Scored", Box(new Color(C.Teal, 0.1f), 12, C.Teal, 1, 14, 10)),
+			("Highlight", Chunky(C.Accent.Darkened(0.55f), 16, 14, 10, 3, 4)),
+			("Scored", Chunky(C.Teal.Darkened(0.6f), 16, 14, 10, 3, 4)),
 			("Clear", new StyleBoxEmpty()),
 		})
 		{
@@ -192,16 +490,16 @@ public static class UiTheme
 		// Text inputs
 		foreach (var type in new[] { "LineEdit", "TextEdit" })
 		{
-			t.SetStylebox("normal", type, Box(C.Bg, 10, C.Border, 1, 12, 9));
-			t.SetStylebox("focus", type, Outline(C.Blue, 10, 1));
-			t.SetStylebox("read_only", type, Box(C.Panel2, 10, C.Border, 1, 12, 9));
+			t.SetStylebox("normal", type, Box(C.Well, 14, C.Ink, 3, 14, 9));
+			t.SetStylebox("focus", type, Outline(C.Accent, 14, 3));
+			t.SetStylebox("read_only", type, Box(C.Panel2, 14, C.Ink, 3, 14, 9));
 			t.SetColor("font_color", type, C.Text);
 			t.SetColor("font_placeholder_color", type, new Color(C.Muted, 0.7f));
-			t.SetColor("caret_color", type, C.Blue);
+			t.SetColor("caret_color", type, C.Accent);
 			t.SetColor("selection_color", type, new Color(C.Blue, 0.3f));
 		}
 		t.SetTypeVariation("CodeInput", "LineEdit");
-		t.SetFont("font", "CodeInput", Fonts.Mono);
+		t.SetFont("font", "CodeInput", Fonts.Black);
 		t.SetFontSize("font_size", "CodeInput", 30);
 		t.SetTypeVariation("BigInput", "LineEdit");
 		t.SetFont("font", "BigInput", Fonts.Mono);
@@ -233,7 +531,7 @@ public static class UiTheme
 		}
 
 		// Popups and dialogs
-		var popup = Box(C.Panel2, 10, C.Border, 1, 6, 6);
+		var popup = Box(C.Panel2, 14, C.Ink, 3, 6, 6);
 		t.SetStylebox("panel", "PopupMenu", popup);
 		t.SetStylebox("hover", "PopupMenu", Box(new Color(C.Blue, 0.2f), 6, null, 0, 8, 4));
 		t.SetColor("font_color", "PopupMenu", C.Text);
@@ -245,16 +543,41 @@ public static class UiTheme
 		const int titleHeight = 40;
 		foreach (var state in new[] { "embedded_border", "embedded_unfocused_border" })
 		{
-			var frame = Box(C.Panel2, 14, C.Border, 1, 0, 0);
+			var frame = Box(C.Panel2, 18, C.Ink, 4, 0, 0);
 			frame.ExpandMarginTop = titleHeight;
 			frame.ExpandMarginLeft = frame.ExpandMarginRight = frame.ExpandMarginBottom = 6;
 			t.SetStylebox(state, "Window", frame);
 		}
 		t.SetConstant("title_height", "Window", titleHeight);
+		// The close button: a small red key like the game's other buttons (ink outline, a face over a darker side, a thick white ×)
+		// instead of Godot's thin grey cross, in the middle of the title bar's height. (Godot puts the icon's top-left
+		// close_h_offset left of the window's right edge and close_v_offset above its content.)
+		const int closeSize = 28;
+		if (DisplayServer.GetName() != "headless")
+		{
+			static string Hex(Color c) => "#" + c.ToHtml(false);
+			string CloseKey(bool pressed)
+			{
+				var face = new Color("#e8394d");
+				var top = pressed ? 5 : 3;
+				var cy = top + 9.5f;
+				string F(float v) => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
+				return $"<svg xmlns='http://www.w3.org/2000/svg' width='{closeSize}' height='{closeSize}'>" +
+					$"<rect x='1' y='1' width='26' height='26' rx='8' fill='{Hex(C.Ink)}'/>" +
+					$"<rect x='3' y='3' width='22' height='22' rx='6' fill='{Hex(face.Darkened(0.4f))}'/>" +
+					$"<rect x='3' y='{top}' width='22' height='19' rx='6' fill='{Hex(pressed ? face.Lightened(0.1f) : face)}'/>" +
+					$"<path d='M{F(14 - 4.2f)} {F(cy - 4.2f)} L{F(14 + 4.2f)} {F(cy + 4.2f)} M{F(14 + 4.2f)} {F(cy - 4.2f)} L{F(14 - 4.2f)} {F(cy + 4.2f)}' stroke='#ffffff' stroke-width='3' stroke-linecap='round'/>" +
+					"</svg>";
+			}
+			t.SetIcon("close", "Window", DpiTexture.CreateFromString(CloseKey(false)));
+			t.SetIcon("close_pressed", "Window", DpiTexture.CreateFromString(CloseKey(true)));
+		}
+		t.SetConstant("close_v_offset", "Window", (titleHeight + closeSize) / 2);
+		t.SetConstant("close_h_offset", "Window", closeSize + (titleHeight - closeSize) / 2);
 		t.SetColor("title_color", "Window", C.Text);
-		t.SetFont("title_font", "Window", Fonts.Bold);
-		t.SetFontSize("title_font_size", "Window", 16);
-		t.SetStylebox("panel", "TooltipPanel", Box(C.Panel2, 8, C.Border, 1, 10, 6));
+		t.SetFont("title_font", "Window", Fonts.Black);
+		t.SetFontSize("title_font_size", "Window", 18);
+		t.SetStylebox("panel", "TooltipPanel", Box(C.Panel2, 12, C.Ink, 3, 10, 6));
 		t.SetColor("font_color", "TooltipLabel", C.Text);
 
 		// Thin scroll bars
@@ -268,9 +591,9 @@ public static class UiTheme
 		t.SetStylebox("panel", "ScrollContainer", new StyleBoxEmpty());
 
 		// Volume sliders: thin track, teal fill.
-		t.SetStylebox("slider", "HSlider", Box(C.Border, 4, null, 0, 0, 3));
-		t.SetStylebox("grabber_area", "HSlider", Box(C.Blue, 4, null, 0, 0, 3));
-		t.SetStylebox("grabber_area_highlight", "HSlider", Box(C.Blue.Lightened(0.15f), 4, null, 0, 0, 3));
+		t.SetStylebox("slider", "HSlider", Box(C.Light ? C.Border : C.Well, 8, C.Ink, 2, 0, 5));
+		t.SetStylebox("grabber_area", "HSlider", Box(C.Accent, 8, C.Ink, 2, 0, 5));
+		t.SetStylebox("grabber_area_highlight", "HSlider", Box(C.Accent.Lightened(0.15f), 8, C.Ink, 2, 0, 5));
 		t.SetConstant("separation", "HSeparator", 12);
 		t.SetStylebox("separator", "HSeparator", new StyleBoxLine { Color = C.Border, Thickness = 1 });
 		return t;
@@ -547,11 +870,11 @@ public static class U
 	}
 
 	/// <summary>A page that scrolls, with its content centred at a readable width.</summary>
-	public static ScrollContainer Page(Control content, float maxWidth = 960, int padTop = 36)
+	public static ScrollContainer Page(Control content, float maxWidth = 960, int padTop = 36, int padBottom = -1)
 	{
 		var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
 		scroll.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		var col = new Column { MaxWidth = maxWidth, PadTop = padTop, PadBottom = Mathf.Min(36, padTop) };
+		var col = new Column { MaxWidth = maxWidth, PadTop = padTop, PadBottom = padBottom >= 0 ? padBottom : Mathf.Min(36, padTop) };
 		col.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		col.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
 		col.AddChild(content);

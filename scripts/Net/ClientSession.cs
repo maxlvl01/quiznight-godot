@@ -11,6 +11,9 @@ namespace QuizNight.Net;
 
 public sealed class ClientSession : IDisposable
 {
+	/// <summary>Dev (--pretend-version X, Test lab's old bot): join as a game of that version from before 0.12.</summary>
+	public static string? PretendVersion;
+
 	/// <summary>How long we keep trying to get back in after the connection drops.</summary>
 	const double ReconnectForSec = 60;
 	const double ReconnectEverySec = 3;
@@ -80,6 +83,7 @@ public sealed class ClientSession : IDisposable
 			net?.Dispose();
 			return;
 		}
+		Trace.Log("client", net == null ? $"couldn't connect: {error}" : "connected");
 		if (net == null)
 		{
 			if (MyId == null) End(error);
@@ -87,7 +91,7 @@ public sealed class ClientSession : IDisposable
 			return;
 		}
 		_net = net;
-		net.Connected += () => net.Send(Msg.Encode(Msg.Join, new JoinRequest { Name = _name, ClientId = _clientId }));
+		net.Connected += () => net.Send(Msg.Encode(Msg.Join, new JoinRequest { Name = _name, ClientId = _clientId, Code = Mode == NetMode.Steam ? Target : "", Version = PretendVersion ?? App.Version, Protocol = PretendVersion != null ? 0 : Limits.Protocol }));
 		net.Disconnected += reason => OnLost(net, reason);
 		net.Received += OnReceived;
 	}
@@ -95,6 +99,7 @@ public sealed class ClientSession : IDisposable
 	void OnLost(IClientTransport net, string reason)
 	{
 		if (net != _net || _ended) return;
+		Trace.Log("client", $"connection lost: {reason}");
 		_net = null;
 		net.Dispose();
 		FailPendingAnswers("The connection dropped. Try again in a moment.");
@@ -149,6 +154,7 @@ public sealed class ClientSession : IDisposable
 			case Msg.State:
 				if (Msg.Read<RoomState>(msg.Data) is not { } state) return;
 				ServerClock.Sync(state.ServerNow);
+				NoteBuzzersOpen(state);
 				State = state;
 				Assets.Learn(state.Game?.Question.Files);
 				Changed?.Invoke();
@@ -156,6 +162,9 @@ public sealed class ClientSession : IDisposable
 			case Msg.AnswerResult:
 				var result = Msg.Read<Result>(msg.Data) ?? Result.Fail("Something went wrong.");
 				if (_pendingAnswers.Count > 0) _pendingAnswers.Dequeue()(result);
+				break;
+			case Msg.ArcadeFrame:
+				if (Msg.Read<ArcadeFrame>(msg.Data) is { } frame) ArcadeFrame?.Invoke(frame);
 				break;
 			case Msg.Asset:
 				if (Msg.Read<AssetPart>(msg.Data) is { } part) Assets.Receive(part);
@@ -176,7 +185,32 @@ public sealed class ClientSession : IDisposable
 
 	// ---------- player actions ----------
 
-	public void Buzz() => _net?.Send(Msg.Encode(Msg.Buzz));
+	/// <summary>Fair buzzers: the buzzer round open on this screen, and when it opened here (this PC's clock).</summary>
+	int? _openRound;
+	ulong _openedAtMs;
+
+	void NoteBuzzersOpen(RoomState state)
+	{
+		if (state.Game is not { BuzzersOpen: true } game)
+		{
+			_openRound = null;
+			return;
+		}
+		if (_openRound == game.BuzzRound) return;
+		_openRound = game.BuzzRound;
+		_openedAtMs = Godot.Time.GetTicksMsec();
+	}
+
+	/// <summary>A buzz, with how long after the buzzers opened on this screen it was pressed (the host orders by that).</summary>
+	public void Buzz() => _net?.Send(_openRound is { } round
+		? Msg.Encode(Msg.Buzz, new BuzzRequest { Round = round, ReactionMs = (int)Math.Min(int.MaxValue, Godot.Time.GetTicksMsec() - _openedAtMs) })
+		: Msg.Encode(Msg.Buzz));
+
+	/// <summary>The lobby's mini games: a challenge, a paddle, a shot … (Shared/Arcade.cs).</summary>
+	public void Arcade(ArcadeRequest request) => _net?.Send(Msg.Encode(Msg.Arcade, request));
+
+	/// <summary>A match this player is in moved on.</summary>
+	public event Action<ArcadeFrame>? ArcadeFrame;
 
 	/// <summary>Change your name (waiting room only); it's also the name you join with next time.</summary>
 	public void Rename(string name)
@@ -227,6 +261,7 @@ public sealed class ClientSession : IDisposable
 	void End(string? reason)
 	{
 		if (_ended) return;
+		Trace.Log("client", $"left the room: {reason ?? "(by choice)"}");
 		_ended = true;
 		FailPendingAnswers("You left the room.");
 		_net?.Dispose();

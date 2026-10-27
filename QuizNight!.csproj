@@ -6,6 +6,17 @@
     <Nullable>enable</Nullable>
     <LangVersion>12</LangVersion>
   </PropertyGroup>
+  <!-- Exported games: unused parts of the .NET libraries are left out (partial: only libraries marked trimmable, so our
+       code, GodotSharp and Facepunch stay whole). -->
+  <PropertyGroup Condition="'$(Configuration)' == 'ExportRelease'">
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
+    <!-- (Godot starts .NET from its own native host: trimming would switch that off) -->
+    <_EnableConsumingManagedCodeFromNativeHosting>true</_EnableConsumingManagedCodeFromNativeHosting>
+    <!-- (messages and saved files go through System.Text.Json by reflection over our types, which stay whole) -->
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
+  </PropertyGroup>
   <!-- Steam lobbies (room codes) and Steam relay networking. Runs under the Spacewar test app (480). -->
   <ItemGroup Condition="'$(GodotTargetPlatform)' != 'linuxbsd'">
     <PackageReference Include="Facepunch.Steamworks" Version="2.3.3" />

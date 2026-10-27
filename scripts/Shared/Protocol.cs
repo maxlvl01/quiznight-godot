@@ -13,6 +13,11 @@ namespace QuizNight.Shared;
 public static class Limits
 {
 	public const int CodeLength = 4;
+	/// <summary>
+	/// Goes up when the messages change in a way older games can't read: a game with another number can't join (games
+	/// before 0.12 send none and may join; the lobby says what they can't play, <see cref="VersionCheck"/>).
+	/// </summary>
+	public const int Protocol = 1;
 	public const int NameMaxLength = 12;
 	/// <summary>A clan tag in square brackets before the name ("[OTB] maxlvl") doesn't count: up to this many inside the brackets.</summary>
 	public const int ClanTagMaxLength = 6;
@@ -28,7 +33,13 @@ public static class Limits
 	public const int MinPlayersToStart = 2;
 	/// <summary>Seats in a room (no setting: big enough for big nights; one colour each in PlayerColors).</summary>
 	public const int MaxPlayers = 24;
-	public const int AnswerTimeMin = 3, AnswerTimeMax = 60, AnswerTimeDefault = 10;
+	public const int AnswerTimeMin = 3, AnswerTimeMax = 60, AnswerTimeDefault = 15;
+	/// <summary>Fair buzzers: after the first buzz of a round the host waits this long for buzzes still on their way, then
+	/// the fastest reaction answers first (Game.BuzzIn).</summary>
+	public const int BuzzWindowMs = 300;
+	/// <summary>Fair buzzers: the most a player's own reaction time can be ahead of what the host saw (their ping, both
+	/// ways); a claimed time faster than that is cut to it, so a made-up time can't win by more.</summary>
+	public const int BuzzPingCreditMs = 500;
 
 	// Room codes skip look-alike characters (0/O, 1/I) so they are easy to read out loud.
 	public const string CodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -84,8 +95,8 @@ public static class Joker
 	public const string FastPass = "fastPass";
 	public static readonly string[] All = { Double, FastPass };
 
-	public static string Label(string kind) => kind == Double ? "×2 Double points" : "⚡ Fast Pass";
-	public static string Icon(string kind) => kind == Double ? "×2" : "⚡";
+	/// <summary>The joker's name. The Fast Pass's lightning bolt is drawn next to it (Ui.Bolt), not a ⚡ glyph.</summary>
+	public static string Label(string kind) => kind == Double ? "×2 Double points" : "Fast Pass";
 }
 
 public sealed class JokerPlay
@@ -109,7 +120,11 @@ public sealed class RoomSettings
 	public bool HostUnlocksBuzzers = true;
 	/// <summary>The jokers players may play this match (Joker kinds).</summary>
 	public List<string> Jokers = new(Joker.All);
-	public RoomSettings Clone() => new() { AnswerTimeSec = AnswerTimeSec, BuzzerSound = BuzzerSound, PodiumSound = PodiumSound, HostShowsQuestions = HostShowsQuestions, HostUnlocksBuzzers = HostUnlocksBuzzers, Jokers = Jokers.ToList() };
+	/// <summary>Players see each question's category (off by default: it makes questions easier).</summary>
+	public bool ShowCategories;
+	/// <summary>Over Steam, only the host's Steam friends get in.</summary>
+	public bool FriendsOnly;
+	public RoomSettings Clone() => new() { AnswerTimeSec = AnswerTimeSec, BuzzerSound = BuzzerSound, PodiumSound = PodiumSound, HostShowsQuestions = HostShowsQuestions, HostUnlocksBuzzers = HostUnlocksBuzzers, Jokers = Jokers.ToList(), ShowCategories = ShowCategories, FriendsOnly = FriendsOnly };
 }
 
 public sealed class PublicPlayer
@@ -122,6 +137,8 @@ public sealed class PublicPlayer
 	public int? JoinedAt;
 	/// <summary>Left during the game (and not back yet): the question (1-based) they left at.</summary>
 	public int? LeftAt;
+	/// <summary>Their game's version ("" = before 0.12, which didn't say).</summary>
+	public string Version = "";
 }
 
 public sealed class QuizInfo
@@ -148,12 +165,14 @@ public sealed class RoomState
 	/// <summary>Player ids by position (points, then the tiebreaks: Room.Ranking), and each one's place (equal ones share).</summary>
 	public List<string> Ranking = new();
 	public Dictionary<string, int> Places = new();
-	/// <summary>Average buzz/answer time per player (ms), shown with the scores.</summary>
-	public Dictionary<string, double> AvgAnswerMs = new();
 	/// <summary>Everyone's numbers for tonight so far (the stats table).</summary>
 	public Dictionary<string, NightStats> Stats = new();
 	/// <summary>How much of the quiz's pictures, sounds and videos each player has, 0–100 (all of it, ahead of time).</summary>
 	public Dictionary<string, int> Downloads = new();
+	/// <summary>The lobby's mini games (challenges, matches, records); only while in the lobby.</summary>
+	public ArcadeView? Arcade;
+	/// <summary>The lobby continues a saved night: the question (1-based) it goes on at. Scores holds the saved points.</summary>
+	public int? ResumeFrom;
 
 	public int Score(string playerId) => Scores.TryGetValue(playerId, out var s) ? s : 0;
 
@@ -170,12 +189,14 @@ public sealed class RoomState
 }
 
 /// <summary>A number (estimation), a choice index (A–D), several choice indexes (multi) or a point on the map (map pin).</summary>
-/// <summary>One player's night so far: questions scored, average answer time, how far off on maps and estimations.</summary>
+/// <summary>One player's night so far: questions scored, average answer and buzz time, how far off on maps and estimations.</summary>
 public sealed class NightStats
 {
 	public int Scored;
 	public int Answers;
 	public double? AvgAnswerS;
+	public int Buzzes;
+	public double? AvgBuzzS;
 	public double? AvgKm;
 	public double? AvgPercentOff;
 }
@@ -228,6 +249,8 @@ public sealed class PublicQuestion
 	public bool RankScoring;
 	/// <summary>Choice questions: a wrong answer costs the question's points.</summary>
 	public bool WrongCosts;
+	/// <summary>The question's category, if the lobby shows categories and it isn't kept secret (else empty).</summary>
+	public string Category = "";
 	/// <summary>Interactive questions: players vote, or the host picks (for "how it works" before it's shown).</summary>
 	public string? Judging;
 	/// <summary>The bonus the host can give at the reveal (0 = none) and what it's for.</summary>
@@ -247,6 +270,8 @@ public sealed class PublicQuestion
 	public bool AllSlidesShown;
 	/// <summary>Step by step: the hints flipped so far (all of them at the reveal), how many there are, and what a right answer is worth now.</summary>
 	public List<string>? Hints;
+	/// <summary>Step by step: "hints" (cards) or "sentence" (the question in parts; the ones to come stay blurred).</summary>
+	public string? StepsMode;
 	public int? HintCount;
 	public int? WorthNow;
 	public string? Mode;
@@ -382,7 +407,7 @@ public sealed class BuzzEntry
 	public string Status = BuzzStatus.Waiting;
 	/// <summary>Sound/video: seconds of playback heard before buzzing. Classic: seconds since the question opened.</summary>
 	public double AtSec;
-	/// <summary>Buzzed with a Fast Pass (went ahead of the line).</summary>
+	/// <summary>Buzzed with a Fast Pass (answers first).</summary>
 	public bool FastPass;
 }
 
@@ -427,6 +452,8 @@ public sealed class GameView
 	public long? AnswerEndsAt;
 	/// <summary>Who has locked in an answer (timed questions).</summary>
 	public List<string> AnsweredIds = new();
+	/// <summary>Not buzzer questions: all answers (or votes) are in or the time is up; the reveal waits for the host.</summary>
+	public bool AnswersClosed;
 	public List<BuzzEntry> Buzzes = new();
 	public bool MediaPlaying;
 	/// <summary>How long the host's sound/video has played so far (at the state's ServerNow), and whether it ever started.</summary>
@@ -436,6 +463,9 @@ public sealed class GameView
 	public bool Shown = true;
 	/// <summary>Buzzer questions: whether players can buzz right now.</summary>
 	public bool BuzzersOpen = true;
+	/// <summary>Counts up each time the buzzers open (a new question, unlocked, everyone may buzz again): a player's game
+	/// times its buzz from the moment it saw this round open (BuzzRequest).</summary>
+	public int BuzzRound;
 	public RevealView? Reveal;
 	/// <summary>Timeline questions, once shown.</summary>
 	public TimelineView? Timeline;
@@ -485,6 +515,8 @@ public static class Msg
 	public const string Rename = "rename";
 	/// <summary>Part of an interactive question's recording (RecordingPart).</summary>
 	public const string Recording = "recording";
+	/// <summary>The lobby's mini games (ArcadeRequest).</summary>
+	public const string Arcade = "arcade";
 
 	// host → player
 	public const string Joined = "joined";
@@ -493,6 +525,8 @@ public static class Msg
 	public const string Closed = "closed";
 	public const string Kicked = "kicked";
 	public const string Asset = "asset";
+	/// <summary>A mini game match, to the two in it (ArcadeFrame).</summary>
+	public const string ArcadeFrame = "arcadeFrame";
 
 	public static readonly JsonSerializerOptions Json = new()
 	{
@@ -544,6 +578,11 @@ public sealed class JoinRequest
 	/// player's Steam ID, used only if Steam itself doesn't tell the host who connected.
 	/// </summary>
 	public string ClientId = "";
+	/// <summary>The room code the player typed (Steam): the host lets nobody in without it.</summary>
+	public string Code = "";
+	/// <summary>The player's game version and <see cref="Limits.Protocol"/> ("" and 0 from games before 0.12).</summary>
+	public string Version = "";
+	public int Protocol;
 }
 
 public sealed class JoinReply
@@ -564,6 +603,17 @@ public sealed class JokerRequest
 {
 	public string Kind = Shared.Joker.Double;
 	public bool On = true;
+}
+
+/// <summary>
+/// A buzz with the player's reaction time, measured on their own PC from the moment the buzzers opened on their screen
+/// (so ping doesn't count against them). Players before 0.12.3d3 send a bare buzz: the host times it on arrival.
+/// </summary>
+public sealed class BuzzRequest
+{
+	/// <summary>The GameView.BuzzRound the time is from (a time from another round is ignored).</summary>
+	public int Round;
+	public int ReactionMs;
 }
 
 public sealed class AnswerRequest

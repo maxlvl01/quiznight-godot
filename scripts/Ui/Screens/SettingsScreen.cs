@@ -6,7 +6,7 @@ using QuizNight.Storage;
 namespace QuizNight.Ui.Screens;
 
 /// <summary>
-/// Audio (master, music, game music, sound effects, buzzer), video (window mode, size) and language.
+/// Audio (master, music, video/sound questions, sound effects, buzzer), video (window mode, size) and language.
 /// Changes are a draft until Apply: volumes and the language preview right away, the window changes on
 /// Apply. Discard goes back to what's saved, Reset fills in the defaults (still to be applied).
 /// </summary>
@@ -16,36 +16,48 @@ public partial class SettingsScreen : Control
 	static Settings.Values? _draft;
 	static string? _note;
 
-	static Settings.Values Draft => _draft ??= Settings.Current;
-	static bool Dirty => Draft != Settings.Current;
+	static Settings.Values Draft => _draft ??= Fitted(Settings.Current);
+	// (compared with the saved settings as the screen shows them, so a window size swapped for one that fits this monitor
+	// doesn't count as a change nobody made)
+	static bool Dirty => Draft != Fitted(Settings.Current);
+
+	/// <summary>Only sizes that fit on the chosen monitor (a 1440p screen can't pick 4K): else the biggest one that does.</summary>
+	static Settings.Values Fitted(Settings.Values d)
+	{
+		var fitting = Prefs.SizesFor(d.Screen);
+		if (fitting.Contains(d.WindowSize)) return d;
+		return d with { WindowSize = fitting.Where(s => s.X <= d.WindowSize.X && s.Y <= d.WindowSize.Y).DefaultIfEmpty(fitting[0]).MaxBy(s => s.X * s.Y) };
+	}
 
 	readonly Label _status = U.Muted("", 13, false, HorizontalAlignment.Right);
+	/// <summary>Opened from a lobby or a game (SettingsWindow): closing goes back there, not home.</summary>
+	readonly bool _inWindow;
 	readonly Button _apply;
 	readonly Button _discard;
 	readonly Button _reset;
 
-	public SettingsScreen()
+	public SettingsScreen() : this(false) { }
+
+	public SettingsScreen(bool inWindow)
 	{
+		_inWindow = inWindow;
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		var d = Draft;
 
 		var audio = U.Card(14,
 			U.Eyebrow("Audio"),
 			Volume("Master volume", "Everything Quiznight plays.", d.Master, v => Change(Draft with { Master = v })),
-			Volume("Music", "Songs and clips in sound and video questions.", d.Music, v => Change(Draft with { Music = v })),
-			Volume("Game music", "Menu music and the podium jingle.", d.GameMusic, v => Change(Draft with { GameMusic = v })),
+			Volume("Music", "Menu music and the podium jingle.", d.GameMusic, v => Change(Draft with { GameMusic = v })),
+			Volume("Video", "Videos, songs and clips in sound and video questions.", d.Music, v => Change(Draft with { Music = v })),
 			Volume("Sound effects", "Buzzer and other sound effects.", d.Sfx, v => Change(Draft with { Sfx = v })),
+			MicrophoneField(),
 			new HSeparator(),
 			BuzzerSection(),
 			new HSeparator(),
 			PodiumSection()).Grow();
 
-		// Only sizes that fit on the chosen monitor (a 1440p screen can't pick 4K).
+		_draft = d = Fitted(d);
 		var fitting = Prefs.SizesFor(d.Screen);
-		if (!fitting.Contains(d.WindowSize))
-		{
-			_draft = d = d with { WindowSize = fitting.Where(s => s.X <= d.WindowSize.X && s.Y <= d.WindowSize.Y).DefaultIfEmpty(fitting[0]).MaxBy(s => s.X * s.Y) };
-		}
 		var native = Prefs.ScreenSize(d.Screen);
 		var sizes = fitting.Select(s => ($"{s.X}x{s.Y}", $"{s.X} × {s.Y}  ·  {Prefs.AspectName(s)}" + (s == native ? "  " + Lang.T("(this screen)") : ""))).ToArray();
 		var size = U.Select(sizes, $"{d.WindowSize.X}x{d.WindowSize.Y}", id =>
@@ -72,7 +84,7 @@ public partial class SettingsScreen : Control
 		{
 			Change(Draft with { Screen = int.Parse(id) });
 			// The sizes depend on the screen.
-			Callable.From(App.I.GoSettings).CallDeferred();
+			Callable.From(Rebuild).CallDeferred();
 		});
 		var mode = U.Segmented(new[] { ("windowed", "Windowed"), ("fullscreen", "Fullscreen"), ("borderless", "Borderless") }, d.WindowMode, id =>
 		{
@@ -85,14 +97,45 @@ public partial class SettingsScreen : Control
 			U.Field("Window mode", mode),
 			U.Field("Window size", size),
 			sizeHint,
-			U.Field("Skin", U.Select(Skins.All, Settings.Skin, id => Callable.From(() => App.I.UseSkin(id)).CallDeferred())),
-			U.Field("Background picture", U.Select(Backgrounds.All, d.Background, id => Change(Draft with { Background = id }))),
+			// (the skin and the font build every screen again: from the home screen only, not in the middle of a game)
+			U.Field("Skin", U.Select(Skins.Available, Settings.Skin, id => Callable.From(() => App.I.UseSkin(id)).CallDeferred()).With(o => o.Disabled = inWindow),
+				inWindow ? "Change this on the home screen's Settings." : null),
+			new CheckBox
+			{
+				Text = Lang.T("Seasonal skins (Halloween in October, Christmas in December)"), ButtonPressed = Settings.SeasonalSkins,
+				Disabled = inWindow, MouseDefaultCursorShape = CursorShape.PointingHand,
+				TooltipText = Lang.T("They come on by themselves in their season, and your own skin is back afterwards."),
+			}.With(b => b.Toggled += on =>
+			{
+				Settings.SeasonalSkins = on;
+				Callable.From(() => App.I.UseSkin(Settings.Skin)).CallDeferred();
+			}),
+			BackgroundField(d.Background),
 			U.Field("Background movement", U.Segmented(new[] { ("on", "On"), ("off", "Off") }, d.BackgroundMotion ? "on" : "off", id => Change(Draft with { BackgroundMotion = id == "on" }))),
 			U.Muted("On wide monitors, the space picture beside the game sways with the mouse. Off keeps it still.", 12),
+			U.Field("Intro when the game starts", U.Segmented(Settings.IntroChoices, Settings.Intro, id => Settings.Intro = id)).With(f => New.Mark(f, "settings.intro")),
+			U.Muted("The joke parts are the anti-cheat window, the World Premiere video, the publisher and the sponsor. \"Skip it all\" goes straight to the title screen.", 12),
 			U.Field("Theme", U.Small("☀ Switch to light mode", HomeScreen.LightMode).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin)),
 			U.Muted("Frame rate is capped at 60 FPS.", 12),
 			new CheckBox { Text = Lang.T("Ask before deleting a quiz"), ButtonPressed = Settings.AskBeforeDeletingQuiz, MouseDefaultCursorShape = CursorShape.PointingHand }
-				.With(b => b.Toggled += on => Settings.AskBeforeDeletingQuiz = on));
+				.With(b => b.Toggled += on => Settings.AskBeforeDeletingQuiz = on),
+			TutorialsField());
+
+		// (accessibility: both apply and save right away, like the skin)
+		var dyslexic = new CheckBox
+		{
+			Text = Lang.T("Dyslexia-friendly font"), ButtonPressed = Settings.DyslexicFont && Fonts.DyslexicAvailable,
+			Disabled = !Fonts.DyslexicAvailable || inWindow, MouseDefaultCursorShape = CursorShape.PointingHand,
+			TooltipText = inWindow ? Lang.T("Change this on the home screen's Settings.") : "",
+		};
+		dyslexic.Toggled += on => Callable.From(() => App.I.UseDyslexicFont(on)).CallDeferred();
+		var accessibility = U.Card(12,
+			U.Eyebrow("Accessibility"),
+			U.Field("Colour vision", U.Select(ColourFilter.Modes, Settings.ColourVision, App.I.UseColourVision),
+				"Shifts the colours of the whole game so the ones you can't tell apart become different: right and wrong, the A–D answers, medals and player colours."),
+			dyslexic,
+			U.Muted(Fonts.DyslexicAvailable ? "All text in OpenDyslexic: letters with heavy bottoms, so they don't flip or swim."
+				: "The dyslexia-friendly font isn't installed with this version yet.", 12));
 
 		var language = U.Card(12,
 			U.Eyebrow("Language"),
@@ -100,41 +143,72 @@ public partial class SettingsScreen : Control
 			{
 				Change(Draft with { Language = code });
 				// Rebuild so text made from parts (Lang.F) switches too.
-				Callable.From(App.I.GoSettings).CallDeferred();
+				Callable.From(Rebuild).CallDeferred();
 			}),
-			U.Muted("Changes all menus and game screens. Quiz questions stay in the language they were written in.", 12));
+			U.Muted("Changes all menus and game screens. Quiz questions stay in the language they were written in.", 12),
+			U.Gap(4),
+			U.Eyebrow("What the game sends"),
+			U.Muted("If Quiznight crashes or runs into an error, the next start sends the end of its log to Max, so he can fix it. Your Windows user name is left out.", 12),
+			U.Muted("When a quiz night over Steam ends, the host's game sends its results (everyone's name, Steam ID and points) to Max's private results list, for the eternal table. \"Copy share code\" uploads that quiz (without its sounds and videos), and the game asks GitHub if there's an update. Nothing else leaves your PC.", 12),
+			U.Muted("Bug reports and feedback you send with the bug button carry your Steam name and ID, so Max can ask you about it and credit your ideas.", 12),
+			U.Gap(4),
+			U.Eyebrow("Anti-cheat"),
+			U.Muted("Quiznight? is protected by the Pinke Geilheit Neural-Level Anti-Cheat. Neural level means it reads your thoughts and bans you if you even think about cheating.", 12));
 
 		_reset = U.Btn("↺ Reset to defaults", "", () =>
 		{
 			_draft = Settings.Defaults;
 			_note = "reset";
 			Preview();
-			App.I.GoSettings();
+			Rebuild();
 		});
 		_discard = U.Btn("Discard", "", () =>
 		{
 			_draft = Settings.Current;
 			_note = null;
 			Preview();
-			App.I.GoSettings();
+			Rebuild();
 		});
-		_apply = U.Btn("Apply", "AccentButton", Apply);
+		_apply = U.Btn("Apply", "AccentButton", Apply).With(b => b.TooltipText = "Ctrl+S");
 		var bar = U.H(10, _reset, _status.Grow(), _discard, _apply);
 		_status.SizeFlagsVertical = SizeFlags.ShrinkCenter;
 
-		var page = U.V(14,
-			U.H(16, U.Link("← Home", Leave).With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter), U.Heading("Settings", 34)),
-			U.H(14, audio, U.V(14, video, language).Grow()));
-		// The buttons stay at the bottom of the screen; the settings scroll above them.
-		var scroll = U.Page(page, 980, 20);
+		var top = inWindow
+			? U.H(16, U.Heading("Settings", 34).Grow(), U.Small("Close", () => Leave()).With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter))
+			: U.H(16, U.Link("← Home", () => Leave()).With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter), U.Heading("Settings", 34));
+		var columns = U.H(14, U.V(14, audio, accessibility).Grow(), U.V(14, video, language).Grow());
+		// The buttons stay at the bottom of the screen; the settings scroll above them. In the window over a lobby or game
+		// the title and Close stay at the top too, outside the scrolling page, so nothing can push Close out of sight; and
+		// if the page is ever wider than the window, it scrolls sideways instead of being cut off.
+		var scroll = U.Page(inWindow ? columns : U.V(14, top, columns), 980, inWindow ? 6 : 20);
 		scroll.SizeFlagsVertical = SizeFlags.ExpandFill;
-		var footer = new Column { MaxWidth = 980, PadTop = 0 };
-		footer.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-		footer.AddChild(U.Pad(bar, 0, 12, 0, 14));
-		var footerPanel = U.Panel(footer, "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel, 0, C.Border, 0, 0, 0)));
-		var root = U.V(0, scroll, new HSeparator(), footerPanel);
+		if (inWindow) scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Auto;
+		Control Bar(Control content, int padTop, int padBottom)
+		{
+			var column = new Column { MaxWidth = 980, PadTop = 0 };
+			column.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+			column.AddChild(U.Pad(content, 0, padTop, 0, padBottom));
+			return column;
+		}
+		var footerPanel = U.Panel(Bar(bar, 12, 14), "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel, 0, C.Border, 0, 0, 0)));
+		var root = inWindow ? U.V(0, Bar(top, 18, 4), scroll, new HSeparator(), footerPanel) : U.V(0, scroll, new HSeparator(), footerPanel);
 		root.SetAnchorsPreset(LayoutPreset.FullRect);
 		AddChild(root);
+		// The drop-downs fit their column and cut a long entry short ("Screen 2 · 3440 × 1440 (main screen)", the animated
+		// background's name), and tick boxes wrap their text, instead of being as wide as their longest text: that made the
+		// page wider than the Settings window in a game, which cut off its right column and the Close button.
+		static void FitWidth(Node n)
+		{
+			if (n is OptionButton o)
+			{
+				o.FitToLongestItem = false;
+				o.ClipText = true;
+				o.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+			}
+			else if (n is CheckBox box) box.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+			foreach (var child in n.GetChildren()) FitWidth(child);
+		}
+		FitWidth(root);
 		UpdateBar();
 	}
 
@@ -153,6 +227,13 @@ public partial class SettingsScreen : Control
 		Lang.Use(Draft.Language);
 	}
 
+	/// <summary>Ctrl+S: Apply (when there's something to apply).</summary>
+	public bool ApplyKey()
+	{
+		if (Dirty) Apply();
+		return true;
+	}
+
 	void Apply()
 	{
 		var windowChanged = Draft.WindowMode != Settings.WindowMode || Draft.WindowSize != Settings.WindowSize || Draft.Screen != Settings.Screen;
@@ -164,8 +245,15 @@ public partial class SettingsScreen : Control
 		UpdateBar();
 	}
 
-	/// <summary>Back home; unsaved changes are dropped (after asking).</summary>
-	void Leave()
+	/// <summary>This screen again (a language or screen change shows new text and sizes), here or in the window.</summary>
+	void Rebuild()
+	{
+		if (_inWindow) SettingsWindow.Rebuild();
+		else App.I.GoSettings();
+	}
+
+	/// <summary>Back home, or closing the window over a game; unsaved changes are dropped (after asking).</summary>
+	public bool Leave()
 	{
 		void Go()
 		{
@@ -173,10 +261,12 @@ public partial class SettingsScreen : Control
 			_note = null;
 			Prefs.ApplyAudio();
 			Lang.Use(Settings.Language);
-			App.I.GoHome();
+			if (_inWindow) SettingsWindow.Close();
+			else App.I.GoHome();
 		}
 		if (Dirty) Dialogs.Confirm(this, "You have changes you haven't applied. Leave without saving them?", "Discard changes", Go);
 		else Go();
+		return true;
 	}
 
 	void UpdateBar()
@@ -195,6 +285,70 @@ public partial class SettingsScreen : Control
 		_status.AddThemeColorOverride("font_color", color);
 	}
 
+	/// <summary>Tutorials on or off, and "Show tutorials again" (both save at once, like the microphone).</summary>
+	static Control TutorialsField()
+	{
+		var on = new CheckBox { Text = Lang.T("Show tutorials"), ButtonPressed = Settings.TutorialsOn, MouseDefaultCursorShape = CursorShape.PointingHand };
+		on.Toggled += value => Settings.TutorialsOn = value;
+		var note = U.Muted("Short tours the first time you open a screen, like the quiz editor.", 12);
+		var again = U.Small("↺ Show tutorials again", () =>
+		{
+			Tutorial.Reset();
+			on.SetPressedNoSignal(true);
+			note.Text = Lang.T("Done: every tutorial shows again the next time its screen opens.");
+		}).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin);
+		// (the tick box on its own line, the button under it: Settings' tick boxes wrap their text, so one squeezed into a
+		// row next to the button shrank to nothing and stretched the row)
+		return New.Mark(U.V(6, on, again, note), "settings.tutorials");
+	}
+
+	/// <summary>
+	/// Which microphone Interactive questions record with, in case the game picks the wrong one (applies and saves at
+	/// once; "Test lab" has a recording test).
+	/// </summary>
+	static Control MicrophoneField()
+	{
+		var devices = AudioServer.GetInputDeviceList().Select(d => (d, d == "Default" ? Lang.T("Windows' default microphone") : d)).ToArray();
+		var current = devices.Any(d => d.Item1 == Settings.Microphone) ? Settings.Microphone : "Default";
+		var field = U.Field("Microphone", U.Select(devices, current, id =>
+		{
+			Settings.Microphone = id;
+			Settings.ApplyMicrophone();
+		}), "Used by Interactive questions (you record yourself). Change it if the game picks the wrong one.").With(f => New.Mark(f, "settings.microphone"));
+		// (how loud recordings are, saved at once like the microphone; the meter only listens while it's switched on)
+		var meter = new MicMeter();
+		var check = new CheckButton { Text = Lang.T("Check the level"), FocusMode = FocusModeEnum.None };
+		check.Toggled += on => meter.Listening = on;
+		return U.V(8, field,
+			Volume("Microphone volume", "How loud your recordings are. 50% is as your microphone gives it; turn it up if you sound quiet, down if the meter turns red.", Settings.MicVolume, v => Settings.MicVolume = v)
+				.With(r => New.Mark((Control)r.GetChild(0), "settings.micvolume")),
+			U.H(12, check, meter.Grow()),
+			U.Muted("Speak normally: the bar should reach the yellow part. Red means too loud (it crackles): turn it down.", 12));
+	}
+
+	/// <summary>The picture beside the game: the choices, and a button to use one from your PC.</summary>
+	Control BackgroundField(string current)
+	{
+		var error = U.Error();
+		var own = U.Small(Backgrounds.HasCustom ? "Other picture…" : "My own picture…", () => Dialogs.OpenFile(this, "Pick a background picture", Images.FileFilters, path =>
+		{
+			try
+			{
+				Backgrounds.SetCustom(path);
+				_draft = Draft with { Background = Backgrounds.Custom };
+				Rebuild();
+			}
+			catch (UserError e)
+			{
+				error.Text = e.Message;
+				error.Visible = true;
+			}
+		})).Tip("A picture from your PC beside the game (a copy is kept, so it stays if you move the file)");
+		return U.V(4,
+			U.Field("Background picture", U.H(8, U.Select(Backgrounds.All, current, id => Change(Draft with { Background = id })).Grow(), own)).With(f => New.Mark(f, "settings.background")),
+			error);
+	}
+
 	Control BuzzerSection()
 	{
 		var error = U.Error();
@@ -205,7 +359,7 @@ public partial class SettingsScreen : Control
 				Sfx.SetCustom(path);
 				Sfx.PlayBuzzer(Sfx.Custom);
 				_draft = Draft with { Buzzer = Sfx.Custom };
-				App.I.GoSettings();
+				Rebuild();
 			}
 			catch (UserError e)
 			{
@@ -247,5 +401,61 @@ public partial class SettingsScreen : Control
 		row.TooltipText = Lang.T(hint);
 		slider.TooltipText = Lang.T(hint);
 		return row;
+	}
+}
+
+/// <summary>The microphone's level as a bar (after Microphone volume): green, yellow from 70 %, red where it clips. Listens only while on.</summary>
+public partial class MicMeter : Control
+{
+	MicRecorder? _mic;
+
+	public MicMeter()
+	{
+		CustomMinimumSize = new Vector2(200, 22);
+		SizeFlagsVertical = SizeFlags.ShrinkCenter;
+	}
+
+	public bool Listening
+	{
+		get => _mic != null;
+		set
+		{
+			if (value == Listening) return;
+			if (value) AddChild(_mic = new MicRecorder());
+			else
+			{
+				_mic!.QueueFree();
+				_mic = null;
+			}
+			QueueRedraw();
+		}
+	}
+
+	public override void _Process(double delta)
+	{
+		if (_mic != null) QueueRedraw();
+	}
+
+	public override void _Draw()
+	{
+		var r = new Rect2(Vector2.Zero, Size);
+		DrawStyleBox(KeyBox.Fill(C.Ink, 6), r);
+		var inner = r.Grow(-3);
+		if (_mic == null)
+		{
+			var font = Fonts.Regular;
+			var text = Lang.T("Off");
+			DrawString(font, inner.Position + new Vector2(6, inner.Size.Y / 2 + 5), text, HorizontalAlignment.Left, -1, 12, C.Muted);
+			return;
+		}
+		var clipped = Time.GetTicksMsec() - _mic.ClippedAt < 1200 && _mic.ClippedAt > 0;
+		var level = Mathf.Clamp(_mic.Level, 0, 1);
+		// (the zones, faint, then the level over them)
+		DrawRect(new Rect2(inner.Position + new Vector2(inner.Size.X * 0.7f, 0), new Vector2(inner.Size.X * 0.25f, inner.Size.Y)), new Color(C.Gold, 0.15f));
+		DrawRect(new Rect2(inner.Position + new Vector2(inner.Size.X * 0.95f, 0), new Vector2(inner.Size.X * 0.05f, inner.Size.Y)), new Color(C.Coral, 0.25f));
+		var colour = clipped ? C.Coral : level >= 0.7f ? C.Gold : C.Teal;
+		DrawRect(new Rect2(inner.Position, new Vector2(inner.Size.X * level, inner.Size.Y)), colour);
+		if (clipped)
+			DrawString(Fonts.Bold, inner.Position + new Vector2(6, inner.Size.Y / 2 + 5), Lang.T("Too loud!"), HorizontalAlignment.Left, -1, 12, Colors.White);
 	}
 }

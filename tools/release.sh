@@ -1,14 +1,27 @@
 #!/usr/bin/env bash
 # Builds the game and publishes it as a GitHub release that the in-game updater picks up.
-#   tools/release.sh            build (Windows + Linux) + self-test + zip + publish the version in project.godot
+#   tools/release.sh            build (Windows + Linux) + self-test + zip + publish the version in project.godot (public)
+#   tools/release.sh --test     the same, as an internal test build on the private maxlvl01/quiznight-test-releases
+#                               (zips only: test builds still check the public repo for updates)
 #   tools/release.sh --dry-run  everything except publishing
+# Each version is a test build first; only the ones Max decides on are released publicly (players shouldn't have to
+# download every hotfix).
 # The release notes are this version's section of CHANGELOG.md. The release goes to the public
-# builds-only repo (the code repo, maxlvl01/quiznight-godot, stays private). Needs `gh` logged in and the export templates.
+# builds-only repo (the code is in maxlvl01/quiznight-godot). Needs `gh` logged in and the export templates.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 G="${GODOT:-/c/Users/Xbox3/Desktop/Godot_v4.7.2-stable_mono_win64/Godot_v4.7.2-stable_mono_win64_console.exe}"
+DRY=""; TEST=""
+for arg in "$@"; do
+	case "$arg" in
+		--dry-run) DRY=1 ;;
+		--test) TEST=1 ;;
+		*) echo "Unknown option $arg"; exit 1 ;;
+	esac
+done
 REPO="maxlvl01/quiznight-releases"
+[ -n "$TEST" ] && REPO="maxlvl01/quiznight-test-releases"
 ANYCONVERTER="${ANYCONVERTER:-/c/Users/Xbox3/Desktop/AnyConverter/dist/AnyConverter.exe}"
 ANYCONVERTER_LINUX="${ANYCONVERTER_LINUX:-/c/Users/Xbox3/Desktop/AnyConverter/dist/linux/AnyConverter-linux-x86_64.tar.gz}"
 VERSION=$(sed -n 's/^config\/version="\(.*\)"/\1/p' project.godot)
@@ -17,16 +30,42 @@ ZIP="build/Quiznight-$VERSION-windows.zip"
 OUT_LINUX="build/Quiznight-linux"
 ZIP_LINUX="build/Quiznight-$VERSION-linux.zip"
 NOTES="build/notes-$VERSION.md"
-DRY=${1:-}
 
 echo "== Quiznight $VERSION"
+# Test builds from 0.12 on are numbered 0.12.0d1, d2 … (d = dev); those never go public: give the public one its own
+# version (e.g. 0.12.0b) and the d builds' changelog sections are folded into it.
+if [ -z "$TEST" ] && echo "$VERSION" | grep -qE 'd[0-9]+$'; then
+	echo "$VERSION is a test build's version: use --test, or set the public version in project.godot"; exit 1
+fi
 grep -q "^## \[$VERSION\]" CHANGELOG.md || { echo "CHANGELOG.md has no section '## [$VERSION]'"; exit 1; }
+# Public release: the test versions since the last public one are folded into this version's section, so players see
+# one version with everything (tools/fold_changelog.py; commit CHANGELOG.md afterwards). Test builds keep their own.
+if [ -z "$TEST" ] && [ -z "$DRY" ]; then
+	LAST_PUBLIC=$(gh api "repos/$REPO/releases/latest" --jq .tag_name | sed 's/^v//')
+	py -I tools/fold_changelog.py CHANGELOG.md "$VERSION" "$LAST_PUBLIC"
+fi
+# Every file the game installs from is signed with Max's release key (ECDSA P-256), which never leaves his PC: the game
+# carries the public half (Storage/Updater.cs, tools/release-signing-public.pem) and installs nothing whose signature
+# doesn't check out. Back the key up somewhere safe: without it no update can be published any more.
+SIGNING_KEY="${QUIZNIGHT_SIGNING_KEY:-$HOME/.quiznight/release-signing-key.pem}"
+[ -f "$SIGNING_KEY" ] || { echo "Release signing key missing at $SIGNING_KEY (set QUIZNIGHT_SIGNING_KEY)"; exit 1; }
+# (file.sig next to the file; checked right away against the public key the game has)
+sign() {
+	openssl dgst -sha256 -sign "$SIGNING_KEY" -out "$1.sig" "$1"
+	openssl dgst -sha256 -verify tools/release-signing-public.pem -signature "$1.sig" "$1" >/dev/null || { echo "Signing $1 failed"; exit 1; }
+}
 # The token that lets games upload their results to maxlvl01/quiznight-results (Storage/ResultsUpload.cs); not in git.
-[ -s results-token.txt ] || echo "Warning: results-token.txt is missing: this build won't upload quiz night results."
+# (without it the game uploads no results or crash logs, and a test build can't even see newer test builds: stop. It isn't
+# in git, so a fresh checkout or worktree needs it copied in from the main checkout.)
+[ -s results-token.txt ] || { echo "results-token.txt is missing (copy it from the main checkout): no results, logs or test updates without it"; exit 1; }
 
 # (keeps Godot from importing what's in build/, e.g. the maps copied next to the Windows build)
 mkdir -p build && touch build/.gdignore
 dotnet build "QuizNight!.csproj" -nologo -v q
+# The Windows build uses our slim engine (export_presets custom_template/release; built from the Godot source with
+# tools/engine_profile.py, see CLAUDE.md): 37 MB instead of the stock 105 MB.
+SLIM_TEMPLATE="C:/godot-src/templates/quiznight-windows-release.exe"
+[ -f "$SLIM_TEMPLATE" ] || { echo "Slim engine template missing at $SLIM_TEMPLATE (build it: see CLAUDE.md, Exporting)"; exit 1; }
 rm -rf "$OUT" && mkdir -p "$OUT"
 "$G" --headless --path . --export-release "Windows Desktop" "$OUT/Quiznight.exe" > build/export.log 2>&1 || true
 [ -f "$OUT/Quiznight.exe" ] && [ -d "$OUT/data_QuizNight!_windows_x86_64" ] || { echo "Export failed, see build/export.log"; exit 1; }
@@ -38,6 +77,10 @@ mkdir -p "$OUT/AnyConverter" && cp "$ANYCONVERTER" "$OUT/AnyConverter/AnyConvert
 # files, so updates only download the maps that changed (Images.BuiltinFile).
 copy_maps() { mkdir -p "$1/maps" && (cd assets/maps && find . -name '*.webp' -exec cp --parents {} "../../$1/maps/" \;); }
 copy_maps "$OUT"
+# .NET's debugger and crash-dump helpers and its spare garbage collector come with every export; players never use them
+# (crash reports are our own, Storage/CrashReports). ~6.5 MB.
+strip_dotnet() { (cd "$1" && rm -f mscordbi.dll mscordaccore.dll mscordaccore_amd64_amd64_*.dll Microsoft.DiaSymReader.Native.amd64.dll createdump.exe clrgc.dll   libmscordbi.so libmscordaccore.so createdump libclrgc.so); }
+strip_dotnet "$OUT/data_QuizNight!_windows_x86_64"
 
 echo "== Linux build"
 rm -rf "$OUT_LINUX" && mkdir -p "$OUT_LINUX"
@@ -49,6 +92,7 @@ rm -rf build/anyconverter-linux && mkdir -p build/anyconverter-linux "$OUT_LINUX
 /c/Windows/System32/tar.exe -x -f "$ANYCONVERTER_LINUX" -C build/anyconverter-linux
 cp build/anyconverter-linux/AnyConverter-linux/AnyConverter "$OUT_LINUX/AnyConverter/AnyConverter"
 copy_maps "$OUT_LINUX"
+strip_dotnet "$OUT_LINUX/data_QuizNight!_linuxbsd_x86_64"
 # (the export builds the C# for Linux; build it for Windows again for the editor and the self-test)
 dotnet build "QuizNight!.csproj" -nologo -v q
 
@@ -57,6 +101,16 @@ echo "== Self-test of the exported build"
 tail -1 build/selftest.log
 
 echo "== Zipping"
+# Test builds carry test-channel.txt next to the game: it updates from the private test repo (Storage/Updater.cs).
+for dir in "$OUT" "$OUT_LINUX"; do
+	if [ -n "$TEST" ]; then
+		echo "Internal Quiznight? test build: updates come from the private maxlvl01/quiznight-test-releases." > "$dir/test-channel.txt"
+		# (and Godot's verbose output, for the detailed logs test builds send: Storage/CrashReports)
+		printf '[debug]\n\nsettings/stdout/verbose_stdout=true\n' > "$dir/override.cfg"
+	else
+		rm -f "$dir/test-channel.txt" "$dir/override.cfg"
+	fi
+done
 rm -f "$ZIP"
 powershell -NoProfile -Command "Compress-Archive -Path '$OUT/*' -DestinationPath '$ZIP' -CompressionLevel Optimal"
 ls -la "$ZIP"
@@ -64,26 +118,47 @@ ls -la "$ZIP"
 rm -f "$ZIP_LINUX"
 (cd "$OUT_LINUX" && /c/Windows/System32/tar.exe -a -c -f "../../$ZIP_LINUX" *)
 ls -la "$ZIP_LINUX"
+sign "$ZIP"; sign "$ZIP_LINUX"
 
-echo "== Update lists"
-# Every file with its hash, in a few packs by kind (game, engine, maps, AnyConverter). Packs that changed since
-# the last release are zipped into $PACKS for upload (usually just the game packs); the rest point to the older
-# release that has them (tools/manifest.py). The game downloads only the packs it needs.
-PACKS="build/packs-$VERSION"; PREV="build/prev-lists"
-rm -rf "$PACKS" "$PREV" && mkdir -p "$PREV"
-gh release download --repo "$REPO" --pattern 'update-*.json' -D "$PREV" 2>/dev/null || echo "(no earlier update lists: every pack is new)"
-BASE="https://github.com/$REPO/releases/download/v$VERSION/"
-py -I tools/manifest.py "$VERSION" windows "$OUT" build/update-windows.json "$PACKS" "$BASE" "$PREV"/update-*.json
-py -I tools/manifest.py "$VERSION" linux "$OUT_LINUX" build/update-linux.json "$PACKS" "$BASE" "$PREV"/update-*.json build/update-windows.json
+if [ -z "$TEST" ]; then
+	echo "== Update lists"
+	# Every file with its hash, in a few packs by kind (game, engine, maps, AnyConverter). Packs that changed since
+	# the last release are zipped into $PACKS for upload (usually just the game packs); the rest point to the older
+	# release that has them (tools/manifest.py). The game downloads only the packs it needs.
+	PACKS="build/packs-$VERSION"; PREV="build/prev-lists"
+	rm -rf "$PACKS" "$PREV" && mkdir -p "$PREV"
+	gh release download --repo "$REPO" --pattern 'update-*.json' -D "$PREV" 2>/dev/null || echo "(no earlier update lists: every pack is new)"
+	BASE="https://github.com/$REPO/releases/download/v$VERSION/"
+	py -I tools/manifest.py "$VERSION" windows "$OUT" build/update-windows.json "$PACKS" "$BASE" "$PREV"/update-*.json
+	py -I tools/manifest.py "$VERSION" linux "$OUT_LINUX" build/update-linux.json "$PACKS" "$BASE" "$PREV"/update-*.json build/update-windows.json
+	# (the packs are covered by the lists: each pack's SHA-256 is in them)
+	sign build/update-windows.json; sign build/update-linux.json
+fi
 
 # Big updates (x.y.0) get a name: '## [0.8.0b] — "Jokers Wild": …' makes the release "Quiznight 0.8.0b — Jokers Wild".
 NAME=$(sed -n "s/^## \[$VERSION\] — \"\([^\"]*\)\".*/\1/p" CHANGELOG.md)
-TITLE="Quiznight? $VERSION${NAME:+ — $NAME}"
+# (a named update is titled by its MAJOR.MINOR, "Quiznight? 0.11 — Opening Night", like the in-game notes show it:
+# Changelog.Release.Shown; the tag stays the full version, which the updater reads)
+SHOWN="$VERSION"
+[ -n "$NAME" ] && SHOWN=$(echo "$VERSION" | sed -E 's/^([0-9]+\.[0-9]+).*/\1/')
+TITLE="Quiznight? $SHOWN${NAME:+ — $NAME}${TEST:+ (test)}"
 # This version's notes: from its "## [version]" line up to the next "## [".
 awk -v v="## [$VERSION]" 'index($0, v) == 1 { on = 1; next } /^## \[/ { on = 0 } on' CHANGELOG.md > "$NOTES"
 
-if [ "$DRY" = "--dry-run" ]; then
+if [ -n "$DRY" ]; then
 	echo "== Dry run: not publishing ($ZIP, notes in $NOTES)"
+	exit 0
+fi
+
+if [ -n "$TEST" ]; then
+	echo "== Publishing test build v$VERSION to $REPO"
+	if gh release view "v$VERSION" --repo "$REPO" >/dev/null 2>&1; then
+		gh release edit "v$VERSION" --repo "$REPO" --title "$TITLE" --notes-file "$NOTES" --prerelease
+	else
+		gh release create "v$VERSION" --repo "$REPO" --title "$TITLE" --notes-file "$NOTES" --prerelease
+	fi
+	gh release upload "v$VERSION" "$ZIP" "$ZIP_LINUX" "$ZIP.sig" "$ZIP_LINUX.sig" --repo "$REPO" --clobber
+	echo "Done: https://github.com/$REPO/releases/tag/v$VERSION"
 	exit 0
 fi
 
@@ -95,8 +170,10 @@ if gh release view "v$VERSION" --repo "$REPO" >/dev/null 2>&1; then
 else
 	gh release create "v$VERSION" --repo "$REPO" --title "$TITLE" --notes-file "$NOTES" --draft
 fi
-gh release upload "v$VERSION" "$ZIP" "$ZIP_LINUX" --repo "$REPO" --clobber
+gh release upload "v$VERSION" "$ZIP" "$ZIP_LINUX" "$ZIP.sig" "$ZIP_LINUX.sig" --repo "$REPO" --clobber
 find "$PACKS" -name '*.zip' -print0 | xargs -0 -r gh release upload "v$VERSION" --repo "$REPO" --clobber
+gh release upload "v$VERSION" build/update-windows.json.sig build/update-linux.json.sig --repo "$REPO" --clobber
 gh release upload "v$VERSION" build/update-windows.json build/update-linux.json --repo "$REPO" --clobber
 gh release edit "v$VERSION" --repo "$REPO" --draft=false --latest
 echo "Done: https://github.com/$REPO/releases/tag/v$VERSION"
+git diff --quiet CHANGELOG.md || echo "CHANGELOG.md changed (test versions folded in): commit it."

@@ -49,9 +49,14 @@ public interface IClientTransport : IDisposable
 /// <summary>Cuts a TCP byte stream into messages: [4-byte little-endian length][payload].</summary>
 public sealed class FrameReader
 {
-	const int MaxFrame = 256 * 1024 * 1024;
+	/// <summary>The most a message may be: players only send small ones (a host's are bigger: pictures, video parts).</summary>
+	readonly int _maxFrame;
 	byte[] _buf = new byte[64 * 1024];
 	int _len;
+
+	public FrameReader() : this(256 * 1024 * 1024) { }
+
+	public FrameReader(int maxFrame) => _maxFrame = maxFrame;
 
 	public static byte[] Frame(byte[] payload)
 	{
@@ -73,7 +78,7 @@ public sealed class FrameReader
 		while (_len - pos >= 4)
 		{
 			var size = BitConverter.ToInt32(_buf, pos);
-			if (size < 0 || size > MaxFrame) throw new InvalidOperationException("Bad frame size.");
+			if (size < 0 || size > _maxFrame) throw new InvalidOperationException("Bad frame size.");
 			if (_len - pos - 4 < size) break;
 			messages.Add(_buf.AsSpan(pos + 4, size).ToArray());
 			pos += 4 + size;

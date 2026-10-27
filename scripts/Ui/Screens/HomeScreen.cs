@@ -13,6 +13,9 @@ public partial class HomeScreen : Control
 	LineEdit _name = null!;
 	Button _join = null!;
 	Label _error = null!;
+
+	/// <summary>The logo (the intro's title screen logo glides into its place).</summary>
+	public LogoField Logo { get; }
 	VBoxContainer _joinFields = null!;
 
 	public HomeScreen() : this(null) { }
@@ -22,23 +25,33 @@ public partial class HomeScreen : Control
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		_mode = App.NetMode;
 
-		var brand = U.H(18, U.H(0, U.Text("Quiznight", 64, C.Text, Fonts.Black), U.Text("?", 64, C.Accent, Fonts.Black)));
-		// The stamp next to the logo follows the version letter: 0.5.0a = alpha, 0.7.1b = beta, none when finished.
-		var stage = AppVersion.Parse(App.Version)?.Suffix switch { "a" => "ALPHA", "b" => "BETA", _ => null };
+		// (the logo is an answer field that now and then types something else: LogoField)
+		var logo = Logo = new LogoField(64);
+		var brand = U.H(0, logo);
+		// The stamp on the logo follows the version letter: 0.5.0a = alpha, 0.7.1b = beta, 0.12.0d1 = a test build, none when finished. It's a sticker
+		// on the logo's top right corner (in a zero-width holder, so the logo itself stays centred).
+		var stage = AppVersion.Parse(App.Version)?.Suffix switch { "a" => "ALPHA", "b" => "BETA", "d" => "DEV", _ => null };
 		if (stage != null)
-			brand.AddChild(U.Panel(U.Text(stage, 22, C.Coral, Fonts.Mono), "Clear").With(p =>
+		{
+			var holder = new Control { MouseFilter = MouseFilterEnum.Ignore };
+			var stamp = U.Panel(U.Text(stage, 22, C.Ink, Fonts.Black), "Clear").With(p =>
 			{
-				p.AddThemeStyleboxOverride("panel", UiTheme.Box(Colors.Transparent, 10, C.Coral, 3, 12, 2));
-				p.RotationDegrees = -6;
-				p.SizeFlagsVertical = SizeFlags.ShrinkCenter;
-			}));
+				p.AddThemeStyleboxOverride("panel", UiTheme.Chunky(C.Coral, 12, 12, 2, 3, 3));
+				p.RotationDegrees = 12;
+				p.MouseFilter = MouseFilterEnum.Ignore;
+				// (Christmas and New Year: a little snow on the sticker too)
+				if (Seasonal.Snowy) p.AddChild(new SnowCap(false, 0.55f));
+			});
+			holder.AddChild(stamp);
+			// (placed once its size is known: its middle a little inside the corner)
+			stamp.Resized += () => stamp.Position = new Vector2(-stamp.Size.X * 0.55f, -stamp.Size.Y * 0.45f);
+			brand.AddChild(holder);
+		}
 		brand.Center();
 
-		var page = U.V(18, brand,
-			U.Muted("Quiz nights with your friends — on Discord or on the couch.", 17, false, HorizontalAlignment.Center).Center());
+		var page = U.V(16, brand,
+			U.Muted("Quiz nights with your friends — everyone on their own PC.", 17, false, HorizontalAlignment.Center).Center());
 		// "Update available" under the logo, once a check found a newer version.
-		var updateNote = U.Text("", 14, C.Teal, Fonts.Bold, false, HorizontalAlignment.Center).Center();
-		page.AddChild(updateNote);
 		if (notice != null) page.AddChild(U.Panel(U.Text(notice, 15, null, null, true), "Notice").With(p =>
 			p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel2, 10, C.Accent, 1, 14, 10))));
 
@@ -46,10 +59,10 @@ public partial class HomeScreen : Control
 
 		var host = U.Card(10,
 			U.Eyebrow("Quizmaster"),
-			U.Heading("Host a quiz night", 24),
-			U.Muted("Build a quiz, open a lobby, share the code and run the show. You control the pace — players answer on their own PC.", 15),
-			U.Fill(),
-			U.Btn("My quizzes", "AccentButton", App.I.GoQuizzes).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin)).Grow();
+			U.Heading("Host a quiz night", 30),
+			U.Btn("My quizzes  ▶", "AccentButton", App.I.GoQuizzes, 22).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin));
+		// (under it the music player, filling the rest of the column next to "Join a game")
+		var music = U.Card(10, U.Fill(), new MusicPlayer(), U.Fill()).GrowV();
 
 		_target = U.Input("", "", _ => Validate(), 0, "CodeInput");
 		// (Steam names can be longer than names in a room may be: the field starts with the part that fits)
@@ -68,10 +81,10 @@ public partial class HomeScreen : Control
 		};
 		_joinFields = U.V(10);
 		_error = U.Error();
-		_join = U.Btn("Join", "TealButton", Join).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin);
-		var join = U.Card(10, U.Eyebrow("Player"), U.Heading("Join a game", 24), _joinFields, _error, _join).Grow();
+		_join = U.Btn("Join!", "TealButton", Join, 22).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin);
+		var join = U.Card(10, U.Eyebrow("Player"), U.Heading("Join a game", 30), _joinFields, _error, _join).Grow();
 
-		var grid = U.H(16, host, join);
+		var grid = U.H(16, U.V(16, host, music).Grow(), join);
 		page.AddChild(grid);
 		// Just an arrow: grey (click to check), green when a newer version is out (click to update).
 		var updateButton = U.Small("", () =>
@@ -92,8 +105,9 @@ public partial class HomeScreen : Control
 		{
 			if (!IsInstanceValid(updateButton)) return;
 			var release = UpdatePrompt.Available;
-			updateNote.Text = release != null ? Lang.F("An update is available: version {0}", release.Version) : "";
-			updateNote.Visible = release != null;
+			// (no line under the logo, which made the page scroll: the logo's outline pulses green instead)
+			logo.UpdateAvailable = release != null;
+			logo.TooltipText = release != null ? Lang.F("An update is available: version {0}", release.Version) : "";
 			arrow.Available = release != null;
 			updateButton.TooltipText = release != null ? Lang.F("Update to {0}", release.Version) : UpdatePrompt.Checking ? Lang.T("Checking…") : Lang.T("Check for updates");
 		}
@@ -101,8 +115,51 @@ public partial class HomeScreen : Control
 		UpdatePrompt.Changed += ShowUpdate;
 		TreeExiting += () => UpdatePrompt.Changed -= ShowUpdate;
 
-		AddChild(U.Page(page, 960, 56));
-		var corner = U.H(8, U.Small("☀ Light mode", LightMode), U.Small("Settings", App.I.GoSettings));
+		// (two spotlights sweep over the logo, behind the page)
+		AddChild(new Spotlights { Target = 120 });
+		// (it all fits in the window: 720 high at the base size, no scrolling)
+		AddChild(U.Page(page, 960, 56, 0));
+		var corner = U.H(8, U.Small("☀ Light mode", LightMode), New.Mark(U.Small("Settings", App.I.GoSettings), "settings."), U.Small("Quit", () => App.I.AskQuit()));
+		// (developer mode: a small badge in the corner, so the page doesn't get longer; double-clicking it leaves developer
+		// mode until the game restarts or the code is typed again)
+		if (App.LanUnlocked)
+			corner.AddChild(U.Pill("DEV", C.Teal).With(p =>
+			{
+				p.TooltipText = (Updater.TestChannel ? Lang.T("Developer mode (test build): LAN play is unlocked.") : Lang.T("Developer mode: LAN play is unlocked until Quiznight closes."))
+					+ "\n" + Lang.T("Double-click to leave developer mode.");
+				p.MouseFilter = MouseFilterEnum.Stop;
+				p.MouseDefaultCursorShape = CursorShape.PointingHand;
+				p.GuiInput += e =>
+				{
+					if (e is not InputEventMouseButton { DoubleClick: true, Pressed: true, ButtonIndex: MouseButton.Left }) return;
+					App.LanUnlocked = false;
+					// (a pretend update from "Test update" goes too)
+					if (UpdatePrompt.Available is { } shown && UpdatePrompt.IsPretend(shown)) UpdatePrompt.Pretend("");
+					Callable.From(() => App.I.GoHome()).CallDeferred();
+				};
+			}));
+		// (developer mode: shows the home screen as if an update were out, to see the logo pulse; click again to stop)
+		if (App.LanUnlocked)
+			corner.AddChild(U.Small("Test update", () =>
+			{
+				if (UpdatePrompt.Available is { } shown && !UpdatePrompt.IsPretend(shown)) return;
+				UpdatePrompt.Pretend(UpdatePrompt.Available == null ? "99.0.0b" : "");
+			}).With(b => b.TooltipText = Lang.T("Developer mode: pretend an update is out (the logo pulses green). Click again to stop.")));
+		// (developer mode: quick checks, Screens/TestLabScreen)
+		if (App.LanUnlocked)
+			corner.AddChild(U.Small("Test lab", App.I.GoTestLab).Tip("Developer mode: buzzers, sounds, microphone, question screens, bots …"));
+		// (yellow dots mark what's new since the last update, e.g. on Settings: this clears them; up here with the other
+		// buttons, so the page doesn't get longer)
+		if (New.Any)
+		{
+			var markRead = U.Small("● " + Lang.T("Mark all as read"), () =>
+			{
+				New.MarkAllRead();
+				App.I.GoHome();
+			}).Tip("Removes the yellow dots on what's new since your last update").With(b => b.AddThemeColorOverride("font_color", C.Gold));
+			corner.AddChild(markRead);
+			corner.MoveChild(markRead, 0);
+		}
 		corner.SetAnchorsAndOffsetsPreset(LayoutPreset.TopRight, LayoutPresetMode.KeepSize, 20);
 		corner.GrowHorizontal = GrowDirection.Begin;
 		AddChild(corner);
@@ -137,6 +194,9 @@ public partial class HomeScreen : Control
 
 	void BuildJoinFields()
 	{
+		// (the code and name fields are reused: taken out of their old rows first, else clearing frees them with the rows and
+		// they were gone after switching to LAN and back)
+		foreach (var field in new Control[] { _target, _name }) field.GetParent()?.RemoveChild(field);
 		_joinFields.Clear();
 		if (_mode == NetMode.Steam)
 		{
@@ -186,7 +246,7 @@ public partial class HomeScreen : Control
 		if (_typed.Length > App.DevCode.Length) _typed = _typed[^App.DevCode.Length..];
 		if (_typed != App.DevCode) return;
 		App.LanUnlocked = true;
-		Callable.From(() => App.I.GoHome("Developer mode: LAN play is unlocked until Quiznight closes.")).CallDeferred();
+		Callable.From(() => App.I.GoHome()).CallDeferred();
 	}
 
 	public override void _Ready() => (_mode == NetMode.Steam && _name.Text != "" ? _target : (Control)_name).CallDeferred(Control.MethodName.GrabFocus);
