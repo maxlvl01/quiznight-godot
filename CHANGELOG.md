@@ -13,6 +13,9 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+### Fixed
+- **Bug reports came with an empty log.** The report reads the end of the game's log file while the game runs, but the released game only wrote its log to the file when an error happened, so the file was still empty when 🐞 read it (test builds always wrote it straight away, which is why it looked fine there). The game now writes every log line to the file at once, so reports carry the last 200 lines.
+
 ## [0.12.0b] — "Mission Control": a space skin, lobby mini games, bug reports from every screen, the WoW Forever map and a reveal the host controls
 
 ### Added
