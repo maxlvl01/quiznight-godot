@@ -15,30 +15,22 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [0.12.3b]
 
-### Fixed
-- **The tutorials setting looked broken.** In Settings, the "Show tutorials" tick box had no text and "↺ Show tutorials again" was a huge, tall key. Settings lets its tick boxes wrap onto two lines, and this one sat in a row next to the button with no room of its own, so it shrank to nothing, its text wrapped one letter per line out of sight, and the row stretched the button with it. The tick box now has its own line, with the button under it.
-
-## [0.12.3d3]
-
 ### Added
 - **Fair buzzers, whatever your ping.** Until now, whoever's buzz *reached the host* first answered first, so a player with a slow connection lost close races even when they pressed first. Now each player's own game measures their reaction time, from the moment the buzzers opened on *their* screen to their press, and sends it with the buzz. After the first buzz the host waits a short moment (0.3 s) for buzzes still on their way, then the fastest reaction answers; later buzzes join the line by their time too. A time can never be slower than what the host saw, and at most 0.5 s faster (more than any ping), so a faked time can't win by more than that. A Fast Pass still goes first. Players on older versions are timed when their buzz arrives, as before.
 - **Ctrl+S saves without closing the question.** In the question editor Ctrl+S saves and you stay on the question; a green "✓ Saved" shows next to the button for a moment. "Save question" still saves and goes back to the quiz.
 - **A desktop shortcut on the first start.** The very first time the game starts on a PC (the downloaded game, not editor runs), it puts a "Quiznight" shortcut on the desktop, unless there already is one. It only happens once, so if you delete it, it stays deleted.
+- **Tutorials for making your first quiz.** The first time you open a new quiz, a short tour shows how a quiz is made: the screen goes dark except for one thing at a time, which glows, and a bubble next to it explains it (the title, the question types, the list of questions, hosting and sharing, the shortcuts). The first time you open a question, a second tour goes through the editor: filling in the blanks, the round settings, **bonus points**, **categories** (and "Keep it secret"), saving, and the shortcuts (Ctrl+Z/Y, Ctrl+S, Ctrl+V for pictures, dropping files onto the window). The first tour ends with how to report a bug or give feedback with the 🐞 button. Next ›, ‹ Back, Skip and the arrow keys/Enter/Esc work in every step.
+- **Turn tutorials off, or see them again.** "Turn off tutorials" in any bubble stops them all. Settings has **Show tutorials** (on/off) and **↺ Show tutorials again**, which brings back every tour you've already seen.
+- **Max gets a push on his phone and PC for every bug report and idea**, so he sees them straight away instead of when he next looks in the reports folder. Reports that couldn't go at first (no internet) push when they're sent on the next start, marked "sent late". Tapping the push opens the report.
+- **Reports and feedback say who sent them**: your Steam name and Steam ID (with a link to your profile), so Max can ask you about a bug and credit your idea in the changelog when it makes it into the game. Without Steam the report has your in-game name. The 🐞 window and Settings → What the game sends say so.
 
 ### Changed
 - **Answer time per buzz starts at 15 s** (was 10 s) in new lobbies.
 - **The reaction test counts the average of your five tries**, not the best one: one lucky press no longer makes a record. A false start no longer uses up a try; that try is just done again. The high scores list averages from now on (the best single tries from before don't compete with them).
 
 ### Fixed
+- **The tutorials setting looked broken.** In Settings, the "Show tutorials" tick box had no text and "↺ Show tutorials again" was a huge, tall key. Settings lets its tick boxes wrap onto two lines, and this one sat in a row next to the button with no room of its own, so it shrank to nothing, its text wrapped one letter per line out of sight, and the row stretched the button with it. The tick box now has its own line, with the button under it.
 - **Pong was missing from the mini games menu.** It was only a small button next to each player's name in the 1 vs 1 list, so with nobody else (on 0.12 or later) in the lobby it didn't show at all, and next to Billiard it was easy to miss. 1 vs 1 now starts with a **Pong / Billiard** choice that's always there (Billiard then shows which billiard game), and each player has one "Challenge to …" button.
-
-## [0.12.3d2]
-
-### Added
-- **Tutorials for making your first quiz.** The first time you open a new quiz, a short tour shows how a quiz is made: the screen goes dark except for one thing at a time, which glows, and a bubble next to it explains it (the title, the question types, the list of questions, hosting and sharing, the shortcuts). The first time you open a question, a second tour goes through the editor: filling in the blanks, the round settings, **bonus points**, **categories** (and "Keep it secret"), saving, and the shortcuts (Ctrl+Z/Y, Ctrl+S, Ctrl+V for pictures, dropping files onto the window). The first tour ends with how to report a bug or give feedback with the 🐞 button. Next ›, ‹ Back, Skip and the arrow keys/Enter/Esc work in every step.
-- **Turn tutorials off, or see them again.** "Turn off tutorials" in any bubble stops them all. Settings has **Show tutorials** (on/off) and **↺ Show tutorials again**, which brings back every tour you've already seen.
-- **Max gets a push on his phone and PC for every bug report and idea**, so he sees them straight away instead of when he next looks in the reports folder. Reports that couldn't go at first (no internet) push when they're sent on the next start, marked "sent late". Tapping the push opens the report.
-- **Reports and feedback say who sent them**: your Steam name and Steam ID (with a link to your profile), so Max can ask you about a bug and credit your idea in the changelog when it makes it into the game. Without Steam the report has your in-game name. The 🐞 window and Settings → What the game sends say so.
 
 ## [0.12.2b]
 
