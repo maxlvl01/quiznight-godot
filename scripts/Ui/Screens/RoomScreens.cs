@@ -89,6 +89,9 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 		_content.AddChild(U.H(8, U.Heading("Lobby", 28, false).Grow(), new RoomCodeButton(room.Code, 32),
 			U.Pill(U.Plural(room.Players.Count, "player", "players")), MediaIcon.SettingsGear()));
 		_content.AddChild(U.Muted($"{room.Quiz.Title} · {U.Plural(room.Quiz.QuestionCount, "question", "questions")}", 15).Raw());
+		if (room.ResumeFrom is { } from)
+			_content.AddChild(U.Text(Lang.F("▶ A saved quiz night goes on at question {0} of {1}. Everyone gets their seat and points back when they join again ({2}).",
+				from, room.Quiz.QuestionCount, Lang.T(_host.Mode == NetMode.Steam ? "with the same Steam account" : "with the same name")), 14, C.Accent, wrap: true));
 
 		if (_host.Mode == NetMode.Steam)
 			_content.AddChild(U.Muted(Lang.F("Players open Quiznight, choose Steam on the home screen and enter this code. {0} here so far (up to {1}).", room.Players.Count, Limits.MaxPlayers), 13));
@@ -107,7 +110,9 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 		foreach (var p in room.Players)
 		{
 			var id = p.Id;
-			var seat = U.V(4, new Avatar(p, 44).Center(), U.PlayerName(p.Name, 15, HorizontalAlignment.Center, tags),
+			var seat = U.V(4, new Avatar(p, 44).Center(), U.PlayerName(p.Name, 15, HorizontalAlignment.Center, tags));
+			if (room.ResumeFrom != null) seat.AddChild(U.Muted(room.Score(id) == 1 ? Lang.T("1 point") : Lang.F("{0} points", room.Score(id)), 12, false, HorizontalAlignment.Center));
+			seat.AddChild(
 				U.H(4, GameParts.SeatStatus(p, room, false).With(s => s.SizeFlagsVertical = SizeFlags.ShrinkCenter),
 					U.Link("×", () => _host.Kick(id), 15).Tip(Lang.F("Remove {0}", p.Name)).With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter)).Center());
 			// (an older game than the host's: which version, so the host can ask them to update)
@@ -171,7 +176,7 @@ public partial class HostLobbyScreen : Control, IRoomScreen
 			_error = result.Ok ? null : result.Error;
 			if (!result.Ok) Refresh(_host.State);
 		}
-		var start = U.Btn("Start quiz", "AccentButton", StartQuiz);
+		var start = U.Btn(room.ResumeFrom != null ? "Continue quiz" : "Start quiz", "AccentButton", StartQuiz);
 		// Everyone gets the quiz's pictures, sounds and videos first, so nothing has to load mid-question.
 		var loading = room.Players.Where(p => p.Connected && room.Downloads.GetValueOrDefault(p.Id, 100) < 100).ToList();
 		start.Disabled = connected < Limits.MinPlayersToStart || loading.Count > 0;
@@ -244,6 +249,9 @@ public partial class WaitingRoomScreen : Control, IRoomScreen
 			_client.Mode == NetMode.Steam ? new RoomCodeButton(room.Code) : U.Pill(Lang.F("Host {0}", _client.Target)),
 			U.Pill(U.Plural(room.Players.Count, "player", "players")), MediaIcon.SettingsGear()));
 		_content.AddChild(U.Muted(room.Quiz.Title, 15).Raw());
+		if (room.ResumeFrom is { } from)
+			_content.AddChild(U.Text(Lang.F("▶ The host continues a saved quiz night at question {0} of {1}: everyone keeps their points.", from, room.Quiz.QuestionCount),
+				14, C.Accent, wrap: true));
 
 		var grid = new GridContainer { Columns = 4 };
 		grid.AddThemeConstantOverride("h_separation", 12);

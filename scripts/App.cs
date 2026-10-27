@@ -520,7 +520,8 @@ public partial class App : Control
 
 	// ---------- hosting ----------
 
-	public async void HostQuiz(Quiz quiz, NetMode? forceMode = null)
+	/// <param name="resume">A saved night to continue (the quiz page's Continue): the lobby has everyone's points.</param>
+	public async void HostQuiz(Quiz quiz, NetMode? forceMode = null, SavedNight? resume = null)
 	{
 		var issues = QuizRules.QuizIssues(quiz);
 		if (issues.Count > 0)
@@ -559,7 +560,8 @@ public partial class App : Control
 			code = Room.NewCode();
 			lanPort = lan.Port;
 		}
-		Host = new HostSession(new Room(code, quiz), transport, mode, lanPort) { BuzzerSound = Settings.BuzzerSound, PodiumSound = Settings.PodiumSound };
+		Host = new HostSession(new Room(code, quiz), transport, mode, lanPort) { BuzzerSound = Settings.BuzzerSound, PodiumSound = Settings.PodiumSound, Autosaves = true };
+		if (resume != null) Host.Restore(resume);
 		_hostAssets = new HostAssets(() => Host?.Room);
 		Host.Changed += OnRoomChanged;
 		OnRoomChanged();

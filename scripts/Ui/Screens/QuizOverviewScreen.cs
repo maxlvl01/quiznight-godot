@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
+using QuizNight.Server;
 using QuizNight.Shared;
 using QuizNight.Storage;
 
@@ -259,9 +260,35 @@ public partial class QuizOverviewScreen : Control
 		var issues = QuizRules.QuizIssues(_quiz);
 		if (issues.Count > 0 && _quiz.Questions.Count > 0)
 			_foot.AddChild(U.Muted(Lang.F("{0} to fix before hosting.", U.Plural(issues.Count, "thing", "things")), 13));
+		if (NightSaves.Load(_quiz.Id) is { } save) _foot.AddChild(ContinueBox(this, _quiz, save, issues.FirstOrDefault(), RefreshFoot));
 		var host = U.Btn("Open lobby", "AccentButton", () => App.I.HostQuiz(_quiz)).Grow().Tip(issues.FirstOrDefault());
 		host.Disabled = issues.Count > 0;
 		_foot.AddChild(U.H(8, U.Btn("Copy share code", "", () => ShareInfo.Copy(this, _quiz)), U.Btn("Export file", "",() => QuizListScreen.ExportQuiz(this, _quiz, _error)), host));
+	}
+
+	/// <summary>
+	/// A quiz night that didn't finish (the game crashed, or was closed to update mid-game): when it was saved, how far it
+	/// got, who leads, and Continue, which opens a lobby with everyone's points up to the last finished question.
+	/// </summary>
+	public static Control ContinueBox(Node owner, Quiz quiz, SavedNight save, string? issue, System.Action discarded)
+	{
+		var leaders = save.Players.OrderByDescending(p => p.Score).Take(3).Select(p => $"{p.Name} {p.Score}");
+		var box = U.V(4,
+			U.Bold("Unfinished quiz night", 16),
+			U.Muted(Lang.F("Saved {0} after question {1} of {2} · {3}", save.SavedAt.ToString("dd.MM. HH:mm", System.Globalization.CultureInfo.InvariantCulture),
+				save.Next, save.Questions, U.Plural(save.Players.Count, "player", "players")), 13),
+			U.Muted(string.Join("  ·  ", leaders), 13).Raw());
+		if (save.Questions != quiz.Questions.Count)
+			box.AddChild(U.Text(Lang.F("⚠ The quiz has changed since: it had {0} questions, now {1}.", save.Questions, quiz.Questions.Count), 13, C.Orange, wrap: true));
+		var go = U.Btn("Continue", "AccentButton", () => App.I.HostQuiz(quiz, null, save))
+			.Tip(issue ?? Lang.T("Opens a lobby with everyone's points. Players join with the new code and get their seat back."));
+		go.Disabled = issue != null;
+		box.AddChild(U.H(8, U.Link("Discard", () => Dialogs.Confirm(owner, "Throw this quiz night away? Its points are gone for good.", "Discard", () =>
+		{
+			NightSaves.Delete(quiz.Id);
+			discarded();
+		}), 13).With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter), U.Fill(), go));
+		return U.Panel(box, "Inset");
 	}
 
 	/// <summary>A type's help, translated: what it does, then its variants as a list.</summary>

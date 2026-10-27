@@ -50,7 +50,7 @@ public static class GameParts
 	/// </summary>
 	public static Control SeatStatus(PublicPlayer p, RoomState room, bool playerView)
 	{
-		if (!p.Connected) return U.Muted(playerView ? "Reconnecting…" : "Offline", 12, false);
+		if (!p.Connected) return U.Muted(room.ResumeFrom != null ? "Not back yet" : playerView ? "Reconnecting…" : "Offline", 12, false);
 		var percent = room.Downloads.GetValueOrDefault(p.Id, 100);
 		if (percent >= 100) return U.Muted(room.Downloads.Count > 0 ? "Ready" : "Joined", 12, false);
 		var row = U.H(5, new DownloadRing(percent, 14), U.Muted(Lang.F("Downloading {0} %", percent), 12, false));
@@ -392,12 +392,29 @@ public static class GameParts
 	/// <summary>One item on the timeline: its text and (once placed) its label, e.g. the year.</summary>
 	public static Control TimelineCard(string text, string label, bool start = false, bool big = false)
 	{
-		var box = U.V(2, U.Text(text, big ? 24 : 17, C.Text, Fonts.Bold, true, HorizontalAlignment.Center).Raw());
-		if (label != "") box.AddChild(U.Mono(label, big ? 20 : 16, C.Accent).Raw().With(l => l.HorizontalAlignment = HorizontalAlignment.Center));
+		// (a key like the rest of the game: dark outline and an edge underneath; the item to place is orange, the start
+		// card green-tinted, and the year sits on a chip of its own)
+		var box = U.V(6, U.Text(text, big ? 24 : 17, big ? C.AccentInk : C.Text, Fonts.Bold, true, HorizontalAlignment.Center).Raw());
+		if (label != "")
+		{
+			var chip = U.Panel(U.Mono(label, big ? 18 : 15, start ? C.Ink : C.AccentInk).Raw().With(l => l.HorizontalAlignment = HorizontalAlignment.Center), "Clear");
+			chip.AddThemeStyleboxOverride("panel", UiTheme.Box(start ? C.Lime : C.Accent, 999, C.Ink, 2, 10, 1));
+			chip.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
+			box.AddChild(chip);
+		}
 		var card = U.Panel(box, "Clear").MinSize(big ? 220 : 120, big ? 0 : 64);
-		card.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel2, 12, start ? C.Lime : C.Border, start ? 2 : 1, 12, 10));
+		card.AddThemeStyleboxOverride("panel", new KeyBox(big ? C.Accent : start ? C.Panel2.Lerp(C.Lime, 0.18f) : C.Panel2, 14, 14, 12, 3, 5, false));
 		card.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
 		return card;
+	}
+
+	/// <summary>A round key with a mark on it, between the cards: ✗ a gap tried and wrong, ▼ the gap locked in.</summary>
+	static Control TimelineMark(string mark, Color color)
+	{
+		var key = U.Panel(U.Text(mark, 18, C.Ink, Fonts.Black, false, HorizontalAlignment.Center).MinSize(22, 0), "Clear");
+		key.AddThemeStyleboxOverride("panel", new KeyBox(color, 999, 8, 9, 3, 4, false));
+		key.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
+		return key;
 	}
 
 	/// <summary>
@@ -411,7 +428,7 @@ public static class GameParts
 		var flow = U.Flow(8);
 		flow.Alignment = FlowContainer.AlignmentMode.Center;
 		// The ends sit right next to the first and last gap, so the arrows line up with the timeline.
-		Control End(string text) => U.Muted(text, 14, false).Raw().With(l => l.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter);
+		Control End(string text) => U.Text(text, 14, C.Muted, Fonts.Bold).Raw().With(l => l.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter);
 		flow.AddChild(End("◀ " + (q.OrderTop ?? "")));
 		for (var g = 0; g <= tl.Placed.Count; g++)
 		{
@@ -427,8 +444,8 @@ public static class GameParts
 					flow.AddChild(b);
 				}
 			}
-			else if (wrong) flow.AddChild(U.Text("✗", 24, C.Coral, Fonts.Black).With(l => l.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter));
-			else if (gap == picked) flow.AddChild(U.Text("▼", 26, C.Teal, Fonts.Black).With(l => l.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter));
+			else if (wrong) flow.AddChild(TimelineMark("✗", C.Coral));
+			else if (gap == picked) flow.AddChild(TimelineMark("▼", C.Teal));
 			if (g < tl.Placed.Count)
 			{
 				var c = tl.Placed[g];

@@ -131,7 +131,8 @@ public sealed class Game
 	long? _pausedAt;
 
 	/// <param name="shared">The files players get ahead of time (Room.SharedFiles, sent from the lobby on); made here if null.</param>
-	public Game(Quiz quiz, IGameHooks hooks, Random? rng = null, IReadOnlyList<SharedMedia>? shared = null)
+	/// <param name="first">The question to open first (a saved night going on: Room.Restore).</param>
+	public Game(Quiz quiz, IGameHooks hooks, Random? rng = null, IReadOnlyList<SharedMedia>? shared = null, int first = 0)
 	{
 		// Choice answers get a new random order every game (the quiz itself isn't changed).
 		rng ??= new Random();
@@ -143,7 +144,7 @@ public sealed class Game
 		};
 		_hooks = hooks;
 		SharedFiles = shared ?? ShareFiles(_quiz);
-		Open(0);
+		Open(Math.Clamp(first, 0, Math.Max(0, _quiz.Questions.Count - 1)));
 	}
 
 	/// <summary>
@@ -1404,6 +1405,12 @@ public sealed class Game
 		Stage == Shared.Stage.Open && !Shown ? Index
 		: Stage == Shared.Stage.Reveal && Index + 1 < _quiz.Questions.Count ? Index + 1
 		: null;
+
+	/// <summary>The jokers used on the questions before this one (what a saved night keeps: Room.Snapshot).</summary>
+	public List<JokerPlay> UsedJokers(int before) => _jokers.Where(j => j.Index < before).ToList();
+
+	/// <summary>A saved night goes on: the jokers its players had already used stay used.</summary>
+	public void RestoreJokers(IEnumerable<JokerPlay> used) => _jokers.AddRange(used);
 
 	bool Played(string playerId, string kind, int index) => _jokers.Any(j => j.PlayerId == playerId && j.Kind == kind && j.Index == index);
 

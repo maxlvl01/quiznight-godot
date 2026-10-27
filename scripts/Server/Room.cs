@@ -21,6 +21,8 @@ public sealed class Player
 	public int? LeftAt;
 	/// <summary>Their game's version ("" = before 0.12).</summary>
 	public string Version = "";
+	/// <summary>A seat from a saved night (Room.Restore): it keeps its points in the lobby until they're back.</summary>
+	public bool Saved;
 }
 
 /// <summary>What breaks ties between players with the same score (see Room.Ranking).</summary>
@@ -262,6 +264,7 @@ public sealed class Room : IGameHooks
 			Phase = Phase,
 			Settings = Settings.Clone(),
 			HostConnected = true,
+			ResumeFrom = Phase == Shared.Phase.Lobby && Resume is { } save ? Math.Min(save.Next, Quiz.Questions.Count - 1) + 1 : null,
 			Players = Players.Select(p => new PublicPlayer { Id = p.Id, Name = p.Name, Color = p.Color, Connected = p.Connected, JoinedAt = p.JoinedAt, LeftAt = p.LeftAt, Version = p.Version }).ToList(),
 		};
 	}
@@ -284,7 +287,7 @@ public sealed class Room : IGameHooks
 	public (Player? Player, string? Error) Join(string id, string rawName)
 	{
 		Trace.Log("room", $"join {id} as \"{rawName}\" ({Phase}, {Players.Count} in the room)");
-		var existing = GetPlayer(id);
+		var existing = GetPlayer(id) ?? Reclaim(id, rawName);
 		if (existing != null)
 		{
 			existing.Connected = true;
@@ -317,6 +320,29 @@ public sealed class Room : IGameHooks
 		return (player, null);
 	}
 
+	/// <summary>
+	/// A saved night's lobby: a LAN player gets their seat back by their name (their game's id is new every start). Steam
+	/// ids stay the same, so Steam seats only go back to the same account.
+	/// </summary>
+	Player? Reclaim(string id, string rawName)
+	{
+		if (Resume == null || Phase != Shared.Phase.Lobby || id.StartsWith("steam:")) return null;
+		var name = CleanName(rawName);
+		var seat = Players.Find(p => p.Saved && !p.Connected && !p.Id.StartsWith("steam:") && string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+		if (seat == null) return null;
+		var old = seat.Id;
+		seat.Id = id;
+		if (Scores.Remove(old, out var score)) Scores[id] = score;
+		if (Stats.Remove(old, out var stats)) Stats[id] = stats;
+		foreach (var key in QuestionStats.Keys.Where(k => k.Player == old).ToList())
+		{
+			QuestionStats.Remove(key, out var q);
+			QuestionStats[(key.Question, id)] = q!;
+		}
+		foreach (var j in Resume.Jokers.Where(j => j.PlayerId == old)) j.PlayerId = id;
+		return seat;
+	}
+
 	/// <summary>A player changes their name (in the lobby only, and not to one someone else uses).</summary>
 	public Result Rename(string id, string rawName)
 	{
@@ -346,7 +372,7 @@ public sealed class Room : IGameHooks
 	public void Leave(string id)
 	{
 		Trace.Log("room", $"leave {id} ({Phase})");
-		if (Playing) Disconnect(id);
+		if (Playing || GetPlayer(id) is { Saved: true }) Disconnect(id);
 		else Remove(id);
 	}
 
@@ -383,6 +409,7 @@ public sealed class Room : IGameHooks
 		var connected = Players.Count(p => p.Connected);
 		if (connected < Limits.MinPlayersToStart) return Result.Fail(Lang.F("You need at least {0} connected players.", Limits.MinPlayersToStart));
 		Phase = Shared.Phase.Playing;
+		if (Resume is { } save) return GoOn(save);
 		StartedAt = DateTime.Now;
 		Scores.Clear();
 		Stats.Clear();
@@ -393,6 +420,100 @@ public sealed class Room : IGameHooks
 			p.JoinedAt = p.LeftAt = null;
 		}
 		Game = new Game(Quiz, this, null, SharedFiles);
+		NoteOpened();
+		return Result.Success();
+	}
+
+	// ---------- saving the night (SavedNight, Storage.NightSaves) ----------
+
+	/// <summary>The saved night this lobby continues (Restore), until the quiz starts.</summary>
+	public SavedNight? Resume { get; private set; }
+
+	/// <summary>The night as it was when the current question opened (what a save holds until its reveal).</summary>
+	string? _openSave;
+
+	void NoteOpened() => _openSave = Game is { Index: > 0 } g ? Snapshot(g.Index).ToJson() : null;
+
+	/// <summary>
+	/// The night so far, to save: during a reveal, everything up to and with this question; while a question runs,
+	/// everything before it. Null when there's nothing to keep (no game, or still on the first question).
+	/// </summary>
+	public string? SaveJson() =>
+		!Playing ? null
+		: Game!.Stage == Shared.Stage.Reveal ? Snapshot(Game.Index + 1).ToJson()
+		: _openSave;
+
+	/// <summary>Everything up to question <paramref name="next"/> (0-based; it and the ones after it are still to play).</summary>
+	SavedNight Snapshot(int next) => new()
+	{
+		Version = Godot.ProjectSettings.GetSetting("application/config/version").AsString(),
+		QuizId = Quiz.Id,
+		QuizTitle = Quiz.Title,
+		Questions = Quiz.Questions.Count,
+		Next = next,
+		StartedAt = StartedAt,
+		Settings = Settings.Clone(),
+		Players = Players.Select(p => new SavedPlayer
+		{
+			Id = p.Id, Name = p.Name, Color = p.Color, Score = Score(p.Id), JoinedAt = p.JoinedAt, LeftAt = p.LeftAt, Stats = StatsOf(p.Id),
+		}).ToList(),
+		QuestionStats = QuestionStats.Where(q => q.Key.Question < next)
+			.Select(q => new SavedQuestionStat { Question = q.Key.Question, Player = q.Key.Player, Stat = q.Value }).ToList(),
+		Jokers = Game?.UsedJokers(next) ?? new(),
+	};
+
+	/// <summary>
+	/// The lobby continues a saved night: its rules, and everyone's seat with their points and stats (away until they
+	/// join again).
+	/// </summary>
+	public void Restore(SavedNight save)
+	{
+		if (Phase != Shared.Phase.Lobby) return;
+		Resume = save;
+		var s = save.Settings;
+		(Settings.AnswerTimeSec, Settings.BuzzerSound, Settings.PodiumSound) = (s.AnswerTimeSec, s.BuzzerSound, s.PodiumSound);
+		(Settings.HostShowsQuestions, Settings.HostUnlocksBuzzers, Settings.ShowCategories, Settings.FriendsOnly) = (s.HostShowsQuestions, s.HostUnlocksBuzzers, s.ShowCategories, s.FriendsOnly);
+		Settings.Jokers = s.Jokers.Where(Joker.All.Contains).ToList();
+		Players.Clear();
+		Scores.Clear();
+		Stats.Clear();
+		QuestionStats.Clear();
+		foreach (var p in save.Players.Where(p => p.Id != "").DistinctBy(p => p.Id).Take(Limits.MaxPlayers))
+		{
+			Players.Add(new Player { Id = p.Id, Name = p.Name, Color = p.Color, JoinedAt = p.JoinedAt, LeftAt = p.LeftAt, Saved = true });
+			Scores[p.Id] = p.Score;
+			Stats[p.Id] = p.Stats ?? new PlayerStats();
+		}
+		foreach (var q in save.QuestionStats.Where(q => q.Stat != null)) QuestionStats[(q.Question, q.Player)] = q.Stat;
+	}
+
+	/// <summary>
+	/// Start, for a saved night: everyone keeps their points and goes on at the next question. Whoever isn't back keeps
+	/// their seat (they can still come back); new players join from here, like joining a running game.
+	/// </summary>
+	Result GoOn(SavedNight save)
+	{
+		Resume = null;
+		StartedAt = save.StartedAt ?? DateTime.Now;
+		var next = Math.Clamp(save.Next, 0, Quiz.Questions.Count);
+		foreach (var p in Players)
+		{
+			if (!p.Saved)
+			{
+				Scores[p.Id] = 0;
+				p.JoinedAt = next + 1;
+			}
+			else if (!p.Connected) p.LeftAt ??= next + 1;
+		}
+		Game = new Game(Quiz, this, null, SharedFiles, next);
+		Game.RestoreJokers(save.Jokers.Where(j => GetPlayer(j.PlayerId) != null));
+		// (saved during the last reveal: straight to the podium)
+		if (next >= Quiz.Questions.Count)
+		{
+			Game.Next();
+			Phase = Shared.Phase.Finished;
+		}
+		NoteOpened();
 		return Result.Success();
 	}
 
@@ -406,6 +527,7 @@ public sealed class Room : IGameHooks
 		{
 			Game.Next();
 			if (Game.Finished) Phase = Shared.Phase.Finished;
+			else NoteOpened();
 		}
 	}
 
@@ -421,7 +543,12 @@ public sealed class Room : IGameHooks
 		Scores.Clear();
 		Stats.Clear();
 		QuestionStats.Clear();
-		foreach (var p in Players) p.JoinedAt = p.LeftAt = null;
+		foreach (var p in Players)
+		{
+			p.JoinedAt = p.LeftAt = null;
+			p.Saved = false;
+		}
+		_openSave = null;
 		Phase = Shared.Phase.Lobby;
 	}
 
@@ -432,7 +559,7 @@ public sealed class Room : IGameHooks
 		if (Phase == Shared.Phase.Lobby)
 		{
 			var now = Now();
-			changed |= Players.RemoveAll(p => !p.Connected && p.DisconnectedAt is { } at && now - at > PlayerGraceMs) > 0;
+			changed |= Players.RemoveAll(p => !p.Saved && !p.Connected && p.DisconnectedAt is { } at && now - at > PlayerGraceMs) > 0;
 		}
 		return changed;
 	}

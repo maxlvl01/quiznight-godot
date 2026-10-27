@@ -76,6 +76,13 @@ the original design decisions; most still apply.
   buzzes, answers, Show or Next; the host's media pauses) until everyone is back (`Room.Join` with the same id) or the host
   continues. New players can join a running game (`Player.JoinedAt`); during an open question they sit it out
   (`Game.LateJoin`, `GameView.LateIds`). LAN players keep one client id per app run, so rejoining gets the seat back.
+- **Saved nights** (`Server/SavedNight.cs`, `Storage/NightSaves.cs`: `user://saves/<quiz id>.json`): the host's game
+  (`HostSession.Autosaves`, set by `App.HostQuiz`, not tests) writes `Room.SaveJson()` on every broadcast if it changed:
+  during a reveal everything up to that question, while one runs the snapshot taken when it opened (`Room.NoteOpened`);
+  nothing during question 1. The quiz page / list offers Continue → `App.HostQuiz(quiz, resume: save)` → `Room.Restore`
+  (saved seats `Player.Saved`, away, never dropped from the lobby; LAN seats reclaimed by name, Steam by id) → Start =
+  `Room.GoOn` (Game opens at `save.Next`, used jokers restored). Deleted when the night finishes. `--continue` with
+  `--host-sample` continues its save.
 - **Ranking** (`Room.Ranking`, sent as `RoomState.Ranking`/`Places`): points, then who reached that score first
   (`PlayerStats.ScoreChangedAt`), then average buzz/answer time, then average km off; fully equal players share a place.
   Players' scoreboards show the top 3 and the positions around them (`GameParts.ShownPositions`), the host's everyone.

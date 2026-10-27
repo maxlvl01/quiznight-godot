@@ -149,6 +149,7 @@ public sealed class HostSession : IDisposable
 	/// <summary>Everyone gets their own view. The host's screen reads the state directly.</summary>
 	public void Broadcast()
 	{
+		Autosave();
 		Changed?.Invoke();
 		foreach (var (peer, playerId) in _peerPlayer.ToList()) _net.Send(peer, Msg.Encode(Msg.State, StateFor(playerId)));
 	}
@@ -373,6 +374,8 @@ public sealed class HostSession : IDisposable
 	{
 		var result = Room.Start();
 		if (!result.Ok) return result;
+		// (a saved night that was already at its last reveal: straight to the podium)
+		SaveResultsIfFinished();
 		// (the quiz starts: every mini game ends, counting for nobody)
 		SendFrames(Arcade.StopAll());
 		Broadcast();
@@ -496,6 +499,36 @@ public sealed class HostSession : IDisposable
 	}
 
 	bool _resultsSent;
+
+	// ---------- saving the night (Room.SaveJson, Storage.NightSaves) ----------
+
+	/// <summary>Save the night after every question, so it can go on after a crash or an update (the host's app; not tests).</summary>
+	public bool Autosaves;
+	/// <summary>This room has a save on disk (written or continued): it goes when the night ends.</summary>
+	bool _hasSave;
+
+	void Autosave()
+	{
+		if (!Autosaves) return;
+		if (Room.Phase == Phase.Finished)
+		{
+			if (_hasSave) Storage.NightSaves.Delete(Room.Quiz.Id);
+			_hasSave = false;
+		}
+		else if (Room.SaveJson() is { } json)
+		{
+			Storage.NightSaves.Write(Room.Quiz.Id, json);
+			_hasSave = true;
+		}
+	}
+
+	/// <summary>The lobby continues a saved night (the quiz page's Continue).</summary>
+	public void Restore(SavedNight save)
+	{
+		Room.Restore(save);
+		_hasSave = true;
+		Broadcast();
+	}
 
 	/// <summary>The game is over: its results go to Max's results repo (real games over Steam only, not LAN tests).</summary>
 	void SaveResultsIfFinished()

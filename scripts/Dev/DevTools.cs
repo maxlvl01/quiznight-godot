@@ -2,6 +2,7 @@
 //   --selftest                     run the checks and quit (exit code 0 = all passed)
 //   --host-sample | --host FILE    host the sample quiz / a quiz file in LAN mode
 //   --sound FILE / --video FILE    with --host-sample or --open: the sound question plays that file / a video question follows it
+//   --continue                     with --host-sample / --host: continue that quiz's saved night (Storage.NightSaves)
 //   --autopilot [--players N]      as host: start with N players, judge buzzes, go to the next question
 //   --start-at N                   with --autopilot: skip straight to question N (1 = first)
 //   --quit-at-end                  quit a few seconds after the podium
@@ -252,7 +253,7 @@ public sealed class DevTools
 			TakesOver = true;
 			var sample = WithTestMedia(SampleQuiz.Build());
 			var quiz = Value("--host") is { } file ? QuizStore.Import(file) : QuizStore.Save(sample);
-			_app.HostQuiz(quiz, NetMode.Lan);
+			_app.HostQuiz(quiz, NetMode.Lan, Has("--continue") ? NightSaves.Load(quiz.Id) : null);
 			// --settings-window: Settings open over the lobby (or the game), for screenshots
 			if (Has("--settings-window")) _app.GetTree().CreateTimer(1.5).Timeout += Ui.Screens.SettingsWindow.Open;
 		}

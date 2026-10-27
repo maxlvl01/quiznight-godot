@@ -171,6 +171,8 @@ public sealed class RoomState
 	public Dictionary<string, int> Downloads = new();
 	/// <summary>The lobby's mini games (challenges, matches, records); only while in the lobby.</summary>
 	public ArcadeView? Arcade;
+	/// <summary>The lobby continues a saved night: the question (1-based) it goes on at. Scores holds the saved points.</summary>
+	public int? ResumeFrom;
 
 	public int Score(string playerId) => Scores.TryGetValue(playerId, out var s) ? s : 0;
 

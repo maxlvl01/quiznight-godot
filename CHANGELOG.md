@@ -13,6 +13,19 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.12.4b]
+
+### Added
+- **A quiz night survives a crash or an update.** The host's game now saves the night after every question: everyone's points, their stats, the jokers they've used, who joined late, the lobby's rules and when the night started. If the game crashes, or something is so broken that you have to update in the middle of the night, nothing is lost:
+  - The quiz's page shows **Unfinished quiz night** with when it was saved, how far it got ("after question 6 of 15"), who's leading, and a **Continue** button. "My quizzes" has a **▶ Continue at question 7** button on that quiz too.
+  - Continue opens a new lobby (with a new code) that already has everyone's seat and points. It says "A saved quiz night goes on at question 7 of 15", and each seat shows the player's points and "Not back yet" until they join again. Over Steam they get their seat back with the same Steam account; on LAN with the same name. Players see "The host continues a saved quiz night…" in the waiting room.
+  - **Continue quiz** goes on at the question after the last one that was finished. Whoever isn't back keeps their seat and points and can still join later; new players can join too and play from there. Jokers already used stay used, and the night's results at the end count the whole night, from its first question.
+  - The save holds everything up to the last finished question: during a reveal that's the question being revealed (with its bonuses), while a question runs it's the night as it was before that question, so that question starts again. Nothing is saved before the first question is over.
+  - **Continue later** under "End quiz early" closes the room on purpose (to update the game, say), after telling you what's kept. The save is removed when the night ends (the podium or "End quiz early"), and **Discard** throws it away by hand.
+
+### Changed
+- **The timeline cards got the chunky look** of the rest of the game. On "When did these games come out?" the cards are keys with a dark outline and an edge underneath, like the buttons, instead of flat boxes with a thin line. The item to place is an orange key, the year sits on a small orange chip under each name (the starting card is tinted green with a green chip), a gap someone tried and got wrong is a round red ✗ key instead of a loose ✗, and the locked-in gap a round teal ▼ key. A player's own guess in the timeline is a teal key, the item in the tray above it an orange one.
+
 ## [0.12.3b]
 
 ### Added

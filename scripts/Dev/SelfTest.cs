@@ -325,6 +325,70 @@ public static class SelfTest
 		Eq(g.Index, 2, "paused: Next waits for the host to continue");
 	}
 
+	/// <summary>A night saved after every question goes on in a new lobby: points, stats, used jokers and seats (LAN ones by name).</summary>
+	static void SaveAndResume()
+	{
+		var quiz = Dev.SampleQuiz.Build();
+		var (room, clock) = NewRoom(quiz);
+		room.Join("steam:1", "Ann");
+		room.Join("lan:a1", "Bob");
+		room.Join("lan:b1", "Cat");
+		room.Start();
+		var g = room.Game!;
+		Check(room.SaveJson() == null, "nothing to save during the first question");
+		clock.Now += 1000;
+		g.BuzzIn("steam:1");
+		g.Judge(true);
+		Eq(g.Stage, Stage.Reveal, "q1 revealed");
+		Eq(SavedNight.FromJson(room.SaveJson()!)?.Next, 1, "during a reveal the save goes on at the next question");
+		Check(g.PlayJoker("lan:a1", Joker.Double, true).Ok, "Bob plays Double for q2");
+		Check(SavedNight.FromJson(room.SaveJson()!)!.Jokers.Count == 0, "a joker not yet in play isn't saved as used");
+		room.Next();
+		g.Answer("lan:a1", 1, AnswerValue.Number(g.Question.CorrectChoice));
+		g.HostReveal();
+		var bob = room.Score("lan:a1");
+		Eq(bob, g.Question.Points * 2, "Bob's double");
+		room.Next();
+		var ann = room.Score("steam:1");
+		room.AdjustScore("steam:1", 5);
+		var save = SavedNight.FromJson(room.SaveJson()!)!;
+		Check(save.Next == 2 && save.Players.First(p => p.Id == "steam:1").Score == ann, "while a question runs, the save holds the night as it was when it opened");
+		Check(save.Jokers.Count == 1 && save.QuestionStats.Any(q => q.Question == 1 && q.Player == "lan:a1" && q.Stat.Right), "used jokers and per-question stats are saved");
+
+		var room2 = new Room("NEXT", quiz, () => clock.Now);
+		room2.Restore(save);
+		Check(room2.Players.Count == 3 && room2.Players.All(p => !p.Connected) && room2.Score("lan:a1") == bob, "the lobby has everyone's seat and points, away");
+		Eq(room2.ToState("host").ResumeFrom, 3, "the lobby says where it goes on");
+		Check(room2.Join("steam:1", "Annie").Player is { Name: "Ann", Connected: true }, "a Steam player gets their seat back by account");
+		Check(room2.Join("lan:zz", "bob").Player?.Id == "lan:zz" && room2.GetPlayer("lan:a1") == null && room2.Score("lan:zz") == bob,
+			"a LAN player (new id every start) gets their seat back by name");
+		Check(room2.Join("steam:9", "Cat").Player == null && room2.GetPlayer("lan:b1") is { Connected: false }, "a Steam account doesn't take someone else's seat");
+		room2.Join("lan:new", "Dan");
+		room2.Leave("lan:zz");
+		clock.Now += Room.PlayerGraceMs + 1000;
+		room2.Tick();
+		Check(room2.GetPlayer("lan:zz") != null && room2.GetPlayer("lan:b1") != null, "saved seats wait in the lobby");
+		room2.Join("lan:zz", "Bob");
+		Check(room2.Start().Ok, "continue");
+		var g2 = room2.Game!;
+		Eq(g2.Index, 2, "it goes on at the question that was running");
+		Check(room2.GetPlayer("lan:new") is { JoinedAt: 3 } && room2.Score("lan:new") == 0, "a new player joins from here");
+		Check(room2.GetPlayer("lan:b1") is { LeftAt: 3, Connected: false } && !g2.Paused, "whoever isn't back keeps their seat; the game doesn't wait");
+		Check(g2.UsedJokers(99).Any(j => j.PlayerId == "lan:zz" && j.Kind == Joker.Double), "used jokers stay used (with the new id)");
+		Check(room2.QuestionStats.TryGetValue((1, "lan:zz"), out var q2) && q2.Right && room2.StatsOf("lan:zz").Scored == 1, "stats come along");
+		Eq(room2.StartedAt, room.StartedAt, "the night keeps its start time");
+		Check(room2.Join("lan:b1", "Cat").Player != null && room2.Score("lan:b1") == room.Score("lan:b1"), "and they can still come back");
+
+		// Saved during the last reveal: Continue goes straight to the podium.
+		save.Next = quiz.Questions.Count;
+		var room3 = new Room("LAST", quiz, () => clock.Now);
+		room3.Restore(save);
+		room3.Join("steam:1", "Ann");
+		room3.Join("lan:x", "Bob");
+		Check(room3.Start().Ok && room3.Phase == Phase.Finished && room3.Score("lan:x") == bob, "saved after the last question: the podium");
+		Check(SavedNight.FromJson("{ \"quizId\": 5 }") == null && SavedNight.FromJson("nonsense") == null, "a broken save is ignored");
+	}
+
 	/// <summary>The ranking's tiebreaks, the players' short scoreboard and the saved results.</summary>
 	static void RankingAndResults()
 	{
@@ -536,6 +600,7 @@ public static class SelfTest
 		JokersAndSeats();
 		FastPassFirst();
 		FairBuzzers();
+		SaveAndResume();
 		Safety();
 		Undo();
 		Files();

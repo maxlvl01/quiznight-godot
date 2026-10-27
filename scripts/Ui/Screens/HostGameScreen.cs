@@ -257,7 +257,17 @@ public partial class HostGameScreen : Control, IRoomScreen
 		GameParts.SideInfo(_side, room, null, _host.AdjustScore);
 		_side.AddChild(U.Gap(6));
 		_side.AddChild(U.Link("End quiz early", AskEnd, 14).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin));
+		_side.AddChild(U.Link("Continue later", AskLater, 14).With(b => b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin)
+			.Tip("Close the room now (to update the game, say) and go on another time with everyone's points"));
 	}
+
+	/// <summary>"Continue later": the night is saved after every question; the room closes and the quiz's page offers Continue.</summary>
+	void AskLater() => Dialogs.Confirm(this, _host.Room.SaveJson() == null
+			? "Close the room? Nothing is saved before the first question is over, so you'd start again from the beginning."
+			: _host.Room.Game?.Stage == Stage.Reveal
+				? "Close the room and continue later? Everyone is sent back to the home screen. On the quiz's page, Continue opens a new lobby with everyone's points, at the next question."
+				: "Close the room and continue later? Everyone is sent back to the home screen. On the quiz's page, Continue opens a new lobby with everyone's points, and this question starts again.",
+		"Close room", App.I.CloseRoom);
 
 	/// <summary>"End quiz early" (also Escape): asks first.</summary>
 	public void AskEnd() => Dialogs.Confirm(this, "End the quiz now and show the final results?", "End quiz", _host.Finish);

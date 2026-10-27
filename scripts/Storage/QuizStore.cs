@@ -117,6 +117,7 @@ public static class QuizStore
 		Cache.Remove(id);
 		var path = PathFor(id);
 		if (File.Exists(path)) File.Delete(path);
+		NightSaves.Delete(id);
 	}
 
 	public static Quiz Create(string title = "New quiz")
