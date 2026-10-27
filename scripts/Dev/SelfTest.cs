@@ -978,6 +978,11 @@ public static class SelfTest
 		var starts = Enumerable.Range(0, 40).Select(seed => QuizRules.ShuffleOrder(timelineQ, new Random(seed))).Select(s => s.Items[s.TimelineStart]).Distinct().Count();
 		Eq(starts, 4, "the timeline starts with a random item");
 		Eq(shuffledTl.ItemLabel(shuffledTl.Items.IndexOf("Portal")), "2007", "labels move with their items");
+		var allAtOnce = timelineQ.Clone();
+		allAtOnce.OrderMode = OrderMode.All;
+		var allBack = QuizJson.ReadQuestion(QuizJson.WriteQuestion(allAtOnce));
+		Eq(string.Join(",", allBack.ItemLabels), "1993,1998,2007,2022", "everyone-at-once order questions keep their labels too");
+		Check(Game.OrderText(QuizRules.ShuffleOrder(allBack, new Random(3))).StartsWith("Doom (1993) → "), "the answer shows the labels in everyone-at-once mode");
 		Eq(Room.CleanName("  [OTB]   maxlvl0123456789 "), "[OTB] maxlvl012345", "a clan tag doesn't count toward the name's length");
 		Eq(Room.CleanName("[TOOLONGTAG] Ann"), "[TOOLON] Ann", "a clan tag is cut to its own length");
 		Check(Limits.SplitClanTag("[OTB] maxlvl") == ("OTB", "maxlvl") && Limits.SplitClanTag("Ann [x]") == (null, "Ann [x]"), "clan tags are found at the front only");

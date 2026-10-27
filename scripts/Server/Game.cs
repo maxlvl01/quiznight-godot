@@ -1175,7 +1175,7 @@ public sealed class Game
 	}
 
 	/// <summary>"Doom → Half-Life → Portal" (with the items' labels if they have any: "Doom (1993) → …").</summary>
-	static string OrderText(Question q) => string.Join(" → ", q.CorrectOrder.Select(i =>
+	internal static string OrderText(Question q) => string.Join(" → ", q.CorrectOrder.Select(i =>
 		q.ItemLabel(i) is { Length: > 0 } label ? $"{q.Items[i]} ({label})" : q.Items[i]));
 
 	static List<int> Picks(AnswerValue v) => v.Picks ?? (v.Num is { } n ? new List<int> { (int)n } : new List<int>());
