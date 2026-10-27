@@ -29,8 +29,9 @@ check doesn't need one) updates itself to 0.12.0b, and the new build then upload
       your PC (copied into the game's user folder, so it stays when the original moves; checked by `Guard` like other pictures).
 - [ ] **The animated "Pinke Geilheit Spacing Team" background** as its own choice next to the still one. Godot can't play
       GIFs, so it gets converted when it's added (frames, or a looping .ogv), and it stays still when "Background motion" is
-      off. The GIF: `Downloads/ezgif-5-2d0da948e0.gif` (7.3 MB, 600×600, 39 frames at 100 ms = a 3.9 s loop). It's
-      smaller than the still one (1024×1024), so it will look a little softer on big monitors.
+      off. Made from the video version, `Downloads/Astonaut_Gigastacy.mp4` (4.7 MB, 1024×1024 like the still one,
+      24 fps, a 3.875 s loop, no sound) → a looping .ogv. (The GIF, `Downloads/ezgif-5-2d0da948e0.gif`, is only 600×600
+      at 10 fps.)
 - [ ] **Test drop-downs in the Test lab:** a few drop-downs (short, long, scrolling) to check how they open and roll in.
 
 
