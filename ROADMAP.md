@@ -25,6 +25,11 @@ check doesn't need one) updates itself to 0.12.0b, and the new build then upload
 - [ ] **Look at the buzzer up close:** a way to enlarge the buzzer and see it in detail (for example the engraving).
 - [ ] **Microphone volume slider** in Settings: the test recording with Max's mic came out very quiet. It starts at 50 %
       (the normal level) and goes louder from there, with an input meter next to it that shows whether it's clipping.
+- [ ] **Your own background picture:** a "Pick a picture …" choice in Settings' background list that takes a picture from
+      your PC (copied into the game's user folder, so it stays when the original moves; checked by `Guard` like other pictures).
+- [ ] **The animated "Pinke Geilheit Spacing Team" background** as its own choice next to the still one. Godot can't play
+      GIFs, so it gets converted when it's added (frames, or a looping .ogv), and it stays still when "Background motion" is
+      off. Needs the GIF file itself: the picture pasted in chat came through as a single still frame (600×600).
 - [ ] **Test drop-downs in the Test lab:** a few drop-downs (short, long, scrolling) to check how they open and roll in.
 
 
