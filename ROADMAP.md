@@ -59,6 +59,11 @@ check doesn't need one) updates itself to 0.12.0b, and the new build then upload
     Statistics screen. **Tetris gets the same:** tonight's bests and an all-time list (highest score first; F1 style
     with the gap to the leader and to the one ahead in points, purple for the all-time best, green for a personal best).
   Uses the Test lab's reaction test (which stays there too, as an option, see the free buzzer item).
+- [ ] **Buzzer engraving: on every buzzer, and easier to see.** The smaller buzzers (the Test lab's, 120 px) show no
+  TRACKGLOW at all: the engraving is left out below a 6 px font (`BuzzButton._Draw`), and on the big one it's barely
+  visible. Draw it on every size (a smaller font on small buzzers, never left out) and make the cut deeper: a darker,
+  more pronounced shadow edge on top and a stronger light edge underneath, still in the metal's own colours (not
+  TrackGlow's). Check on the game's buzzer, the Test lab's and the disabled (greyed) one.
 
 ---
 
