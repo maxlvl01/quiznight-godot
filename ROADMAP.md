@@ -56,7 +56,8 @@ check doesn't need one) updates itself to 0.12.0b, and the new build then upload
   - **All time:** the best times ever. Kept like the eternal table: each night's lobby bests go to the results repo
     with the night's results (an extra row type in the CSV, `ResultsUpload`), and the all-time list is added up from
     `assets/results/` (same player ids; the same night counted once). Shown in the mini games window and on the
-    Statistics screen. (Open: should Tetris get an all-time list the same way?)
+    Statistics screen. **Tetris gets the same:** tonight's bests and an all-time list (highest score first; F1 style
+    with the gap to the leader and to the one ahead in points, purple for the all-time best, green for a personal best).
   Uses the Test lab's reaction test (which stays there too, as an option, see the free buzzer item).
 
 ---
