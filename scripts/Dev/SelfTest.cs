@@ -915,6 +915,11 @@ public static class SelfTest
 			&& !Storage.CrashReports.HasError("ERROR: Couldn't load a font\nWARNING: x"), "crash reports: C# errors found in a log, plain Godot errors not");
 		Check(Storage.CrashReports.Anonymise(@"C:\Users\Max\AppData\Roaming\Quiznight", "max") == @"C:\Users\<user>\AppData\Roaming\Quiznight",
 			"crash reports: the user name is left out of paths");
+		{
+			// An .ogv's picture size from its Theora header (the editor warns above 720p).
+			var head = new byte[] { 1, 2, 0x80, (byte)'t', (byte)'h', (byte)'e', (byte)'o', (byte)'r', (byte)'a', 3, 2, 1, 0, 120, 0, 68, 0x00, 0x07, 0x80, 0x00, 0x04, 0x38, 0 };
+			Check(Storage.Media.TheoraSize(head) == (1920, 1080) && Storage.Media.TheoraSize(new byte[30]) == null, "videos: the picture size is read from the file");
+		}
 		Check(Ui.UiAudio.Describe("res://assets/music/ES_Easy Breezy - Megan Wofford.ogg") == ("Easy Breezy", "Megan Wofford"), "a song's title and artist come from its Epidemic Sound name");
 		Check(Ui.UiAudio.SongsIn("res://assets/music/halloween").Any(s => s.Contains("The Sleepy Sneaky Sway"))
 			&& ResourceLoader.Load<AudioStream>("res://assets/music/halloween/ES_The Sleepy Sneaky Sway - Luella Gren.ogg") != null,

@@ -160,6 +160,10 @@ public partial class MediaField : VBoxContainer
 		{
 			_video = new VideoStreamPlayer { Stream = video, Bus = Prefs.MusicBus };
 			_body.AddChild(U.Panel(new VideoFrame(_video) { CustomMinimumSize = new Vector2(0, 220) }, "Inset"));
+			// (bigger than 720p: more to send to every player than it needs; the convert guide shrinks it)
+			if (Media.VideoSize(_media) is { } size && (size.W > Media.MaxVideo.W || size.H > Media.MaxVideo.H))
+				_body.AddChild(U.H(8, U.Text(Lang.F("⚠ This video is {0}×{1}: 720p is plenty, and smaller is quicker to send to everyone.", size.W, size.H), 13, C.Orange, null, true).Grow(),
+					U.Small("Shrink it to 720p", ShrinkVideo)));
 		}
 		else Fail(Media.VideoHelp);
 		_play = U.Small("▶ Play", TogglePlay);
@@ -212,6 +216,21 @@ public partial class MediaField : VBoxContainer
 	void PickFile() => Dialogs.OpenFile(this, IsSound ? "Pick a sound file" : "Pick a video", IsSound ? Media.SoundFilters : Media.VideoFilters, LoadFile);
 
 	void ShowGuide(string? video) => VideoGuide.Show(this, video, LoadFile);
+
+	/// <summary>
+	/// The video as a file again (it's only in the quiz), named .mkv so the converter's .ogv doesn't take its place, then
+	/// the convert guide: AnyConverter (or the ffmpeg command) makes it 720p and it's added back.
+	/// </summary>
+	void ShrinkVideo()
+	{
+		if (_media == null || Server.DataUrl.Bytes(_media.DataUrl, out _) is not { } bytes) return;
+		var dir = ProjectSettings.GlobalizePath("user://shrink");
+		System.IO.Directory.CreateDirectory(dir);
+		var name = string.Concat(System.IO.Path.GetFileNameWithoutExtension(_media.Name).Select(c => char.IsLetterOrDigit(c) || c is ' ' or '-' ? c : '_')).Trim();
+		var path = System.IO.Path.Combine(dir, (name == "" ? "video" : name) + ".mkv");
+		System.IO.File.WriteAllBytes(path, bytes);
+		ShowGuide(path);
+	}
 
 	public void LoadFile(string path)
 	{

@@ -173,7 +173,9 @@ public static partial class VideoGuide
 	{
 		// Zips made on Windows lose the executable bit.
 		if (OS.GetName() == "Linux") OS.Execute("chmod", new[] { "+x", converter });
-		OS.CreateProcess(converter, video != null ? new[] { "--format", "ogv", WinPath(video) } : new[] { "--format", "ogv" });
+		// (and at most 720p: Media.MaxVideo)
+		var size = $"{Media.MaxVideo.W}x{Media.MaxVideo.H}";
+		OS.CreateProcess(converter, video != null ? new[] { "--format", "ogv", "--max-size", size, WinPath(video) } : new[] { "--format", "ogv", "--max-size", size });
 	}
 
 	static string OgvPath(string video) => Path.ChangeExtension(video, ".ogv");
