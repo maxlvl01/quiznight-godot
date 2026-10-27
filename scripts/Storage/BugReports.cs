@@ -20,9 +20,9 @@ public static class BugReports
 {
 	const string Waiting = "user://bug-reports";
 	const int LogLines = 200;
-	/// <summary>The ntfy.sh topic Max's phone and PC listen to. Anyone who knows it can read and send pushes, so it's long and
-	/// random and only here.</summary>
-	const string NtfyTopic = "quiznight-reports-ns3jtx1tqjkaqt7s2c4skgeu";
+	/// <summary>The ntfy.sh topic Max's phone and PC listen to (https://ntfy.sh/quiznight-k8x2m9q4v7). Anyone who knows it can
+	/// read and send pushes, so it's kept only here.</summary>
+	const string NtfyTopic = "quiznight-k8x2m9q4v7";
 	/// <summary>How much of the player's text the push shows (the whole report is a tap away).</summary>
 	const int PushTextMax = 600;
 
