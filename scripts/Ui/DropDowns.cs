@@ -55,8 +55,11 @@ public static class DropDowns
 		var screen = o.GetViewportRect();
 		popup.MaxSize = Vector2I.Zero;
 		var natural = popup.GetContentsMinimumSize();
-		var row = natural.Y / Math.Max(1, popup.ItemCount);
-		var wanted = Mathf.Min(natural.Y, row * MaxRows + 12);
+		// (a row's height from the list's font: its natural height is already cut to the window's for long lists, so
+		// dividing that by the rows came out too small)
+		var row = popup.GetThemeFont("font").GetHeight(popup.GetThemeFontSize("font_size")) + popup.GetThemeConstant("v_separation");
+		var pad = popup.GetThemeStylebox("panel").GetMinimumSize().Y;
+		var wanted = Mathf.Min(natural.Y, row * Math.Min(MaxRows, popup.ItemCount) + pad);
 		float below = screen.End.Y - button.End.Y - Margin, above = button.Position.Y - screen.Position.Y - Margin;
 		var upwards = below < Mathf.Min(wanted, row * 3) && above > below;
 		var full = new Vector2I(Mathf.RoundToInt(Mathf.Max(natural.X, button.Size.X)), Mathf.RoundToInt(Mathf.Min(wanted, upwards ? above : below)));
@@ -66,6 +69,9 @@ public static class DropDowns
 		{
 			if (!GodotObject.IsInstanceValid(popup) || !popup.Visible) return;
 			var height = Mathf.Max(1, Mathf.RoundToInt(h));
+			// (Godot pins the list's MinSize to all its items when it pops up, which kept it from getting smaller: it ran
+			// off the bottom of the window and only behaved on a later open)
+			popup.MinSize = Vector2I.Zero;
 			popup.MaxSize = new Vector2I(MaxWidth, height);
 			popup.Size = new Vector2I(full.X, height);
 			popup.Position = new Vector2I(x, upwards ? top + full.Y - height : top);

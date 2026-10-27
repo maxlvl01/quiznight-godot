@@ -13,6 +13,15 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+### Changed
+- **The space skin really moves now.** It was animated before, but so slowly it looked like a picture: the planets drifted 4 pixels in a minute and a half. Now the stars drift past (the bright, nearer ones faster), a shooting star streaks by every few seconds, and every planet wanders round its spot and turns: its craters, forests, ice fields and lava lakes slide across its face and round the back. The gas giant's cloud bands flow (next ones the other way), with a storm and the cloud city going round with them, and the forest moon now orbits the gas giant, passing in front of it and behind it. Glints of ice go round the ringed planet's ring. Clumps of hot gas race round the black hole and specks of dust spiral in until it swallows them. The Death Star glides in from the side instead of fading in. With Background movement off it all still stands still.
+- **The TRACKGLOW engraving on the buzzer looks cut into the metal again.** Since 0.12.0d4 it looked like three copies of the word on top of each other, most of all on the big "Up close" buzzer: the dark edge above and the lit edge below were drawn a fixed few pixels away from the letters, and the letters' strokes are thinner than that. The edges are now a sliver of the letters' size, so you see one word with a fine lit edge underneath.
+
+### Fixed
+- **The game could freeze the PC with the space skin on.** Each planet's shadow is a crescent whose outline touched itself at its two tips (the same point twice), which Godot can't fill: it logged an error for that every single frame, about 60 a second. A test build writes every error into its log in detail, with where in the code it came from, and that pile-up is what froze things. The crescent now leaves the doubled points out, and the space scene runs without a single error.
+- **The Star Destroyer flew over the picture beside the screen.** On wide monitors the space scene could draw past the edge of the screen's 16:9 area: the Star Destroyer comes in from beyond the right edge and showed over the background picture on the side. The space and seasonal scenes are now cut off at the screen's edge.
+- **Long drop-down lists only scrolled from the second time you opened them.** The first time, the list stayed as tall as all its items, ran off the bottom of the window, and you couldn't get to the rest. Godot sets a drop-down list's smallest size to all its items when it opens, so making it shorter (10 rows, scrolling) was ignored until a later open. That smallest size is now cleared first, and the rows are measured from the list's font (the list's own height was already cut to the window, which made the rows come out too short).
+
 ## [0.12.0d5]
 
 ### Added

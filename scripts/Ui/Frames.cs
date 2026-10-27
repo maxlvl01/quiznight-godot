@@ -21,9 +21,23 @@ public partial class ScreenFrame : Container
 		}
 	}
 
+	/// <summary>
+	/// The skins' scenes are drawn on this layer behind the screens, cut to the frame, so nothing flying past (a Star
+	/// Destroyer coming in from the side) shows over the picture beside it. (An internal child: the screens' Clear and
+	/// the layout below leave it alone.)
+	/// </summary>
+	readonly Control _scene = new() { ClipContents = true, MouseFilter = MouseFilterEnum.Ignore };
+
+	public ScreenFrame()
+	{
+		AddChild(_scene, false, InternalMode.Front);
+		_scene.Draw += DrawScene;
+	}
+
 	public override void _Notification(int what)
 	{
 		if (what != NotificationSortChildren) return;
+		FitChildInRect(_scene, Frame);
 		foreach (var child in GetChildren())
 			if (child is Control c) FitChildInRect(c, Frame);
 		QueueRedraw();
@@ -39,10 +53,15 @@ public partial class ScreenFrame : Container
 		DrawRect(frame, C.Bg);
 		// (the party show stage: a warm spotlight glow from above the middle)
 		DrawTextureRect(StageGlow(), frame, false);
+	}
+
+	void DrawScene()
+	{
+		var frame = new Rect2(Vector2.Zero, _scene.Size);
 		// (seasonal skins: snow and fairy lights, or cobwebs, bats and pumpkins, behind the screens' cards)
-		if (Seasonal.OnScreen) Seasonal.DrawScreen(this, frame, _t);
+		if (Seasonal.OnScreen) Seasonal.DrawScreen(_scene, frame, _t);
 		// (the space skin: stars, a black hole, planets and passers-by, behind the home screen only)
-		else if (SpaceScene.OnScreen) SpaceScene.Draw(this, frame, (float)_t);
+		else if (SpaceScene.OnScreen) SpaceScene.Draw(_scene, frame, (float)_t);
 	}
 
 	// (dev: `--space-time T` starts the scenes at that second, e.g. 41 for the Death Star firing)
@@ -55,7 +74,7 @@ public partial class ScreenFrame : Container
 		// (redrawn while on, and once more when it goes off: another screen then has a clean background)
 		var space = SpaceScene.OnScreen;
 		var on = Seasonal.OnScreen || space;
-		if (on || _wasOn) QueueRedraw();
+		if (on || _wasOn) _scene.QueueRedraw();
 		_wasOn = on;
 		// (the space scene also stands still with Background movement off)
 		if (on && !Announcer.ReduceMotion && (!space || Storage.Settings.BackgroundMotion)) _t += delta;

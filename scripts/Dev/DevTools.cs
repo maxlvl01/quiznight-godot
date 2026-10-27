@@ -44,6 +44,7 @@ public sealed class DevTools
 	bool _undoChecked;
 	bool _arcadeOpened, _bugOpened;
 	bool _dropdownOpened;
+	int _dropdownChecks;
 	bool _scrolled;
 
 	async void MakeSplash(string path)
@@ -284,10 +285,11 @@ public sealed class DevTools
 		}
 		else if (Has("--buzzer"))
 		{
-			// --buzzer: the BUZZ! button on its own, unlocked and locked, for screenshots
+			// --buzzer: the BUZZ! button on its own, up close (as big as the Test lab shows it), unlocked and locked, for screenshots
 			TakesOver = true;
 			var row = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
 			row.AddThemeConstantOverride("separation", 60);
+			row.AddChild(new Ui.Screens.BuzzButton(() => { }, 460));
 			row.AddChild(new Ui.Screens.BuzzButton(() => { }));
 			row.AddChild(new Ui.Screens.BuzzButton(() => { }, 160) { Disabled = true });
 			var page = new CenterContainer();
@@ -548,6 +550,28 @@ public sealed class DevTools
 			_dropdownOpened = true;
 			var nth = int.TryParse(Value("--open-dropdown"), out var n) ? n - 1 : 0;
 			Bot.All(_app).OfType<OptionButton>().Where(o => o.IsVisibleInTree()).Skip(nth).FirstOrDefault()?.ShowPopup();
+		}
+		// --dropdown-check (with --screen testlab): opens the long test drop-down twice and prints whether its list scrolls each time
+		if (Has("--dropdown-check") && _dropdownChecks < 5 && _time >= 1 + _dropdownChecks * 0.7)
+		{
+			var box = Bot.All(_app).OfType<OptionButton>().Where(o => o.IsVisibleInTree()).OrderByDescending(o => o.ItemCount).First();
+			var popup = box.GetPopup();
+			static ScrollContainer? FindScroll(Node n) => n as ScrollContainer ?? n.GetChildren(true).Select(FindScroll).FirstOrDefault(s => s != null);
+			switch (_dropdownChecks++)
+			{
+				case 0 or 2:
+					box.ShowPopup();
+					break;
+				case 1 or 3:
+					var list = FindScroll(popup)!;
+					var bar = list.GetVScrollBar();
+					GD.Print($"Drop-down open {_dropdownChecks / 2}: list {popup.Size}, scroll area {list.Size}, scrolls {bar.MaxValue > bar.Page + 1} (max {bar.MaxValue}, page {bar.Page})");
+					popup.Hide();
+					break;
+				default:
+					_app.Quit(0);
+					break;
+			}
 		}
 		if (_time >= 1.5 && !_undoChecked && Has("--undo-check"))
 		{

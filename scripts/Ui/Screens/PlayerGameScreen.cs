@@ -754,10 +754,11 @@ public partial class BuzzButton : Button
 			const string Sponsor = "TRACKGLOW";
 			var width = brand.GetStringSize(Sponsor, HorizontalAlignment.Left, -1, engraving).X;
 			var at = new Vector2(origin.X + (plate - width) / 2, origin.Y + 14.5f * k);
-			var cut = Mathf.Max(1f, 1.2f * k);
-			DrawString(brand, at + new Vector2(0, -cut), Sponsor, HorizontalAlignment.Left, -1, engraving, new Color(metal.Darkened(0.6f), 0.85f * light));
-			DrawString(brand, at + new Vector2(0, cut), Sponsor, HorizontalAlignment.Left, -1, engraving, new Color(Colors.White, 0.9f * light));
-			DrawString(brand, at, Sponsor, HorizontalAlignment.Left, -1, engraving, new Color(metal.Darkened(0.28f), light));
+			// (the edges only a sliver of the letters' thin strokes: offset by more, they read as three copies of the word)
+			var cut = Mathf.Max(0.6f, engraving * 0.06f);
+			DrawString(brand, at + new Vector2(0, -cut * 0.7f), Sponsor, HorizontalAlignment.Left, -1, engraving, new Color(metal.Darkened(0.65f), 0.5f * light));
+			DrawString(brand, at + new Vector2(0, cut), Sponsor, HorizontalAlignment.Left, -1, engraving, new Color(Colors.White, 0.85f * light));
+			DrawString(brand, at, Sponsor, HorizontalAlignment.Left, -1, engraving, new Color(metal.Darkened(0.42f), light));
 		}
 		// (the darker hollow the key sits in)
 		var well = new Rect2(origin + new Vector2(20, 18) * k, new Vector2(plate - 40 * k, plate - 36 * k));
