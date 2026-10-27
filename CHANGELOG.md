@@ -13,6 +13,8 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.12.5b]
+
 ### Changed
 - **Bug reports and ideas land in Max's to-do folders.** Until now each 🐞 report went into a folder named after the screen it came from, and ideas into one per topic, so there was no way to see what's being worked on. Now bugs arrive in "Reported" and ideas in "Requested", and Max moves them on through "WIP" (in a test build), "Pending" (waiting for the public release) and "Resolved". Where the report came from (or what the idea is about) is now in its file name. Reports that couldn't be sent from an older version (no internet) go to the new folders too when they're sent on the next start.
 
