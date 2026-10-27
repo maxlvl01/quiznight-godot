@@ -13,6 +13,11 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.12.6b]
+
+### Added
+- **More categories to pick from in the editor.** "Science" was too broad: a question about frogs, one about black holes and one about acids all landed in the same category, so the stats per category (and the "Science champion" award) couldn't tell a biology whiz from a space nerd. The category list now also has **Biology**, **Chemistry**, **Physics**, **Space & astronomy** and **Human body & medicine**, right under Science, plus **Maths**. "Science" stays for questions that fit none of them, and questions that already have it keep it. (Thanks for the idea!)
+
 ## [0.12.5b]
 
 ### Changed

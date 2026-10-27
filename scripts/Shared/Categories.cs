@@ -12,8 +12,9 @@ public static class Categories
 	/// <summary>The editor's suggestions (English: the translation keys; the file stores what was picked).</summary>
 	public static readonly string[] Presets =
 	{
-		"General knowledge", "Geography", "History", "Science", "Nature & animals", "Music", "Film & TV", "Games",
-		"Sport", "Food & drink", "Art & literature", "Language", "Technology", "Pop culture", "Politics",
+		"General knowledge", "Geography", "History", "Science", "Biology", "Chemistry", "Physics", "Space & astronomy",
+		"Human body & medicine", "Maths", "Nature & animals", "Music", "Film & TV", "Games", "Sport", "Food & drink",
+		"Art & literature", "Language", "Technology", "Pop culture", "Politics",
 	};
 
 	/// <summary>Trimmed, single spaces, at most MaxLength characters.</summary>
