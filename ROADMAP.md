@@ -46,6 +46,16 @@ check doesn't need one) updates itself to 0.12.0b, and the new build then upload
   coordinate space (convert with the viewport's scale), then check at 1280×720, 1920×1080, 2560×1440 and 3440×1440.
   And the animation Max wants: the list **quickly rolls out from under the drop-down's head** (as if it slides out of
   the button) and **rolls back in under it** when it closes (today it only unfolds, and just vanishes on close).
+- [ ] **Reaction test as a lobby mini game, with high scores.** Next to Tetris in the mini games window: "Reaction"
+  — press Start, wait for the buzzer to light up (a random 1.5–4 s), buzz as fast as you can; 5 tries, your best (and
+  average) counts; buzzing too early is a false start. Timed on the player's own PC (no network delay in it, so it's
+  fair over Steam), only the result goes to the host. Two lists, lowest time first:
+  - **Tonight:** everyone's best in this lobby (like the Tetris bests, `ArcadeView`).
+  - **All time:** the best times ever. Kept like the eternal table: each night's lobby bests go to the results repo
+    with the night's results (an extra row type in the CSV, `ResultsUpload`), and the all-time list is added up from
+    `assets/results/` (same player ids; the same night counted once). Shown in the mini games window and on the
+    Statistics screen. (Open: should Tetris get an all-time list the same way?)
+  Uses the Test lab's reaction test (which stays there too, as an option, see the free buzzer item).
 
 ---
 
