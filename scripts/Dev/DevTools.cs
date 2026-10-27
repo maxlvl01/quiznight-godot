@@ -330,6 +330,11 @@ public sealed class DevTools
 				case "testlab":
 					_app.GoTestLab();
 					break;
+				// (a pop-up over the home screen: its title bar and close button)
+				case "dialog":
+					_app.GoHome();
+					Callable.From(() => Ui.Dialogs.Info(_app, "Three ways to play: buzz in, A B C D, or multiple choice.", "Classic question")).CallDeferred();
+					break;
 				case "credits":
 					_app.GoHome();
 					Ui.CreditsWindow.Open();
@@ -705,7 +710,7 @@ public sealed class DevTools
 		var s = host.State;
 		var g = s.Game;
 		var answering = g?.Buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Answering);
-		var key = $"{s.Phase}|{g?.Index}|{g?.Stage}|{g?.Shown}|{g?.BuzzersOpen}|{answering?.PlayerId}|{g?.Buzzes.Count}|{s.Players.Count(p => p.Connected)}|{g?.Timeline?.Placed.Count}|{g?.Timeline?.TurnPlayerId}|{g?.Timeline?.WrongGaps.Count}|{g?.Timeline?.Phase}|{g?.Question.Slide}|{g?.Question.Hints?.Count}|{g?.Interactive?.Phase}|{g?.Interactive?.Clip}|{g?.Interactive?.Plays}|{g?.Interactive?.DoneIds.Count}";
+		var key = $"{s.Phase}|{g?.Index}|{g?.Stage}|{g?.Shown}|{g?.BuzzersOpen}|{answering?.PlayerId}|{g?.Buzzes.Count}|{s.Players.Count(p => p.Connected)}|{g?.Timeline?.Placed.Count}|{g?.Timeline?.TurnPlayerId}|{g?.Timeline?.WrongGaps.Count}|{g?.Timeline?.Phase}|{g?.Question.Slide}|{g?.Question.Hints?.Count}|{g?.Interactive?.Phase}|{g?.Interactive?.Clip}|{g?.Interactive?.Plays}|{g?.Interactive?.DoneIds.Count}|{g?.AnswersClosed}";
 		if (key != _pilotKey)
 		{
 			_pilotKey = key;
@@ -741,6 +746,12 @@ public sealed class DevTools
 				if (g.Question is { SlideCount: > 1, Slide: { } slide } && slide < g.Question.SlideCount - 1 && answering == null)
 				{
 					if (waited > 1.5) host.SetSlide(slide + 1);
+					break;
+				}
+				// Everyone's answers (or votes) are in: reveal, like a host after a moment of suspense.
+				if (g.AnswersClosed)
+				{
+					if (waited > 1.5) host.Reveal();
 					break;
 				}
 				// Interactive: wait for the recordings, play each one, then let everyone vote (or pick the first as favourite).

@@ -549,6 +549,31 @@ public static class UiTheme
 			t.SetStylebox(state, "Window", frame);
 		}
 		t.SetConstant("title_height", "Window", titleHeight);
+		// The close button: a small red key like the game's other buttons (ink outline, a face over a darker side, a thick white ×)
+		// instead of Godot's thin grey cross, in the middle of the title bar's height. (Godot puts the icon's top-left
+		// close_h_offset left of the window's right edge and close_v_offset above its content.)
+		const int closeSize = 28;
+		if (DisplayServer.GetName() != "headless")
+		{
+			static string Hex(Color c) => "#" + c.ToHtml(false);
+			string CloseKey(bool pressed)
+			{
+				var face = new Color("#e8394d");
+				var top = pressed ? 5 : 3;
+				var cy = top + 9.5f;
+				string F(float v) => v.ToString(System.Globalization.CultureInfo.InvariantCulture);
+				return $"<svg xmlns='http://www.w3.org/2000/svg' width='{closeSize}' height='{closeSize}'>" +
+					$"<rect x='1' y='1' width='26' height='26' rx='8' fill='{Hex(C.Ink)}'/>" +
+					$"<rect x='3' y='3' width='22' height='22' rx='6' fill='{Hex(face.Darkened(0.4f))}'/>" +
+					$"<rect x='3' y='{top}' width='22' height='19' rx='6' fill='{Hex(pressed ? face.Lightened(0.1f) : face)}'/>" +
+					$"<path d='M{F(14 - 4.2f)} {F(cy - 4.2f)} L{F(14 + 4.2f)} {F(cy + 4.2f)} M{F(14 + 4.2f)} {F(cy - 4.2f)} L{F(14 - 4.2f)} {F(cy + 4.2f)}' stroke='#ffffff' stroke-width='3' stroke-linecap='round'/>" +
+					"</svg>";
+			}
+			t.SetIcon("close", "Window", DpiTexture.CreateFromString(CloseKey(false)));
+			t.SetIcon("close_pressed", "Window", DpiTexture.CreateFromString(CloseKey(true)));
+		}
+		t.SetConstant("close_v_offset", "Window", (titleHeight + closeSize) / 2);
+		t.SetConstant("close_h_offset", "Window", closeSize + (titleHeight - closeSize) / 2);
 		t.SetColor("title_color", "Window", C.Text);
 		t.SetFont("title_font", "Window", Fonts.Black);
 		t.SetFontSize("title_font_size", "Window", 18);

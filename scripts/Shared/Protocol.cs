@@ -444,6 +444,8 @@ public sealed class GameView
 	public long? AnswerEndsAt;
 	/// <summary>Who has locked in an answer (timed questions).</summary>
 	public List<string> AnsweredIds = new();
+	/// <summary>Not buzzer questions: all answers (or votes) are in or the time is up; the reveal waits for the host.</summary>
+	public bool AnswersClosed;
 	public List<BuzzEntry> Buzzes = new();
 	public bool MediaPlaying;
 	/// <summary>How long the host's sound/video has played so far (at the state's ServerNow), and whether it ever started.</summary>

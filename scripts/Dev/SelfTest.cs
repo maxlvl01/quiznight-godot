@@ -182,7 +182,11 @@ public static class SelfTest
 		Check(g.View("host").EndsAt == clock.Now + 30_000, "typed question runs on its time limit");
 		g.Answer("ann", 0, AnswerValue.Written("dragon born"));
 		g.Answer("bob", 0, AnswerValue.Written("Skyrim"));
-		Eq(g.Stage, Stage.Reveal, "reveal once both typed");
+		Check(g.Stage == Stage.Open && g.AnswersClosed && g.View("ann").AnswersClosed && g.View("host").EndsAt == null, "both typed: answers close, the timer goes, the reveal waits for the host");
+		clock.Now += 60_000;
+		Check(!room.Tick() && g.Stage == Stage.Open, "and no timer reveals it either");
+		Check(g.HostReveal(), "the host reveals");
+		Eq(g.Stage, Stage.Reveal, "reveal once the host says so");
 		Eq(room.Scores["ann"], 1, "the right song scores");
 		Eq(room.Scores["bob"], 0, "a wrong one doesn't");
 		Check(g.ToggleBonus("ann") && room.Scores["ann"] == 3, "host gives the bonus (+2)");
@@ -255,6 +259,8 @@ public static class SelfTest
 		Check(dan != null && dan.JoinedAt == 2 && g.View("dan").LateIds.Contains("dan"), "joining during a game: they come in at this question");
 		Check(!g.Answer("dan", 1, AnswerValue.Number(g.Question.CorrectChoice)).Ok, "but can't answer it");
 		foreach (var p in new[] { "ann", "bob", "cat" }) g.Answer(p, 1, AnswerValue.Number(g.Question.CorrectChoice));
+		Check(g.AnswersClosed, "the answers close without them");
+		g.HostReveal();
 		Eq(g.Stage, Stage.Reveal, "the reveal doesn't wait for them");
 		Eq(room.Scores["cat"], g.Question.Points * 2, "double points");
 		Check(g.View("host").Reveal!.Entries.First(e => e.PlayerId == "cat").Doubled, "the reveal shows the double");
@@ -567,7 +573,11 @@ public static class SelfTest
 		Eq(room.ToState("ann").Players.First(p => p.Id == "cat").LeftAt, 2, "everyone sees when they left");
 		Check(!g.Answer("cat", 1, AnswerValue.Number(0)).Ok && !room.Tick(), "paused: no answers, the clock stands still");
 		Check(g.Continue(), "the host goes on without them");
-		Eq(g.Stage, Stage.Reveal, "reveals when the last missing player is gone");
+		Check(g.Stage == Stage.Open && g.AnswersClosed, "the answers close when the last missing player is gone");
+		Check(!g.Answer("cat", 1, AnswerValue.Number(0)).Ok, "closed: no more answers");
+		Check(room.ToState("host").Game!.AnswersClosed && room.ToState("ann").Game!.AnswersClosed, "everyone sees the answers are closed");
+		room.Next();
+		Eq(g.Stage, Stage.Reveal, "the host's next step reveals");
 		Eq(room.Scores["ann"], 3, "choice points");
 		Eq(g.View("host").Reveal!.Counts![right], 1, "counts");
 
@@ -578,6 +588,8 @@ public static class SelfTest
 		g.Answer("bob", 2, AnswerValue.Number(80));
 		clock.Now += 31_000;
 		Check(room.Tick(), "timer fires");
+		Check(g.Stage == Stage.Open && g.AnswersClosed && !g.Answer("cat", 2, AnswerValue.Number(85)).Ok, "time's up: answers close, cat missed it, the reveal waits");
+		g.HostReveal();
 		var rev = g.View("host").Reveal!;
 		Eq(rev.Entries[0].PlayerId, "ann", "closest first");
 		Eq(rev.Entries[0].Text, "90 keys (+2)", "estimation text");
@@ -589,6 +601,7 @@ public static class SelfTest
 		g.Answer("ann", 3, AnswerValue.At(new NormPoint(0.57, 0.555)));
 		g.Answer("bob", 3, AnswerValue.At(new NormPoint(0.575, 0.555)));
 		g.Answer("cat", 3, AnswerValue.At(new NormPoint(0.9, 0.9)));
+		g.HostReveal();
 		rev = g.View("host").Reveal!;
 		Eq(rev.Entries[0].Text, "0 m off", "exact pin");
 		Check(rev.Entries[1].Text.EndsWith("m off"), "near pin in m: " + rev.Entries[1].Text);
@@ -620,7 +633,9 @@ public static class SelfTest
 		Check(g.Answer("ann", 7, AnswerValue.Picked(rightSet.AsEnumerable().Reverse())).Ok, "ann picks both");
 		g.Answer("bob", 7, AnswerValue.Picked(rightSet.Take(1)));
 		g.Answer("cat", 7, AnswerValue.Picked(new[] { 0, 1, 2, 3 }));
-		Eq(g.Stage, Stage.Reveal, "multi reveals when all answered");
+		Check(g.Stage == Stage.Open && g.AnswersClosed && room.Scores["ann"] == before.Ann, "multi: all answered, nothing scored before the host reveals");
+		g.HostReveal();
+		Eq(g.Stage, Stage.Reveal, "multi reveals when the host says so");
 		Eq(room.Scores["ann"] - before.Ann, 2, "exact set scores");
 		Eq(room.Scores["bob"] - before.Bob, 0, "half the set doesn't");
 		Eq(room.Scores["cat"] - before.Cat, 0, "picking everything doesn't");
@@ -654,7 +669,9 @@ public static class SelfTest
 		g.Answer("ann", 9, AnswerValue.Picked(g.Question.CorrectOrder));
 		g.Answer("bob", 9, AnswerValue.Picked(g.Question.CorrectOrder.AsEnumerable().Reverse()));
 		g.Answer("cat", 9, AnswerValue.Picked(new[] { g.Question.CorrectOrder[1], g.Question.CorrectOrder[0], g.Question.CorrectOrder[2], g.Question.CorrectOrder[3] }));
-		Eq(g.Stage, Stage.Reveal, "order reveals when all answered");
+		Check(g.AnswersClosed, "order: all answered, answers close");
+		g.HostReveal();
+		Eq(g.Stage, Stage.Reveal, "order reveals when the host says so");
 		Eq(room.Scores["ann"] - before.Ann, 8, "perfect order: the points for each of the 4 items");
 		Eq(room.Scores["cat"] - before.Cat, 4, "2 of 4 right still score for those 2");
 		Eq(room.Scores["bob"] - before.Bob, 0, "none right: nothing (no minus unless it's switched on)");
@@ -669,6 +686,7 @@ public static class SelfTest
 		g.Answer("ann", 10, AnswerValue.Written("canbera"));
 		g.Answer("bob", 10, AnswerValue.Written("Sydney"));
 		g.Answer("cat", 10, AnswerValue.Written("The Canberra!"));
+		g.HostReveal();
 		Eq(room.Scores["ann"] - before.Ann, 1, "small typo counts");
 		Eq(room.Scores["cat"] - before.Cat, 1, "case, 'the' and punctuation don't matter");
 		Eq(room.Scores["bob"] - before.Bob, 0, "wrong answer doesn't");
@@ -732,7 +750,9 @@ public static class SelfTest
 		g.Answer("ann", g.Index, AnswerValue.Number(1));
 		g.Answer("bob", g.Index, AnswerValue.Number(0));
 		g.Answer("cat", g.Index, AnswerValue.Number(0));
-		Eq(g.Stage, Stage.Reveal, "everyone voted: reveal");
+		Check(g.Stage == Stage.Open && g.AnswersClosed && !g.Answer("cat", g.Index, AnswerValue.Number(1)).Ok, "everyone voted: voting closes, the reveal waits for the host");
+		g.HostReveal();
+		Eq(g.Stage, Stage.Reveal, "the host reveals the votes");
 		Check(room.Scores["ann"] - votesBefore.Ann == 2 && room.Scores["bob"] - votesBefore.Bob == 1, "a point per vote");
 		Check(g.View("host").Reveal!.WinnerIds.SequenceEqual(new[] { "ann" }), "most votes wins");
 		Check(Game.WavSeconds(wav) is > 0.9 and < 1.1, "a recording's length comes from its WAV header");

@@ -64,6 +64,11 @@ public sealed class Game
 	public bool BuzzersOpen { get; private set; }
 	/// <summary>Past the last question: the room shows the podium.</summary>
 	public bool Finished { get; private set; }
+	/// <summary>
+	/// Everyone has answered or the time is up (not on buzzer questions): no more answers, the timer is gone, and the
+	/// answer waits for the host's Reveal, so they choose the moment of suspense.
+	/// </summary>
+	public bool AnswersClosed { get; private set; }
 
 	readonly Quiz _quiz;
 	readonly IGameHooks _hooks;
@@ -205,6 +210,7 @@ public sealed class Game
 		_playingSince = null;
 		_reveal = null;
 		_endsAt = null;
+		AnswersClosed = false;
 		_tlPlaced.Clear();
 		_tlPlacedBy.Clear();
 		_tlDeck.Clear();
@@ -287,7 +293,8 @@ public sealed class Game
 		}
 		if (Stage != Shared.Stage.Open || _endsAt is not { } ends || _hooks.Now() < ends) return false;
 		if (Question.IsInteractive && _iaPhase == InteractivePhase.Recording) EndRecording();
-		else DoReveal();
+		else if (Question.IsBuzzer) DoReveal();
+		else CloseAnswers();
 		return true;
 	}
 
@@ -388,6 +395,7 @@ public sealed class Game
 		if (Paused) return Result.Fail("The game is paused until everyone is back.");
 		if (_late.Contains(playerId)) return Result.Fail("You joined during this question: you play from the next one.");
 		if (q.IsBuzzer) return Result.Fail("This is a buzzer question.");
+		if (AnswersClosed) return Result.Fail("Answers are closed: the host reveals the answer next.");
 		if (q.IsInteractive) return Vote(playerId, raw?.Num);
 		if (q.IsTimeline)
 		{
@@ -436,7 +444,7 @@ public sealed class Game
 
 		_answers.Add((playerId, value));
 		_hooks.NoteAnswerTime(playerId, _hooks.Now() - _openedAt);
-		if (Active().All(id => _answers.Any(a => a.PlayerId == id))) DoReveal();
+		if (Active().All(id => _answers.Any(a => a.PlayerId == id))) CloseAnswers();
 		return Result.Success();
 	}
 
@@ -452,10 +460,19 @@ public sealed class Game
 			return true;
 		}
 		if (Stage == Shared.Stage.Open && Question.IsInteractive && Shown) return CheckInteractiveDone();
-		if (Stage != Shared.Stage.Open || Question.IsBuzzer || _answers.Count == 0) return false;
+		if (Stage != Shared.Stage.Open || Question.IsBuzzer || AnswersClosed || _answers.Count == 0) return false;
 		if (!Active().All(id => _answers.Any(a => a.PlayerId == id))) return false;
-		DoReveal();
+		CloseAnswers();
 		return true;
+	}
+
+	/// <summary>Everyone's answers are in (or the time is up): answering ends, and the reveal waits for the host.</summary>
+	void CloseAnswers()
+	{
+		if (AnswersClosed || Stage != Shared.Stage.Open) return;
+		Trace.Log("game", $"answers closed on question {Index + 1}: waiting for the host to reveal");
+		AnswersClosed = true;
+		_endsAt = null;
 	}
 
 	/// <summary>The host reveals the answer (nobody knows it, or no need to wait for the timer).</summary>
@@ -541,9 +558,9 @@ public sealed class Game
 			EndRecording();
 			return true;
 		}
-		if (_iaPhase == InteractivePhase.Voting && Voters().All(_votes.ContainsKey))
+		if (_iaPhase == InteractivePhase.Voting && !AnswersClosed && Voters().All(_votes.ContainsKey))
 		{
-			DoReveal();
+			CloseAnswers();
 			return true;
 		}
 		return false;
@@ -607,6 +624,7 @@ public sealed class Game
 	Result Vote(string playerId, double? clip)
 	{
 		if (_iaPhase != InteractivePhase.Voting) return Result.Fail("Voting hasn't started yet.");
+		if (AnswersClosed) return Result.Fail("Voting is over: the host reveals the result next.");
 		if (clip is not { } c || c != Math.Floor(c) || c < 0 || c >= _clipOrder.Count) return Result.Fail("Pick a recording.");
 		if (_clipOrder[(int)c] == playerId) return Result.Fail("You can't vote for your own recording.");
 		if (_votes.ContainsKey(playerId)) return Result.Fail("You already voted.");
@@ -1281,6 +1299,7 @@ public sealed class Game
 			Shown = Shown || !open,
 			BuzzersOpen = BuzzersOpen,
 			EndsAt = open ? _endsAt : null,
+			AnswersClosed = open && AnswersClosed,
 			AnswerEndsAt = open && _answeringSince is { } since ? since + _hooks.AnswerTimeSec() * 1000L : null,
 			// (interactive: who has sent a recording, then who has voted)
 			AnsweredIds = Question.IsInteractive

@@ -174,18 +174,39 @@ public partial class SettingsScreen : Control
 		var top = inWindow
 			? U.H(16, U.Heading("Settings", 34).Grow(), U.Small("Close", () => Leave()).With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter))
 			: U.H(16, U.Link("← Home", () => Leave()).With(b => b.SizeFlagsVertical = SizeFlags.ShrinkCenter), U.Heading("Settings", 34));
-		var page = U.V(14, top,
-			U.H(14, U.V(14, audio, accessibility).Grow(), U.V(14, video, language).Grow()));
-		// The buttons stay at the bottom of the screen; the settings scroll above them.
-		var scroll = U.Page(page, 980, 20);
+		var columns = U.H(14, U.V(14, audio, accessibility).Grow(), U.V(14, video, language).Grow());
+		// The buttons stay at the bottom of the screen; the settings scroll above them. In the window over a lobby or game
+		// the title and Close stay at the top too, outside the scrolling page, so nothing can push Close out of sight; and
+		// if the page is ever wider than the window, it scrolls sideways instead of being cut off.
+		var scroll = U.Page(inWindow ? columns : U.V(14, top, columns), 980, inWindow ? 6 : 20);
 		scroll.SizeFlagsVertical = SizeFlags.ExpandFill;
-		var footer = new Column { MaxWidth = 980, PadTop = 0 };
-		footer.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-		footer.AddChild(U.Pad(bar, 0, 12, 0, 14));
-		var footerPanel = U.Panel(footer, "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel, 0, C.Border, 0, 0, 0)));
-		var root = U.V(0, scroll, new HSeparator(), footerPanel);
+		if (inWindow) scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Auto;
+		Control Bar(Control content, int padTop, int padBottom)
+		{
+			var column = new Column { MaxWidth = 980, PadTop = 0 };
+			column.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+			column.AddChild(U.Pad(content, 0, padTop, 0, padBottom));
+			return column;
+		}
+		var footerPanel = U.Panel(Bar(bar, 12, 14), "Clear").With(p => p.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel, 0, C.Border, 0, 0, 0)));
+		var root = inWindow ? U.V(0, Bar(top, 18, 4), scroll, new HSeparator(), footerPanel) : U.V(0, scroll, new HSeparator(), footerPanel);
 		root.SetAnchorsPreset(LayoutPreset.FullRect);
 		AddChild(root);
+		// The drop-downs fit their column and cut a long entry short ("Screen 2 · 3440 × 1440 (main screen)", the animated
+		// background's name), and tick boxes wrap their text, instead of being as wide as their longest text: that made the
+		// page wider than the Settings window in a game, which cut off its right column and the Close button.
+		static void FitWidth(Node n)
+		{
+			if (n is OptionButton o)
+			{
+				o.FitToLongestItem = false;
+				o.ClipText = true;
+				o.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+			}
+			else if (n is CheckBox box) box.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+			foreach (var child in n.GetChildren()) FitWidth(child);
+		}
+		FitWidth(root);
 		UpdateBar();
 	}
 

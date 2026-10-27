@@ -183,7 +183,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 
 		var answering = game.Buzzes.FirstOrDefault(b => b.Status == BuzzStatus.Answering);
 		var last = game.Index + 1 >= game.Total;
-		_controls.Set($"{key}{iaKey}|{answering?.PlayerId}|{answering?.AtSec}|{game.Buzzes.Count}|{game.Buzzes.Count(b => b.Status == BuzzStatus.Wrong)}|{game.Shown}|{game.BuzzersOpen}|{tl?.TurnPlayerId}|{tl?.Current}|{tl?.Phase}|{GameParts.PausedText(room)}", () =>
+		_controls.Set($"{key}{iaKey}|{answering?.PlayerId}|{answering?.AtSec}|{game.Buzzes.Count}|{game.Buzzes.Count(b => b.Status == BuzzStatus.Wrong)}|{game.Shown}|{game.BuzzersOpen}|{tl?.TurnPlayerId}|{tl?.Current}|{tl?.Phase}|{game.AnswersClosed}|{GameParts.PausedText(room)}", () =>
 		{
 			var row = GameParts.Row(10);
 			row.Alignment = BoxContainer.AlignmentMode.End;
@@ -226,6 +226,14 @@ public partial class HostGameScreen : Control, IRoomScreen
 				row.AddChild(U.Btn(Lang.F("Skip {0}", room.Player(turnId).Name), "", _host.SkipTurn).Tip("The next player tries the same item"));
 			if (tl is { Current: not null, Phase: not TimelinePhase.Locked })
 				row.AddChild(U.Btn("Place it for free", "", _host.PlaceForFree).Tip("Puts the item in its place without points; the next player gets the next one"));
+			// Everyone's answers (or votes) are in, or the time is up: the host reveals when they're ready.
+			if (game.Stage == Stage.Open && game.AnswersClosed)
+			{
+				row.AddChild(U.Text(Lang.T(ia != null ? "Everyone has voted. Reveal the result when you're ready." : "The answers are in. Reveal it when you're ready."), 17, C.Accent, Fonts.Bold, true).Grow());
+				if (game.HostAnswer != null && tl == null) row.AddChild(new PeekButton(game.HostAnswer));
+				row.AddChild(U.Btn("Reveal answer  (Space)", "AccentButton", _host.Reveal, 20));
+				return row;
+			}
 			if (game.Stage == Stage.Open && ia != null)
 			{
 				InteractiveControls(row, room, ia);
@@ -326,11 +334,11 @@ public partial class HostGameScreen : Control, IRoomScreen
 		row.AddChild(U.Btn("Start voting", "AccentButton", _host.StartVoting, 20).Tip("Once you've played them all: everyone votes on their PC"));
 	}
 
-	/// <summary>Space: show the hidden question, then unlock the buzzers. ← →: flip a picture slideshow.</summary>
+	/// <summary>Space: show the hidden question, then unlock the buzzers, or reveal once the answers are in. ← →: flip a picture slideshow.</summary>
 	public override void _UnhandledKeyInput(InputEvent e)
 	{
 		if (e is InputEventKey { Pressed: true, Keycode: Key.Left or Key.Right or Key.Space } k && _game?.Interactive is { Phase: not InteractivePhase.Recording } ia
-			&& _game.Shown && ia.Clips.Count > 0)
+			&& _game.Shown && ia.Clips.Count > 0 && !(k.Keycode == Key.Space && _game.AnswersClosed))
 		{
 			if (k.Keycode == Key.Space) _host.PlayClip();
 			else _host.SetClip(ia.Clip + (k.Keycode == Key.Right ? 1 : -1));
@@ -351,6 +359,7 @@ public partial class HostGameScreen : Control, IRoomScreen
 		}
 		if (e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Space } || _game is not { Stage: Stage.Open, Paused: false } game) return;
 		if (!game.Shown) _host.ShowQuestion();
+		else if (game.AnswersClosed) _host.Reveal();
 		else if (game.Timeline?.Phase == TimelinePhase.Locked) _host.RevealPlacement();
 		else if (game.Timeline?.Phase == TimelinePhase.Result) _host.NextTurn();
 		else if (game.Question.Buzzer && !game.BuzzersOpen && game.Buzzes.All(b => b.Status != BuzzStatus.Answering)) _host.SetBuzzers(true);

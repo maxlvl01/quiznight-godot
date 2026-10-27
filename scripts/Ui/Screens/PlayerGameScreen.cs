@@ -179,9 +179,17 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			_panel.Set($"{key}|late", () => Status(U.Bold("Watch along", 26), U.Muted("You're in from the next question.", 16)));
 			return;
 		}
+		// The answers (or votes) are in or the time is up, and the host reveals next. Without an answer of their own this
+		// player missed it; with one they still see it, now with "the host reveals it" instead of "waiting for the others".
+		var closed = game.AnswersClosed ? "|closed" : "";
+		if (game.AnswersClosed && game.MyAnswer == null && game.Interactive?.MyVote == null)
+		{
+			_panel.Set($"{key}|missed", () => Status(U.Bold(game.Interactive != null ? "Voting is over" : "Time's up!", 28), U.Muted("The host reveals the answer in a moment…", 16)));
+			return;
+		}
 		if (game.Interactive is { } ia)
 		{
-			_panel.Set($"{key}|ia|{ia.Phase}|{(ia.Phase == InteractivePhase.Recording ? "" : ia.Clip.ToString())}|{ia.MyVote}", () => Interactive(room, ia));
+			_panel.Set($"{key}{closed}|ia|{ia.Phase}|{(ia.Phase == InteractivePhase.Recording ? "" : ia.Clip.ToString())}|{ia.MyVote}", () => Interactive(room, ia));
 			return;
 		}
 		if (q.Buzzer)
@@ -191,13 +199,13 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			var place = game.Buzzes.Where(b => b.Status == BuzzStatus.Waiting).ToList().FindIndex(b => b.PlayerId == MyId);
 			_panel.Set($"{key}|{mine?.Status}|{place}|{answering?.PlayerId}|{game.BuzzersOpen}|{game.Paused}", () => Buzzer(room));
 		}
-		else if (q.Choices != null) _panel.Set($"{key}|{game.MyAnswer?.Num}|{string.Join(",", game.MyAnswer?.Picks ?? new List<int>())}", () => Choices(room));
+		else if (q.Choices != null) _panel.Set($"{key}{closed}|{game.MyAnswer?.Num}|{string.Join(",", game.MyAnswer?.Picks ?? new List<int>())}", () => Choices(room));
 		else if (game.Timeline is { } tl)
 			_panel.Set($"{key}|tl|{tl.Phase}|{tl.PendingGap}|{tl.Placed.Count}|{tl.TurnPlayerId}|{string.Join(",", tl.WrongGaps)}|{tl.Last?.Kind}{tl.Last?.PlayerId}{tl.Last?.Item}", () => Timeline(room));
-		else if (q.Type == QuestionType.Order) _panel.Set($"{key}|{game.MyAnswer?.Picks != null}", () => Order(room));
-		else if (q.Written) _panel.Set($"{key}|{game.MyAnswer?.Text}", () => Write(room));
-		else if (q.Type == QuestionType.Estimation) _panel.Set($"{key}|{game.MyAnswer?.Num}", () => Estimate(room));
-		else _panel.Set($"{key}|{game.MyAnswer?.Point != null}", () => MapPin(room));
+		else if (q.Type == QuestionType.Order) _panel.Set($"{key}{closed}|{game.MyAnswer?.Picks != null}", () => Order(room));
+		else if (q.Written) _panel.Set($"{key}{closed}|{game.MyAnswer?.Text}", () => Write(room));
+		else if (q.Type == QuestionType.Estimation) _panel.Set($"{key}{closed}|{game.MyAnswer?.Num}", () => Estimate(room));
+		else _panel.Set($"{key}{closed}|{game.MyAnswer?.Point != null}", () => MapPin(room));
 	}
 
 	/// <summary>
@@ -280,11 +288,14 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		}
 		if (ia.Phase == InteractivePhase.Voting)
 			return Status(U.Bold(ia.MyVote is { } v && v < ia.Clips.Count ? Lang.F("You voted for {0}", room.Player(ia.Clips[v].PlayerId).Name) : Lang.T("Voting"), 26),
-				U.Muted("Waiting for the others to vote…", 16));
+				U.Muted(game.AnswersClosed ? "The host reveals the result in a moment…" : "Waiting for the others to vote…", 16));
 		if (ia.Clips.Count == 0) return Status(U.Muted("Nobody sent a recording.", 16));
 		return Status(InteractiveParts.ClipCard(room, ia, 22),
 			U.Muted(ia.Judging == Judging.Host ? "The host plays everyone's recording and picks a favourite." : "The host plays everyone's recording. Then everyone votes for the best.", 16));
 	}
+
+	/// <summary>Under a locked-in answer: the others are still answering, or everyone's in and the host reveals next.</summary>
+	static string Waiting(GameView game) => game.AnswersClosed ? "Everyone's in! The host reveals the answer in a moment…" : "Waiting for the others…";
 
 	static Control Status(params Control[] kids)
 	{
@@ -407,7 +418,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		if (locked != null)
 		{
 			var letters = string.Join(", ", locked.Select(i => QuizRules.ChoiceLetters[i]));
-			list.AddChild(U.Muted(Lang.F("Locked in: {0}. Waiting for the others…", letters), 15, false, HorizontalAlignment.Center).Center());
+			list.AddChild(U.Muted(Lang.F(game.AnswersClosed ? "Locked in: {0}. The host reveals the answer in a moment…" : "Locked in: {0}. Waiting for the others…", letters), 15, false, HorizontalAlignment.Center).Center());
 		}
 		list.AddChild(error);
 		return list;
@@ -418,7 +429,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		var game = room.Game!;
 		var unit = game.Question.Unit ?? "";
 		if (game.MyAnswer?.Num is { } mine)
-			return Status(U.Muted("Locked in", 15), U.Text($"{Server.Game.Fmt(mine)} {unit}".Trim(), 44, C.Text, Fonts.Mono).Raw(), U.Muted("Waiting for the others…", 14));
+			return Status(U.Muted("Locked in", 15), U.Text($"{Server.Game.Fmt(mine)} {unit}".Trim(), 44, C.Text, Fonts.Mono).Raw(), U.Muted(Waiting(game), 14));
 		var error = U.Error();
 		var lockIn = U.Btn("Lock in guess", "TealButton", null, 20);
 		lockIn.Disabled = true;
@@ -443,7 +454,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 		{
 			var mine = U.V(6, U.Muted("Locked in", 15));
 			for (var i = 0; i < locked.Count; i++) mine.AddChild(U.Text($"{i + 1}. {items[locked[i]]}", 18).Raw());
-			mine.AddChild(U.Muted("Waiting for the others…", 14));
+			mine.AddChild(U.Muted(Waiting(game), 14));
 			return Status(mine);
 		}
 		// Starts in the order the host shows them.
@@ -579,7 +590,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 	{
 		var game = room.Game!;
 		if (game.MyAnswer?.Text is { } mine)
-			return Status(U.Muted("Locked in", 15), U.Text(mine, 32, C.Text, Fonts.Bold, true).Raw(), U.Muted("Waiting for the others…", 14));
+			return Status(U.Muted("Locked in", 15), U.Text(mine, 32, C.Text, Fonts.Bold, true).Raw(), U.Muted(Waiting(game), 14));
 		var error = U.Error();
 		var watch = WatchHint(game.Question);
 		var lockIn = U.Btn("Lock in answer", "TealButton", null, 20);
@@ -601,7 +612,7 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 	{
 		var game = room.Game!;
 		var q = game.Question;
-		if (game.MyAnswer?.Point != null) return Status(U.Bold("Pin locked in", 24), U.Muted("Waiting for the others…", 15));
+		if (game.MyAnswer?.Point != null) return Status(U.Bold("Pin locked in", 24), U.Muted(Waiting(game), 15));
 		NormPoint? pin = null;
 		var error = U.Error();
 		var lockIn = U.Btn("Tap the map to place your pin", "TealButton", null, 18);
