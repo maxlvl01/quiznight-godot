@@ -200,6 +200,14 @@ bump `QuizRules.FormatVersion` and keep old files loading.
 **Never `git push` (or push tags, create releases/PRs) without the user's explicit approval for that
 specific push.** Committing locally is fine.
 
+## Roadmap (one shared doc, not a file)
+
+The roadmap lives in **one Claude Doc, "Quiznight? Roadmap"**: https://claude.ai/artifact/4PoK3kHoJwtFEUVHs7UKTT
+(doc id `1b7a51b6-3f58-4416-96b8-41b7e6af835e`). Every chat reads and edits that doc with the docs tools (load the docs
+skill first), so it never needs merging between worktrees. **Don't keep or edit a ROADMAP.md in the repo**; the file
+only points to the doc. When an item is done, tick it in the doc with its version. The public, player-friendly copy is
+ROADMAP.md in `maxlvl01/quiznight-releases`, refreshed from the doc only when Max says so.
+
 ## Next up
 
 1. Install export templates and make a Windows build friends can run; check Steam works from it.
