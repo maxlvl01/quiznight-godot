@@ -1,6 +1,6 @@
 // Every dropdown (OptionButton) in the game: a chunky arrow in the party show style instead of Godot's thin one, pointing
-// up while the list is open, and the list hangs right under its button and unfolds smoothly (easing out) instead of popping
-// in anywhere it fits; long lists scroll inside. App installs it once; it catches every OptionButton as it's made.
+// up while the list is open, and the list hangs right under its button, rolling out from under it and back in when it
+// closes, instead of popping in anywhere it fits; long lists scroll inside. App installs it once; it catches every OptionButton as it's made.
 
 using System;
 using System.Collections.Generic;
@@ -16,7 +16,7 @@ public static class DropDowns
 	};
 
 	const string Hooked = "dropdown_hooked";
-	const double UnfoldSec = 0.26;
+	const double UnfoldSec = 0.16, RollInSec = 0.12;
 	/// <summary>A long list shows this many rows and scrolls for the rest.</summary>
 	const int MaxRows = 10;
 	/// <summary>Room kept between a list and the window's edge.</summary>
@@ -34,15 +34,18 @@ public static class DropDowns
 		};
 		popup.PopupHide += () =>
 		{
-			if (GodotObject.IsInstanceValid(o)) o.AddThemeIconOverride("arrow", Arrow(false));
+			if (!GodotObject.IsInstanceValid(o)) return;
+			o.AddThemeIconOverride("arrow", Arrow(false));
+			RollIn(popup, o);
 		};
 	}
 
 	/// <summary>
 	/// Where the list goes: right under its button (above it only if there's no room below), never over it; a long list
 	/// (categories, units) is cut to what fits, at most <see cref="MaxRows"/> rows, and scrolls inside itself. Then it
-	/// unfolds from the button, easing out. (The list is its own small window: it's see-through round its rounded panel,
-	/// so no black box shows while it grows.)
+	/// rolls out from under the button, quickly. (The list is its own small window, which won't get smaller than its
+	/// items unless its MaxSize says so: that's what cuts it and makes it scroll. It's see-through round its rounded
+	/// panel, so no black box shows while it moves.)
 	/// </summary>
 	static void Unfold(PopupMenu popup, OptionButton o)
 	{
@@ -50,6 +53,7 @@ public static class DropDowns
 		popup.TransparentBg = true;
 		var button = o.GetGlobalRect();
 		var screen = o.GetViewportRect();
+		popup.MaxSize = Vector2I.Zero;
 		var natural = popup.GetContentsMinimumSize();
 		var row = natural.Y / Math.Max(1, popup.ItemCount);
 		var wanted = Mathf.Min(natural.Y, row * MaxRows + 12);
@@ -61,18 +65,48 @@ public static class DropDowns
 		void Height(float h)
 		{
 			if (!GodotObject.IsInstanceValid(popup) || !popup.Visible) return;
-			var height = Mathf.RoundToInt(h);
+			var height = Mathf.Max(1, Mathf.RoundToInt(h));
+			popup.MaxSize = new Vector2I(MaxWidth, height);
 			popup.Size = new Vector2I(full.X, height);
 			popup.Position = new Vector2I(x, upwards ? top + full.Y - height : top);
+			// (where it is, so closing can roll it back in from there)
+			popup.SetMeta(Shown, new Rect2(popup.Position, popup.Size));
+			popup.SetMeta(Up, upwards);
 		}
 		if (Announcer.ReduceMotion)
 		{
 			Height(full.Y);
 			return;
 		}
-		Height(full.Y * 0.15f);
+		Height(0);
 		var tween = o.CreateTween();
-		tween.TweenMethod(Callable.From<float>(Height), full.Y * 0.15f, (float)full.Y, UnfoldSec).SetTrans(Tween.TransitionType.Quart).SetEase(Tween.EaseType.Out);
+		tween.TweenMethod(Callable.From<float>(Height), 0f, (float)full.Y, UnfoldSec).SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
+	}
+
+	const string Shown = "dropdown_rect", Up = "dropdown_up";
+	const int MaxWidth = 4096;
+
+	/// <summary>
+	/// Closing: the list's panel rolls back in under its button (the list window itself is gone at once, so a panel
+	/// shaped like it does the rolling).
+	/// </summary>
+	static void RollIn(PopupMenu popup, OptionButton o)
+	{
+		if (Announcer.ReduceMotion || !GodotObject.IsInstanceValid(o) || !o.IsInsideTree() || !popup.HasMeta(Shown)) return;
+		var rect = popup.GetMeta(Shown).AsRect2();
+		var upwards = popup.GetMeta(Up).AsBool();
+		var panel = new Panel { MouseFilter = Control.MouseFilterEnum.Ignore, TopLevel = true, ZIndex = 4000, ClipContents = true };
+		panel.AddThemeStyleboxOverride("panel", o.GetThemeStylebox("panel", "PopupMenu"));
+		panel.Position = rect.Position;
+		panel.Size = rect.Size;
+		o.GetTree().Root.AddChild(panel);
+		var tween = panel.CreateTween();
+		tween.TweenMethod(Callable.From<float>(h =>
+		{
+			panel.Size = new Vector2(rect.Size.X, h);
+			if (upwards) panel.Position = new Vector2(rect.Position.X, rect.End.Y - h);
+		}), rect.Size.Y, 0f, RollInSec).SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.In);
+		tween.TweenCallback(Callable.From(panel.QueueFree));
 	}
 
 	static readonly Dictionary<(bool Up, Color Color), ImageTexture> Arrows = new();
