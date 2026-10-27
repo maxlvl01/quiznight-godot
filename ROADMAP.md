@@ -10,17 +10,22 @@ off (`- [x]`) when they're done, with the version they came in.
 
 ---
 
-## 0.12.0d4 — collecting (nothing built yet)
+## 0.12.0d5 — collecting (nothing built yet)
 
 **Before 0.12.0b goes public, check:** a public 0.11.4b (it has no results token, see 0.12.0d3's changelog; its update
 check doesn't need one) updates itself to 0.12.0b, and the new build then uploads results and crash logs again.
 
-- [ ] **Videos at most 720p.** Still sharp on everyone's screen, and much less to send to every player (helps the stress
+
+---
+
+## 0.12.0d4 — test build (done)
+
+- [x] (0.12.0d4) **Videos at most 720p.** Still sharp on everyone's screen, and much less to send to every player (helps the stress
   test night). Today only the copy-paste ffmpeg command (`Media.ConvertCommand`) caps the width at 1280; AnyConverter's
   `--format ogv` (what `VideoGuide` opens) keeps the full size, and an .ogv added as it is isn't checked. Plan:
   AnyConverter scales to max 1280×720 when Quiznight opens it; the editor notices bigger .ogv files and offers to shrink
   them. (From the 1.0 roadmap chat, 27 October 2026; Max wants it in 0.12.)
-- [ ] **"Report a bug" on every screen.** Only ever sent by hand: a small 🐞 button (corner of every screen, also in
+- [x] (0.12.0d4) **"Report a bug" on every screen.** Only ever sent by hand: a small 🐞 button (corner of every screen, also in
   lobbies and games, next to the Settings gear there) opens a small window with **one text box: what happened**, and
   Send. The **category comes from where it was opened**, filled in by the game, not picked: e.g. "Editor › Map pin",
   "Quiz list", "Lobby (host)", "Waiting room", "Game (player) › Buzzer question", "Reveal", "Podium", "Mini games ›
@@ -34,19 +39,19 @@ check doesn't need one) updates itself to 0.12.0b, and the new build then upload
   screenshot of the screen as it was when 🐞 was pressed (`.png`, same name). "Thanks, Max will look at it"
   afterwards; if the upload fails it's kept and sent on the next start. Max reads them in the repo and hands them to
   Claude. (Settings' "What the game sends" mentions it.)
-- [ ] **Test lab: the buzzer is free to press.** Today the BUZZ! button in the Test lab is locked until Start's
+- [x] (0.12.0d4) **Test lab: the buzzer is free to press.** Today the BUZZ! button in the Test lab is locked until Start's
   reaction test unlocks it (Max: "I just want to press the button and hear my standard sound"). Instead: the button
   is always unlocked, presses down like in a game and plays the buzzer sound picked in Settings, every time. The
   reaction test becomes optional (its own small "Reaction test" button next to it, which locks the buzzer until the
   random moment as now).
-- [ ] **Drop-downs still run off the screen and don't scroll (big windows).** Max's Category list at his screen size
+- [x] (0.12.0d4) **Drop-downs still run off the screen and don't scroll (big windows).** Max's Category list at his screen size
   hangs past the window's bottom and can't be scrolled. Likely: 0.12.0d2's `DropDowns.Unfold` measures the button and
   the room left in the game's own 1280×720 units but sizes the list window in screen pixels; at 1280×720 they match
   (that's all that was tested), on a bigger window the game is scaled up and the list comes out too long. Fix: one
   coordinate space (convert with the viewport's scale), then check at 1280×720, 1920×1080, 2560×1440 and 3440×1440.
   And the animation Max wants: the list **quickly rolls out from under the drop-down's head** (as if it slides out of
   the button) and **rolls back in under it** when it closes (today it only unfolds, and just vanishes on close).
-- [ ] **Reaction test as a lobby mini game, with high scores.** Next to Tetris in the mini games window: "Reaction"
+- [x] (0.12.0d4) **Reaction test as a lobby mini game, with high scores.** Next to Tetris in the mini games window: "Reaction"
   — press Start, wait for the buzzer to light up (a random 1.5–4 s), buzz as fast as you can; 5 tries, your best (and
   average) counts; buzzing too early is a false start. Timed on the player's own PC (no network delay in it, so it's
   fair over Steam), only the result goes to the host. Two lists, lowest time first, **shown like F1 timing**: the
@@ -59,7 +64,7 @@ check doesn't need one) updates itself to 0.12.0b, and the new build then upload
     Statistics screen. **Tetris gets the same:** tonight's bests and an all-time list (highest score first; F1 style
     with the gap to the leader and to the one ahead in points, purple for the all-time best, green for a personal best).
   Uses the Test lab's reaction test (which stays there too, as an option, see the free buzzer item).
-- [ ] **Buzzer engraving: on every buzzer, and easier to see.** The smaller buzzers (the Test lab's, 120 px) show no
+- [x] (0.12.0d4) **Buzzer engraving: on every buzzer, and easier to see.** The smaller buzzers (the Test lab's, 120 px) show no
   TRACKGLOW at all: the engraving is left out below a 6 px font (`BuzzButton._Draw`), and on the big one it's barely
   visible. Draw it on every size (a smaller font on small buzzers, never left out) and make the cut deeper: a darker,
   more pronounced shadow edge on top and a stronger light edge underneath, still in the metal's own colours (not

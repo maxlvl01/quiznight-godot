@@ -13,6 +13,24 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.12.0d4]
+
+### Added
+- **Report a bug, from every screen.** The new 🐞 button in the bottom left (above the jukebox's) opens a small window: write what happened, press Send. The game knows where you were and files it there by itself ("Editor › Map pin", "Game (player) › Buzzer question", "Mini games › 8-ball" …), adds a screenshot of the screen as it was, its version and the end of its log (your Windows user name left out), and sends it to Max. Without internet it goes the next time you start the game. Nothing is ever sent unless you press Send.
+- **Reaction test in the mini games.** Wait for the buzzer to light up, then buzz as fast as you can: five tries, your best counts, buzzing too early is a false start. It's timed on your own PC, so lag doesn't matter.
+- **High scores like F1 timing,** for Reaction and Tetris: tonight's and of all time, the leader with their time or score and everyone else with the gap to the leader and to the one ahead; purple for the best of all time, green for a personal best. The lobby's bests go with the night's results, so the all-time lists grow from night to night.
+- **Pick your microphone in Settings** (Audio → Microphone), in case the game records with the wrong one for Interactive questions.
+- **Videos at most 720p.** The editor shows when a video is bigger ("This video is 1920×1080") and shrinks it with one button, and AnyConverter and the ffmpeg command now make videos 720p at most. Smaller videos are quicker to send to everyone before the night, and still sharp.
+
+### Changed
+- **Drop-down lists roll out from under their button quickly, and roll back in when they close.**
+- **The TRACKGLOW engraving on the buzzer is easier to see,** and it's on every buzzer now, also the small ones.
+- **Test lab:** the buzzer is free to press (it plays your buzzer sound); the reaction test is its own button.
+
+### Fixed
+- **Long drop-down lists ran off the screen and couldn't scroll** on bigger windows (e.g. the categories). Godot wouldn't let a list be shorter than all its rows, so it grew back to full length; now it's cut to fit the window and scrolls.
+- **Test lab:** the welcome screen couldn't be closed (Escape and right-click did nothing); the microphone test kept the microphone on (now there's a Stop button and a countdown, and the microphone is only on while recording).
+
 ## [0.12.0d3]
 
 ### Fixed
