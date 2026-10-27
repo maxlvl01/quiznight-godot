@@ -45,6 +45,14 @@ check doesn't need one) updates itself to 0.12.0b, and the new build then upload
       - **Rare Star Wars guests:** now and then a Star Destroyer glides slowly across the far background, small and
         dark against the stars; even rarer, a subtle Death Star sits half in shadow among the planets for a while. Drawn
         by us, as silhouettes with a few lights, so they're easy to miss.
+        - **The Death Star can fire:** while it's there, a small chance it blows up one of the planets (a green beam,
+          a flash, the planet breaking into glowing pieces and a ring of debris that slowly fades). The planet comes back
+          later.
+        - **Star Wars-inspired planets** among the others: a desert planet with two suns, an ice planet, a gas giant
+          with a cloud city glinting on it, a forest moon, a lava planet.
+        - **Ships and fighters flying past now and then:** X-wings and TIE fighters (sometimes chasing each other,
+          with little laser shots), a Millennium Falcon-style freighter, a Star Destroyer's shuttle. Small and quick,
+          mostly at the edges, so they don't pull eyes off the quiz.
       - Stays still when "Background motion" is off (stars don't twinkle, nothing floats, the rocket just isn't there).
 - [ ] **Test drop-downs in the Test lab:** a few drop-downs (short, long, scrolling) to check how they open and roll in.
 
