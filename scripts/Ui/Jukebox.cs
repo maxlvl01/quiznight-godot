@@ -1,4 +1,4 @@
-// The jukebox: a note button in the bottom left of every screen. It opens a small panel to switch the music off (saved,
+// The jukebox: a note button on every screen (bottom left, or where the screen has room for it: ButtonDock). It opens a small panel to switch the music off (saved,
 // so it stays off next time) and on, skip to the next or previous song, or pick one from what this screen plays
 // (UiAudio's songs for its place). The "Now playing" card slides in beside it.
 
@@ -11,10 +11,9 @@ namespace QuizNight.Ui;
 
 public partial class Jukebox : Control
 {
-	const float ButtonSize = 44;
-	const float Margin = 20;
-	/// <summary>Where the button ends on the left: the "Now playing" card starts after it.</summary>
-	public const float Right = Margin + ButtonSize;
+	const float Margin = ButtonDock.Margin;
+	/// <summary>Where the "Now playing" card starts: after the button in the corner, else at the edge.</summary>
+	public static float CardX => ButtonDock.InCorner ? Margin + ButtonDock.Note + 10 : Margin;
 
 	readonly Button _button;
 	readonly NoteIcon _icon = new();
@@ -47,10 +46,9 @@ public partial class Jukebox : Control
 
 		_button = new Button
 		{
-			ThemeTypeVariation = "SmallButton", FocusMode = FocusModeEnum.None, Size = new Vector2(ButtonSize, ButtonSize),
+			ThemeTypeVariation = "SmallButton", FocusMode = FocusModeEnum.None,
 			TooltipText = "Jukebox", AccessibilityName = Lang.T("Jukebox"), MouseDefaultCursorShape = CursorShape.PointingHand,
 		};
-		_button.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomLeft, LayoutPresetMode.KeepSize, (int)Margin);
 		_icon.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, 6);
 		_button.AddChild(_icon);
 		_button.Pressed += () => Open(!_panel!.Visible);
@@ -72,12 +70,22 @@ public partial class Jukebox : Control
 		_panel.AddThemeStyleboxOverride("panel", UiTheme.Box(C.Panel, 14, C.Border, 2, 14, 12));
 		_panel.CustomMinimumSize = new Vector2(340, 0);
 		_panel.Visible = false;
-		_panel.SetAnchorsPreset(LayoutPreset.BottomLeft);
-		_panel.GrowVertical = GrowDirection.Begin;
-		_panel.OffsetLeft = Margin;
-		_panel.OffsetBottom = _panel.OffsetTop = -(Margin + ButtonSize + 10);
 		AddChild(_panel);
 		AddChild(_button);
+	}
+
+	// (the button follows its place (ButtonDock); the panel opens above it, or below it when it's in a top bar)
+	public override void _Process(double delta)
+	{
+		ButtonDock.Follow(_button, 0);
+		if (!_panel.Visible) return;
+		var button = ButtonDock.Place(0);
+		var room = Size;
+		var size = _panel.GetCombinedMinimumSize();
+		var x = Mathf.Clamp(button.Position.X, Margin, Mathf.Max(Margin, room.X - size.X - Margin));
+		var y = button.Position.Y > room.Y / 2 ? button.Position.Y - 10 - size.Y : button.End.Y + 10;
+		_panel.Position = new Vector2(x, y);
+		_panel.Size = size;
 	}
 
 	public override void _Ready()

@@ -13,6 +13,14 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.12.7d2]
+
+### Added
+- **Fullscreen in another picture shape.** In Settings, Fullscreen and Borderless now have **Picture shape**: the whole screen as before, or 16:9, 16:10, 4:3, 21:9 or 32:9 with black bars around it. Handy on an ultrawide to see the game exactly as friends on a normal 16:9 screen do. It's still drawn as sharp as your monitor. Until now the size picker was simply greyed out in fullscreen ("Fullscreen always uses your monitor's resolution"), because Godot can't switch the monitor itself to another resolution. The shape is saved separately from the window size, so switching between windowed and fullscreen keeps both. (Thanks for the idea!)
+
+### Fixed
+- **The 🐞 and jukebox buttons covered other buttons on 16:9 screens.** On the quiz overview they sat on top of "Copy share code", in the question editor on the form's buttons (e.g. "+ Add item", "Replace…"), in Settings on the edge of the button bar, and in a game on the question card. They always sat in the bottom left corner, which on a wide monitor is empty space beside the screen, but on a 16:9 screen (or a 16:10 or 4:3 one) is part of the screen itself. Now screens with something in that corner give them a free spot: the top bar in a game and in the question editor, the bottom right on the quiz overview, and next to "Reset to defaults" in Settings. The jukebox's list opens downwards from a top bar. On a monitor wider than 16:9 nothing changes. The first-quiz tutorial no longer says the bug button is "in the bottom left". (Thanks for the report!)
+
 ## [0.12.7d1]
 
 ### Fixed

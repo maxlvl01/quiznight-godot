@@ -17,6 +17,9 @@ public partial class SettingsScreen : Control
 	static string? _note;
 
 	static Settings.Values Draft => _draft ??= Fitted(Settings.Current);
+
+	/// <summary>Dev runs: the screen with another window mode picked (a draft, not applied).</summary>
+	internal static void PretendMode(string mode) => _draft = Draft with { WindowMode = mode };
 	// (compared with the saved settings as the screen shows them, so a window size swapped for one that fits this monitor
 	// doesn't count as a change nobody made)
 	static bool Dirty => Draft != Fitted(Settings.Current);
@@ -60,20 +63,20 @@ public partial class SettingsScreen : Control
 		var fitting = Prefs.SizesFor(d.Screen);
 		var native = Prefs.ScreenSize(d.Screen);
 		var sizes = fitting.Select(s => ($"{s.X}x{s.Y}", $"{s.X} × {s.Y}  ·  {Prefs.AspectName(s)}" + (s == native ? "  " + Lang.T("(this screen)") : ""))).ToArray();
-		var size = U.Select(sizes, $"{d.WindowSize.X}x{d.WindowSize.Y}", id =>
-		{
-			var p = id.Split('x');
-			Change(Draft with { WindowSize = new Vector2I(int.Parse(p[0]), int.Parse(p[1])) });
-		});
-		var sizeHint = U.Muted("", 12);
-		void UpdateSize()
-		{
-			var windowed = Draft.WindowMode == "windowed";
-			size.Disabled = !windowed;
-			sizeHint.Text = windowed ? "" : Lang.T("Fullscreen always uses your monitor's resolution.");
-			sizeHint.Visible = !windowed;
-		}
-		UpdateSize();
+		// (windowed: the window's size; fullscreen and borderless: the picture's shape, its own setting)
+		var windowed = d.WindowMode == "windowed";
+		var own = Prefs.AspectName(native);
+		var shapes = Prefs.Shapes.Where(s => s.Name != own).Select(s => (s.Name, Lang.F("{0} with black bars", s.Name)))
+			.Prepend(("", Lang.F("Whole screen ({0})", own))).ToArray();
+		var size = windowed
+			? U.Select(sizes, $"{d.WindowSize.X}x{d.WindowSize.Y}", id =>
+			{
+				var p = id.Split('x');
+				Change(Draft with { WindowSize = new Vector2I(int.Parse(p[0]), int.Parse(p[1])) });
+			})
+			: U.Select(shapes, d.FullscreenShape == own ? "" : d.FullscreenShape, id => Change(Draft with { FullscreenShape = id }));
+		var sizeHint = U.Muted("Another shape than your monitor's, e.g. to see the game as friends on a 16:9 screen do. Always as sharp as your monitor.", 12);
+		sizeHint.Visible = !windowed;
 		var screens = Enumerable.Range(0, Prefs.ScreenCount).Select(i =>
 		{
 			var s = Prefs.ScreenSize(i);
@@ -89,13 +92,14 @@ public partial class SettingsScreen : Control
 		var mode = U.Segmented(new[] { ("windowed", "Windowed"), ("fullscreen", "Fullscreen"), ("borderless", "Borderless") }, d.WindowMode, id =>
 		{
 			Change(Draft with { WindowMode = id });
-			UpdateSize();
+			// (the picker below shows the window size or the picture's shape)
+			Callable.From(Rebuild).CallDeferred();
 		});
 		var video = U.Card(12,
 			U.Eyebrow("Video"),
 			U.Field("Screen", screen),
 			U.Field("Window mode", mode),
-			U.Field("Window size", size),
+			U.Field(windowed ? "Window size" : "Picture shape", size),
 			sizeHint,
 			// (the skin and the font build every screen again: from the home screen only, not in the middle of a game)
 			U.Field("Skin", U.Select(Skins.Available, Settings.Skin, id => Callable.From(() => App.I.UseSkin(id)).CallDeferred()).With(o => o.Disabled = inWindow),
@@ -171,6 +175,9 @@ public partial class SettingsScreen : Control
 		});
 		_apply = U.Btn("Apply", "AccentButton", Apply).With(b => b.TooltipText = "Ctrl+S");
 		var bar = U.H(10, _reset, _status.Grow(), _discard, _apply);
+		// (the jukebox and 🐞 buttons: in the corner they'd sit on the bar's edge; the window over a game has the game's spot)
+		if (!inWindow) bar.AddChild(ButtonDock.Spot());
+		if (!inWindow) bar.MoveChild(bar.GetChild(bar.GetChildCount() - 1), 1);
 		_status.SizeFlagsVertical = SizeFlags.ShrinkCenter;
 
 		var top = inWindow
@@ -236,7 +243,7 @@ public partial class SettingsScreen : Control
 
 	void Apply()
 	{
-		var windowChanged = Draft.WindowMode != Settings.WindowMode || Draft.WindowSize != Settings.WindowSize || Draft.Screen != Settings.Screen;
+		var windowChanged = Draft.WindowMode != Settings.WindowMode || Draft.WindowSize != Settings.WindowSize || Draft.FullscreenShape != Settings.FullscreenShape || Draft.Screen != Settings.Screen;
 		Settings.Save(Draft);
 		Prefs.ApplyAudio();
 		Lang.Use(Settings.Language);

@@ -127,11 +127,11 @@ public static class Settings
 	// ---------- settings screen ----------
 
 	/// <summary>Everything on the settings screen as one value: the screen edits a copy and saves it with Apply.</summary>
-	public sealed record Values(string Language, int Master, int Music, int GameMusic, int Sfx, string Buzzer, string WindowMode, Vector2I WindowSize, int Screen, bool BackgroundMotion, string Background, string Podium, bool PodiumFollowHost);
+	public sealed record Values(string Language, int Master, int Music, int GameMusic, int Sfx, string Buzzer, string WindowMode, Vector2I WindowSize, string FullscreenShape, int Screen, bool BackgroundMotion, string Background, string Podium, bool PodiumFollowHost);
 
-	public static Values Defaults => new(Lang.SystemDefault, 50, 50, 50, 50, Storage.Sfx.DefaultBuzzer, "windowed", new Vector2I(1600, 900), DisplayServer.GetPrimaryScreen(), true, Backgrounds.Default, Sfx.DefaultPodium, true);
+	public static Values Defaults => new(Lang.SystemDefault, 50, 50, 50, 50, Storage.Sfx.DefaultBuzzer, "windowed", new Vector2I(1600, 900), "", DisplayServer.GetPrimaryScreen(), true, Backgrounds.Default, Sfx.DefaultPodium, true);
 
-	public static Values Current => new(Language, MasterVolume, MusicVolume, GameMusicVolume, SfxVolume, BuzzerSound, WindowMode, WindowSize, Screen, BackgroundMotion, Background, PodiumSound, PodiumFollowHost);
+	public static Values Current => new(Language, MasterVolume, MusicVolume, GameMusicVolume, SfxVolume, BuzzerSound, WindowMode, WindowSize, FullscreenShape, Screen, BackgroundMotion, Background, PodiumSound, PodiumFollowHost);
 
 	public static void Save(Values v)
 	{
@@ -143,6 +143,7 @@ public static class Settings
 		BuzzerSound = v.Buzzer;
 		WindowMode = v.WindowMode;
 		WindowSize = v.WindowSize;
+		FullscreenShape = v.FullscreenShape;
 		Screen = v.Screen;
 		BackgroundMotion = v.BackgroundMotion;
 		Background = v.Background;
@@ -334,6 +335,13 @@ public static class Settings
 				: new Vector2I(1600, 900);
 		}
 		set => Set("window_size", $"{value.X}x{value.Y}");
+	}
+
+	/// <summary>The picture's shape in fullscreen and borderless, e.g. "16:9" (Prefs.Shapes); "" = the whole screen.</summary>
+	public static string FullscreenShape
+	{
+		get => Get("fullscreen_shape", "") is var s && Prefs.Shapes.Any(x => x.Name == s) ? s : "";
+		set => Set("fullscreen_shape", value);
 	}
 
 	/// <summary>Which monitor the game opens on (0 = first). A missing monitor falls back to the main one.</summary>

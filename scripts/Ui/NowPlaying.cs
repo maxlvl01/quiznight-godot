@@ -34,10 +34,11 @@ public partial class NowPlaying : PanelContainer
 		Callable.From(() =>
 		{
 			var parent = GetParentControl()?.Size ?? GetViewportRect().Size;
-			var y = ClearOfButtons(Jukebox.Right + 10f, parent.Y - Size.Y - 20);
+			var x = Jukebox.CardX;
+			var y = ClearOfButtons(x, parent.Y - Size.Y - 20);
 			Position = new Vector2(-Size.X - 10, y);
 			var t = CreateTween();
-			t.TweenProperty(this, "position:x", Jukebox.Right + 10f, 0.45).SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+			t.TweenProperty(this, "position:x", x, 0.45).SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
 			t.TweenInterval(5);
 			t.TweenProperty(this, "position:x", -Size.X - 10, 0.35).SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.In);
 			t.TweenCallback(Callable.From(QueueFree));

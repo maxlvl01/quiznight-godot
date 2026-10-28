@@ -83,6 +83,8 @@ public partial class PlayerGameScreen : Control, IRoomScreen
 			if (q.Category != "") row.AddChild(GameParts.CategoryPill(q.Category));
 			if (GameParts.NextPill(game) is { } next) row.AddChild(next);
 			row.AddChild(U.Fill());
+			// (the jukebox and 🐞 buttons: in the corner they'd cover the question)
+			row.AddChild(ButtonDock.Spot());
 			row.AddChild(new RoomCodeButton(room.Code));
 			row.AddChild(new Avatar(me, 28));
 			row.AddChild(U.Bold(me.Name, 17).Raw());

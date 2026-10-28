@@ -162,6 +162,8 @@ public sealed class DevTools
 		if (int.TryParse(Value("--players"), out var n)) _players = n;
 		if (int.TryParse(Value("--start-at"), out var first)) _startAt = first - 1;
 		if (Value("--lang") is { } lang) Lang.Use(lang);
+		// (the fullscreen picture's shape, not saved: e.g. --fullscreen-shape 16:9 with Godot's --fullscreen)
+		if (Value("--fullscreen-shape") is { } shape) Prefs.Shape(_app.GetWindow(), shape, _app.GetWindow().CurrentScreen);
 		// (this run's background picture, not saved: e.g. pinke-geilheit-animated)
 		if (Value("--background") is { } background) Settings.BackgroundThisRun = background;
 		// (the home screen as if that version were out: the update note and the green button)
@@ -326,6 +328,8 @@ public sealed class DevTools
 					_app.GoQuiz(QuizStore.Save(SampleQuiz.Build()).Id);
 					break;
 				case "settings":
+					// (--window-mode fullscreen: the screen as if that mode were picked, not applied or saved)
+					if (Value("--window-mode") is { } wm) SettingsScreen.PretendMode(wm);
 					_app.GoSettings();
 					break;
 				case "testlab":

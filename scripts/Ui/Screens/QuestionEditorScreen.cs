@@ -37,6 +37,8 @@ public partial class QuestionEditorScreen : Control
 		var title = QuestionType.Infos[_draft.Type == QuestionType.Image ? QuestionType.Picture : _draft.Type].Label + (_draft.Type is QuestionType.MapPin or QuestionType.Estimation or QuestionType.Sound or QuestionType.Video ? " question" : "");
 		var bar = U.Panel(U.H(12,
 			U.Link("← Back to quiz", Back, 14),
+			// (the jukebox and 🐞 buttons: in the corner they'd cover the form's buttons)
+			ButtonDock.Spot(),
 			U.Heading(title, 22, false).Grow().With(l => l.HorizontalAlignment = HorizontalAlignment.Center),
 			new UpdateBadge(),
 			_saved.With(l => l.Modulate = Colors.Transparent),

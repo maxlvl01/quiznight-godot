@@ -95,6 +95,8 @@ public partial class HostGameScreen : Control, IRoomScreen
 			if (q.Category != "") row.AddChild(GameParts.CategoryPill(q.Category));
 			if (GameParts.NextPill(game) is { } next) row.AddChild(next);
 			row.AddChild(U.Fill());
+			// (the jukebox and 🐞 buttons: in the corner they'd cover the question)
+			row.AddChild(ButtonDock.Spot());
 			row.AddChild(new RoomCodeButton(room.Code));
 			row.AddChild(MediaIcon.SettingsGear());
 			return U.Panel(row, "Bar");

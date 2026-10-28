@@ -91,6 +91,11 @@ public partial class QuizOverviewScreen : Control
 		var layout = U.H(0, side, U.Pad(new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled }.With(s => s.AddChild(main.Grow())), 32, 28, 32, 28).Grow().GrowV());
 		layout.SetAnchorsPreset(LayoutPreset.FullRect);
 		AddChild(layout);
+		// (the jukebox and 🐞 buttons go in the free bottom right: in the bottom left they'd cover "Copy share code")
+		var spot = ButtonDock.Spot(ButtonDock.Note);
+		AddChild(spot);
+		spot.Size = spot.CustomMinimumSize;
+		spot.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomRight, LayoutPresetMode.KeepSize, (int)ButtonDock.Margin);
 		RefreshList();
 		_history = new(() => (_quiz.Title, _quiz.Questions.ToList()), state =>
 		{

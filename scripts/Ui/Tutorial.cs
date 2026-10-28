@@ -30,7 +30,7 @@ public static class Tutorial
 			new("overview.list", "Your questions", "They're listed in the order they're played. Click one to edit it; drag it by its dots, or type another number, to move it. \"Show\" sorts the list by type or by when you made them."),
 			new("overview.foot", "Host it or share it", "When nothing is left to fix, Open lobby starts a quiz night. Copy share code and Export file give the quiz to a friend."),
 			new(null, "Shortcuts", "Ctrl+Z takes back the last change (moving, deleting, renaming), Ctrl+Y does it again. Esc goes back one screen, and so does your mouse's back button."),
-			new("bug", "Found a bug? Got an idea?", "The bug button in the bottom left is on every screen. \"Report a bug\" if something doesn't work or looks wrong, \"Give feedback\" for an idea: a map, a question type, anything. Max gets it straight away, and ideas that make it into the game are credited in the changelog."),
+			new("bug", "Found a bug? Got an idea?", "The bug button is on every screen. \"Report a bug\" if something doesn't work or looks wrong, \"Give feedback\" for an idea: a map, a question type, anything. Max gets it straight away, and ideas that make it into the game are credited in the changelog."),
 		},
 		["editor"] = new Step[]
 		{

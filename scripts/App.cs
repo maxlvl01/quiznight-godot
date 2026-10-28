@@ -110,7 +110,8 @@ public partial class App : Control
 			GetWindow().Position = screen.Position + (screen.Size - AntiCheatSplash.WindowSize) / 2;
 		}
 		// Saved window size/mode would fight --resolution (screenshots) and means nothing headless.
-		var ownWindow = window && !OS.GetCmdlineArgs().Contains("--resolution");
+		// (Godot keeps its own arguments like --resolution out of GetCmdlineArgs: screenshot runs skip the saved window too)
+		var ownWindow = window && !OS.GetCmdlineArgs().Contains("--resolution") && !args.Contains("--shot") && !args.Contains("--shots");
 		Prefs.ApplyAll(ownWindow && !antiCheat);
 		if (args.Contains("--selftest")) Lang.Use("en");
 		// (shows the exported game's home screen, LAN hidden, when run from the editor)

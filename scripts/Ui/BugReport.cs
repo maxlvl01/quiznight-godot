@@ -1,4 +1,4 @@
-// "Report a bug or give feedback": a small 🐞 button in the bottom left of every screen (above the jukebox's), sent by hand
+// "Report a bug or give feedback": a small 🐞 button on every screen (above the jukebox's, or beside it: ButtonDock), sent by hand
 // only. It takes a screenshot of the screen as it is, then opens a window: bug or feedback, then one text box. The category comes
 // from where it was opened (the screen, a window over it, the question in a game), not picked; the game adds what it
 // knows (version, room, the end of the log) from a template (Storage/BugReports).
@@ -16,23 +16,20 @@ namespace QuizNight.Ui;
 
 public partial class BugButton : Control
 {
-	const float Size_ = 36, Margin = 20, JukeboxButton = 44;
+	readonly Button _button;
 
 	public BugButton()
 	{
 		SetAnchorsPreset(LayoutPreset.FullRect);
 		MouseFilter = MouseFilterEnum.Ignore;
-		var button = MediaIcon.Button(MediaIcon.Kind.Bug, "Report a bug or give feedback", Open, Size_ - 6);
-		button.FocusMode = FocusModeEnum.None;
-		Tutorial.Mark(button, "bug");
-		// (its size first: the corner offsets are worked out from it)
-		button.Size = new Vector2(JukeboxButton, Size_);
-		button.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomLeft, LayoutPresetMode.KeepSize, (int)Margin);
-		// (above the jukebox's note button)
-		button.OffsetTop -= JukeboxButton + 10;
-		button.OffsetBottom -= JukeboxButton + 10;
-		AddChild(button);
+		_button = MediaIcon.Button(MediaIcon.Kind.Bug, "Report a bug or give feedback", Open, ButtonDock.Bug - 6);
+		_button.FocusMode = FocusModeEnum.None;
+		Tutorial.Mark(_button, "bug");
+		AddChild(_button);
 	}
+
+	// (above the jukebox's note button, or beside it in the screen's spot: ButtonDock)
+	public override void _Process(double delta) => ButtonDock.Follow(_button, 1);
 
 	/// <summary>The screenshot first (the screen as it is now, without the window), then the window (dev: straight to "bug"
 	/// or "feedback").</summary>
