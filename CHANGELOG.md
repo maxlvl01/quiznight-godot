@@ -13,6 +13,12 @@ Versions up to 0.3.2a were the website; the history of those is in the website's
 
 ## [Unreleased]
 
+## [0.12.7b]
+
+### Coming next
+- **A short break until Sunday.** Max is close to the weekly limit, so until Sunday nobody works on bug fixes or new ideas. Keep sending them with the 🐞 button: they're all read after that.
+- **Picking a lower resolution in fullscreen** (drawn with fewer pixels and stretched to fill the screen, like in other games): next week.
+
 ## [0.12.7d2]
 
 ### Added
